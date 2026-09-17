@@ -13,6 +13,7 @@ import { loadConfig, CONFIG_PATHS } from './config.js'
 import { Transcript } from './transcript.js'
 import { UndoStore } from './undo.js'
 import { selfReview, selfDiff, selfApply, selfList } from './self-review.js'
+import { closeWeb } from './web.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -301,6 +302,7 @@ async function main() {
       sendSystemPrompt,
     })
     await browser.close()
+    await closeWeb().catch(() => {})
     transcript.close()
     return
   }
@@ -326,6 +328,9 @@ async function main() {
   process.on('SIGINT', async () => {
     running = false
     await browser.close().catch(() => {})
+    // Закрываем ленивый headless-браузер из web.js, иначе он останется
+    // висеть отдельным процессом после выхода агента.
+    await closeWeb().catch(() => {})
     transcript.close()
     console.log(chalk.gray('\nВыход.'))
     process.exit(0)
@@ -485,7 +490,11 @@ async function main() {
             sendSystemPrompt: false,
             transcript,
             onThinking: () => ui.thinking(),
-            onToolCall: (n, a) => ui.toolCall(n, a),
+            onAssistantThought: (text) => {
+              ui.stop()
+              console.log(chalk.gray('\n💭 ' + text.slice(0, 1200) + '\n'))
+            },
+            onToolCall: (name, toolArgs) => ui.toolCall(name, toolArgs),
             onToolResult: (r) => ui.toolResult(r),
             onAssistantMessage: (m) => {
               ui.assistant(m)
@@ -842,6 +851,7 @@ async function main() {
   }
 
   await browser.close().catch(() => {})
+  await closeWeb().catch(() => {})
   transcript.close()
 }
 

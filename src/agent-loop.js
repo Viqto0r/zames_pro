@@ -11,6 +11,7 @@ export async function runAgentLoop({
   sendSystemPrompt = false,
   transcript = null,
   onThinking = () => {},
+  onAssistantThought = () => {},
   onToolCall = () => {},
   onToolResult = () => {},
   onAssistantMessage = () => {},
@@ -52,6 +53,11 @@ export async function runAgentLoop({
 
     const parsed = parseToolCall(rawResponse)
 
+    if (parsed) {
+      const thought = extractPreToolText(rawResponse)
+      if (thought) onAssistantThought(thought)
+    }
+
     if (!parsed) {
       onAssistantMessage(rawResponse)
       transcript?.log('assistant_final', { message: rawResponse })
@@ -62,9 +68,13 @@ export async function runAgentLoop({
 
     const respondCall = calls.find((c) => c.tool === 'respond')
     if (respondCall) {
-      onAssistantMessage(respondCall.args.message)
-      transcript?.log('assistant_final', { message: respondCall.args.message })
-      return respondCall.args.message
+      const msg =
+        typeof respondCall.args.message === 'string'
+          ? respondCall.args.message
+          : String(respondCall.args.message ?? '')
+      onAssistantMessage(msg)
+      transcript?.log('assistant_final', { message: msg })
+      return msg
     }
 
     const results = []
@@ -125,7 +135,8 @@ function tryParse(str) {
       obj &&
       typeof obj.tool === 'string' &&
       obj.args &&
-      typeof obj.args === 'object'
+      typeof obj.args === 'object' &&
+      !Array.isArray(obj.args)
     ) {
       return obj
     }
@@ -146,7 +157,8 @@ function tryParseArray(str) {
           o &&
           typeof o.tool === 'string' &&
           o.args &&
-          typeof o.args === 'object',
+          typeof o.args === 'object' &&
+          !Array.isArray(o.args),
       )
     ) {
       return arr
@@ -386,4 +398,16 @@ function parseToolCall(text) {
   if (permissive) return permissive
 
   return null
+}
+
+function extractPreToolText(text) {
+  if (!text) return ''
+  const patterns = ['{"tool"', '[{"tool"', '{"tool":', '[{"tool":']
+  let earliest = -1
+  for (const p of patterns) {
+    const idx = text.indexOf(p)
+    if (idx >= 0 && (earliest === -1 || idx < earliest)) earliest = idx
+  }
+  if (earliest === -1) return ''
+  return text.slice(0, earliest).trim()
 }

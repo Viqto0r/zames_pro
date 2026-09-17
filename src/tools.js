@@ -5,10 +5,13 @@ import { createGitTools } from './git.js'
 import { createWebTools } from './web.js'
 
 export function createTools(workdir, { undo } = {}) {
+  const root = path.resolve(workdir)
   const safe = (p) => {
-    const resolved = path.resolve(workdir, p)
-    const root = path.resolve(workdir)
-    if (!resolved.startsWith(root)) {
+    const resolved = path.resolve(root, p)
+    // startsWith(root) пропускал бы соседние пути с общим префиксом
+    // (C:\work\proj vs C:\work\proj-old). Считаем через relative().
+    const rel = path.relative(root, resolved)
+    if (rel.startsWith('..') || path.isAbsolute(rel)) {
       throw new Error(`Доступ за пределы рабочей директории: ${p}`)
     }
     return resolved
@@ -99,6 +102,9 @@ export function createTools(workdir, { undo } = {}) {
       },
       fn: async ({ path: p, old_string, new_string }) => {
         const file = safe(p)
+        if (typeof old_string !== 'string' || old_string === '') {
+          throw new Error('old_string пустой — нечего заменять.')
+        }
         let content = await fs.readFile(file, 'utf-8')
         const occurrences = content.split(old_string).length - 1
         if (occurrences === 0) {

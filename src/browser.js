@@ -290,7 +290,13 @@ export class DeepSeekBrowser {
     const beforeText = await this._readLastAnswerText().catch(() => '')
 
     await input.click()
-    await input.fill(prompt)
+    try {
+      await input.fill(prompt, { timeout: 5000 })
+    } catch {
+      // contenteditable / [role=textbox] не поддерживает fill() — печатаем
+      // текст в уже сфокусированное поле, не задевая раскладку.
+      await this.page.keyboard.insertText(prompt)
+    }
     await this.page.waitForTimeout(200)
 
     const sendBtn = this.page

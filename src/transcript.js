@@ -15,6 +15,12 @@ export class Transcript {
       const stamp = new Date().toISOString().replace(/[:.]/g, '-')
       this.file = path.join(dir, `${sessionName}-${stamp}.jsonl`)
       this.stream = fs.createWriteStream(this.file, { flags: 'a' })
+      // Ошибки записи (диск переполнен, файл удалён и т.п.) приходят
+      // событием 'error'; без слушателя это uncaught exception.
+      this.stream.on('error', (e) => {
+        console.error(`transcript: ошибка записи: ${e.message}`)
+        this.enabled = false
+      })
     } catch (e) {
       console.error(`transcript: не удалось создать файл: ${e.message}`)
       this.enabled = false

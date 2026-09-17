@@ -9,6 +9,12 @@ function runGit(cmd, cwd, timeout = 15_000) {
         timeout,
         windowsHide: true,
         maxBuffer: 1024 * 1024 * 8,
+        env: {
+          ...process.env,
+          GIT_TERMINAL_PROMPT: '0',
+          GIT_PAGER: 'cat',
+          PAGER: 'cat',
+        },
       },
       (err, stdout, stderr) => {
         const out = (stdout || '').toString()
@@ -16,7 +22,7 @@ function runGit(cmd, cwd, timeout = 15_000) {
 
         if (!err) {
           const combined = (out + errStr).trim()
-          resolve(combined || '(ok)')
+          resolve(combined || '(команда выполнена, вывода нет)')
           return
         }
 
@@ -100,13 +106,33 @@ export function formatGitContext(ctx) {
 }
 
 export function createGitTools(workdir) {
+  const ensureRepo = async () => {
+    const probe = await runGit(
+      'git rev-parse --is-inside-work-tree',
+      workdir,
+      5000,
+    )
+    if (probe.trim() !== 'true') {
+      return (
+        `Not a git repository: ${workdir}\n` +
+        `Hint: run \`git init\` here, or cd into an existing repo.\n` +
+        `(raw probe output: ${JSON.stringify(probe.trim())})`
+      )
+    }
+    return null
+  }
+
   return [
     {
       name: 'GitStatus',
       description:
-        'Показать git status рабочей директории (кратко и полностью).',
+        'Показать git status рабочей директории. Возвращает ошибку, если это не git-репозиторий.',
       parameters: {},
-      fn: () => runGit('git status', workdir),
+      fn: async () => {
+        const err = await ensureRepo()
+        if (err) return err
+        return runGit('git status', workdir, 10_000)
+      },
     },
 
     {
@@ -114,7 +140,9 @@ export function createGitTools(workdir) {
       description:
         'Показать git diff. По умолчанию незастейдженные изменения. Можно ограничить path и указать staged=true.',
       parameters: { path: 'string?', staged: 'boolean?' },
-      fn: ({ path: p, staged }) => {
+      fn: async ({ path: p, staged }) => {
+        const err = await ensureRepo()
+        if (err) return err
         const parts = ['git diff']
         if (staged) parts.push('--staged')
         if (p) parts.push('--', JSON.stringify(p))
@@ -126,12 +154,15 @@ export function createGitTools(workdir) {
       name: 'GitLog',
       description: 'Показать последние N коммитов (по умолчанию 10).',
       parameters: { count: 'number?' },
-      fn: ({ count }) =>
-        runGit(
+      fn: async ({ count }) => {
+        const err = await ensureRepo()
+        if (err) return err
+        return runGit(
           `git log --oneline --decorate -n ${Number(count) || 10}`,
           workdir,
           10_000,
-        ),
+        )
+      },
     },
 
     {
@@ -139,8 +170,15 @@ export function createGitTools(workdir) {
       description:
         'Добавить файлы в индекс. Если paths не задан — git add -A (всё).',
       parameters: { paths: 'string?' },
-      fn: ({ paths }) =>
-        runGit(paths ? `git add ${paths}` : 'git add -A', workdir, 20_000),
+      fn: async ({ paths }) => {
+        const err = await ensureRepo()
+        if (err) return err
+        return runGit(
+          paths ? `git add ${paths}` : 'git add -A',
+          workdir,
+          20_000,
+        )
+      },
     },
 
     {
@@ -149,14 +187,15 @@ export function createGitTools(workdir) {
         'Закоммитить застейдженное (если ничего не застейджено — сначала git add -A). Не пушит.',
       parameters: { message: 'string' },
       fn: async ({ message }) => {
+        const err = await ensureRepo()
+        if (err) return err
+
         if (!message || !message.trim()) {
           return 'Ошибка: message пустой.'
         }
-        // Не заставляем модель делать add вручную, но сообщаем, что сделали
+
         const addResult = await runGit('git add -A', workdir, 20_000)
 
-        // Безопасный экранирующий вызов: пишем message во временный файл через -F
-        // чтобы не бороться с кавычками в cmd.exe
         const fs = await import('fs/promises')
         const path = await import('path')
         const os = await import('os')
@@ -181,6 +220,9 @@ export function createGitTools(workdir) {
         'Запушить ветку в origin. Требует настроенных креденшелов (SSH или Windows Credential Manager).',
       parameters: { branch: 'string?', setUpstream: 'boolean?' },
       fn: async ({ branch, setUpstream }) => {
+        const err = await ensureRepo()
+        if (err) return err
+
         const b =
           branch && branch.trim()
             ? branch.trim()
