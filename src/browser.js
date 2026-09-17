@@ -1,11 +1,11 @@
 import { chromium } from 'playwright'
 import path from 'path'
 import os from 'os'
+import fs from 'fs/promises'
+import { execSync } from 'child_process'
 
 const USER_DATA_DIR = path.join(os.homedir(), '.ds-agent', 'profile')
 const CHAT_URL = 'https://chat.deepseek.com/'
-
-const BROWSER_CHANNEL = 'chrome'
 
 const INPUT_SELECTORS = [
   'textarea',
@@ -25,31 +25,128 @@ const STOP_SELECTORS = [
   'button[aria-label*="Stop" i]',
 ]
 
+// ---------- profile cleanup ----------
+
+async function killStaleChrome() {
+  if (process.platform !== 'win32') return
+  try {
+    execSync(
+      `powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name='chrome.exe'\\" | Where-Object { $_.CommandLine -like '*\\.ds-agent\\profile*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"`,
+      { stdio: 'ignore', timeout: 5000 },
+    )
+    await new Promise((r) => setTimeout(r, 800))
+  } catch {}
+}
+
+async function cleanSingletonFiles() {
+  const names = ['SingletonLock', 'SingletonCookie', 'SingletonSocket']
+  for (const name of names) {
+    const p = path.join(USER_DATA_DIR, name)
+    try {
+      await fs.unlink(p)
+    } catch {}
+  }
+}
+
+async function profileLooksLocked() {
+  try {
+    await fs.access(path.join(USER_DATA_DIR, 'SingletonLock'))
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function nukeProfile() {
+  try {
+    await fs.rm(USER_DATA_DIR, { recursive: true, force: true })
+  } catch {}
+}
+
+// ---------- class ----------
+
 export class DeepSeekBrowser {
-  constructor({ headless = false, debug = false } = {}) {
+  constructor({
+    headless = false,
+    debug = false,
+    channel = 'chrome',
+    answerTimeoutMs = 180000,
+    askRetries = 3,
+    stabilityChecks = 3,
+    stabilityDelayMs = 1000,
+  } = {}) {
     this.headless = headless
     this.debug = debug
+    this.channel = channel
+    this.answerTimeoutMs = answerTimeoutMs
+    this.askRetries = askRetries
+    this.stabilityChecks = stabilityChecks
+    this.stabilityDelayMs = stabilityDelayMs
     this.context = null
     this.page = null
   }
 
   async launch() {
+    await killStaleChrome()
+    if (await profileLooksLocked()) {
+      if (this.debug) console.error('profile: удаляю Singleton-файлы')
+      await cleanSingletonFiles()
+    }
+    await this._launchOnce()
+  }
+
+  async _launchOnce() {
     const options = {
       headless: this.headless,
       slowMo: 30,
       args: ['--disable-blink-features=AutomationControlled'],
     }
+    if (this.channel) options.channel = this.channel
 
-    if (BROWSER_CHANNEL) options.channel = BROWSER_CHANNEL
+    try {
+      this.context = await chromium.launchPersistentContext(
+        USER_DATA_DIR,
+        options,
+      )
+    } catch (e) {
+      if (
+        /Target page, context or browser has been closed|profile.*in use/i.test(
+          e.message,
+        )
+      ) {
+        if (this.debug)
+          console.error('profile: занят, перезапускаю после очистки')
+        await killStaleChrome()
+        await cleanSingletonFiles()
 
-    this.context = await chromium.launchPersistentContext(
-      USER_DATA_DIR,
-      options,
-    )
+        try {
+          this.context = await chromium.launchPersistentContext(
+            USER_DATA_DIR,
+            options,
+          )
+        } catch (e2) {
+          if (this.debug) console.error('profile: сношу целиком')
+          await nukeProfile()
+          this.context = await chromium.launchPersistentContext(
+            USER_DATA_DIR,
+            options,
+          )
+        }
+      } else {
+        throw e
+      }
+    }
 
     this.page = this.context.pages()[0] || (await this.context.newPage())
     await this.page.goto(CHAT_URL, { waitUntil: 'domcontentloaded' })
     return this
+  }
+
+  async restart() {
+    try {
+      if (this.context) await this.context.close()
+    } catch {}
+    await this.launch()
   }
 
   async waitForLogin() {
@@ -64,7 +161,6 @@ export class DeepSeekBrowser {
       input: process.stdin,
       output: process.stdout,
     })
-
     await new Promise((resolve) => {
       rl.question('', () => {
         rl.close()
@@ -111,11 +207,6 @@ export class DeepSeekBrowser {
     return null
   }
 
-  // Читает текст последнего ответа, восстанавливая markdown-элементы
-  // обратно в их исходное строковое представление:
-  //   <pre><code>...</code></pre>  →  ```lang\n...\n```
-  //   <code>...</code>             →  `...`
-  // Это критично для кода, где нужны template literals и бэктики.
   async _readLastAnswerText() {
     return await this.page.evaluate((sels) => {
       let el = null
@@ -127,7 +218,6 @@ export class DeepSeekBrowser {
 
       const clone = el.cloneNode(true)
 
-      // Блоки кода: <pre><code class="language-x">...</code></pre>
       Array.from(clone.querySelectorAll('pre')).forEach((pre) => {
         const codeEl = pre.querySelector('code')
         const source = codeEl || pre
@@ -140,7 +230,6 @@ export class DeepSeekBrowser {
         if (pre.parentNode) pre.parentNode.replaceChild(replacement, pre)
       })
 
-      // Инлайн-код: <code>...</code>
       Array.from(clone.querySelectorAll('code')).forEach((c) => {
         const replacement = document.createTextNode(
           '`' + (c.textContent || '') + '`',
@@ -152,13 +241,53 @@ export class DeepSeekBrowser {
     }, ANSWER_SELECTORS)
   }
 
-  async ask(prompt, { timeout = 180_000 } = {}) {
+  async _isGenerating() {
+    const stop = await this._findVisible(STOP_SELECTORS, 300)
+    return !!stop
+  }
+
+  async ask(prompt, { timeout = this.answerTimeoutMs } = {}) {
+    let lastErr = null
+
+    for (let attempt = 1; attempt <= this.askRetries; attempt++) {
+      try {
+        return await this._askOnce(prompt, { timeout })
+      } catch (e) {
+        lastErr = e
+        console.error(
+          `\n⚠ ask() попытка ${attempt}/${this.askRetries} провалилась: ${e.message}`,
+        )
+
+        if (/closed|crash|Target page|browser/i.test(e.message)) {
+          console.error('⚠ перезапускаю браузер...')
+          try {
+            await this.restart()
+            await this.waitForLogin()
+          } catch (re) {
+            console.error(`⚠ не удалось перезапустить: ${re.message}`)
+          }
+        }
+
+        if (attempt < this.askRetries) {
+          await new Promise((r) => setTimeout(r, 2000 * attempt))
+        }
+      }
+    }
+
+    throw new Error(
+      `ask() провалился после ${this.askRetries} попыток: ${lastErr?.message}`,
+    )
+  }
+
+  async _askOnce(prompt, { timeout }) {
     const input = await this._findVisible(INPUT_SELECTORS, 10_000)
     if (!input) {
       throw new Error(
-        'Не найдено поле ввода. Запустите с --calibrate и поправьте INPUT_SELECTORS.',
+        'Не найдено поле ввода. Запустите /debug-dom и поправьте INPUT_SELECTORS.',
       )
     }
+
+    const beforeText = await this._readLastAnswerText().catch(() => '')
 
     await input.click()
     await input.fill(prompt)
@@ -174,39 +303,160 @@ export class DeepSeekBrowser {
       await this.page.keyboard.press('Enter')
     }
 
-    await this.page.waitForTimeout(800)
-    const stop = await this._findVisible(STOP_SELECTORS, 2000)
-    if (stop) {
-      try {
-        await stop.waitFor({ state: 'hidden', timeout })
-      } catch {}
+    const startDeadline = Date.now() + 15_000
+    let started = false
+    while (Date.now() < startDeadline) {
+      const gen = await this._isGenerating()
+      const cur = await this._readLastAnswerText().catch(() => '')
+      if (gen || (cur && cur !== beforeText)) {
+        started = true
+        break
+      }
+      await this.page.waitForTimeout(300)
+    }
+    if (!started) {
+      throw new Error(
+        'Ответ не начал генерироваться за 15с. Возможно, сообщение не отправилось.',
+      )
     }
 
     const deadline = Date.now() + timeout
-    let lastText = ''
-    let stableCount = 0
-
+    let last = ''
+    let stable = 0
     while (Date.now() < deadline) {
-      let text = ''
-      try {
-        text = await this._readLastAnswerText()
-      } catch {}
-
-      if (text && text === lastText) {
-        stableCount++
-        if (stableCount >= 3) return text
+      const gen = await this._isGenerating()
+      const cur = await this._readLastAnswerText().catch(() => '')
+      if (cur && cur === last && !gen) {
+        stable++
+        if (stable >= 2) return cur
       } else {
-        stableCount = 0
-        lastText = text
+        stable = 0
       }
-
-      await this.page.waitForTimeout(1000)
+      last = cur
+      await this.page.waitForTimeout(800)
     }
 
-    return lastText
+    if (last) return last
+    throw new Error('Таймаут ожидания ответа. Попробуйте /debug-dom.')
+  }
+
+  async dumpDom(filePath) {
+    if (!this.page) throw new Error('браузер не запущен')
+    const html = await this.page.content()
+    await fs.writeFile(filePath, html, 'utf-8')
+
+    const report = await this.page.evaluate(
+      (sels) => {
+        const result = { answers: {}, stops: {}, inputs: {} }
+        for (const s of sels.answers) {
+          result.answers[s] = document.querySelectorAll(s).length
+        }
+        for (const s of sels.stops) {
+          result.stops[s] = document.querySelectorAll(s).length
+        }
+        for (const s of sels.inputs) {
+          result.inputs[s] = document.querySelectorAll(s).length
+        }
+        return result
+      },
+      {
+        answers: ANSWER_SELECTORS,
+        stops: STOP_SELECTORS,
+        inputs: INPUT_SELECTORS,
+      },
+    )
+
+    return { file: filePath, selectors: report }
+  }
+
+  // ---------- список чатов ----------
+
+  async _ensureSidebarOpen() {
+    const toggles = [
+      'button[aria-label*="sidebar" i]',
+      'button[aria-label*="история" i]',
+      'button[aria-label*="history" i]',
+      'button[class*="sidebar-toggle"]',
+      'button[class*="sidebarToggle"]',
+    ]
+    for (const sel of toggles) {
+      try {
+        const btn = this.page.locator(sel).first()
+        if ((await btn.count()) === 0) continue
+        if (!(await btn.isVisible().catch(() => false))) continue
+        await btn.click({ timeout: 1500 })
+        await this.page.waitForTimeout(500)
+        return
+      } catch {}
+    }
+  }
+
+  async listChats(limit = 30) {
+    await this._ensureSidebarOpen()
+    return await this.page.evaluate((lim) => {
+      const out = []
+      const seen = new Set()
+      const anchors = document.querySelectorAll('a[href*="/chat/"]')
+      for (const a of anchors) {
+        const href = a.getAttribute('href') || ''
+        const m =
+          href.match(/\/chat\/s\/([a-zA-Z0-9_-]+)/) ||
+          href.match(/\/a\/chat\/s\/([a-zA-Z0-9_-]+)/)
+        if (!m) continue
+        const id = m[1]
+        if (seen.has(id)) continue
+        seen.add(id)
+
+        const titleEl = a.querySelector('[class*="title"], [class*="text"]')
+        let title = (titleEl ? titleEl.textContent : a.textContent) || ''
+        title = title.trim().replace(/\s+/g, ' ')
+        if (!title) title = '(без названия)'
+
+        out.push({ id, title, href })
+        if (out.length >= lim) break
+      }
+      return out
+    }, limit)
+  }
+
+  async openChat(id) {
+    const candidates = [`a[href$="/chat/s/${id}"]`, `a[href*="${id}"]`]
+    for (const sel of candidates) {
+      try {
+        const loc = this.page.locator(sel).first()
+        if ((await loc.count()) === 0) continue
+        await loc.click({ timeout: 3000 })
+        await this.page.waitForTimeout(1500)
+        return true
+      } catch {}
+    }
+
+    try {
+      await this.page.goto(`https://chat.deepseek.com/a/chat/s/${id}`, {
+        waitUntil: 'domcontentloaded',
+        timeout: 20_000,
+      })
+      await this.page.waitForTimeout(1500)
+      return true
+    } catch (e) {
+      throw new Error(`Не удалось открыть чат ${id}: ${e.message}`)
+    }
+  }
+
+  async getCurrentChatId() {
+    try {
+      const url = this.page.url()
+      const m = url.match(/\/chat\/s\/([a-zA-Z0-9_-]+)/)
+      return m ? m[1] : null
+    } catch {
+      return null
+    }
   }
 
   async close() {
-    if (this.context) await this.context.close()
+    try {
+      if (this.context) await this.context.close()
+    } catch {}
+    await killStaleChrome()
   }
 }

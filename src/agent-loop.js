@@ -1,4 +1,5 @@
 import { buildSystemPrompt } from './system-prompt.js'
+import { getGitContext, formatGitContext } from './git.js'
 
 export async function runAgentLoop({
   browser,
@@ -6,56 +7,110 @@ export async function runAgentLoop({
   task,
   workdir,
   maxIterations = 40,
-  // Если false — считаем, что системный промпт уже отправлен в этом чате
-  initializeChat = true,
+  freshChat = false,
+  sendSystemPrompt = false,
+  transcript = null,
+  onThinking = () => {},
   onToolCall = () => {},
   onToolResult = () => {},
   onAssistantMessage = () => {},
 }) {
-  if (initializeChat) {
-    const systemPrompt = buildSystemPrompt({ workdir, tools })
+  if (freshChat) {
     await browser.newChat()
+    transcript?.log('new_chat')
+  }
+
+  if (sendSystemPrompt) {
+    let gitText = null
+    try {
+      const ctx = await getGitContext(workdir)
+      gitText = formatGitContext(ctx)
+    } catch (e) {
+      gitText = `(git context error: ${e.message})`
+    }
+
+    const systemPrompt = buildSystemPrompt({
+      workdir,
+      tools,
+      gitContext: gitText,
+    })
+    transcript?.log('system_prompt', {
+      length: systemPrompt.length,
+      gitContext: gitText,
+    })
+    onThinking()
     await browser.ask(systemPrompt, { timeout: 60_000 })
   }
 
   let message = task
+  transcript?.log('task', { task })
 
   for (let i = 0; i < maxIterations; i++) {
+    onThinking()
     const rawResponse = await browser.ask(message)
+    transcript?.log('assistant_raw', { response: rawResponse })
+
     const parsed = parseToolCall(rawResponse)
 
     if (!parsed) {
       onAssistantMessage(rawResponse)
+      transcript?.log('assistant_final', { message: rawResponse })
       return rawResponse
     }
 
-    if (parsed.tool === 'respond') {
-      onAssistantMessage(parsed.args.message)
-      return parsed.args.message
+    const calls = Array.isArray(parsed) ? parsed : [parsed]
+
+    const respondCall = calls.find((c) => c.tool === 'respond')
+    if (respondCall) {
+      onAssistantMessage(respondCall.args.message)
+      transcript?.log('assistant_final', { message: respondCall.args.message })
+      return respondCall.args.message
     }
 
-    const tool = tools.find((t) => t.name === parsed.tool)
-    if (!tool) {
-      const err = `Неизвестный инструмент: ${parsed.tool}`
-      onToolResult(err)
-      message = JSON.stringify({ error: err })
-      continue
+    const results = []
+    for (const call of calls) {
+      const tool = tools.find((t) => t.name === call.tool)
+
+      if (!tool) {
+        const err = `Неизвестный инструмент: ${call.tool}`
+        onToolResult(err)
+        transcript?.log('tool_error', { tool: call.tool, error: err })
+        results.push({ tool: call.tool, result: err })
+        continue
+      }
+
+      onToolCall(call.tool, call.args)
+      transcript?.log('tool_call', { tool: call.tool, args: call.args })
+
+      let result
+      try {
+        result = await tool.fn(call.args)
+      } catch (e) {
+        result = `Ошибка: ${e.message}`
+      }
+
+      onToolResult(result)
+      transcript?.log('tool_result', {
+        tool: call.tool,
+        result: String(result),
+      })
+      results.push({ tool: call.tool, result })
     }
 
-    onToolCall(parsed.tool, parsed.args)
-
-    let result
-    try {
-      result = await tool.fn(parsed.args)
-    } catch (e) {
-      result = `Ошибка: ${e.message}`
+    if (results.length === 1) {
+      const r = results[0]
+      const resultStr =
+        typeof r.result === 'string' ? r.result : JSON.stringify(r.result)
+      message = `Tool result for ${r.tool}:\n${resultStr.slice(0, 12_000)}`
+    } else {
+      message = results
+        .map((r) => {
+          const resultStr =
+            typeof r.result === 'string' ? r.result : JSON.stringify(r.result)
+          return `Tool result for ${r.tool}:\n${resultStr.slice(0, 8000)}`
+        })
+        .join('\n\n')
     }
-
-    onToolResult(result)
-
-    const resultStr =
-      typeof result === 'string' ? result : JSON.stringify(result)
-    message = `Tool result for ${parsed.tool}:\n${resultStr.slice(0, 12_000)}`
   }
 
   return 'Достигнут лимит итераций.'
@@ -73,6 +128,28 @@ function tryParse(str) {
       typeof obj.args === 'object'
     ) {
       return obj
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+function tryParseArray(str) {
+  try {
+    const arr = JSON.parse(str)
+    if (
+      Array.isArray(arr) &&
+      arr.length > 0 &&
+      arr.every(
+        (o) =>
+          o &&
+          typeof o.tool === 'string' &&
+          o.args &&
+          typeof o.args === 'object',
+      )
+    ) {
+      return arr
     }
     return null
   } catch {
@@ -226,22 +303,28 @@ function extractJsonObjects(text) {
   const objects = []
   let i = 0
   while (i < text.length) {
-    if (text[i] !== '{') {
-      i++
-      continue
+    if (text[i] === '{') {
+      const end = findMatching(text, i, '{', '}')
+      if (end !== -1) {
+        objects.push(text.slice(i, end + 1))
+        i = end + 1
+        continue
+      }
     }
-    const end = findMatchingBrace(text, i)
-    if (end === -1) {
-      i++
-      continue
+    if (text[i] === '[') {
+      const end = findMatching(text, i, '[', ']')
+      if (end !== -1) {
+        objects.push(text.slice(i, end + 1))
+        i = end + 1
+        continue
+      }
     }
-    objects.push(text.slice(i, end + 1))
     i++
   }
   return objects
 }
 
-function findMatchingBrace(text, openIdx) {
+function findMatching(text, openIdx, openCh, closeCh) {
   let depth = 0
   let inString = false
   let escape = false
@@ -260,8 +343,8 @@ function findMatchingBrace(text, openIdx) {
       continue
     }
     if (inString) continue
-    if (c === '{') depth++
-    else if (c === '}') {
+    if (c === openCh) depth++
+    else if (c === closeCh) {
       depth--
       if (depth === 0) return i
     }
@@ -279,8 +362,17 @@ function parseToolCall(text) {
     .trim()
 
   const candidates = extractJsonObjects(cleaned)
+
   for (let i = candidates.length - 1; i >= 0; i--) {
     const raw = candidates[i]
+
+    const arrFirst = tryParseArray(raw)
+    if (arrFirst) return arrFirst
+
+    const arrRepaired = tryParseArray(
+      raw.replace(/\\(?!["\\/bfnrtu])/g, '\\\\'),
+    )
+    if (arrRepaired) return arrRepaired
 
     const first = tryParse(raw)
     if (first) return first

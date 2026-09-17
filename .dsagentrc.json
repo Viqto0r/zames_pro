@@ -1,0 +1,9 @@
+{
+  "maxIterations": 40,
+  "undo": {
+    "enabled": true
+  },
+  "transcript": {
+    "enabled": true
+  }
+}

@@ -1,4 +1,3 @@
-// src/spinner.js
 import ora from 'ora'
 import chalk from 'chalk'
 
@@ -23,13 +22,14 @@ export function createSpinner() {
   }
 
   return {
+    // Единственный метод, который ЗАПУСКАЕТ спиннер
     thinking: () => start(chalk.gray('Думаю...')),
 
+    // Оба метода только останавливают и печатают — не перезапускают
     toolCall: (name, args) => {
       stop()
       const preview = JSON.stringify(args).slice(0, 120)
       console.log(chalk.yellow(`🔧 ${name}`), chalk.gray(preview))
-      start(`${name}...`)
     },
 
     toolResult: (result) => {
@@ -37,7 +37,6 @@ export function createSpinner() {
       const text = typeof result === 'string' ? result : JSON.stringify(result)
       const preview = text.slice(0, 200).replace(/\n/g, ' ↵ ')
       console.log(chalk.gray(`   → ${preview}\n`))
-      start('Думаю...')
     },
 
     assistant: (msg) => {

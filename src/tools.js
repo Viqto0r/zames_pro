@@ -1,8 +1,10 @@
 import fs from 'fs/promises'
 import path from 'path'
 import { exec } from 'child_process'
+import { createGitTools } from './git.js'
+import { createWebTools } from './web.js'
 
-export function createTools(workdir) {
+export function createTools(workdir, { undo } = {}) {
   const safe = (p) => {
     const resolved = path.resolve(workdir, p)
     const root = path.resolve(workdir)
@@ -12,8 +14,8 @@ export function createTools(workdir) {
     return resolved
   }
 
-  const runShell = (command, timeout = 30_000) => {
-    return new Promise((resolve) => {
+  const runShell = (command, timeout = 30_000) =>
+    new Promise((resolve) => {
       const options = {
         cwd: workdir,
         timeout,
@@ -23,8 +25,6 @@ export function createTools(workdir) {
       }
 
       if (process.platform === 'win32') {
-        // Явно запускаем cmd.exe — избегаем наследования SHELL из Git Bash,
-        // иначе bash перехватывает встроенные команды cmd.
         options.shell = process.env.ComSpec || 'C:\\Windows\\System32\\cmd.exe'
       } else {
         options.shell = '/bin/sh'
@@ -44,9 +44,6 @@ export function createTools(workdir) {
 
         if (err.killed) {
           parts.push(`⏱ Таймаут после ${timeout}ms — процесс убит.`)
-          parts.push(
-            'Если это был сервер или long-running команда — запускайте её отдельно, а не через Bash.',
-          )
         } else if (err.code !== undefined && err.code !== null) {
           parts.push(`Exit code: ${err.code}`)
         } else if (err.signal) {
@@ -57,16 +54,12 @@ export function createTools(workdir) {
 
         if (out.trim()) parts.push(`stdout:\n${out.trim()}`)
         if (errStr.trim()) parts.push(`stderr:\n${errStr.trim()}`)
-        if (parts.length === 1 && !out.trim() && !errStr.trim()) {
-          parts.push(`(нет вывода) command="${command}"`)
-        }
 
         resolve(parts.join('\n'))
       })
     })
-  }
 
-  return [
+  const baseTools = [
     {
       name: 'Read',
       description:
@@ -81,20 +74,24 @@ export function createTools(workdir) {
         return lines.slice(start, end).join('\n')
       },
     },
+
     {
       name: 'Write',
       description: 'Создать или перезаписать файл.',
       parameters: { path: 'string', content: 'string' },
       fn: async ({ path: p, content }) => {
         const file = safe(p)
+        if (undo) await undo.backup(file)
         await fs.mkdir(path.dirname(file), { recursive: true })
         await fs.writeFile(file, content, 'utf-8')
         return `Файл записан: ${p}`
       },
     },
+
     {
       name: 'Edit',
-      description: 'Точечная замена строки в файле.',
+      description:
+        'Точечная замена строки в файле. old_string должен встречаться один раз.',
       parameters: {
         path: 'string',
         old_string: 'string',
@@ -103,28 +100,38 @@ export function createTools(workdir) {
       fn: async ({ path: p, old_string, new_string }) => {
         const file = safe(p)
         let content = await fs.readFile(file, 'utf-8')
-        if (!content.includes(old_string)) {
+        const occurrences = content.split(old_string).length - 1
+        if (occurrences === 0) {
           throw new Error(
             `Строка не найдена в ${p}: "${old_string.slice(0, 60)}..."`,
           )
         }
+        if (occurrences > 1) {
+          throw new Error(
+            `Строка встречается ${occurrences} раз в ${p}. Уточните old_string.`,
+          )
+        }
+        if (undo) await undo.backup(file)
         content = content.replace(old_string, new_string)
         await fs.writeFile(file, content, 'utf-8')
         return `Отредактирован: ${p}`
       },
     },
+
     {
       name: 'Bash',
       description:
         'Выполнить shell-команду через cmd.exe в рабочей директории. ' +
-        'Не использовать для long-running процессов (серверы) — они уйдут в таймаут. ' +
-        'Избегайте cmd-команд с неоднозначным разрешением (timeout, curl) — у пользователя в PATH может быть Git Bash.',
+        'Не использовать для long-running процессов (серверы) — уйдут в таймаут. ' +
+        'Не использовать для команд, требующих интерактивного ввода. ' +
+        'Для git — инструменты Git*. Для интернета — WebFetch / WebSearch.',
       parameters: { command: 'string', timeout: 'number?' },
       fn: async ({ command, timeout }) => runShell(command, timeout),
     },
+
     {
       name: 'Glob',
-      description: 'Найти файлы по glob-паттерну.',
+      description: 'Найти файлы по glob-паттерну (например, "**/*.js").',
       parameters: { pattern: 'string' },
       fn: async ({ pattern }) => {
         const { glob } = await import('fs/promises')
@@ -135,27 +142,33 @@ export function createTools(workdir) {
         return results.length ? results.join('\n') : 'Ничего не найдено.'
       },
     },
+
     {
       name: 'Grep',
       description: 'Поиск по содержимому файлов (регулярное выражение).',
       parameters: { pattern: 'string', path: 'string?' },
       fn: async ({ pattern, path: searchPath }) => {
         const target = searchPath ? safe(searchPath) : workdir
-
         if (process.platform === 'win32') {
           const escaped = pattern.replace(/"/g, '\\"')
-          return runShell(`findstr /s /n /r /c:"${escaped}" *`, undefined)
+          return runShell(`findstr /s /n /r /c:"${escaped}" *`)
         }
         return runShell(
           `grep -rn -E ${JSON.stringify(pattern)} ${JSON.stringify(target)} || true`,
         )
       },
     },
-    {
-      name: 'respond',
-      description: 'Дать финальный ответ пользователю и завершить задачу.',
-      parameters: { message: 'string' },
-      fn: async ({ message }) => message,
-    },
   ]
+
+  const gitTools = createGitTools(workdir)
+  const webTools = createWebTools()
+
+  const respondTool = {
+    name: 'respond',
+    description: 'Дать финальный ответ пользователю и завершить задачу.',
+    parameters: { message: 'string' },
+    fn: async ({ message }) => message,
+  }
+
+  return [...baseTools, ...gitTools, ...webTools, respondTool]
 }

@@ -1,21 +1,20 @@
 #!/usr/bin/env node
 import path from 'path'
-import os from 'os'
 import fs from 'fs/promises'
-import readline from 'readline'
-import { fileURLToPath } from 'url'
 import chalk from 'chalk'
+import { fileURLToPath } from 'url'
+import * as readlinePromises from 'readline/promises'
 
 import { DeepSeekBrowser } from './browser.js'
 import { createTools } from './tools.js'
 import { runAgentLoop } from './agent-loop.js'
 import { createSpinner } from './spinner.js'
+import { loadConfig, CONFIG_PATHS } from './config.js'
+import { Transcript } from './transcript.js'
+import { UndoStore } from './undo.js'
+import { selfReview, selfDiff, selfApply, selfList } from './self-review.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-// ---------- paths ----------
-
-const PROJECTS_ROOT = path.join(__dirname, '..', 'projects')
 
 // ---------- CLI parsing ----------
 
@@ -34,12 +33,7 @@ function getPositional() {
   const positional = []
   for (let i = 0; i < args.length; i++) {
     const a = args[i]
-    if (
-      a === '--dir' ||
-      a === '--task' ||
-      a === '--max-iter' ||
-      a === '--project'
-    ) {
+    if (['--dir', '--task', '--max-iter', '--project', '--chat'].includes(a)) {
       i++
       continue
     }
@@ -49,14 +43,21 @@ function getPositional() {
   return positional
 }
 
-const headless = hasFlag('--headless')
-const debug = hasFlag('--debug')
+const config = loadConfig()
+
+const headless = hasFlag('--headless') || config.headless
+const debug = hasFlag('--debug') || config.debug
 const calibrate = hasFlag('--calibrate')
-const maxIter = Number(getArg('--max-iter', '40')) || 40
+const maxIter =
+  Number(getArg('--max-iter', String(config.maxIterations))) ||
+  config.maxIterations
 
 const positional = getPositional()
 const task = getArg('--task', positional.join(' ').trim() || null)
 const projectName = getArg('--project', null)
+const chatIdArg = getArg('--chat', null)
+
+const PROJECTS_ROOT = config.projectsRoot
 
 // ---------- helpers ----------
 
@@ -64,34 +65,52 @@ function printHelp() {
   console.log(`
 ${chalk.bold('dsa')} — агент поверх chat.deepseek.com через Playwright
 
-${chalk.bold('Использование:')}
-  dsa [опции] [задача]
-
-${chalk.bold('Опции:')}
+${chalk.bold('Опции CLI:')}
   --dir <path>       рабочая директория агента
   --project <name>   проект в песочнице (${PROJECTS_ROOT}\\<name>)
   --task <text>      задача одной строкой
-  --max-iter <n>     лимит итераций агентского цикла (по умолчанию 40)
-  --headless         запустить браузер без UI
-  --debug            подробный лог Playwright
+  --chat <id>        продолжить существующий чат по id
+  --max-iter <n>     лимит итераций (по умолчанию ${config.maxIterations})
+  --headless         браузер без UI
+  --debug            подробный лог
   --calibrate        режим калибровки селекторов
   --help, -h         эта справка
 
-${chalk.bold('Примеры:')}
-  dsa                                  # интерактив, спросит директорию
-  dsa --project my-app                 # работать в projects/my-app
-  dsa --project my-app "напиши hello"  # разовая задача
-  dsa --dir C:/work/proj "задача"      # конкретная директория
-
-${chalk.bold('Команды в интерактивном режиме:')}
-  /new, /clear             начать новый чат (сбросить контекст)
-  /cd <path>               сменить рабочую директорию (создаст новый чат)
+${chalk.bold('Обычные команды:')}
+  /new, /clear             новый чат (сброс контекста)
+  /chats                   список последних чатов DeepSeek
+  /resume <n>              открыть чат №n из /chats
+  /chat                    показать текущий chat id
+  /cd <path>               сменить рабочую директорию
   /cd                      перейти в корень песочницы
   /project <name>          перейти в projects/<name>
-  /pwd                     показать текущую директорию
+  /pwd                     текущая директория
   /status                  состояние сессии
-  /help, help              эта справка
-  /exit, /quit, exit       выйти
+  /undo                    откатить последнюю запись/правку
+  /undo-list               список того, что можно откатить
+  /transcript              путь к файлу транскрипта
+  /config                  показать текущий конфиг
+  /debug-dom               сохранить HTML страницы (для отладки)
+  /help, help              справка
+  /exit, /quit, exit       выход
+
+${chalk.bold('Самообзор (отладка агента):')}
+  /self-review [фокус]     снять снапшот src/ и запустить ревью
+                            после этой команды ты остаёшься В СНАПШОТЕ
+                            и можешь писать «исправь ошибки» и т.п.
+  /self-fix <name> [фокус] вернуться в существующий снапшот и продолжить
+  /self-done               выйти из режима ревью (вернуться в свою папку)
+  /self-list               список снапшотов
+  /self-diff <name>        различия между текущим src/ и снапшотом
+  /self-apply <name>       применить снапшот к src/ (с бэкапом)
+
+${chalk.bold('Файлы:')}
+  Логи:        ${config.transcript.dir}
+  Undo:        ~/.ds-agent/undo
+  Профиль:     ~/.ds-agent/profile
+  Снапшоты:    ${PROJECTS_ROOT}\\_self-review
+  Конфиг:      ${CONFIG_PATHS.HOME_CONFIG}
+               ${CONFIG_PATHS.PROJECT_CONFIG}
 `)
 }
 
@@ -100,25 +119,23 @@ async function ensureDir(p) {
 }
 
 function dirLabel(p) {
-  const base = path.basename(p)
-  return base || p
+  return path.basename(p) || p
 }
 
-async function promptLine(question) {
+async function promptOnce(question) {
   process.stdin.resume()
   if (process.stdin.isTTY && process.stdin.setRawMode) {
     process.stdin.setRawMode(false)
   }
-  return new Promise((resolve) => {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    })
-    rl.question(question, (answer) => {
-      rl.close()
-      resolve(answer)
-    })
+  const rl = readlinePromises.createInterface({
+    input: process.stdin,
+    output: process.stdout,
   })
+  try {
+    return await rl.question(question)
+  } finally {
+    rl.close()
+  }
 }
 
 // ---------- workdir resolution ----------
@@ -140,7 +157,7 @@ async function resolveWorkdir({ interactive }) {
   if (!interactive) return PROJECTS_ROOT
 
   console.log(chalk.gray(`Песочница проектов: ${PROJECTS_ROOT}`))
-  const answer = await promptLine(
+  const answer = await promptOnce(
     chalk.cyan(
       `Рабочая директория [Enter — ${PROJECTS_ROOT}, либо путь / имя проекта]: `,
     ),
@@ -163,7 +180,9 @@ async function resolveWorkdir({ interactive }) {
 
 // ---------- task runner ----------
 
-async function runTask(browser, tools, taskText, workdir, initializeChat) {
+async function runTask(browser, tools, taskText, workdir, opts) {
+  const { transcript, freshChat, sendSystemPrompt } = opts
+
   const ui = createSpinner()
   ui.taskHeader(taskText)
   ui.thinking()
@@ -177,7 +196,10 @@ async function runTask(browser, tools, taskText, workdir, initializeChat) {
       task: taskText,
       workdir,
       maxIterations: maxIter,
-      initializeChat,
+      freshChat,
+      sendSystemPrompt,
+      transcript,
+      onThinking: () => ui.thinking(),
       onToolCall: (name, toolArgs) => ui.toolCall(name, toolArgs),
       onToolResult: (result) => ui.toolResult(result),
       onAssistantMessage: (msg) => {
@@ -189,7 +211,7 @@ async function runTask(browser, tools, taskText, workdir, initializeChat) {
     ui.stop()
     console.error(chalk.red('\n✖ Ошибка агента:'), e.message)
     if (debug) console.error(e.stack)
-    return
+    transcript?.log('agent_error', { error: e.message })
   } finally {
     if (!finished) ui.stop()
   }
@@ -204,11 +226,7 @@ async function main() {
   }
 
   if (calibrate) {
-    console.log(chalk.yellow('\n🔧 Режим калибровки селекторов'))
-    console.log(
-      'Открой DevTools (F12), найди селекторы поля ввода и контейнера ответа\n' +
-        'и обнови INPUT_SELECTORS / ANSWER_SELECTORS в src/browser.js.\n',
-    )
+    console.log(chalk.yellow('\n🔧 Режим калибровки селекторов\n'))
   }
 
   const interactive = !task
@@ -225,7 +243,24 @@ async function main() {
 
   console.log(chalk.gray(`Рабочая директория: ${currentWorkdir}`))
 
-  const browser = new DeepSeekBrowser({ headless, debug })
+  const transcript = new Transcript({
+    dir: config.transcript.dir,
+    enabled: config.transcript.enabled,
+    sessionName: dirLabel(currentWorkdir),
+  })
+  if (transcript.file) {
+    console.log(chalk.gray(`Транскрипт: ${transcript.file}`))
+  }
+
+  const undo = new UndoStore(config.undo)
+
+  const browser = new DeepSeekBrowser({
+    headless,
+    debug,
+    channel: config.browserChannel,
+    ...config.browser,
+  })
+
   const bootSpinner = createSpinner()
   bootSpinner.thinking()
 
@@ -238,40 +273,89 @@ async function main() {
     console.error(chalk.red('Не удалось запустить браузер:'), e.message)
     if (debug) console.error(e.stack)
     await browser.close().catch(() => {})
+    transcript.close()
     process.exit(1)
   }
 
-  // Флаг: отправлен ли системный промпт в текущий чат
-  let chatInitialized = false
-
-  // Одноразовый режим
+  // Разовый режим
   if (task) {
-    const tools = createTools(currentWorkdir)
-    await runTask(browser, tools, task, currentWorkdir, true)
+    const tools = createTools(currentWorkdir, { undo })
+
+    let freshChat = true
+    let sendSystemPrompt = true
+
+    if (chatIdArg) {
+      try {
+        console.log(chalk.gray(`Открываю чат ${chatIdArg}...`))
+        await browser.openChat(chatIdArg)
+        freshChat = false
+        sendSystemPrompt = true
+      } catch (e) {
+        console.error(chalk.red(`Не удалось открыть чат: ${e.message}`))
+      }
+    }
+
+    await runTask(browser, tools, task, currentWorkdir, {
+      transcript,
+      freshChat,
+      sendSystemPrompt,
+    })
     await browser.close()
+    transcript.close()
     return
   }
 
-  // Интерактивный режим
   console.log(
     chalk.gray(
-      'Интерактивный режим. Введите задачу. Команды — /help. Выход — /exit.\n' +
-        'Чат DeepSeek сохраняется между задачами. /new — начать заново.\n',
+      'Интерактивный режим. Введите задачу. Команды — /help. Выход — /exit.\n',
     ),
   )
 
+  let freshChatNext = true
+  let sendSystemPromptNext = true
+  let lastChats = []
+  let currentChatId = null
   let running = true
+
+  // ---------- review mode state ----------
+  // null — обычный режим.
+  // { snapDir, snapName, originalWorkdir } — мы внутри снапшота, чат уже
+  // инициализирован review-промптом, юзер может просто писать «исправь...».
+  let reviewMode = null
+
   process.on('SIGINT', async () => {
     running = false
     await browser.close().catch(() => {})
+    transcript.close()
     console.log(chalk.gray('\nВыход.'))
     process.exit(0)
   })
 
+  if (chatIdArg) {
+    try {
+      console.log(chalk.gray(`Открываю чат ${chatIdArg}...`))
+      await browser.openChat(chatIdArg)
+      currentChatId = chatIdArg
+      freshChatNext = false
+      sendSystemPromptNext = true
+      console.log(chalk.gray(`Чат открыт: ${chatIdArg}\n`))
+    } catch (e) {
+      console.error(chalk.red(`Не удалось открыть чат: ${e.message}`))
+    }
+  }
+
   while (running) {
     let input
     try {
-      input = await promptLine(chalk.cyan(`dsa[${dirLabel(currentWorkdir)}]> `))
+      let label
+      if (reviewMode) {
+        label = `dsa[REVIEW:${reviewMode.snapName}]> `
+      } else if (currentChatId) {
+        label = `dsa[${dirLabel(currentWorkdir)}|${currentChatId.slice(0, 6)}]> `
+      } else {
+        label = `dsa[${dirLabel(currentWorkdir)}]> `
+      }
+      input = await promptOnce(chalk.cyan(label))
     } catch {
       break
     }
@@ -281,30 +365,295 @@ async function main() {
 
     const lower = trimmed.toLowerCase()
 
-    // ---- Команды ----
-
-    if (
-      lower === '/exit' ||
-      lower === '/quit' ||
-      lower === 'exit' ||
-      lower === 'quit'
-    ) {
-      break
-    }
+    if (['/exit', '/quit', 'exit', 'quit'].includes(lower)) break
 
     if (lower === '/help' || lower === 'help') {
       printHelp()
       continue
     }
 
-    if (lower === '/new' || lower === '/clear' || lower === 'new') {
+    if (['/new', '/clear', 'new'].includes(lower)) {
       console.log(chalk.gray('Создаю новый чат...'))
       try {
         await browser.newChat()
-        chatInitialized = false
-        console.log(chalk.gray('Новый чат. Контекст сброшен.\n'))
+        freshChatNext = false
+        sendSystemPromptNext = true
+        currentChatId = await browser.getCurrentChatId()
+        transcript.log('new_chat')
+        console.log(chalk.gray('Новый чат.\n'))
       } catch (e) {
         console.error(chalk.red('Не удалось создать новый чат:'), e.message)
+      }
+      continue
+    }
+
+    // ---------- Самообзор ----------
+
+    if (lower === '/self-review' || lower.startsWith('/self-review ')) {
+      const focus = trimmed.slice('/self-review'.length).trim()
+
+      // Запоминаем, куда вернуться
+      const originalWorkdir = reviewMode
+        ? reviewMode.originalWorkdir
+        : currentWorkdir
+
+      try {
+        const result = await selfReview({
+          browser,
+          config,
+          focus: focus || null,
+          transcript,
+        })
+
+        // Переходим в review-режим:
+        //  - рабочая директория = снапшот
+        //  - чат НЕ сбрасываем — внутри selfReview уже создан свежий чат
+        //    и отправлен review-промпт, продолжим в нём
+        reviewMode = {
+          snapDir: result.snapDir,
+          snapName: path.basename(result.snapDir),
+          originalWorkdir,
+        }
+        currentWorkdir = result.snapDir
+        freshChatNext = false
+        sendSystemPromptNext = false
+        currentChatId = await browser.getCurrentChatId()
+
+        console.log(
+          chalk.cyan(
+            '\n💡 Теперь ты в режиме ревью. Просто пиши агенту, например:\n' +
+              '   «исправь ошибки»\n' +
+              '   «доработай обработку ошибок в ask()»\n' +
+              '   «покажи, что не так с undo»\n' +
+              'Выйти: /self-done.  Применить: /self-apply ' +
+              reviewMode.snapName +
+              '\n',
+          ),
+        )
+      } catch (e) {
+        console.error(chalk.red('Самообзор провалился:'), e.message)
+        if (debug) console.error(e.stack)
+      }
+      continue
+    }
+
+    if (lower === '/self-fix' || lower.startsWith('/self-fix ')) {
+      const rest = trimmed.slice('/self-fix'.length).trim()
+      if (!rest) {
+        console.error(chalk.red('Использование: /self-fix <name> [фокус]'))
+        continue
+      }
+      const sp = rest.indexOf(' ')
+      const name = sp === -1 ? rest : rest.slice(0, sp)
+      const focus = sp === -1 ? '' : rest.slice(sp + 1).trim()
+
+      const snapRoot = path.join(PROJECTS_ROOT, '_self-review', name)
+      const stat = await fs.stat(snapRoot).catch(() => null)
+      if (!stat || !stat.isDirectory()) {
+        console.error(chalk.red(`Снапшот не найден: ${snapRoot}`))
+        continue
+      }
+
+      const originalWorkdir = reviewMode
+        ? reviewMode.originalWorkdir
+        : currentWorkdir
+
+      // Свежий чат + review-промпт на этот снапшот
+      try {
+        const { runAgentLoop: ral } = await import('./agent-loop.js')
+        const { buildSystemPrompt } = await import('./system-prompt.js')
+        const tools = createTools(snapRoot, { undo: null })
+
+        await browser.newChat()
+        const sysPrompt = buildSystemPrompt({
+          workdir: snapRoot,
+          tools,
+        })
+        console.log(chalk.gray('Инициализирую review-чат для снапшота...'))
+        await browser.ask(sysPrompt, { timeout: 60_000 })
+
+        if (focus) {
+          const ui = createSpinner()
+          ui.thinking()
+          await ral({
+            browser,
+            tools,
+            task: focus,
+            workdir: snapRoot,
+            maxIterations: maxIter,
+            freshChat: false,
+            sendSystemPrompt: false,
+            transcript,
+            onThinking: () => ui.thinking(),
+            onToolCall: (n, a) => ui.toolCall(n, a),
+            onToolResult: (r) => ui.toolResult(r),
+            onAssistantMessage: (m) => {
+              ui.assistant(m)
+            },
+          })
+        }
+
+        reviewMode = {
+          snapDir: snapRoot,
+          snapName: name,
+          originalWorkdir,
+        }
+        currentWorkdir = snapRoot
+        freshChatNext = false
+        sendSystemPromptNext = false
+        currentChatId = await browser.getCurrentChatId()
+
+        console.log(
+          chalk.cyan(
+            `\n💡 Режим ревью по снапшоту ${name}. Пиши агенту задачу или /self-done.\n`,
+          ),
+        )
+      } catch (e) {
+        console.error(chalk.red('Не удалось войти в снапшот:'), e.message)
+      }
+      continue
+    }
+
+    if (lower === '/self-done') {
+      if (!reviewMode) {
+        console.log(chalk.gray('Ты и так не в режиме ревью.'))
+        continue
+      }
+      const back = reviewMode.originalWorkdir
+      reviewMode = null
+      currentWorkdir = back
+      // Раз чат занят review-контекстом, для обычной работы создадим новый
+      freshChatNext = true
+      sendSystemPromptNext = true
+      console.log(
+        chalk.gray(`Вернулся в ${back}. Следующая задача начнёт новый чат.\n`),
+      )
+      continue
+    }
+
+    if (lower === '/self-list') {
+      try {
+        await selfList({ config })
+      } catch (e) {
+        console.error(chalk.red('Ошибка:'), e.message)
+      }
+      continue
+    }
+
+    if (lower === '/self-diff' || lower.startsWith('/self-diff ')) {
+      const name = trimmed.slice('/self-diff'.length).trim()
+      if (!name) {
+        console.error(chalk.red('Использование: /self-diff <name>'))
+        continue
+      }
+      try {
+        await selfDiff({ config, name })
+      } catch (e) {
+        console.error(chalk.red('Ошибка:'), e.message)
+      }
+      continue
+    }
+
+    if (lower === '/self-apply' || lower.startsWith('/self-apply ')) {
+      const name = trimmed.slice('/self-apply'.length).trim()
+      if (!name) {
+        console.error(chalk.red('Использование: /self-apply <name>'))
+        continue
+      }
+      try {
+        await selfApply({ config, name })
+      } catch (e) {
+        console.error(chalk.red('Ошибка:'), e.message)
+      }
+      continue
+    }
+
+    // ---------- Обычные команды ----------
+
+    if (lower === '/chats') {
+      const spin = createSpinner()
+      spin.thinking()
+      try {
+        lastChats = await browser.listChats(30)
+        spin.stop()
+        if (!lastChats.length) {
+          console.log(
+            chalk.gray(
+              'Чатов не найдено. Возможно, сайдбар свёрнут или селекторы устарели.',
+            ),
+          )
+        } else {
+          console.log(chalk.gray('Последние чаты DeepSeek:'))
+          lastChats.forEach((c, i) => {
+            const n = String(i + 1).padStart(2, ' ')
+            console.log(
+              `  ${chalk.cyan(n)}. ${c.title}  ${chalk.gray('(' + c.id.slice(0, 8) + '…)')}`,
+            )
+          })
+          console.log(chalk.gray('\nИспользуй /resume <n> для продолжения.\n'))
+        }
+      } catch (e) {
+        spin.stop()
+        console.error(chalk.red('Не удалось получить список:'), e.message)
+      }
+      continue
+    }
+
+    if (lower === '/resume' || lower.startsWith('/resume ')) {
+      const arg = trimmed.slice(7).trim()
+      if (!arg) {
+        console.error(
+          chalk.red('Использование: /resume <n>  (или /chats для списка)'),
+        )
+        continue
+      }
+      const n = Number(arg)
+      if (!Number.isFinite(n) || n < 1) {
+        console.error(chalk.red('Нужен номер из /chats.'))
+        continue
+      }
+      if (!lastChats.length) {
+        console.error(chalk.red('Сначала выполни /chats.'))
+        continue
+      }
+      const pick = lastChats[n - 1]
+      if (!pick) {
+        console.error(chalk.red(`Нет чата №${n}. Всего: ${lastChats.length}.`))
+        continue
+      }
+
+      console.log(chalk.gray(`Открываю: ${pick.title}`))
+      try {
+        await browser.openChat(pick.id)
+        currentChatId = pick.id
+        freshChatNext = false
+        sendSystemPromptNext = true
+        transcript.log('resume_chat', { id: pick.id, title: pick.title })
+        console.log(
+          chalk.green(`Чат открыт.`) +
+            chalk.gray(
+              ' Системный промпт будет переслан на следующей задаче.\n',
+            ),
+        )
+      } catch (e) {
+        console.error(chalk.red('Не удалось открыть чат:'), e.message)
+      }
+      continue
+    }
+
+    if (lower === '/chat') {
+      if (currentChatId) {
+        console.log(chalk.gray(`Текущий chat id: ${currentChatId}`))
+        console.log(
+          chalk.gray(
+            `URL: https://chat.deepseek.com/a/chat/s/${currentChatId}`,
+          ),
+        )
+      } else {
+        const id = await browser.getCurrentChatId()
+        console.log(
+          chalk.gray(id ? `Текущий chat id: ${id}` : 'Чат ещё не создан.'),
+        )
       }
       continue
     }
@@ -317,11 +666,83 @@ async function main() {
     if (lower === '/status') {
       console.log(chalk.gray(`Рабочая директория: ${currentWorkdir}`))
       console.log(
-        chalk.gray(`Чат инициализирован: ${chatInitialized ? 'да' : 'нет'}`),
+        chalk.gray(`Режим ревью: ${reviewMode ? reviewMode.snapName : 'нет'}`),
+      )
+      if (reviewMode) {
+        console.log(
+          chalk.gray(`Исходная директория: ${reviewMode.originalWorkdir}`),
+        )
+      }
+      console.log(chalk.gray(`Текущий чат: ${currentChatId || '(нет)'}`))
+      console.log(
+        chalk.gray(
+          `Fresh chat на след. задаче: ${freshChatNext ? 'да' : 'нет'}`,
+        ),
+      )
+      console.log(
+        chalk.gray(
+          `System prompt на след. задаче: ${sendSystemPromptNext ? 'да' : 'нет'}`,
+        ),
       )
       console.log(chalk.gray(`Лимит итераций: ${maxIter}`))
       console.log(chalk.gray(`Headless: ${headless ? 'да' : 'нет'}`))
       console.log(chalk.gray(`Debug: ${debug ? 'да' : 'нет'}`))
+      console.log(chalk.gray(`Undo: ${config.undo.enabled ? 'вкл' : 'выкл'}`))
+      console.log(chalk.gray(`Транскрипт: ${transcript.file || 'выкл'}`))
+      continue
+    }
+
+    if (lower === '/config') {
+      console.log(JSON.stringify(config, null, 2))
+      continue
+    }
+
+    if (lower === '/transcript') {
+      console.log(chalk.gray(transcript.file || '(выключен)'))
+      continue
+    }
+
+    if (lower === '/undo') {
+      const result = await undo.undoLast()
+      if (result.ok) {
+        console.log(
+          chalk.green(`↶ Откатили: ${result.record.originalPath}`) +
+            chalk.gray(
+              result.record.existed ? ' (восстановлено)' : ' (удалено)',
+            ),
+        )
+        transcript.log('undo', { path: result.record.originalPath })
+      } else {
+        console.error(chalk.red(`Не удалось откатить: ${result.reason}`))
+      }
+      continue
+    }
+
+    if (lower === '/undo-list' || lower === '/history') {
+      const list = await undo.list(10)
+      if (!list.length) {
+        console.log(chalk.gray('История пуста.'))
+      } else {
+        for (const r of list) {
+          const stamp = new Date(r.stamp).toLocaleString()
+          const flag = r.existed ? 'изменён' : 'создан'
+          console.log(chalk.gray(`${stamp}  [${flag}]  ${r.originalPath}`))
+        }
+      }
+      continue
+    }
+
+    if (lower === '/debug-dom') {
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+      const file = path.join(config.transcript.dir, `dom-${stamp}.html`)
+      try {
+        const result = await browser.dumpDom(file)
+        console.log(chalk.green(`HTML сохранён: ${result.file}`))
+        console.log(chalk.gray('Селекторы:'))
+        console.log(JSON.stringify(result.selectors, null, 2))
+      } catch (e) {
+        console.error(chalk.red('Не удалось сохранить DOM:'), e.message)
+      }
       continue
     }
 
@@ -353,11 +774,18 @@ async function main() {
           continue
         }
 
+        // Смена директории выходит из review-режима (если были в нём)
+        if (reviewMode) {
+          console.log(chalk.gray('Вышел из режима ревью (/cd).'))
+          reviewMode = null
+        }
+
         currentWorkdir = newDir
-        chatInitialized = false // путь в системном промпте устарел
+        freshChatNext = true
+        sendSystemPromptNext = true
         console.log(
-          chalk.gray(`Рабочая директория: ${currentWorkdir}`) +
-            chalk.gray(' (контекст будет сброшен на следующей задаче)\n'),
+          chalk.gray(`Рабочая директория: ${newDir}`) +
+            chalk.gray(' (контекст сброшен)\n'),
         )
       } catch (e) {
         console.error(chalk.red(`Не удалось перейти: ${e.message}`))
@@ -374,37 +802,47 @@ async function main() {
       const newDir = path.join(PROJECTS_ROOT, name)
       try {
         await ensureDir(newDir)
+        if (reviewMode) {
+          console.log(chalk.gray('Вышел из режима ревью (/project).'))
+          reviewMode = null
+        }
         if (newDir !== currentWorkdir) {
           currentWorkdir = newDir
-          chatInitialized = false
+          freshChatNext = true
+          sendSystemPromptNext = true
         }
-        console.log(chalk.gray(`Рабочая директория: ${currentWorkdir}\n`))
+        console.log(chalk.gray(`Рабочая директория: ${newDir}\n`))
       } catch (e) {
         console.error(chalk.red(`Не удалось создать проект: ${e.message}`))
       }
       continue
     }
 
-    // Неизвестная команда (начинается со слэша)
     if (lower.startsWith('/')) {
       console.error(chalk.red(`Неизвестная команда: ${trimmed}. Набери /help.`))
       continue
     }
 
-    // ---- Обычная задача ----
+    // ---- Обычная задача (в том числе в review-режиме) ----
 
-    const tools = createTools(currentWorkdir)
-    await runTask(
-      browser,
-      tools,
-      trimmed,
-      currentWorkdir,
-      /* initializeChat */ !chatInitialized,
-    )
-    chatInitialized = true // после первой задачи чат точно инициализирован
+    transcript.log('user_task', { task: trimmed, workdir: currentWorkdir })
+
+    const tools = createTools(currentWorkdir, { undo })
+    await runTask(browser, tools, trimmed, currentWorkdir, {
+      transcript,
+      freshChat: freshChatNext,
+      sendSystemPrompt: sendSystemPromptNext,
+    })
+
+    freshChatNext = false
+    sendSystemPromptNext = false
+    if (!currentChatId) {
+      currentChatId = await browser.getCurrentChatId()
+    }
   }
 
   await browser.close().catch(() => {})
+  transcript.close()
 }
 
 main().catch((e) => {
