@@ -1,5 +1,5 @@
 import { buildSystemPrompt } from './system-prompt.js'
-import { getGitContext, formatGitContext } from './git.js'
+import { getGitContext, formatGitContext } from './gitTools.js'
 
 export async function runAgentLoop({
   browser,

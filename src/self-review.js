@@ -32,6 +32,7 @@ async function readAllSrc() {
   const result = []
   for (const e of entries) {
     if (!e.endsWith('.js')) continue
+    if (e === 'self-review.js') continue // не копируем самого себя
     const data = await fs.readFile(path.join(SRC_DIR, e), 'utf-8')
     result.push({ name: e, content: data })
   }
@@ -48,6 +49,16 @@ export async function selfReview({ browser, config, focus, transcript }) {
   await ensureDir(snapDir)
 
   const copied = await copyDirJsFiles(SRC_DIR, snapDir)
+
+  if (copied.length === 0) {
+    console.error(
+      chalk.red(
+        `\n✖ Самообзор отменён: в ${SRC_DIR} нет .js файлов.\n` +
+          `Проверь, что src/ не пуст и ты запускаешь агента из корня проекта.\n`,
+      ),
+    )
+    throw new Error('SRC_DIR пуст — нечего ревьюить')
+  }
 
   // Копируем package.json для контекста — чтобы агент видел зависимости
   try {
@@ -177,9 +188,16 @@ export async function selfApply({ config, name }) {
   await copyDirJsFiles(SRC_DIR, backupDir)
 
   const files = await fs.readdir(snapDir)
+  const jsFiles = files.filter((f) => f.endsWith('.js'))
+
+  if (jsFiles.length === 0) {
+    throw new Error(
+      `В снапшоте ${snapDir} нет .js файлов. Apply отменён, чтобы не стирать src/.`,
+    )
+  }
+
   const applied = []
-  for (const f of files) {
-    if (!f.endsWith('.js')) continue
+  for (const f of jsFiles) {
     const data = await fs.readFile(path.join(snapDir, f), 'utf-8')
     await fs.writeFile(path.join(SRC_DIR, f), data, 'utf-8')
     applied.push(f)

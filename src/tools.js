@@ -1,7 +1,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import { exec } from 'child_process'
-import { createGitTools } from './git.js'
+import { createGitTools } from './gitTools.js'
 import { createWebTools } from './web.js'
 
 export function createTools(workdir, { undo } = {}) {
