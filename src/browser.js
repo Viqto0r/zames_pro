@@ -16,7 +16,6 @@ const INPUT_SELECTORS = [
 const ANSWER_SELECTORS = [
   'div[class*="ds-markdown"]',
   'div[class*="markdown"]',
-  '[class*="message"]',
 ]
 
 const STOP_SELECTORS = [
@@ -24,6 +23,11 @@ const STOP_SELECTORS = [
   'button:has-text("Остановить")',
   'button[aria-label*="Stop" i]',
 ]
+
+// Служебные статусы интерфейса DeepSeek, которые НЕ являются ответом модели.
+// Иначе агент принимает статус (Reading...) за ответ и ломает разбор.
+const STATUS_RE = /^(reading|thinking|searching|analyzing|generating|stop|остановить|читаю|думаю|поиск|анализ)[\s.…]*$/i
+
 
 // ---------- profile cleanup ----------
 
@@ -241,6 +245,15 @@ export class DeepSeekBrowser {
     }, ANSWER_SELECTORS)
   }
 
+  async _readLastAnswerTextClean() {
+    const raw = await this._readLastAnswerText().catch(() => '')
+    const t = (raw || '').trim()
+    if (!t) return ''
+    // Отсекаем служебные статусы интерфейса (Reading..., Думаю...).
+    if (STATUS_RE.test(t)) return ''
+    return raw
+  }
+
   async _isGenerating() {
     const stop = await this._findVisible(STOP_SELECTORS, 300)
     return !!stop
@@ -287,7 +300,7 @@ export class DeepSeekBrowser {
       )
     }
 
-    const beforeText = await this._readLastAnswerText().catch(() => '')
+    const beforeText = await this._readLastAnswerTextClean().catch(() => '')
 
     await input.click()
     try {
@@ -313,7 +326,7 @@ export class DeepSeekBrowser {
     let started = false
     while (Date.now() < startDeadline) {
       const gen = await this._isGenerating()
-      const cur = await this._readLastAnswerText().catch(() => '')
+      const cur = await this._readLastAnswerTextClean().catch(() => '')
       if (gen || (cur && cur !== beforeText)) {
         started = true
         break
@@ -331,7 +344,7 @@ export class DeepSeekBrowser {
     let stable = 0
     while (Date.now() < deadline) {
       const gen = await this._isGenerating()
-      const cur = await this._readLastAnswerText().catch(() => '')
+      const cur = await this._readLastAnswerTextClean().catch(() => '')
       if (cur && cur === last && !gen) {
         stable++
         if (stable >= 2) return cur

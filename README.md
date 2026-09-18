@@ -1,6 +1,6 @@
 # zames_pro
 
-![zames logo](logo.png)
+![zames logo](https://raw.githubusercontent.com/Viqto0r/zames_pro/master/logo.png)
 
 Terminal coding agent, работающий поверх chat.deepseek.com через Playwright.
 По духу похож на Claude Code / Codex CLI: запускается в текущей директории, читает и правит файлы, запускает команды, коммитит в git.
