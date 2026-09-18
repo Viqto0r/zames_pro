@@ -1,5 +1,5 @@
 import ora from 'ora'
-import chalk from 'chalk'
+import { theme } from './theme.js'
 
 export function createSpinner() {
   let spinner = null
@@ -13,43 +13,33 @@ export function createSpinner() {
     if (spinner) spinner.stop()
   }
 
-  const succeed = (text) => {
-    if (spinner) spinner.succeed(text)
-  }
-
-  const fail = (text) => {
-    if (spinner) spinner.fail(text)
-  }
-
   return {
-    // Единственный метод, который ЗАПУСКАЕТ спиннер
-    thinking: () => start(chalk.gray('Думаю...')),
+    thinking: () => start(theme.system('Думаю...')),
 
-    // Оба метода только останавливают и печатают — не перезапускают
     toolCall: (name, args) => {
       stop()
       const preview = JSON.stringify(args).slice(0, 120)
-      console.log(chalk.yellow(`🔧 ${name}`), chalk.gray(preview))
+      console.log(theme.tool('🔧 ' + name), theme.dim(preview))
     },
 
     toolResult: (result) => {
       stop()
       const text = typeof result === 'string' ? result : JSON.stringify(result)
-      const preview = text.slice(0, 200).replace(/\n/g, ' ↵ ')
-      console.log(chalk.gray(`   → ${preview}\n`))
+      const preview = text.slice(0, 200).split(String.fromCharCode(10)).join(' ↵ ')
+      console.log(theme.toolResult('   → ' + preview + String.fromCharCode(10)))
     },
 
     assistant: (msg) => {
       stop()
-      console.log(chalk.green('\n✅ ' + msg) + '\n')
+      console.log(theme.assistant(String.fromCharCode(10) + '✅ ' + msg) + String.fromCharCode(10))
     },
 
     taskHeader: (task) => {
-      console.log(chalk.bold.cyan(`\n🎯 Задача: ${task}\n`))
+      console.log(theme.bold(theme.user(String.fromCharCode(10) + '🎯 Задача: ' + task + String.fromCharCode(10))))
     },
 
     stop,
-    succeed,
-    fail,
+    succeed: () => {},
+    fail: () => {},
   }
 }

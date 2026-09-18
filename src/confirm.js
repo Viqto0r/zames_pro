@@ -1,5 +1,5 @@
 import * as readlinePromises from 'readline/promises'
-import chalk from 'chalk'
+import { theme } from './theme.js'
 import { unifiedDiff, colorDiff } from './diff.js'
 
 export class ConfirmManager {
@@ -36,14 +36,14 @@ export class ConfirmManager {
 
     const label = message || `Разрешить ${kind}?`
     const question =
-      chalk.yellow(`${label} `) +
-      chalk.gray('[') +
-      chalk.green('y') +
-      chalk.gray(' = да, ') +
-      chalk.red('n') +
-      chalk.gray(' = нет, ') +
-      chalk.cyan('a') +
-      chalk.gray(' = всегда для этого типа] ')
+      theme.warn(`${label} `) +
+      theme.system('[') +
+      theme.assistant('y') +
+      theme.system(' = да, ') +
+      theme.error('n') +
+      theme.system(' = нет, ') +
+      theme.user('a') +
+      theme.system(' = всегда для этого типа] ')
 
     const answer = await this._prompt(question)
 
@@ -81,5 +81,5 @@ export class ConfirmManager {
 
 export function formatDiffPreview(oldText, newText, { label } = {}) {
   const diff = unifiedDiff(oldText, newText, { label })
-  return colorDiff(diff, chalk)
+  return colorDiff(diff)
 }

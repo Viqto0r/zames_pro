@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs/promises'
-import chalk from 'chalk'
+import { theme } from './theme.js'
 import { fileURLToPath } from 'url'
 
 import { ZAMES_HOME } from './config.js'
@@ -56,7 +56,7 @@ export async function selfReview({ browser, config, focus, transcript }) {
 
   if (copied.length === 0) {
     console.error(
-      chalk.red(
+      theme.error(
         `\n✖ Самообзор отменён: в ${SRC_DIR} нет .js файлов.\n` +
           `Проверь, что src/ не пуст и ты запускаешь агента из корня проекта.\n`,
       ),
@@ -73,9 +73,9 @@ export async function selfReview({ browser, config, focus, transcript }) {
     await fs.writeFile(path.join(snapDir, 'package.json'), pkg, 'utf-8')
   } catch {}
 
-  console.log(chalk.gray(`\n📸 Снапшот: ${snapDir}`))
-  console.log(chalk.gray(`Файлов: ${copied.length} — ${copied.join(', ')}`))
-  console.log(chalk.gray('Начинаю самообзор...\n'))
+  console.log(theme.system(`\n📸 Снапшот: ${snapDir}`))
+  console.log(theme.system(`Файлов: ${copied.length} — ${copied.join(', ')}`))
+  console.log(theme.system('Начинаю самообзор...\n'))
 
   const taskPrompt = buildReviewPrompt({ focus, snapDir })
 
@@ -95,15 +95,15 @@ export async function selfReview({ browser, config, focus, transcript }) {
     onThinking: () => {},
     onToolCall: (name, args) => {
       const preview = JSON.stringify(args).slice(0, 120)
-      console.log(chalk.yellow(`🔧 ${name}`), chalk.gray(preview))
+      console.log(theme.warn(`🔧 ${name}`), theme.system(preview))
     },
     onToolResult: (r) => {
       const t = typeof r === 'string' ? r : JSON.stringify(r)
-      console.log(chalk.gray(`   → ${t.slice(0, 200).replace(/\n/g, ' ↵ ')}\n`))
+      console.log(theme.system(`   → ${t.slice(0, 200).replace(/\n/g, ' ↵ ')}\n`))
     },
     onAssistantMessage: (msg) => {
       finalMessage = msg
-      console.log(chalk.green('\n📋 Отчёт:\n'))
+      console.log(theme.assistant('\n📋 Отчёт:\n'))
       console.log(msg)
       console.log()
     },
@@ -116,26 +116,26 @@ export async function selfReview({ browser, config, focus, transcript }) {
   // Считаем, что изменилось
   const changed = await diffFiles(SRC_DIR, snapDir)
 
-  console.log(chalk.gray('─'.repeat(60)))
-  console.log(chalk.gray(`Отчёт:       ${reportPath}`))
-  console.log(chalk.gray(`Снапшот:     ${snapDir}`))
+  console.log(theme.system('─'.repeat(60)))
+  console.log(theme.system(`Отчёт:       ${reportPath}`))
+  console.log(theme.system(`Снапшот:     ${snapDir}`))
   if (changed.length) {
     console.log(
-      chalk.green(
+      theme.assistant(
         `Изменено:    ${changed.length} файл(ов): ${changed.join(', ')}`,
       ),
     )
   } else {
-    console.log(chalk.gray('Изменено:    (ничего — только отчёт)'))
+    console.log(theme.system('Изменено:    (ничего — только отчёт)'))
   }
-  console.log(chalk.cyan(`\nДальше:`))
+  console.log(theme.user(`\nДальше:`))
   console.log(
-    chalk.cyan(
+    theme.user(
       `  /self-diff ${path.basename(snapDir)}   — посмотреть различия`,
     ),
   )
   console.log(
-    chalk.cyan(
+    theme.user(
       `  /self-apply ${path.basename(snapDir)}  — применить к живому src/`,
     ),
   )
@@ -166,13 +166,13 @@ export async function selfDiff({ config, name }) {
     if (orig === next) continue
 
     anyDiff = true
-    console.log(chalk.bold(`\n=== src/${f} ===`))
+    console.log(theme.bold(`\n=== src/${f} ===`))
     const diff = unifiedDiff(orig, next, { label: f })
-    console.log(colorDiff(diff, chalk))
+    console.log(colorDiff(diff))
   }
 
   if (!anyDiff) {
-    console.log(chalk.gray('Различий нет.'))
+    console.log(theme.system('Различий нет.'))
   }
 }
 
@@ -207,11 +207,11 @@ export async function selfApply({ config, name }) {
     applied.push(f)
   }
 
-  console.log(chalk.green(`\n✅ Применено: ${applied.length} файл(ов)`))
-  console.log(chalk.gray(applied.join(', ')))
-  console.log(chalk.gray(`Бэкап: ${backupDir}`))
+  console.log(theme.assistant(`\n✅ Применено: ${applied.length} файл(ов)`))
+  console.log(theme.system(applied.join(', ')))
+  console.log(theme.system(`Бэкап: ${backupDir}`))
   console.log(
-    chalk.yellow(`\nПерезапусти агента, чтобы изменения вступили в силу.\n`),
+    theme.warn(`\nПерезапусти агента, чтобы изменения вступили в силу.\n`),
   )
 }
 
@@ -223,17 +223,17 @@ export async function selfList({ config }) {
   try {
     entries = await fs.readdir(snapRoot)
   } catch {
-    console.log(chalk.gray('Снапшотов нет.'))
+    console.log(theme.system('Снапшотов нет.'))
     return
   }
 
   if (!entries.length) {
-    console.log(chalk.gray('Снапшотов нет.'))
+    console.log(theme.system('Снапшотов нет.'))
     return
   }
 
   entries.sort()
-  console.log(chalk.gray('Снапшоты самообзора:'))
+  console.log(theme.system('Снапшоты самообзора:'))
   for (const e of entries) {
     const full = path.join(snapRoot, e)
     const stat = await fs.stat(full).catch(() => null)
@@ -245,13 +245,13 @@ export async function selfList({ config }) {
       .catch(() => false)
     const changedCount = (await diffFiles(SRC_DIR, full)).length
     const tag = changedCount
-      ? chalk.green(`[${changedCount} изменено]`)
-      : chalk.gray('[без правок]')
-    const rep = hasReport ? chalk.cyan('📋') : '  '
+      ? theme.assistant(`[${changedCount} изменено]`)
+      : theme.system('[без правок]')
+    const rep = hasReport ? theme.user('📋') : '  '
     console.log(`  ${rep} ${e}  ${tag}`)
   }
   console.log()
-  console.log(chalk.gray('Команды: /self-diff <name>, /self-apply <name>\n'))
+  console.log(theme.system('Команды: /self-diff <name>, /self-apply <name>\n'))
 }
 
 // ---------- helpers ----------

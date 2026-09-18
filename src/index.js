@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import path from 'path'
 import fs from 'fs/promises'
-import chalk from 'chalk'
 import { fileURLToPath } from 'url'
 import * as readlinePromises from 'readline/promises'
+import { theme } from './theme.js'
 
 import { DeepSeekBrowser } from './browser.js'
 import { createTools } from './tools.js'
@@ -171,9 +171,9 @@ async function autoReload() {
   const { errors } = await reloadModules()
   if (errors.length) {
     console.error(
-      chalk.yellow('⚠ авто-reload: часть модулей не загрузилась, работаю на прежней версии:'),
+      theme.warn('⚠ авто-reload: часть модулей не загрузилась, работаю на прежней версии:'),
     )
-    for (const e of errors) console.error(chalk.yellow('  ' + e))
+    for (const e of errors) console.error(theme.warn('  ' + e))
   }
 }
 
@@ -182,9 +182,9 @@ async function autoReload() {
 
 function printHelp() {
   console.log(`
-${chalk.bold('zames')} — агент поверх chat.deepseek.com через Playwright
+${theme.bold('zames')} — агент поверх chat.deepseek.com через Playwright
 
-${chalk.bold('Опции CLI:')}
+${theme.bold('Опции CLI:')}
   --dir <path>       рабочая директория агента
   --task <text>      задача одной строкой
   --chat <id>        продолжить существующий чат по id
@@ -198,7 +198,7 @@ ${chalk.bold('Опции CLI:')}
   --version, -v      показать версию
   --help, -h         эта справка
 
-${chalk.bold('Обычные команды:')}
+${theme.bold('Обычные команды:')}
   /new, /clear             новый чат (сброс контекста)
   /chats                   список последних чатов DeepSeek
   /resume <n>              открыть чат №n из /chats
@@ -215,7 +215,7 @@ ${chalk.bold('Обычные команды:')}
   /help, help              справка
   /exit, /quit, exit       выход
 
-${chalk.bold('Самообзор (отладка агента):')}
+${theme.bold('Самообзор (отладка агента):')}
   /self-review [фокус]     снять снапшот src/ и запустить ревью
                             после этой команды ты остаёшься В СНАПШОТЕ
                             и можешь писать «исправь ошибки» и т.п.
@@ -225,7 +225,7 @@ ${chalk.bold('Самообзор (отладка агента):')}
   /self-diff <name>        различия между текущим src/ и снапшотом
   /self-apply <name>       применить снапшот к src/ (с бэкапом)
 
-${chalk.bold('Файлы:')}
+${theme.bold('Файлы:')}
   Логи:        ${config.transcript.dir}
   Undo:        ~/.zames/undo
   Профиль:     ~/.zames/profile
@@ -302,7 +302,7 @@ async function runTask(browser, tools, taskText, workdir, opts) {
     })
   } catch (e) {
     ui.stop()
-    console.error(chalk.red('\n✖ Ошибка агента:'), e.message)
+    console.error(theme.error('\n✖ Ошибка агента:'), e.message)
     if (debug) console.error(e.stack)
     transcript?.log('agent_error', { error: e.message })
   } finally {
@@ -327,7 +327,7 @@ async function main() {
   }
 
   if (calibrate) {
-    console.log(chalk.yellow('\n🔧 Режим калибровки селекторов\n'))
+    console.log(theme.warn('\n🔧 Режим калибровки селекторов\n'))
   }
 
   let currentWorkdir
@@ -337,13 +337,13 @@ async function main() {
   const sandboxRoot = currentWorkdir
   } catch (e) {
     console.error(
-      chalk.red('Не удалось определить рабочую директорию:'),
+      theme.error('Не удалось определить рабочую директорию:'),
       e.message,
     )
     process.exit(1)
   }
 
-  console.log(chalk.gray(`Рабочая директория: ${currentWorkdir}`))
+  console.log(theme.system(`Рабочая директория: ${currentWorkdir}`))
 
   const transcript = new Transcript({
     dir: config.transcript.dir,
@@ -351,7 +351,7 @@ async function main() {
     sessionName: dirLabel(currentWorkdir),
   })
   if (transcript.file) {
-    console.log(chalk.gray(`Транскрипт: ${transcript.file}`))
+    console.log(theme.system(`Транскрипт: ${transcript.file}`))
   }
 
   const undo = new UndoStore(config.undo)
@@ -372,7 +372,7 @@ async function main() {
     await browser.waitForLogin()
   } catch (e) {
     bootSpinner.stop()
-    console.error(chalk.red('Не удалось запустить браузер:'), e.message)
+    console.error(theme.error('Не удалось запустить браузер:'), e.message)
     if (debug) console.error(e.stack)
     await browser.close().catch(() => {})
     transcript.close()
@@ -390,17 +390,17 @@ async function main() {
     let resumeId = chatIdArg
     if (!resumeId && !newChatFlag) {
       resumeId = await loadLastChat()
-      if (resumeId) console.log(chalk.gray(`Восстанавливаю чат ${resumeId}...`))
+      if (resumeId) console.log(theme.system(`Восстанавливаю чат ${resumeId}...`))
     }
 
     if (resumeId) {
       try {
-        console.log(chalk.gray(`Открываю чат ${resumeId}...`))
+        console.log(theme.system(`Открываю чат ${resumeId}...`))
         await browser.openChat(resumeId)
         freshChat = false
         sendSystemPrompt = resendPrompt
       } catch (e) {
-        console.error(chalk.red(`Не удалось открыть чат: ${e.message}`))
+        console.error(theme.error(`Не удалось открыть чат: ${e.message}`))
       }
     }
 
@@ -418,7 +418,7 @@ async function main() {
   }
 
   console.log(
-    chalk.gray(
+    theme.system(
       'Интерактивный режим. Введите задачу. Команды — /help. Выход — /exit.\n',
     ),
   )
@@ -442,7 +442,7 @@ async function main() {
     // висеть отдельным процессом после выхода агента.
     await mod.closeWeb().catch(() => {})
     transcript.close()
-    console.log(chalk.gray('\nВыход.'))
+    console.log(theme.system('\nВыход.'))
     process.exit(0)
   })
 
@@ -454,15 +454,15 @@ async function main() {
 
   if (resumeId) {
     try {
-      console.log(chalk.gray(`Открываю чат ${resumeId}...`))
+      console.log(theme.system(`Открываю чат ${resumeId}...`))
       await browser.openChat(resumeId)
       currentChatId = resumeId
       freshChatNext = false
       sendSystemPromptNext = resendPrompt
       await saveLastChat(resumeId)
-      console.log(chalk.gray(`Чат открыт: ${resumeId}\n`))
+      console.log(theme.system(`Чат открыт: ${resumeId}\n`))
     } catch (e) {
-      console.error(chalk.red(`Не удалось открыть чат: ${e.message}`))
+      console.error(theme.error(`Не удалось открыть чат: ${e.message}`))
     }
   }
 
@@ -477,7 +477,7 @@ async function main() {
       } else {
         label = `zames[${dirLabel(currentWorkdir)}]> `
       }
-      input = await promptOnce(chalk.cyan(label))
+      input = await promptOnce(theme.user(label))
     } catch {
       break
     }
@@ -495,7 +495,7 @@ async function main() {
     }
 
     if (['/new', '/clear', 'new'].includes(lower)) {
-      console.log(chalk.gray('Создаю новый чат...'))
+      console.log(theme.system('Создаю новый чат...'))
       try {
         await browser.newChat()
         freshChatNext = false
@@ -503,9 +503,9 @@ async function main() {
         currentChatId = await browser.getCurrentChatId()
         await saveLastChat(currentChatId)
         transcript.log('new_chat')
-        console.log(chalk.gray('Новый чат.\n'))
+        console.log(theme.system('Новый чат.\n'))
       } catch (e) {
-        console.error(chalk.red('Не удалось создать новый чат:'), e.message)
+        console.error(theme.error('Не удалось создать новый чат:'), e.message)
       }
       continue
     }
@@ -544,7 +544,7 @@ async function main() {
         await saveLastChat(currentChatId)
 
         console.log(
-          chalk.cyan(
+          theme.user(
             '\n💡 Теперь ты в режиме ревью. Просто пиши агенту, например:\n' +
               '   «исправь ошибки»\n' +
               '   «доработай обработку ошибок в ask()»\n' +
@@ -555,7 +555,7 @@ async function main() {
           ),
         )
       } catch (e) {
-        console.error(chalk.red('Самообзор провалился:'), e.message)
+        console.error(theme.error('Самообзор провалился:'), e.message)
         if (debug) console.error(e.stack)
       }
       continue
@@ -564,7 +564,7 @@ async function main() {
     if (lower === '/self-fix' || lower.startsWith('/self-fix ')) {
       const rest = trimmed.slice('/self-fix'.length).trim()
       if (!rest) {
-        console.error(chalk.red('Использование: /self-fix <name> [фокус]'))
+        console.error(theme.error('Использование: /self-fix <name> [фокус]'))
         continue
       }
       const sp = rest.indexOf(' ')
@@ -574,7 +574,7 @@ async function main() {
       const snapRoot = path.join(ZAMES_HOME, 'snapshots', name)
       const stat = await fs.stat(snapRoot).catch(() => null)
       if (!stat || !stat.isDirectory()) {
-        console.error(chalk.red(`Снапшот не найден: ${snapRoot}`))
+        console.error(theme.error(`Снапшот не найден: ${snapRoot}`))
         continue
       }
 
@@ -593,7 +593,7 @@ async function main() {
           workdir: snapRoot,
           tools,
         })
-        console.log(chalk.gray('Инициализирую review-чат для снапшота...'))
+        console.log(theme.system('Инициализирую review-чат для снапшота...'))
         await browser.ask(sysPrompt, { timeout: 60_000 })
 
         if (focus) {
@@ -611,7 +611,7 @@ async function main() {
             onThinking: () => ui.thinking(),
             onAssistantThought: (text) => {
               ui.stop()
-              console.log(chalk.gray('\n💭 ' + text.slice(0, 1200) + '\n'))
+              console.log(theme.system('\n💭 ' + text.slice(0, 1200) + '\n'))
             },
             onToolCall: (name, toolArgs) => ui.toolCall(name, toolArgs),
             onToolResult: (r) => ui.toolResult(r),
@@ -633,19 +633,19 @@ async function main() {
         await saveLastChat(currentChatId)
 
         console.log(
-          chalk.cyan(
+          theme.user(
             `\n💡 Режим ревью по снапшоту ${name}. Пиши агенту задачу или /self-done.\n`,
           ),
         )
       } catch (e) {
-        console.error(chalk.red('Не удалось войти в снапшот:'), e.message)
+        console.error(theme.error('Не удалось войти в снапшот:'), e.message)
       }
       continue
     }
 
     if (lower === '/self-done') {
       if (!reviewMode) {
-        console.log(chalk.gray('Ты и так не в режиме ревью.'))
+        console.log(theme.system('Ты и так не в режиме ревью.'))
         continue
       }
       const back = reviewMode.originalWorkdir
@@ -655,7 +655,7 @@ async function main() {
       freshChatNext = true
       sendSystemPromptNext = true
       console.log(
-        chalk.gray(`Вернулся в ${back}. Следующая задача начнёт новый чат.\n`),
+        theme.system(`Вернулся в ${back}. Следующая задача начнёт новый чат.\n`),
       )
       continue
     }
@@ -664,7 +664,7 @@ async function main() {
       try {
         await mod.selfList({ config })
       } catch (e) {
-        console.error(chalk.red('Ошибка:'), e.message)
+        console.error(theme.error('Ошибка:'), e.message)
       }
       continue
     }
@@ -672,13 +672,13 @@ async function main() {
     if (lower === '/self-diff' || lower.startsWith('/self-diff ')) {
       const name = trimmed.slice('/self-diff'.length).trim()
       if (!name) {
-        console.error(chalk.red('Использование: /self-diff <name>'))
+        console.error(theme.error('Использование: /self-diff <name>'))
         continue
       }
       try {
         await mod.selfDiff({ config, name })
       } catch (e) {
-        console.error(chalk.red('Ошибка:'), e.message)
+        console.error(theme.error('Ошибка:'), e.message)
       }
       continue
     }
@@ -686,13 +686,13 @@ async function main() {
     if (lower === '/self-apply' || lower.startsWith('/self-apply ')) {
       const name = trimmed.slice('/self-apply'.length).trim()
       if (!name) {
-        console.error(chalk.red('Использование: /self-apply <name>'))
+        console.error(theme.error('Использование: /self-apply <name>'))
         continue
       }
       try {
         await mod.selfApply({ config, name })
       } catch (e) {
-        console.error(chalk.red('Ошибка:'), e.message)
+        console.error(theme.error('Ошибка:'), e.message)
       }
       continue
     }
@@ -707,23 +707,23 @@ async function main() {
         spin.stop()
         if (!lastChats.length) {
           console.log(
-            chalk.gray(
+            theme.system(
               'Чатов не найдено. Возможно, сайдбар свёрнут или селекторы устарели.',
             ),
           )
         } else {
-          console.log(chalk.gray('Последние чаты DeepSeek:'))
+          console.log(theme.system('Последние чаты DeepSeek:'))
           lastChats.forEach((c, i) => {
             const n = String(i + 1).padStart(2, ' ')
             console.log(
-              `  ${chalk.cyan(n)}. ${c.title}  ${chalk.gray('(' + c.id.slice(0, 8) + '…)')}`,
+              `  ${theme.user(n)}. ${c.title}  ${theme.system('(' + c.id.slice(0, 8) + '…)')}`,
             )
           })
-          console.log(chalk.gray('\nИспользуй /resume <n> для продолжения.\n'))
+          console.log(theme.system('\nИспользуй /resume <n> для продолжения.\n'))
         }
       } catch (e) {
         spin.stop()
-        console.error(chalk.red('Не удалось получить список:'), e.message)
+        console.error(theme.error('Не удалось получить список:'), e.message)
       }
       continue
     }
@@ -732,26 +732,26 @@ async function main() {
       const arg = trimmed.slice(7).trim()
       if (!arg) {
         console.error(
-          chalk.red('Использование: /resume <n>  (или /chats для списка)'),
+          theme.error('Использование: /resume <n>  (или /chats для списка)'),
         )
         continue
       }
       const n = Number(arg)
       if (!Number.isFinite(n) || n < 1) {
-        console.error(chalk.red('Нужен номер из /chats.'))
+        console.error(theme.error('Нужен номер из /chats.'))
         continue
       }
       if (!lastChats.length) {
-        console.error(chalk.red('Сначала выполни /chats.'))
+        console.error(theme.error('Сначала выполни /chats.'))
         continue
       }
       const pick = lastChats[n - 1]
       if (!pick) {
-        console.error(chalk.red(`Нет чата №${n}. Всего: ${lastChats.length}.`))
+        console.error(theme.error(`Нет чата №${n}. Всего: ${lastChats.length}.`))
         continue
       }
 
-      console.log(chalk.gray(`Открываю: ${pick.title}`))
+      console.log(theme.system(`Открываю: ${pick.title}`))
       try {
         await browser.openChat(pick.id)
         currentChatId = pick.id
@@ -760,94 +760,94 @@ async function main() {
         await saveLastChat(pick.id)
         transcript.log('resume_chat', { id: pick.id, title: pick.title })
         console.log(
-          chalk.green(`Чат открыт.`) +
-            chalk.gray(
+          theme.assistant(`Чат открыт.`) +
+            theme.system(
               resendPrompt ? ' Системный промпт будет переслан на следующей задаче.\n' : ' Контекст чата сохранён. Системный промпт не пересылается (--resend-prompt чтобы дослать).\n',
             ),
         )
       } catch (e) {
-        console.error(chalk.red('Не удалось открыть чат:'), e.message)
+        console.error(theme.error('Не удалось открыть чат:'), e.message)
       }
       continue
     }
 
     if (lower === '/chat') {
       if (currentChatId) {
-        console.log(chalk.gray(`Текущий chat id: ${currentChatId}`))
+        console.log(theme.system(`Текущий chat id: ${currentChatId}`))
         console.log(
-          chalk.gray(
+          theme.system(
             `URL: https://chat.deepseek.com/a/chat/s/${currentChatId}`,
           ),
         )
       } else {
         const id = await browser.getCurrentChatId()
         console.log(
-          chalk.gray(id ? `Текущий chat id: ${id}` : 'Чат ещё не создан.'),
+          theme.system(id ? `Текущий chat id: ${id}` : 'Чат ещё не создан.'),
         )
       }
       continue
     }
 
     if (lower === '/pwd') {
-      console.log(chalk.gray(currentWorkdir))
+      console.log(theme.system(currentWorkdir))
       continue
     }
 
     if (lower === '/reload') {
-      console.log(chalk.gray('Перечитываю модули логики...'))
+      console.log(theme.system('Перечитываю модули логики...'))
       try {
         const { count, errors } = await reloadModules()
         if (errors.length) {
-          console.error(chalk.red('Часть модулей не перезагрузилась:'))
-          for (const e of errors) console.error(chalk.red('  ' + e))
+          console.error(theme.error('Часть модулей не перезагрузилась:'))
+          for (const e of errors) console.error(theme.error('  ' + e))
         } else {
           console.log(
-            chalk.green(
+            theme.assistant(
               `Перезагружено модулей: ${count}. Браузер и чат не тронуты.`,
             ),
           )
         }
       } catch (e) {
-        console.error(chalk.red('Ошибка reload:'), e.message)
+        console.error(theme.error('Ошибка reload:'), e.message)
       }
       continue
     }
 
     if (lower === '/status') {
-      console.log(chalk.gray(`Рабочая директория: ${currentWorkdir}`))
+      console.log(theme.system(`Рабочая директория: ${currentWorkdir}`))
       console.log(
-        chalk.gray(`Режим ревью: ${reviewMode ? reviewMode.snapName : 'нет'}`),
+        theme.system(`Режим ревью: ${reviewMode ? reviewMode.snapName : 'нет'}`),
       )
       if (reviewMode) {
         console.log(
-          chalk.gray(`Исходная директория: ${reviewMode.originalWorkdir}`),
+          theme.system(`Исходная директория: ${reviewMode.originalWorkdir}`),
         )
       }
-      console.log(chalk.gray(`Текущий чат: ${currentChatId || '(нет)'}`))
+      console.log(theme.system(`Текущий чат: ${currentChatId || '(нет)'}`))
       console.log(
-        chalk.gray(
+        theme.system(
           `Fresh chat на след. задаче: ${freshChatNext ? 'да' : 'нет'}`,
         ),
       )
       console.log(
-        chalk.gray(
+        theme.system(
           `System prompt на след. задаче: ${sendSystemPromptNext ? 'да' : 'нет'}`,
         ),
       )
       console.log(
-        chalk.gray(`Resend prompt (--resend-prompt): ${resendPrompt ? 'да' : 'нет'}`),
+        theme.system(`Resend prompt (--resend-prompt): ${resendPrompt ? 'да' : 'нет'}`),
       )
       console.log(
-        chalk.gray(`Last chat: ${(await loadLastChat()) || 'нет'}`),
+        theme.system(`Last chat: ${(await loadLastChat()) || 'нет'}`),
       )
       console.log(
-        chalk.gray(`Dev mode (auto-reload): ${devMode ? 'вкл' : 'выкл'}`),
+        theme.system(`Dev mode (auto-reload): ${devMode ? 'вкл' : 'выкл'}`),
       )
-      console.log(chalk.gray(`Лимит итераций: ${maxIter}`))
-      console.log(chalk.gray(`Headless: ${headless ? 'да' : 'нет'}`))
-      console.log(chalk.gray(`Debug: ${debug ? 'да' : 'нет'}`))
-      console.log(chalk.gray(`Undo: ${config.undo.enabled ? 'вкл' : 'выкл'}`))
-      console.log(chalk.gray(`Транскрипт: ${transcript.file || 'выкл'}`))
+      console.log(theme.system(`Лимит итераций: ${maxIter}`))
+      console.log(theme.system(`Headless: ${headless ? 'да' : 'нет'}`))
+      console.log(theme.system(`Debug: ${debug ? 'да' : 'нет'}`))
+      console.log(theme.system(`Undo: ${config.undo.enabled ? 'вкл' : 'выкл'}`))
+      console.log(theme.system(`Транскрипт: ${transcript.file || 'выкл'}`))
       continue
     }
 
@@ -857,7 +857,7 @@ async function main() {
     }
 
     if (lower === '/transcript') {
-      console.log(chalk.gray(transcript.file || '(выключен)'))
+      console.log(theme.system(transcript.file || '(выключен)'))
       continue
     }
 
@@ -865,14 +865,14 @@ async function main() {
       const result = await undo.undoLast()
       if (result.ok) {
         console.log(
-          chalk.green(`↶ Откатили: ${result.record.originalPath}`) +
-            chalk.gray(
+          theme.assistant(`↶ Откатили: ${result.record.originalPath}`) +
+            theme.system(
               result.record.existed ? ' (восстановлено)' : ' (удалено)',
             ),
         )
         transcript.log('undo', { path: result.record.originalPath })
       } else {
-        console.error(chalk.red(`Не удалось откатить: ${result.reason}`))
+        console.error(theme.error(`Не удалось откатить: ${result.reason}`))
       }
       continue
     }
@@ -880,12 +880,12 @@ async function main() {
     if (lower === '/undo-list' || lower === '/history') {
       const list = await undo.list(10)
       if (!list.length) {
-        console.log(chalk.gray('История пуста.'))
+        console.log(theme.system('История пуста.'))
       } else {
         for (const r of list) {
           const stamp = new Date(r.stamp).toLocaleString()
           const flag = r.existed ? 'изменён' : 'создан'
-          console.log(chalk.gray(`${stamp}  [${flag}]  ${r.originalPath}`))
+          console.log(theme.system(`${stamp}  [${flag}]  ${r.originalPath}`))
         }
       }
       continue
@@ -896,11 +896,11 @@ async function main() {
       const file = path.join(config.transcript.dir, `dom-${stamp}.html`)
       try {
         const result = await browser.dumpDom(file)
-        console.log(chalk.green(`HTML сохранён: ${result.file}`))
-        console.log(chalk.gray('Селекторы:'))
+        console.log(theme.assistant(`HTML сохранён: ${result.file}`))
+        console.log(theme.system('Селекторы:'))
         console.log(JSON.stringify(result.selectors, null, 2))
       } catch (e) {
-        console.error(chalk.red('Не удалось сохранить DOM:'), e.message)
+        console.error(theme.error('Не удалось сохранить DOM:'), e.message)
       }
       continue
     }
@@ -913,34 +913,34 @@ async function main() {
           : sandboxRoot
         const rel = path.relative(sandboxRoot, newDir)
         if (rel.startsWith('..') || path.isAbsolute(rel)) {
-          console.error(chalk.red('Нельзя выйти за пределы: ' + sandboxRoot))
+          console.error(theme.error('Нельзя выйти за пределы: ' + sandboxRoot))
           continue
         }
         const stat = await fs.stat(newDir).catch(() => null)
         if (!stat || !stat.isDirectory()) {
-          console.error(chalk.red('Не директория: ' + newDir))
+          console.error(theme.error('Не директория: ' + newDir))
           continue
         }
         if (newDir === currentWorkdir) {
-          console.log(chalk.gray('Уже здесь.'))
+          console.log(theme.system('Уже здесь.'))
           continue
         }
         if (reviewMode) {
-          console.log(chalk.gray('Вышел из режима ревью (/cd).'))
+          console.log(theme.system('Вышел из режима ревью (/cd).'))
           reviewMode = null
         }
         currentWorkdir = newDir
         freshChatNext = true
         sendSystemPromptNext = true
-        console.log(chalk.gray('Рабочая директория: ' + newDir))
+        console.log(theme.system('Рабочая директория: ' + newDir))
       } catch (e) {
-        console.error(chalk.red('Не удалось перейти: ' + e.message))
+        console.error(theme.error('Не удалось перейти: ' + e.message))
       }
       continue
     }
 
     if (lower.startsWith('/')) {
-      console.error(chalk.red(`Неизвестная команда: ${trimmed}. Набери /help.`))
+      console.error(theme.error(`Неизвестная команда: ${trimmed}. Набери /help.`))
       continue
     }
 
@@ -972,7 +972,7 @@ async function main() {
 }
 
 main().catch((e) => {
-  console.error(chalk.red('Критическая ошибка:'), e.message)
+  console.error(theme.error('Критическая ошибка:'), e.message)
   if (debug) console.error(e.stack)
   process.exit(1)
 })
