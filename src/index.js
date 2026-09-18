@@ -95,6 +95,72 @@ async function loadLastChat() {
 }
 
 
+// ---------- hot reload ----------
+// Держим ссылки на модули логики в объекте mod. Команда /reload перечитывает
+// их через динамический import с timestamp-query — Node кэширует ESM по URL,
+// поэтому такой import вернёт свежую версию модуля. Браузер, чат и текущее
+// состояние НЕ перезапускаются: обновляется только логика.
+const RELOADABLE = [
+  './tools.js',
+  './agent-loop.js',
+  './system-prompt.js',
+  './gitTools.js',
+  './web.js',
+  './self-review.js',
+  './diff.js',
+  './undo.js',
+  './confirm.js',
+  './transcript.js',
+  './spinner.js',
+  './config.js',
+]
+
+const mod = {
+  createTools,
+  runAgentLoop,
+  buildSystemPrompt: null, // подгрузим ниже
+  selfReview,
+  selfDiff,
+  selfApply,
+  selfList,
+  closeWeb,
+  createSpinner,
+}
+
+async function reloadModules() {
+  const stamp = Date.now()
+  const loaded = new Map()
+  const errors = []
+  for (const rel of RELOADABLE) {
+    try {
+      const url = new URL(rel, import.meta.url)
+      url.searchParams.set('t', String(stamp))
+      const m = await import(url.href)
+      loaded.set(rel, m)
+    } catch (e) {
+      errors.push(`${rel}: ${e.message}`)
+    }
+  }
+
+  const pick = (rel, name) => loaded.get(rel)?.[name]
+
+  if (pick('./tools.js', 'createTools')) mod.createTools = pick('./tools.js', 'createTools')
+  if (pick('./agent-loop.js', 'runAgentLoop')) mod.runAgentLoop = pick('./agent-loop.js', 'runAgentLoop')
+  if (pick('./system-prompt.js', 'buildSystemPrompt')) mod.buildSystemPrompt = pick('./system-prompt.js', 'buildSystemPrompt')
+  if (pick('./self-review.js', 'selfReview')) mod.selfReview = pick('./self-review.js', 'selfReview')
+  if (pick('./self-review.js', 'selfDiff')) mod.selfDiff = pick('./self-review.js', 'selfDiff')
+  if (pick('./self-review.js', 'selfApply')) mod.selfApply = pick('./self-review.js', 'selfApply')
+  if (pick('./self-review.js', 'selfList')) mod.selfList = pick('./self-review.js', 'selfList')
+  if (pick('./web.js', 'closeWeb')) mod.closeWeb = pick('./web.js', 'closeWeb')
+  if (pick('./spinner.js', 'createSpinner')) mod.createSpinner = pick('./spinner.js', 'createSpinner')
+
+  return { count: loaded.size, errors }
+}
+
+// Первичная загрузка, чтобы mod.buildSystemPrompt и остальные были заполнены.
+await reloadModules()
+
+
 // ---------- helpers ----------
 
 function printHelp() {
@@ -121,6 +187,7 @@ ${chalk.bold('Обычные команды:')}
   /cd <path>               сменить рабочую директорию
   /pwd                     текущая директория
   /status                  состояние сессии
+  /reload                  перечитать модули логики без перезапуска
   /undo                    откатить последнюю запись/правку
   /undo-list               список того, что можно откатить
   /transcript              путь к файлу транскрипта
@@ -190,14 +257,14 @@ async function resolveWorkdir() {
 async function runTask(browser, tools, taskText, workdir, opts) {
   const { transcript, freshChat, sendSystemPrompt } = opts
 
-  const ui = createSpinner()
+  const ui = mod.createSpinner()
   ui.taskHeader(taskText)
   ui.thinking()
 
   let finished = false
 
   try {
-    await runAgentLoop({
+    await mod.runAgentLoop({
       browser,
       tools,
       task: taskText,
@@ -269,7 +336,7 @@ async function main() {
     ...config.browser,
   })
 
-  const bootSpinner = createSpinner()
+  const bootSpinner = mod.createSpinner()
   bootSpinner.thinking()
 
   try {
@@ -287,7 +354,7 @@ async function main() {
 
   // Разовый режим
   if (task) {
-    const tools = createTools(currentWorkdir, { undo })
+    const tools = mod.createTools(currentWorkdir, { undo })
 
     let freshChat = true
     let sendSystemPrompt = true
@@ -316,7 +383,7 @@ async function main() {
       sendSystemPrompt,
     })
     await browser.close()
-    await closeWeb().catch(() => {})
+    await mod.closeWeb().catch(() => {})
     transcript.close()
     return
   }
@@ -344,7 +411,7 @@ async function main() {
     await browser.close().catch(() => {})
     // Закрываем ленивый headless-браузер из web.js, иначе он останется
     // висеть отдельным процессом после выхода агента.
-    await closeWeb().catch(() => {})
+    await mod.closeWeb().catch(() => {})
     transcript.close()
     console.log(chalk.gray('\nВыход.'))
     process.exit(0)
@@ -425,7 +492,7 @@ async function main() {
         : currentWorkdir
 
       try {
-        const result = await selfReview({
+        const result = await mod.selfReview({
           browser,
           config,
           focus: focus || null,
@@ -490,10 +557,10 @@ async function main() {
       try {
         const { runAgentLoop: ral } = await import('./agent-loop.js')
         const { buildSystemPrompt } = await import('./system-prompt.js')
-        const tools = createTools(snapRoot, { undo: null })
+        const tools = mod.createTools(snapRoot, { undo: null })
 
         await browser.newChat()
-        const sysPrompt = buildSystemPrompt({
+        const sysPrompt = mod.buildSystemPrompt({
           workdir: snapRoot,
           tools,
         })
@@ -501,7 +568,7 @@ async function main() {
         await browser.ask(sysPrompt, { timeout: 60_000 })
 
         if (focus) {
-          const ui = createSpinner()
+          const ui = mod.createSpinner()
           ui.thinking()
           await ral({
             browser,
@@ -566,7 +633,7 @@ async function main() {
 
     if (lower === '/self-list') {
       try {
-        await selfList({ config })
+        await mod.selfList({ config })
       } catch (e) {
         console.error(chalk.red('Ошибка:'), e.message)
       }
@@ -580,7 +647,7 @@ async function main() {
         continue
       }
       try {
-        await selfDiff({ config, name })
+        await mod.selfDiff({ config, name })
       } catch (e) {
         console.error(chalk.red('Ошибка:'), e.message)
       }
@@ -594,7 +661,7 @@ async function main() {
         continue
       }
       try {
-        await selfApply({ config, name })
+        await mod.selfApply({ config, name })
       } catch (e) {
         console.error(chalk.red('Ошибка:'), e.message)
       }
@@ -604,7 +671,7 @@ async function main() {
     // ---------- Обычные команды ----------
 
     if (lower === '/chats') {
-      const spin = createSpinner()
+      const spin = mod.createSpinner()
       spin.thinking()
       try {
         lastChats = await browser.listChats(30)
@@ -694,6 +761,26 @@ async function main() {
 
     if (lower === '/pwd') {
       console.log(chalk.gray(currentWorkdir))
+      continue
+    }
+
+    if (lower === '/reload') {
+      console.log(chalk.gray('Перечитываю модули логики...'))
+      try {
+        const { count, errors } = await reloadModules()
+        if (errors.length) {
+          console.error(chalk.red('Часть модулей не перезагрузилась:'))
+          for (const e of errors) console.error(chalk.red('  ' + e))
+        } else {
+          console.log(
+            chalk.green(
+              `Перезагружено модулей: ${count}. Браузер и чат не тронуты.`,
+            ),
+          )
+        }
+      } catch (e) {
+        console.error(chalk.red('Ошибка reload:'), e.message)
+      }
       continue
     }
 
@@ -829,7 +916,7 @@ async function main() {
 
     transcript.log('user_task', { task: trimmed, workdir: currentWorkdir })
 
-    const tools = createTools(currentWorkdir, { undo })
+    const tools = mod.createTools(currentWorkdir, { undo })
     await runTask(browser, tools, trimmed, currentWorkdir, {
       transcript,
       freshChat: freshChatNext,
@@ -845,7 +932,7 @@ async function main() {
   }
 
   await browser.close().catch(() => {})
-  await closeWeb().catch(() => {})
+  await mod.closeWeb().catch(() => {})
   transcript.close()
 }
 
