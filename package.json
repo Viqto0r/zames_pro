@@ -9,7 +9,8 @@
   "files": [
     "src",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "logo.png"
   ],
   "scripts": {
     "start": "node ./src/index.js"
