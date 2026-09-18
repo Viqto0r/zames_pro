@@ -1,5 +1,6 @@
 import ora from 'ora'
 import { theme } from './theme.js'
+import { renderMarkdown } from './markdown.js'
 
 export function createSpinner() {
   let spinner = null
@@ -31,11 +32,13 @@ export function createSpinner() {
 
     assistant: (msg) => {
       stop()
-      console.log(theme.assistant(String.fromCharCode(10) + '✅ ' + msg) + String.fromCharCode(10))
-    },
-
-    taskHeader: (task) => {
-      console.log(theme.bold(theme.user(String.fromCharCode(10) + '🎯 Задача: ' + task + String.fromCharCode(10))))
+      const NL = String.fromCharCode(10)
+      const rendered = renderMarkdown(msg)
+      // Маркер ответа модели: помогает визуально отделить его от ввода
+      // пользователя (который подсвечен приглашением с золотой стрелкой).
+      console.log(NL + theme.assistant('● Ответ') + NL)
+      console.log(rendered)
+      console.log(theme.dim('─'.repeat(60)) + NL)
     },
 
     stop,

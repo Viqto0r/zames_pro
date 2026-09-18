@@ -6,3 +6,5 @@ projects
 *.bak2
 *.bak3
 bad.txt
+tmp/
+

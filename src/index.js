@@ -61,8 +61,10 @@ const chatIdArg = getArg('--chat', null)
 // заставляет дослать его заново — например, если промпт обновился.
 const resendPrompt = hasFlag('--resend-prompt')
 // --new-chat: намеренно начать с чистого чата, игнорируя сохранённый
-// last-chat (полезно в watch-режиме, где по умолчанию чат восстанавливается).
-const newChatFlag = hasFlag('--new-chat')
+// --resume-last: при старте вернуться в последний сохранённый чат.
+// По умолчанию НЕ восстанавливаем — открывается новый чат.
+// (Флаг --new-chat сохранён для совместимости и ничего не меняет.)
+const resumeLastFlag = hasFlag('--resume-last')
 
 // ---------- last chat persistence ----------
 // Запоминаем последний открытый chat id, чтобы после перезапуска процесса
@@ -188,7 +190,8 @@ ${theme.bold('Опции CLI:')}
   --dir <path>       рабочая директория агента
   --task <text>      задача одной строкой
   --chat <id>        продолжить существующий чат по id
-  --new-chat         начать новый чат (игнорировать сохранённый)
+  --resume-last      вернуться в последний сохранённый чат
+  --new-chat         начать новый чат (по умолчанию и так новый)
   --resend-prompt    дослать system-prompt в существующий чат
   --max-iter <n>     лимит итераций (по умолчанию ${config.maxIterations})
   --headless         браузер без UI
@@ -230,6 +233,7 @@ ${theme.bold('Файлы:')}
   Undo:        ~/.zames/undo
   Профиль:     ~/.zames/profile
   Снапшоты:    ~/.zames/snapshots
+  Временные:   <проект>/tmp (в .gitignore, чистится при запуске)
   Конфиг:      ${CONFIG_PATHS.HOME_CONFIG}
                ${CONFIG_PATHS.PROJECT_CONFIG}
 `)
@@ -237,6 +241,19 @@ ${theme.bold('Файлы:')}
 
 function dirLabel(p) {
   return path.basename(p) || p
+}
+
+// Временные файлы агента (одноразовые скрипты и т.п.) складываем в
+// <проект>/tmp — эта папка в .gitignore и очищается при каждом запуске.
+const TMP_DIR = path.join(__dirname, '..', 'tmp')
+
+async function cleanTmpDir() {
+  try {
+    await fs.rm(TMP_DIR, { recursive: true, force: true })
+    await fs.mkdir(TMP_DIR, { recursive: true })
+  } catch (e) {
+    if (debug) console.error('tmp: не удалось очистить:', e.message)
+  }
 }
 
 async function promptOnce(question) {
@@ -297,7 +314,6 @@ async function runTask(browser, tools, taskText, workdir, opts) {
   const { transcript, freshChat, sendSystemPrompt } = opts
 
   const ui = mod.createSpinner()
-  ui.taskHeader(taskText)
   ui.thinking()
 
   // Esc во время работы — прервать генерацию.
@@ -359,6 +375,8 @@ async function main() {
     console.log(theme.warn('\n🔧 Режим калибровки селекторов\n'))
   }
 
+  await cleanTmpDir()
+
   let currentWorkdir
   try {
     currentWorkdir = await resolveWorkdir()
@@ -415,9 +433,11 @@ async function main() {
     let freshChat = true
     let sendSystemPrompt = true
 
-    // Приоритет: явный --chat, иначе сохранённый last-chat (если не --new-chat).
+    // По умолчанию — новый чат. Продолжить прошлый можно явно:
+    //   --chat <id>     открыть конкретный чат
+    //   --resume-last   вернуться в последний сохранённый чат
     let resumeId = chatIdArg
-    if (!resumeId && !newChatFlag) {
+    if (!resumeId && resumeLastFlag) {
       resumeId = await loadLastChat()
       if (resumeId) console.log(theme.system(`Восстанавливаю чат ${resumeId}...`))
     }
@@ -475,10 +495,13 @@ async function main() {
     process.exit(0)
   })
 
-  // Приоритет: явный --chat, иначе сохранённый last-chat (если не --new-chat).
+  // По умолчанию — новый чат. Продолжить прошлый можно явно:
+  //   --chat <id>     открыть конкретный чат
+  //   --resume-last   вернуться в последний сохранённый чат
   let resumeId = chatIdArg
-  if (!resumeId && !newChatFlag) {
+  if (!resumeId && resumeLastFlag) {
     resumeId = await loadLastChat()
+    if (resumeId) console.log(theme.system(`Восстанавливаю чат ${resumeId}...`))
   }
 
   if (resumeId) {
@@ -498,15 +521,15 @@ async function main() {
   while (running) {
     let input
     try {
-      let label
+      // Компактное приглашение: золотая стрелка + светло-голубая директория.
+      let tail
       if (reviewMode) {
-        label = `zames[REVIEW:${reviewMode.snapName}]> `
-      } else if (currentChatId) {
-        label = `zames[${dirLabel(currentWorkdir)}|${currentChatId.slice(0, 6)}]> `
+        tail =
+          theme.warn('REVIEW') + theme.dim(':') + theme.dir(reviewMode.snapName)
       } else {
-        label = `zames[${dirLabel(currentWorkdir)}]> `
+        tail = theme.dir(dirLabel(currentWorkdir))
       }
-      input = await promptOnce(theme.user(label))
+      input = await promptOnce(theme.prompt('❯ ') + tail + theme.dim(' › '))
     } catch {
       break
     }

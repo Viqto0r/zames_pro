@@ -241,7 +241,60 @@ export class DeepSeekBrowser {
         if (c.parentNode) c.parentNode.replaceChild(replacement, c)
       })
 
-      return clone.textContent || ''
+      // textContent склеивает блоки без переводов строк, из-за чего
+      // Markdown-рендер получает одну длинную строку. Обходим DOM сами и
+      // расставляем переводы строк / маркеры Markdown по блочным элементам.
+      const NL = String.fromCharCode(10)
+      const BULLET = String.fromCharCode(45) + ' ' // '- '
+
+      function domToMarkdown(node) {
+        if (node.nodeType === 3) return node.textContent || ''
+        if (node.nodeType !== 1) return ''
+        const tag = node.tagName.toLowerCase()
+
+        if (tag === 'br') return NL
+
+        const inner = Array.from(node.childNodes)
+          .map(domToMarkdown)
+          .join('')
+
+        const STAR = String.fromCharCode(42) // '*'
+        if (tag === 'strong' || tag === 'b') return STAR + STAR + inner + STAR + STAR
+        if (tag === 'em' || tag === 'i') return STAR + inner + STAR
+        if (tag === 'del' || tag === 's') return '~~' + inner + '~~'
+        if (tag === 'a') {
+          const href = node.getAttribute('href') || ''
+          return href ? '[' + inner + '](' + href + ')' : inner
+        }
+        if (/^h[1-6]$/.test(tag)) {
+          const level = Number(tag[1])
+          const hashes = '#'.repeat(level)
+          return NL + NL + hashes + ' ' + inner.trim() + NL + NL
+        }
+        if (tag === 'li') {
+          const text = inner.trim().replace(new RegExp(NL + '+', 'g'), ' ')
+          return BULLET + text + NL
+        }
+        if (tag === 'ul' || tag === 'ol' || tag === 'blockquote') {
+          return NL + inner + NL
+        }
+        if (
+          tag === 'p' ||
+          tag === 'div' ||
+          tag === 'section' ||
+          tag === 'article' ||
+          tag === 'tr' ||
+          tag === 'table'
+        ) {
+          const text = inner.trim()
+          return text ? NL + NL + text : ''
+        }
+        return inner
+      }
+
+      const out = domToMarkdown(clone)
+      // Схлопываем тройные+ переводы строк до двойных (разделитель блоков).
+      return out.replace(new RegExp(NL + '{3,}', 'g'), NL + NL).trim()
     }, ANSWER_SELECTORS)
   }
 
@@ -306,6 +359,65 @@ export class DeepSeekBrowser {
     )
   }
 
+  // Вставка текста в поле ввода.
+  //
+  // fill()/insertText() ломаются на многострочном тексте в contenteditable-
+  // редакторах (ProseMirror/Lexical/...): символ перевода строки там
+  // трактуется как Enter, и в поле остаётся только первая строка. Поэтому
+  // для contenteditable и [role=textbox] эмулируем paste-событие с полным
+  // текстом — то же, что делает Shift+Insert. Для нативных textarea/input
+  // перевод строки работает и так.
+  async _setInputText(input, text) {
+    const tag = await input.evaluate((el) => el.tagName.toLowerCase())
+    const isNative = tag === 'textarea' || tag === 'input'
+
+    if (isNative) {
+      try {
+        await input.fill(text, { timeout: 5000 })
+        return
+      } catch {}
+    }
+
+    await input.click()
+    // Выделяем всё содержимое, чтобы вставка заменила его целиком.
+    await this.page.keyboard.press('Control+A')
+    await this.page.keyboard.press('Delete')
+
+    const ok = await input.evaluate((el, value) => {
+      el.focus()
+      const dt = new DataTransfer()
+      dt.setData('text/plain', value)
+      const ev = new ClipboardEvent('paste', {
+        clipboardData: dt,
+        bubbles: true,
+        cancelable: true,
+      })
+      el.dispatchEvent(ev)
+      // Если обработчик не отменил вставку и поле осталось пустым —
+      // пробуем через insertText вручную (fallback ниже).
+      return true
+    }, text)
+
+    if (!ok) {
+      await this.page.keyboard.insertText(text)
+    }
+
+    // Проверяем, что текст реально попал в поле. Если редактор проигнорировал
+    // paste — падаем на insertText.
+    const got = await input.evaluate((el) => {
+      if (el.tagName.toLowerCase() === 'textarea' || el.tagName.toLowerCase() === 'input') {
+        return el.value
+      }
+      return el.innerText || el.textContent || ''
+    })
+    const norm = (s) =>
+      (s || '').replace(/\r\n/g, '\n').replace(/\u00a0/g, ' ').trim()
+    if (!norm(got)) {
+      await input.click()
+      await this.page.keyboard.insertText(text)
+    }
+  }
+
   async _askOnce(prompt, { timeout }) {
     const input = await this._findVisible(INPUT_SELECTORS, 10_000)
     if (!input) {
@@ -316,14 +428,7 @@ export class DeepSeekBrowser {
 
     const beforeText = await this._readLastAnswerTextClean().catch(() => '')
 
-    await input.click()
-    try {
-      await input.fill(prompt, { timeout: 5000 })
-    } catch {
-      // contenteditable / [role=textbox] не поддерживает fill() — печатаем
-      // текст в уже сфокусированное поле, не задевая раскладку.
-      await this.page.keyboard.insertText(prompt)
-    }
+    await this._setInputText(input, prompt)
     await this.page.waitForTimeout(200)
 
     const sendBtn = this.page
