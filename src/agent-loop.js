@@ -15,6 +15,7 @@ export async function runAgentLoop({
   onToolCall = () => {},
   onToolResult = () => {},
   onAssistantMessage = () => {},
+  debugLog = false,
 }) {
   if (freshChat) {
     await browser.newChat()
@@ -60,8 +61,11 @@ export async function runAgentLoop({
 
     const parsedCalls = Array.isArray(parsed) ? parsed : parsed ? [parsed] : []
     if (parsedCalls.some((p) => p && p._permissive)) {
+      // Пишем в транскрипт (для отладки), но не сыпем в консоль.
       transcript?.log('permissive_parse', { response: rawResponse })
-      console.error('внимание: tool-call распознан нестрогим парсером')
+      if (debugLog) {
+        console.error('внимание: tool-call распознан нестрогим парсером')
+      }
     }
 
     if (!parsed) {

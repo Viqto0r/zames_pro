@@ -299,6 +299,7 @@ async function runTask(browser, tools, taskText, workdir, opts) {
         ui.assistant(msg)
         finished = true
       },
+      debugLog: debug,
     })
   } catch (e) {
     ui.stop()
