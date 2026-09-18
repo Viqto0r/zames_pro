@@ -2,69 +2,54 @@
 
 ![zames logo](https://raw.githubusercontent.com/Viqto0r/zames_pro/master/logo.png)
 
-Terminal coding agent, работающий поверх chat.deepseek.com через Playwright.
-По духу похож на Claude Code / Codex CLI: запускается в текущей директории, читает и правит файлы, запускает команды, коммитит в git.
+A terminal coding agent that works on top of [chat.deepseek.com](https://chat.deepseek.com/) through Playwright.
+In spirit it is similar to Claude Code / Codex CLI: it starts in the current
+directory, reads and edits files, runs commands, and commits to git.
 
-## Требования
+## Requirements
 
 - Node.js >= 18
-- Google Chrome или Chromium (используется через Playwright)
-- Аккаунт DeepSeek (вход выполняется вручную в открывшемся браузере при первом запуске)
+- Google Chrome or Chromium (used through Playwright)
+- A DeepSeek account (you log in manually in the browser window that opens on first launch)
 
-## Установка
+## Installation
 
-`bash
+```bash
 npm install -g zames_pro
 npx playwright install chromium
-`
+```
 
-## Запуск
+## Usage
 
-Перейди в папку проекта и запусти:
+Go to your project folder and run:
 
-`bash
+```bash
 zames
-`
+```
 
-Агент работает в директории запуска и не может выходить за её пределы (sandbox).
+The agent works inside the directory it was started in and cannot leave it (sandbox).
 
-### Опции
+### Options
 
 ```
-zames --task <текст задачи>
+zames --task <task text>
 zames --chat <id>
 zames --new-chat
 zames --resend-prompt
-zames --dir <путь>
+zames --dir <path>
 zames --headless
 zames --debug
-zames --dev
 zames --version
 zames --help
 ```
 
-## Конфигурация
+## Configuration
 
-Глобальный конфиг: `~/.zames/config.json`
-Локальный (в проекте): `.zamesrc.json`
+Global config: `~/.zames/config.json`
+Local (per project): `.zamesrc.json`
 
-Данные агента хранятся в `~/.zames`: профиль браузера, логи, история undo, снапшоты self-review.
+Agent data is stored in `~/.zames`: browser profile, logs, undo history, self-review snapshots.
 
-## Разработка
-
-Для работы над самим агентом используй dev-режим:
-
-`bash
-npm run dev
-`
-
-В этом режиме агент перед каждой задачей автоматически перечитывает модули логики (tools, agent-loop, system-prompt и др.) с диска — правки подхватываются без перезапуска браузера и без потери контекста чата. В обычном режиме (zames, npm start) авто-перечитывание выключено.
-
-Служебные команды:
-- /reload — принудительно перечитать модули логики
-- /self-review — снять снапшот src/ и запустить самообзор
-- /status — состояние сессии
-
-## Лицензия и авторство
+## License
 
 MIT
