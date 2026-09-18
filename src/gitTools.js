@@ -39,6 +39,17 @@ function runGit(cmd, cwd, timeout = 15_000) {
   })
 }
 
+// Безопасно квотит пути/аргументы для передачи в shell.
+// Строка или массив -> строка с двойными кавычками и экранированием.
+function quoteArgs(input) {
+  const list = Array.isArray(input) ? input : [input]
+  return list
+    .map((v) => String(v).trim())
+    .filter(Boolean)
+    .map((v) => JSON.stringify(v))
+    .join(' ')
+}
+
 // Проверяет, является ли директория git-репозиторием, и собирает контекст.
 export async function getGitContext(workdir) {
   const probe = await runGit(
@@ -174,7 +185,9 @@ export function createGitTools(workdir) {
         const err = await ensureRepo()
         if (err) return err
         return runGit(
-          paths ? `git add ${paths}` : 'git add -A',
+          paths && String(paths).trim()
+            ? 'git add -- ' + quoteArgs(paths)
+            : 'git add -A',
           workdir,
           20_000,
         )
@@ -194,7 +207,12 @@ export function createGitTools(workdir) {
           return 'Ошибка: message пустой.'
         }
 
-        const addResult = await runGit('git add -A', workdir, 20_000)
+        // Индексируем всё только если в индексе пусто (как обещает описание).
+        const staged = await runGit('git diff --cached --name-only', workdir, 10_000)
+        const hasStaged = !/^\s*$/.test(staged) && staged.trim() !== '(команда выполнена, вывода нет)'
+        const addResult = hasStaged
+          ? '(индекс уже не пуст — add -A пропущен)'
+          : await runGit('git add -A', workdir, 20_000)
 
         const fs = await import('fs/promises')
         const path = await import('path')
@@ -230,7 +248,8 @@ export function createGitTools(workdir) {
         if (!b) return 'Ошибка: не удалось определить ветку для push.'
 
         const flag = setUpstream ? '-u ' : ''
-        return runGit(`git push ${flag}origin ${b}`, workdir, 120_000)
+        const target = quoteArgs(b)
+        return runGit(`git push ${flag}origin ${target}`, workdir, 120_000)
       },
     },
   ]

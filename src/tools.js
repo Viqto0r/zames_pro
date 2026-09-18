@@ -157,7 +157,10 @@ export function createTools(workdir, { undo } = {}) {
         const target = searchPath ? safe(searchPath) : workdir
         if (process.platform === 'win32') {
           const escaped = pattern.replace(/"/g, '\\"')
-          return runShell(`findstr /s /n /r /c:"${escaped}" *`)
+          const scope = searchPath
+            ? '"' + target + '\\*'
+            : '*'
+          return runShell(`findstr /s /n /r /c:"${escaped}" ` + scope)
         }
         return runShell(
           `grep -rn -E ${JSON.stringify(pattern)} ${JSON.stringify(target)} || true`,

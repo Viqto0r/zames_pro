@@ -58,6 +58,12 @@ export async function runAgentLoop({
       if (thought) onAssistantThought(thought)
     }
 
+    const parsedCalls = Array.isArray(parsed) ? parsed : parsed ? [parsed] : []
+    if (parsedCalls.some((p) => p && p._permissive)) {
+      transcript?.log('permissive_parse', { response: rawResponse })
+      console.error('внимание: tool-call распознан нестрогим парсером')
+    }
+
     if (!parsed) {
       onAssistantMessage(rawResponse)
       transcript?.log('assistant_final', { message: rawResponse })
@@ -395,7 +401,7 @@ function parseToolCall(text) {
   }
 
   const permissive = parseToolCallPermissive(cleaned)
-  if (permissive) return permissive
+  if (permissive) return { ...permissive, _permissive: true }
 
   return null
 }

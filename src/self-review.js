@@ -27,17 +27,6 @@ async function copyDirJsFiles(from, to) {
   return copied
 }
 
-async function readAllSrc() {
-  const entries = await fs.readdir(SRC_DIR)
-  const result = []
-  for (const e of entries) {
-    if (!e.endsWith('.js')) continue
-    if (e === 'self-review.js') continue // не копируем самого себя
-    const data = await fs.readFile(path.join(SRC_DIR, e), 'utf-8')
-    result.push({ name: e, content: data })
-  }
-  return result
-}
 
 // ---------- /self-review ----------
 
