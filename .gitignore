@@ -2,3 +2,7 @@ node_modules
 .zames
 projects
 *.log
+*.bak
+*.bak2
+*.bak3
+bad.txt
