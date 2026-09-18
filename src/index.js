@@ -60,6 +60,39 @@ const chatIdArg = getArg('--chat', null)
 // переотправляется (он уже есть в начале чата). Флаг --resend-prompt
 // заставляет дослать его заново — например, если промпт обновился.
 const resendPrompt = hasFlag('--resend-prompt')
+// --new-chat: намеренно начать с чистого чата, игнорируя сохранённый
+// last-chat (полезно в watch-режиме, где по умолчанию чат восстанавливается).
+const newChatFlag = hasFlag('--new-chat')
+
+// ---------- last chat persistence ----------
+// Запоминаем последний открытый chat id, чтобы после перезапуска процесса
+// (в т.ч. автоперезапуска через `node --watch`) автоматически вернуться
+// в ту же сессию, а не создавать новый чат.
+const LAST_CHAT_FILE = path.join(ZAMES_HOME, 'last-chat.json')
+
+async function saveLastChat(id) {
+  if (!id) return
+  try {
+    await fs.mkdir(ZAMES_HOME, { recursive: true })
+    await fs.writeFile(
+      LAST_CHAT_FILE,
+      JSON.stringify({ id, updatedAt: new Date().toISOString() }, null, 2),
+      'utf-8',
+    )
+  } catch (e) {
+    if (debug) console.error('last-chat: не удалось сохранить:', e.message)
+  }
+}
+
+async function loadLastChat() {
+  try {
+    const raw = await fs.readFile(LAST_CHAT_FILE, 'utf-8')
+    const data = JSON.parse(raw)
+    return data && typeof data.id === 'string' ? data.id : null
+  } catch {
+    return null
+  }
+}
 
 
 // ---------- helpers ----------
@@ -72,6 +105,7 @@ ${chalk.bold('Опции CLI:')}
   --dir <path>       рабочая директория агента
   --task <text>      задача одной строкой
   --chat <id>        продолжить существующий чат по id
+  --new-chat         начать новый чат (игнорировать сохранённый)
   --resend-prompt    дослать system-prompt в существующий чат
   --max-iter <n>     лимит итераций (по умолчанию ${config.maxIterations})
   --headless         браузер без UI
@@ -258,10 +292,17 @@ async function main() {
     let freshChat = true
     let sendSystemPrompt = true
 
-    if (chatIdArg) {
+    // Приоритет: явный --chat, иначе сохранённый last-chat (если не --new-chat).
+    let resumeId = chatIdArg
+    if (!resumeId && !newChatFlag) {
+      resumeId = await loadLastChat()
+      if (resumeId) console.log(chalk.gray(`Восстанавливаю чат ${resumeId}...`))
+    }
+
+    if (resumeId) {
       try {
-        console.log(chalk.gray(`Открываю чат ${chatIdArg}...`))
-        await browser.openChat(chatIdArg)
+        console.log(chalk.gray(`Открываю чат ${resumeId}...`))
+        await browser.openChat(resumeId)
         freshChat = false
         sendSystemPrompt = resendPrompt
       } catch (e) {
@@ -309,14 +350,21 @@ async function main() {
     process.exit(0)
   })
 
-  if (chatIdArg) {
+  // Приоритет: явный --chat, иначе сохранённый last-chat (если не --new-chat).
+  let resumeId = chatIdArg
+  if (!resumeId && !newChatFlag) {
+    resumeId = await loadLastChat()
+  }
+
+  if (resumeId) {
     try {
-      console.log(chalk.gray(`Открываю чат ${chatIdArg}...`))
-      await browser.openChat(chatIdArg)
-      currentChatId = chatIdArg
+      console.log(chalk.gray(`Открываю чат ${resumeId}...`))
+      await browser.openChat(resumeId)
+      currentChatId = resumeId
       freshChatNext = false
       sendSystemPromptNext = resendPrompt
-      console.log(chalk.gray(`Чат открыт: ${chatIdArg}\n`))
+      await saveLastChat(resumeId)
+      console.log(chalk.gray(`Чат открыт: ${resumeId}\n`))
     } catch (e) {
       console.error(chalk.red(`Не удалось открыть чат: ${e.message}`))
     }
@@ -357,6 +405,7 @@ async function main() {
         freshChatNext = false
         sendSystemPromptNext = true
         currentChatId = await browser.getCurrentChatId()
+        await saveLastChat(currentChatId)
         transcript.log('new_chat')
         console.log(chalk.gray('Новый чат.\n'))
       } catch (e) {
@@ -396,6 +445,7 @@ async function main() {
         freshChatNext = false
         sendSystemPromptNext = false
         currentChatId = await browser.getCurrentChatId()
+        await saveLastChat(currentChatId)
 
         console.log(
           chalk.cyan(
@@ -484,6 +534,7 @@ async function main() {
         freshChatNext = false
         sendSystemPromptNext = false
         currentChatId = await browser.getCurrentChatId()
+        await saveLastChat(currentChatId)
 
         console.log(
           chalk.cyan(
@@ -610,6 +661,7 @@ async function main() {
         currentChatId = pick.id
         freshChatNext = false
         sendSystemPromptNext = resendPrompt
+        await saveLastChat(pick.id)
         transcript.log('resume_chat', { id: pick.id, title: pick.title })
         console.log(
           chalk.green(`Чат открыт.`) +
@@ -668,6 +720,9 @@ async function main() {
       )
       console.log(
         chalk.gray(`Resend prompt (--resend-prompt): ${resendPrompt ? 'да' : 'нет'}`),
+      )
+      console.log(
+        chalk.gray(`Last chat: ${(await loadLastChat()) || 'нет'}`),
       )
       console.log(chalk.gray(`Лимит итераций: ${maxIter}`))
       console.log(chalk.gray(`Headless: ${headless ? 'да' : 'нет'}`))
@@ -786,6 +841,7 @@ async function main() {
     if (!currentChatId) {
       currentChatId = await browser.getCurrentChatId()
     }
+    await saveLastChat(currentChatId)
   }
 
   await browser.close().catch(() => {})
