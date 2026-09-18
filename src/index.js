@@ -56,6 +56,10 @@ const maxIter =
 const positional = getPositional()
 const task = getArg('--task', positional.join(' ').trim() || null)
 const chatIdArg = getArg('--chat', null)
+// При возобновлении существующего чата system-prompt по умолчанию НЕ
+// переотправляется (он уже есть в начале чата). Флаг --resend-prompt
+// заставляет дослать его заново — например, если промпт обновился.
+const resendPrompt = hasFlag('--resend-prompt')
 
 
 // ---------- helpers ----------
@@ -68,6 +72,7 @@ ${chalk.bold('Опции CLI:')}
   --dir <path>       рабочая директория агента
   --task <text>      задача одной строкой
   --chat <id>        продолжить существующий чат по id
+  --resend-prompt    дослать system-prompt в существующий чат
   --max-iter <n>     лимит итераций (по умолчанию ${config.maxIterations})
   --headless         браузер без UI
   --debug            подробный лог
@@ -258,7 +263,7 @@ async function main() {
         console.log(chalk.gray(`Открываю чат ${chatIdArg}...`))
         await browser.openChat(chatIdArg)
         freshChat = false
-        sendSystemPrompt = true
+        sendSystemPrompt = resendPrompt
       } catch (e) {
         console.error(chalk.red(`Не удалось открыть чат: ${e.message}`))
       }
@@ -310,7 +315,7 @@ async function main() {
       await browser.openChat(chatIdArg)
       currentChatId = chatIdArg
       freshChatNext = false
-      sendSystemPromptNext = true
+      sendSystemPromptNext = resendPrompt
       console.log(chalk.gray(`Чат открыт: ${chatIdArg}\n`))
     } catch (e) {
       console.error(chalk.red(`Не удалось открыть чат: ${e.message}`))
@@ -604,12 +609,12 @@ async function main() {
         await browser.openChat(pick.id)
         currentChatId = pick.id
         freshChatNext = false
-        sendSystemPromptNext = true
+        sendSystemPromptNext = resendPrompt
         transcript.log('resume_chat', { id: pick.id, title: pick.title })
         console.log(
           chalk.green(`Чат открыт.`) +
             chalk.gray(
-              ' Системный промпт будет переслан на следующей задаче.\n',
+              resendPrompt ? ' Системный промпт будет переслан на следующей задаче.\n' : ' Контекст чата сохранён. Системный промпт не пересылается (--resend-prompt чтобы дослать).\n',
             ),
         )
       } catch (e) {
@@ -660,6 +665,9 @@ async function main() {
         chalk.gray(
           `System prompt на след. задаче: ${sendSystemPromptNext ? 'да' : 'нет'}`,
         ),
+      )
+      console.log(
+        chalk.gray(`Resend prompt (--resend-prompt): ${resendPrompt ? 'да' : 'нет'}`),
       )
       console.log(chalk.gray(`Лимит итераций: ${maxIter}`))
       console.log(chalk.gray(`Headless: ${headless ? 'да' : 'нет'}`))
