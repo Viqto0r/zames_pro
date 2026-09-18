@@ -255,6 +255,26 @@ async function promptOnce(question) {
   }
 }
 
+// Слежение за клавиатурой во время работы агента.
+// Esc — прервать текущую генерацию (клик Stop в браузере).
+function watchEscape(onEscape) {
+  const stdin = process.stdin
+  if (!stdin.isTTY) return () => {}
+  const wasRaw = stdin.isRaw
+  if (stdin.setRawMode) stdin.setRawMode(true)
+  stdin.resume()
+  const handler = (buf) => {
+    if (buf.length === 1 && buf[0] === 27) {
+      onEscape()
+    }
+  }
+  stdin.on('data', handler)
+  return () => {
+    stdin.removeListener('data', handler)
+    if (stdin.setRawMode) stdin.setRawMode(wasRaw || false)
+  }
+}
+
 // ---------- workdir resolution ----------
 
 // ---------- workdir resolution ----------
@@ -279,6 +299,13 @@ async function runTask(browser, tools, taskText, workdir, opts) {
   const ui = mod.createSpinner()
   ui.taskHeader(taskText)
   ui.thinking()
+
+  // Esc во время работы — прервать генерацию.
+  const stopWatching = watchEscape(() => {
+    ui.stop()
+    console.error(theme.warn('⏹ Esc — прерываю генерацию...'))
+    browser.stopGeneration().catch(() => {})
+  })
 
   let finished = false
 
@@ -307,6 +334,7 @@ async function runTask(browser, tools, taskText, workdir, opts) {
     if (debug) console.error(e.stack)
     transcript?.log('agent_error', { error: e.message })
   } finally {
+    stopWatching()
     if (!finished) ui.stop()
   }
 }

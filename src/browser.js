@@ -259,6 +259,20 @@ export class DeepSeekBrowser {
     return !!stop
   }
 
+  // Прервать текущую генерацию: нажать Stop в интерфейсе.
+  // Используется при нажатии Esc пользователем.
+  async stopGeneration() {
+    this._abort = true
+    const btn = await this._findVisible(STOP_SELECTORS, 500)
+    if (btn) {
+      try {
+        await btn.click({ timeout: 1000 })
+        return true
+      } catch {}
+    }
+    return false
+  }
+
   async ask(prompt, { timeout = this.answerTimeoutMs } = {}) {
     let lastErr = null
 
@@ -342,7 +356,12 @@ export class DeepSeekBrowser {
     const deadline = Date.now() + timeout
     let last = ''
     let stable = 0
+    this._abort = false
     while (Date.now() < deadline) {
+      if (this._abort) {
+        // Пользователь нажал Esc — вернём то, что успело сгенерироваться.
+        return last || '(прервано пользователем)'
+      }
       const gen = await this._isGenerating()
       const cur = await this._readLastAnswerTextClean().catch(() => '')
       if (cur && cur === last && !gen) {
