@@ -4,7 +4,7 @@
   "description": "Terminal coding agent over chat.deepseek.com via Playwright",
   "type": "module",
   "bin": {
-    "zames": "./src/index.js"
+    "zames": "src/index.js"
   },
   "files": [
     "src",
