@@ -2,7 +2,6 @@
 import path from 'path'
 import fs from 'fs/promises'
 import { fileURLToPath } from 'url'
-import * as readlinePromises from 'readline/promises'
 import { theme } from './theme.js'
 
 import { DeepSeekBrowser } from './browser.js'
@@ -256,20 +255,212 @@ async function cleanTmpDir() {
   }
 }
 
+// Ввод строки в терминале с корректной обработкой вставки (Shift+Insert,
+// Ctrl+Shift+V, правая кнопка мыши и т.п.).
+//
+// Зачем свой ридер вместо readline:
+//   1) readline отправляет строку на ПЕРВОМ переводе строки. При вставке
+//      многострочного текста это приводило к немедленной отправке и к тому,
+//      что в чат уходила только первая строка. Здесь переводы строк внутри
+//      вставки заменяются на пробелы, а отправка происходит только по
+//      одиночному нажатию Enter.
+//   2) Включаем bracketed paste mode (\x1b[?2004h): терминал оборачивает
+//      вставленный текст в маркеры \x1b[200~ … \x1b[201~, поэтому мы точно
+//      знаем, что это вставка, а не набор с клавиатуры, и Enter внутри неё
+//      не считается отправкой.
 async function promptOnce(question) {
-  process.stdin.resume()
-  if (process.stdin.isTTY && process.stdin.setRawMode) {
-    process.stdin.setRawMode(false)
+  const stdin = process.stdin
+  const stdout = process.stdout
+
+  // Не-TTY (пайп, редирект): читаем всё до EOF одной строкой.
+  if (!stdin.isTTY || !stdin.setRawMode) {
+    const chunks = []
+    return await new Promise((resolve) => {
+      const onData = (b) => chunks.push(b)
+      const onEnd = () => {
+        stdin.removeListener('data', onData)
+        stdin.removeListener('end', onEnd)
+        resolve(Buffer.concat(chunks).toString('utf-8'))
+      }
+      stdin.on('data', onData)
+      stdin.on('end', onEnd)
+      stdin.resume()
+    })
   }
-  const rl = readlinePromises.createInterface({
-    input: process.stdin,
-    output: process.stdout,
+
+  const wasRaw = stdin.isRaw
+  stdin.setRawMode(true)
+  stdin.resume()
+
+  // Bracketed paste включаем/выключаем парно.
+  stdout.write('\x1b[?2004h')
+  stdout.write(question)
+
+  let line = ''
+  let cursor = 0
+  let inPaste = false
+  const PASTE_START = '\x1b[200~'
+  const PASTE_END = '\x1b[201~'
+
+  const redraw = () => {
+    // Возвращаемся в начало строки, стираем и печатаем заново.
+    stdout.write(String.fromCharCode(13))
+    stdout.write('\x1b[K')
+    stdout.write(question + line)
+    // Ставим курсор в нужную позицию.
+    const back = line.length - cursor
+    if (back > 0) stdout.write('\x1b[' + back + 'D')
+  }
+
+  return await new Promise((resolve) => {
+    const finish = (value, submit) => {
+      stdin.removeListener('data', onData)
+      stdout.write('\x1b[?2004l')
+      if (stdin.setRawMode) stdin.setRawMode(wasRaw || false)
+      if (submit) stdout.write(String.fromCharCode(10))
+      resolve(value)
+    }
+
+    const insertText = (text) => {
+      // Нормализуем переводы строк: они приходят от многострочной вставки,
+      // но означают «отправить». Внутри сообщения заменяем на пробел, чтобы
+      // вся вставка ушла ОДНИМ сообщением.
+      const clean = text
+        .replace(/\r\n/g, ' ')
+        .replace(/\r/g, ' ')
+        .replace(/\n/g, ' ')
+      line = line.slice(0, cursor) + clean + line.slice(cursor)
+      cursor += clean.length
+    }
+
+    const onData = (buf) => {
+      let s = buf.toString('utf-8')
+
+      // Fallback для терминалов без bracketed paste: если весь чанк — это
+      // «голый» перевод строки (один байт), значит нажали Enter → отправляем.
+      // Если переводы строк пришли ВМЕСТЕ с другим текстом в одном чанке —
+      // это вставка; такие переводы строк не отправляют сообщение, а
+      // заменяются на пробелы (см. insertText).
+      if (!inPaste && (s === '\r' || s === '\n')) {
+        return finish(line, true)
+      }
+
+      while (s.length) {
+        if (inPaste) {
+          const end = s.indexOf(PASTE_END)
+          if (end === -1) {
+            insertText(s)
+            s = ''
+          } else {
+            insertText(s.slice(0, end))
+            s = s.slice(end + PASTE_END.length)
+            inPaste = false
+          }
+          redraw()
+          continue
+        }
+
+        const start = s.indexOf(PASTE_START)
+        if (start !== -1) {
+          // Всё до маркера обрабатываем как обычный ввод.
+          const before = s.slice(0, start)
+          s = s.slice(start + PASTE_START.length)
+          inPaste = true
+          if (before) {
+            for (const ch of before) {
+              if (ch === '\r' || ch === '\n') { /* внутри вставки — пропускаем */ }
+              else insertText(ch)
+            }
+            redraw()
+          }
+          continue
+        }
+
+        const ch = s[0]
+        const code = s.charCodeAt(0)
+        s = s.slice(1)
+
+        if (ch === '\r' || ch === '\n') {
+          // Перевод строки внутри чанка с другим текстом (вставка без
+          // bracketed paste): не отправляем, а вставляем пробел.
+          insertText(' ')
+          redraw()
+          continue
+        }
+        if (code === 3) {
+          // Ctrl+C — прерываем ввод.
+          return finish('', true)
+        }
+        if (code === 4) {
+          // Ctrl+D — как отправка пустой строки.
+          return finish(line, true)
+        }
+        if (code === 21) {
+          // Ctrl+U — стереть строку.
+          line = ''
+          cursor = 0
+          redraw()
+          continue
+        }
+        if (code === 127 || code === 8) {
+          // Backspace.
+          if (cursor > 0) {
+            line = line.slice(0, cursor - 1) + line.slice(cursor)
+            cursor--
+            redraw()
+          }
+          continue
+        }
+        if (ch === '\x1b') {
+          // Escape-последовательности (стрелки, Home/End, Delete…).
+          const rest = s
+          if (rest.startsWith('[D')) {
+            if (cursor > 0) cursor--
+            s = s.slice(2)
+            redraw()
+            continue
+          }
+          if (rest.startsWith('[C')) {
+            if (cursor < line.length) cursor++
+            s = s.slice(2)
+            redraw()
+            continue
+          }
+          if (rest.startsWith('[H') || rest.startsWith('[1~')) {
+            cursor = 0
+            s = s.slice(rest.startsWith('[1~') ? 3 : 2)
+            redraw()
+            continue
+          }
+          if (rest.startsWith('[F') || rest.startsWith('[4~')) {
+            cursor = line.length
+            s = s.slice(rest.startsWith('[4~') ? 3 : 2)
+            redraw()
+            continue
+          }
+          if (rest.startsWith('[3~')) {
+            // Delete.
+            if (cursor < line.length) {
+              line = line.slice(0, cursor) + line.slice(cursor + 1)
+              redraw()
+            }
+            s = s.slice(3)
+            continue
+          }
+          // Прочие ESC-последовательности пропускаем до буквы/тильды.
+          const m = s.match(/^\[[0-9;]*[A-Za-z~]/)
+          if (m) s = s.slice(m[0].length)
+          continue
+        }
+        if (code < 32) continue // прочие управляющие символы игнорируем
+
+        insertText(ch)
+        redraw()
+      }
+    }
+
+    stdin.on('data', onData)
   })
-  try {
-    return await rl.question(question)
-  } finally {
-    rl.close()
-  }
 }
 
 // Слежение за клавиатурой во время работы агента.
