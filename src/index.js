@@ -195,6 +195,7 @@ ${chalk.bold('Опции CLI:')}
   --debug            подробный лог
   --calibrate        режим калибровки селекторов
   --dev              режим разработки: авто-перечитывание модулей
+  --version, -v      показать версию
   --help, -h         эта справка
 
 ${chalk.bold('Обычные команды:')}
@@ -312,6 +313,14 @@ async function runTask(browser, tools, taskText, workdir, opts) {
 // ---------- main ----------
 
 async function main() {
+  if (hasFlag('--version') || hasFlag('-v')) {
+    const pkg = JSON.parse(
+      await fs.readFile(path.join(__dirname, '..', 'package.json'), 'utf-8'),
+    )
+    console.log(pkg.version)
+    return
+  }
+
   if (hasFlag('--help') || hasFlag('-h')) {
     printHelp()
     return

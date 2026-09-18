@@ -13,18 +13,18 @@ Terminal coding agent, работающий поверх chat.deepseek.com че�
 
 ## Установка
 
-```bash
+`bash
 npm install -g zames_pro
 npx playwright install chromium
-```
+`
 
 ## Запуск
 
 Перейди в папку проекта и запусти:
 
-```bash
+`bash
 zames
-```
+`
 
 Агент работает в директории запуска и не может выходить за её пределы (sandbox).
 
@@ -32,10 +32,14 @@ zames
 
 ```
 zames --task <текст задачи>
+zames --chat <id>
+zames --new-chat
+zames --resend-prompt
+zames --dir <путь>
 zames --headless
 zames --debug
-zames --dir <путь>
-zames --version   показать версию
+zames --dev
+zames --version
 zames --help
 ```
 
@@ -45,6 +49,21 @@ zames --help
 Локальный (в проекте): `.zamesrc.json`
 
 Данные агента хранятся в `~/.zames`: профиль браузера, логи, история undo, снапшоты self-review.
+
+## Разработка
+
+Для работы над самим агентом используй dev-режим:
+
+`bash
+npm run dev
+`
+
+В этом режиме агент перед каждой задачей автоматически перечитывает модули логики (tools, agent-loop, system-prompt и др.) с диска — правки подхватываются без перезапуска браузера и без потери контекста чата. В обычном режиме (zames, npm start) авто-перечитывание выключено.
+
+Служебные команды:
+- /reload — принудительно перечитать модули логики
+- /self-review — снять снапшот src/ и запустить самообзор
+- /status — состояние сессии
 
 ## Лицензия и авторство
 
