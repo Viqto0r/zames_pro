@@ -392,12 +392,12 @@ function parseToolCallPermissive(text) {
   if (endIdx === -1) return null
 
   const argsStr = text.slice(openIdx, endIdx + 1)
+  const args = parseArgsPermissive(argsStr)
+  if (args) return { tool, args }
   if (tool === 'Edit') {
     const e = parseEditArgs(argsStr)
     if (e) return { tool, args: e }
   }
-  const args = parseArgsPermissive(argsStr)
-  if (args) return { tool, args }
   const greedy = parseArgsGreedy(argsStr)
   if (greedy) return { tool, args: greedy }
   return null
@@ -406,28 +406,23 @@ function parseToolCallPermissive(text) {
 // Специализированный разбор args для Edit: ровно три поля path/old_string/
 // new_string, значения могут содержать сырые кавычки и переводы строк.
 function parseEditArgs(str) {
-  const keyRe = (name) => new RegExp('"' + name + '"\\s*:\\s*"')
-  const readValue = (name, nextNames) => {
-    const m = keyRe(name).exec(str)
+  const grab = (name) => {
+    const re = new RegExp('"' + name + '"\s:\s"')
+    const m = re.exec(str)
     if (!m) return null
     const start = m.index + m[0].length
-    let end = str.length
-    for (const n of nextNames) {
-      const mm = keyRe(n).exec(str.slice(start))
-      if (mm) {
-        const absIdx = start + mm.index
-        if (absIdx < end) end = absIdx
-      }
-    }
-    let val = str.slice(start, end)
-    val = val.replace(/"\s*[,}]?\s*$/, '')
-    return val
+    const rest = str.slice(start)
+    const nextKey = rest.search(/"\s*,\s*"(path|old_string|new_string)"\s*:/)
+    const endObj = rest.lastIndexOf('"')
+    let end = endObj
+    if (nextKey !== -1) end = nextKey
+    return rest.slice(0, end)
   }
-  const path = readValue('path', ['old_string', 'new_string'])
-  const oldStr = readValue('old_string', ['new_string'])
-  const newStr = readValue('new_string', [])
+  const path = grab('path')
+  const oldStr = grab('old_string')
+  const newStr = grab('new_string')
   if (path === null || oldStr === null || newStr === null) return null
-  return { path: path, old_string: oldStr, new_string: newStr }
+  return { path, old_string: oldStr, new_string: newStr }
 }
 
 function extractJsonObjects(text) {

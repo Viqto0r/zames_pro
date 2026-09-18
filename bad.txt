@@ -1,0 +1,3 @@
+Doing. {"tool": "Edit", "args": {"path": "src/a.js", "old_string": "  "files": [
+    "src"
+  ],", "new_string": "x"}}

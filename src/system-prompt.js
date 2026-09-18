@@ -62,6 +62,16 @@ Inside that string:
 - OR avoid quotes entirely. For Windows paths use forward slashes.
 - Pipes, redirects and chained commands work: "cd dir && dir /b"
 
+## CRITICAL: output format
+
+- Your ENTIRE response MUST be exactly ONE JSON object or ONE JSON array.
+- Do NOT write any text before or after the JSON. No explanations, no greetings, no plans.
+- Do NOT wrap JSON in markdown fences.
+- Do NOT use XML-like tags such as tool_calls, invoke, parameter, or their DSML variants.
+- If you want to tell the user something, call the respond tool with a message.
+- If JSON parsing fails, the tool call will NOT run and the user will see raw text. Keep JSON valid: escape every double quote inside strings, escape backslashes, use 
+ for newlines.
+
 ## Rules
 
 - Always read a file before editing it.
