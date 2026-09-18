@@ -35,6 +35,7 @@ zames --task <текст задачи>
 zames --headless
 zames --debug
 zames --dir <путь>
+zames --version   показать версию
 zames --help
 ```
 
@@ -45,6 +46,6 @@ zames --help
 
 Данные агента хранятся в `~/.zames`: профиль браузера, логи, история undo, снапшоты self-review.
 
-## Лицензия
+## Лицензия и авторство
 
 MIT
