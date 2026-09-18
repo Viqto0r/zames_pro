@@ -28,6 +28,7 @@ export const theme = {
   warn: chalk.hex('#c9a86a'), // спокойный охра
   error: chalk.hex('#c98a80'), // приглушённый терракот
   success: chalk.hex('#a9c08c'), // мягкий шалфейный
+  brown: chalk.hex('#a1723f'), // коричневый (статус/спиннер)
   bold: chalk.bold,
 }
 

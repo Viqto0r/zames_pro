@@ -40,8 +40,17 @@ function randomThinkingPhrase() {
   return THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)]
 }
 
+// Убираем завершающее многоточие из фразы — точки анимируем отдельно.
+function stripEllipsis(phrase) {
+  return phrase.replace(/[.…]+\s*$/, '')
+}
+
 export function createSpinner() {
   let spinner = null
+  let dotTimer = null
+  let dotPhase = 0
+
+  const DOTS = ['.', '..', '...']
 
   const start = (text) => {
     if (!spinner) spinner = ora(text).start()
@@ -49,11 +58,29 @@ export function createSpinner() {
   }
 
   const stop = () => {
+    if (dotTimer) {
+      clearInterval(dotTimer)
+      dotTimer = null
+    }
     if (spinner) spinner.stop()
   }
 
+  // Запуск анимированного статуса: коричневый текст + «бегущие» точки.
+  const startThinking = () => {
+    const base = theme.brown(stripEllipsis(randomThinkingPhrase()))
+    start(base + DOTS[0])
+    dotPhase = 0
+    if (dotTimer) clearInterval(dotTimer)
+    dotTimer = setInterval(() => {
+      if (!spinner) return
+      dotPhase = (dotPhase + 1) % DOTS.length
+      spinner.text = base + DOTS[dotPhase]
+    }, 400)
+    if (dotTimer.unref) dotTimer.unref()
+  }
+
   return {
-    thinking: () => start(theme.system(randomThinkingPhrase())),
+    thinking: () => startThinking(),
 
     toolCall: (name, args) => {
       stop()
