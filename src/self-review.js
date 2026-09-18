@@ -5,10 +5,11 @@ import { fileURLToPath } from 'url'
 
 import { createTools } from './tools.js'
 import { runAgentLoop } from './agent-loop.js'
+import { ZAMES_HOME } from './config.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const SRC_DIR = __dirname
-const SNAP_ROOT_NAME = '_self-review'
+const SNAP_ROOT = path.join(ZAMES_HOME, 'snapshots')
 
 async function ensureDir(p) {
   await fs.mkdir(p, { recursive: true })
@@ -32,7 +33,7 @@ async function copyDirJsFiles(from, to) {
 
 export async function selfReview({ browser, config, focus, transcript }) {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
-  const snapRoot = path.join(config.projectsRoot, SNAP_ROOT_NAME)
+  const snapRoot = path.join(SNAP_ROOT)
   const snapDir = path.join(snapRoot, `run-${stamp}`)
   await ensureDir(snapRoot)
   await ensureDir(snapDir)
@@ -131,7 +132,7 @@ export async function selfReview({ browser, config, focus, transcript }) {
 // ---------- /self-diff ----------
 
 export async function selfDiff({ config, name }) {
-  const snapDir = path.join(config.projectsRoot, SNAP_ROOT_NAME, name)
+  const snapDir = path.join(SNAP_ROOT, name)
   const snapStat = await fs.stat(snapDir).catch(() => null)
   if (!snapStat) throw new Error(`Снапшот не найден: ${snapDir}`)
 
@@ -163,15 +164,14 @@ export async function selfDiff({ config, name }) {
 // ---------- /self-apply ----------
 
 export async function selfApply({ config, name }) {
-  const snapDir = path.join(config.projectsRoot, SNAP_ROOT_NAME, name)
+  const snapDir = path.join(SNAP_ROOT, name)
   const snapStat = await fs.stat(snapDir).catch(() => null)
   if (!snapStat) throw new Error(`Снапшот не найден: ${snapDir}`)
 
   // Бэкап текущего src перед перезаписью
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
   const backupDir = path.join(
-    config.projectsRoot,
-    SNAP_ROOT_NAME,
+    SNAP_ROOT,
     `backup-before-apply-${stamp}`,
   )
   await copyDirJsFiles(SRC_DIR, backupDir)
@@ -203,7 +203,7 @@ export async function selfApply({ config, name }) {
 // ---------- /self-list ----------
 
 export async function selfList({ config }) {
-  const snapRoot = path.join(config.projectsRoot, SNAP_ROOT_NAME)
+  const snapRoot = path.join(SNAP_ROOT)
   let entries = []
   try {
     entries = await fs.readdir(snapRoot)

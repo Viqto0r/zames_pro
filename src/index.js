@@ -9,7 +9,7 @@ import { DeepSeekBrowser } from './browser.js'
 import { createTools } from './tools.js'
 import { runAgentLoop } from './agent-loop.js'
 import { createSpinner } from './spinner.js'
-import { loadConfig, CONFIG_PATHS } from './config.js'
+import { loadConfig, CONFIG_PATHS, ZAMES_HOME } from './config.js'
 import { Transcript } from './transcript.js'
 import { UndoStore } from './undo.js'
 import { selfReview, selfDiff, selfApply, selfList } from './self-review.js'
@@ -55,20 +55,17 @@ const maxIter =
 
 const positional = getPositional()
 const task = getArg('--task', positional.join(' ').trim() || null)
-const projectName = getArg('--project', null)
 const chatIdArg = getArg('--chat', null)
 
-const PROJECTS_ROOT = config.projectsRoot
 
 // ---------- helpers ----------
 
 function printHelp() {
   console.log(`
-${chalk.bold('dsa')} — агент поверх chat.deepseek.com через Playwright
+${chalk.bold('zames')} — агент поверх chat.deepseek.com через Playwright
 
 ${chalk.bold('Опции CLI:')}
   --dir <path>       рабочая директория агента
-  --project <name>   проект в песочнице (${PROJECTS_ROOT}\\<name>)
   --task <text>      задача одной строкой
   --chat <id>        продолжить существующий чат по id
   --max-iter <n>     лимит итераций (по умолчанию ${config.maxIterations})
@@ -83,8 +80,6 @@ ${chalk.bold('Обычные команды:')}
   /resume <n>              открыть чат №n из /chats
   /chat                    показать текущий chat id
   /cd <path>               сменить рабочую директорию
-  /cd                      перейти в корень песочницы
-  /project <name>          перейти в projects/<name>
   /pwd                     текущая директория
   /status                  состояние сессии
   /undo                    откатить последнюю запись/правку
@@ -107,16 +102,12 @@ ${chalk.bold('Самообзор (отладка агента):')}
 
 ${chalk.bold('Файлы:')}
   Логи:        ${config.transcript.dir}
-  Undo:        ~/.ds-agent/undo
-  Профиль:     ~/.ds-agent/profile
-  Снапшоты:    ${PROJECTS_ROOT}\\_self-review
+  Undo:        ~/.zames/undo
+  Профиль:     ~/.zames/profile
+  Снапшоты:    ~/.zames/snapshots
   Конфиг:      ${CONFIG_PATHS.HOME_CONFIG}
                ${CONFIG_PATHS.PROJECT_CONFIG}
 `)
-}
-
-async function ensureDir(p) {
-  await fs.mkdir(p, { recursive: true })
 }
 
 function dirLabel(p) {
@@ -141,42 +132,18 @@ async function promptOnce(question) {
 
 // ---------- workdir resolution ----------
 
-async function resolveWorkdir({ interactive }) {
-  await ensureDir(PROJECTS_ROOT)
+// ---------- workdir resolution ----------
 
-  if (projectName) {
-    const p = path.join(PROJECTS_ROOT, projectName)
-    await ensureDir(p)
-    return p
-  }
-
+// Агент работает в директории, из которой его запустили (process.cwd()).
+// Это корень sandbox: инструменты не могут выходить выше него.
+async function resolveWorkdir() {
   const explicitDir = getArg('--dir', null)
-  if (explicitDir) return path.resolve(explicitDir)
-
-  if (process.env.DSA_DIR) return path.resolve(process.env.DSA_DIR)
-
-  if (!interactive) return PROJECTS_ROOT
-
-  console.log(chalk.gray(`Песочница проектов: ${PROJECTS_ROOT}`))
-  const answer = await promptOnce(
-    chalk.cyan(
-      `Рабочая директория [Enter — ${PROJECTS_ROOT}, либо путь / имя проекта]: `,
-    ),
-  )
-  const trimmed = (answer || '').trim()
-  if (!trimmed) return PROJECTS_ROOT
-
-  if (
-    !trimmed.includes('/') &&
-    !trimmed.includes('\\') &&
-    !path.isAbsolute(trimmed)
-  ) {
-    const p = path.join(PROJECTS_ROOT, trimmed)
-    await ensureDir(p)
-    return p
+  const dir = explicitDir ? path.resolve(explicitDir) : process.cwd()
+  const stat = await fs.stat(dir).catch(() => null)
+  if (!stat || !stat.isDirectory()) {
+    throw new Error('Не директория: ' + dir)
   }
-
-  return path.resolve(trimmed)
+  return dir
 }
 
 // ---------- task runner ----------
@@ -230,10 +197,11 @@ async function main() {
     console.log(chalk.yellow('\n🔧 Режим калибровки селекторов\n'))
   }
 
-  const interactive = !task
   let currentWorkdir
   try {
-    currentWorkdir = await resolveWorkdir({ interactive })
+    currentWorkdir = await resolveWorkdir()
+  // Корень sandbox: агент не может выходить выше директории запуска.
+  const sandboxRoot = currentWorkdir
   } catch (e) {
     console.error(
       chalk.red('Не удалось определить рабочую директорию:'),
@@ -354,11 +322,11 @@ async function main() {
     try {
       let label
       if (reviewMode) {
-        label = `dsa[REVIEW:${reviewMode.snapName}]> `
+        label = `zames[REVIEW:${reviewMode.snapName}]> `
       } else if (currentChatId) {
-        label = `dsa[${dirLabel(currentWorkdir)}|${currentChatId.slice(0, 6)}]> `
+        label = `zames[${dirLabel(currentWorkdir)}|${currentChatId.slice(0, 6)}]> `
       } else {
-        label = `dsa[${dirLabel(currentWorkdir)}]> `
+        label = `zames[${dirLabel(currentWorkdir)}]> `
       }
       input = await promptOnce(chalk.cyan(label))
     } catch {
@@ -452,7 +420,7 @@ async function main() {
       const name = sp === -1 ? rest : rest.slice(0, sp)
       const focus = sp === -1 ? '' : rest.slice(sp + 1).trim()
 
-      const snapRoot = path.join(PROJECTS_ROOT, '_self-review', name)
+      const snapRoot = path.join(ZAMES_HOME, 'snapshots', name)
       const stat = await fs.stat(snapRoot).catch(() => null)
       if (!stat || !stat.isDirectory()) {
         console.error(chalk.red(`Снапшот не найден: ${snapRoot}`))
@@ -758,71 +726,33 @@ async function main() {
     if (lower === '/cd' || lower.startsWith('/cd ')) {
       const rawTarget = trimmed.slice(3).trim()
       try {
-        let newDir
-        if (!rawTarget) {
-          newDir = PROJECTS_ROOT
-        } else if (
-          !rawTarget.includes('/') &&
-          !rawTarget.includes('\\') &&
-          !path.isAbsolute(rawTarget)
-        ) {
-          newDir = path.join(PROJECTS_ROOT, rawTarget)
-        } else {
-          newDir = path.resolve(currentWorkdir, rawTarget)
-        }
-
-        await ensureDir(newDir)
-        const stat = await fs.stat(newDir)
-        if (!stat.isDirectory()) {
-          console.error(chalk.red(`Не директория: ${newDir}`))
+        const newDir = rawTarget
+          ? path.resolve(currentWorkdir, rawTarget)
+          : sandboxRoot
+        const rel = path.relative(sandboxRoot, newDir)
+        if (rel.startsWith('..') || path.isAbsolute(rel)) {
+          console.error(chalk.red('Нельзя выйти за пределы: ' + sandboxRoot))
           continue
         }
-
+        const stat = await fs.stat(newDir).catch(() => null)
+        if (!stat || !stat.isDirectory()) {
+          console.error(chalk.red('Не директория: ' + newDir))
+          continue
+        }
         if (newDir === currentWorkdir) {
-          console.log(chalk.gray('Уже здесь.\n'))
+          console.log(chalk.gray('Уже здесь.'))
           continue
         }
-
-        // Смена директории выходит из review-режима (если были в нём)
         if (reviewMode) {
           console.log(chalk.gray('Вышел из режима ревью (/cd).'))
           reviewMode = null
         }
-
         currentWorkdir = newDir
         freshChatNext = true
         sendSystemPromptNext = true
-        console.log(
-          chalk.gray(`Рабочая директория: ${newDir}`) +
-            chalk.gray(' (контекст сброшен)\n'),
-        )
+        console.log(chalk.gray('Рабочая директория: ' + newDir))
       } catch (e) {
-        console.error(chalk.red(`Не удалось перейти: ${e.message}`))
-      }
-      continue
-    }
-
-    if (lower === '/project' || lower.startsWith('/project ')) {
-      const name = trimmed.slice(8).trim()
-      if (!name) {
-        console.error(chalk.red('Использование: /project <name>'))
-        continue
-      }
-      const newDir = path.join(PROJECTS_ROOT, name)
-      try {
-        await ensureDir(newDir)
-        if (reviewMode) {
-          console.log(chalk.gray('Вышел из режима ревью (/project).'))
-          reviewMode = null
-        }
-        if (newDir !== currentWorkdir) {
-          currentWorkdir = newDir
-          freshChatNext = true
-          sendSystemPromptNext = true
-        }
-        console.log(chalk.gray(`Рабочая директория: ${newDir}\n`))
-      } catch (e) {
-        console.error(chalk.red(`Не удалось создать проект: ${e.message}`))
+        console.error(chalk.red('Не удалось перейти: ' + e.message))
       }
       continue
     }

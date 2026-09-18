@@ -1,19 +1,16 @@
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
-import { fileURLToPath } from 'url'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const PROJECT_ROOT = path.resolve(__dirname, '..')
-const HOME_CONFIG = path.join(os.homedir(), '.ds-agent', 'config.json')
-const PROJECT_CONFIG = path.join(PROJECT_ROOT, '.dsagentrc.json')
+const ZAMES_HOME = path.join(os.homedir(), '.zames')
+const HOME_CONFIG = path.join(ZAMES_HOME, 'config.json')
+const PROJECT_CONFIG = path.join(process.cwd(), '.zamesrc.json')
 
 const DEFAULTS = {
-  projectsRoot: path.join(PROJECT_ROOT, 'projects'),
   maxIterations: 40,
   headless: false,
   debug: false,
-  browserChannel: 'chrome',
+  browserChannel: null,
 
   confirmation: {
     write: true,
@@ -38,7 +35,7 @@ const DEFAULTS = {
 
   transcript: {
     enabled: true,
-    dir: path.join(os.homedir(), '.ds-agent', 'logs'),
+    dir: path.join(os.homedir(), '.zames', 'logs'),
   },
 
   browser: {
@@ -80,3 +77,4 @@ function deepMerge(target, source) {
 }
 
 export const CONFIG_PATHS = { HOME_CONFIG, PROJECT_CONFIG }
+export { ZAMES_HOME }

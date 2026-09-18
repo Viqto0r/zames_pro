@@ -4,7 +4,7 @@ import os from 'os'
 import fs from 'fs/promises'
 import { execSync } from 'child_process'
 
-const USER_DATA_DIR = path.join(os.homedir(), '.ds-agent', 'profile')
+const USER_DATA_DIR = path.join(os.homedir(), '.zames', 'profile')
 const CHAT_URL = 'https://chat.deepseek.com/'
 
 const INPUT_SELECTORS = [
@@ -31,7 +31,7 @@ async function killStaleChrome() {
   if (process.platform !== 'win32') return
   try {
     execSync(
-      `powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name='chrome.exe'\\" | Where-Object { $_.CommandLine -like '*\\.ds-agent\\profile*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"`,
+      `powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name='chrome.exe'\\" | Where-Object { $_.CommandLine -like '*\\.zames\\profile*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"`,
       { stdio: 'ignore', timeout: 5000 },
     )
     await new Promise((r) => setTimeout(r, 800))

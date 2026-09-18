@@ -17,6 +17,22 @@ export function createTools(workdir, { undo } = {}) {
     return resolved
   }
 
+  // Sandbox (вариант A): не даём команде выйти выше root.
+  // Это защитный барьер, а не полноценная изоляция ОС.
+  const assertCommandInsideRoot = (command) => {
+    const cmd = String(command || '')
+    const cdRe = /(?:^|[;&|]|\s)(?:cd|pushd)\s+([^;&|]+)/gi
+    let m
+    while ((m = cdRe.exec(cmd))) {
+      const raw = m[1].trim()
+      if (!raw || raw === '-') continue
+      const target = path.resolve(root, raw)
+      const rel = path.relative(root, target)
+      if (rel.startsWith('..') || path.isAbsolute(rel)) {
+        throw new Error('Sandbox: выход за пределы ' + root + ' запрещён (cd ' + raw + ')')
+      }
+    }
+  }
   const runShell = (command, timeout = 30_000) =>
     new Promise((resolve) => {
       const options = {
@@ -127,12 +143,15 @@ export function createTools(workdir, { undo } = {}) {
     {
       name: 'Bash',
       description:
-        'Выполнить shell-команду через cmd.exe в рабочей директории. ' +
+        'Выполнить shell-команду в рабочей директории (cmd.exe на Windows, sh на Linux/macOS). ' +
         'Не использовать для long-running процессов (серверы) — уйдут в таймаут. ' +
         'Не использовать для команд, требующих интерактивного ввода. ' +
         'Для git — инструменты Git*. Для интернета — WebFetch / WebSearch.',
       parameters: { command: 'string', timeout: 'number?' },
-      fn: async ({ command, timeout }) => runShell(command, timeout),
+      fn: async ({ command, timeout }) => {
+        assertCommandInsideRoot(command)
+        return runShell(command, timeout)
+      },
     },
 
     {
@@ -143,6 +162,10 @@ export function createTools(workdir, { undo } = {}) {
         const { glob } = await import('fs/promises')
         const results = []
         for await (const f of glob(pattern, { cwd: workdir })) {
+          // Sandbox: игнорируем всё, что выходит за пределы root.
+          const abs = path.resolve(workdir, f)
+          const rel = path.relative(root, abs)
+          if (rel.startsWith('..') || path.isAbsolute(rel)) continue
           results.push(f)
         }
         return results.length ? results.join('\n') : 'Ничего не найдено.'

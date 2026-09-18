@@ -2,7 +2,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
 
-const UNDO_DIR = path.join(os.homedir(), '.ds-agent', 'undo')
+const UNDO_DIR = path.join(os.homedir(), '.zames', 'undo')
 const INDEX = path.join(UNDO_DIR, 'index.json')
 
 export class UndoStore {
