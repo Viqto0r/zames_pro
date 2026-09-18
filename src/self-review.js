@@ -3,13 +3,27 @@ import fs from 'fs/promises'
 import chalk from 'chalk'
 import { fileURLToPath } from 'url'
 
-import { createTools } from './tools.js'
-import { runAgentLoop } from './agent-loop.js'
 import { ZAMES_HOME } from './config.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const SRC_DIR = __dirname
 const SNAP_ROOT = path.join(ZAMES_HOME, 'snapshots')
+
+// Динамический импорт логики с timestamp — чтобы при /reload (или авто-reload)
+// self-review использовал СВЕЖИЕ tools/agent-loop, а не закэшированные при
+// первой загрузке. Иначе reload не доходил бы до зависимостей self-review.
+async function loadFresh() {
+  const stamp = Date.now()
+  const toolsUrl = new URL('./tools.js', import.meta.url)
+  toolsUrl.searchParams.set('t', String(stamp))
+  const loopUrl = new URL('./agent-loop.js', import.meta.url)
+  loopUrl.searchParams.set('t', String(stamp))
+  const [{ createTools }, { runAgentLoop }] = await Promise.all([
+    import(toolsUrl.href),
+    import(loopUrl.href),
+  ])
+  return { createTools, runAgentLoop }
+}
 
 async function ensureDir(p) {
   await fs.mkdir(p, { recursive: true })
@@ -65,6 +79,7 @@ export async function selfReview({ browser, config, focus, transcript }) {
 
   const taskPrompt = buildReviewPrompt({ focus, snapDir })
 
+  const { createTools, runAgentLoop } = await loadFresh()
   const tools = createTools(snapDir, { undo: null })
   let finalMessage = ''
 
