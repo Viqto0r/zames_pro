@@ -14,7 +14,7 @@
   ],
   "scripts": {
     "start": "node ./src/index.js",
-    "dev": "node --watch ./src/index.js"
+    "dev": "node ./src/index.js --dev"
   },
   "keywords": [
     "agent",

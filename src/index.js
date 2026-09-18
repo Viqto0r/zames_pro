@@ -160,6 +160,23 @@ async function reloadModules() {
 // Первичная загрузка, чтобы mod.buildSystemPrompt и остальные были заполнены.
 await reloadModules()
 
+// Dev-режим: авто-перечитывание модулей логики перед каждой задачей.
+// Включается флагом --dev (его ставит `npm run dev`) или config.hotReload === true.
+// В обычном режиме (npm start, глобальный zames) авто-reload выключен.
+const devMode = hasFlag('--dev') || config.hotReload === true
+
+// Безопасный авто-reload: при ошибке загрузки оставляем прошлые рабочие модули.
+async function autoReload() {
+  if (!devMode) return
+  const { errors } = await reloadModules()
+  if (errors.length) {
+    console.error(
+      chalk.yellow('⚠ авто-reload: часть модулей не загрузилась, работаю на прежней версии:'),
+    )
+    for (const e of errors) console.error(chalk.yellow('  ' + e))
+  }
+}
+
 
 // ---------- helpers ----------
 
@@ -177,6 +194,7 @@ ${chalk.bold('Опции CLI:')}
   --headless         браузер без UI
   --debug            подробный лог
   --calibrate        режим калибровки селекторов
+  --dev              режим разработки: авто-перечитывание модулей
   --help, -h         эта справка
 
 ${chalk.bold('Обычные команды:')}
@@ -376,6 +394,8 @@ async function main() {
         console.error(chalk.red(`Не удалось открыть чат: ${e.message}`))
       }
     }
+
+    await autoReload()
 
     await runTask(browser, tools, task, currentWorkdir, {
       transcript,
@@ -811,6 +831,9 @@ async function main() {
       console.log(
         chalk.gray(`Last chat: ${(await loadLastChat()) || 'нет'}`),
       )
+      console.log(
+        chalk.gray(`Dev mode (auto-reload): ${devMode ? 'вкл' : 'выкл'}`),
+      )
       console.log(chalk.gray(`Лимит итераций: ${maxIter}`))
       console.log(chalk.gray(`Headless: ${headless ? 'да' : 'нет'}`))
       console.log(chalk.gray(`Debug: ${debug ? 'да' : 'нет'}`))
@@ -913,6 +936,9 @@ async function main() {
     }
 
     // ---- Обычная задача (в том числе в review-режиме) ----
+
+    // Dev-режим: подхватываем свежие модули логики перед задачей.
+    await autoReload()
 
     transcript.log('user_task', { task: trimmed, workdir: currentWorkdir })
 
