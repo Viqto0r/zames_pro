@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import type { Session } from './types.js'
 
 // Сессии (чаты DeepSeek) храним в отдельной папке, чтобы они не терялись
 // после перезапуска процесса. Каждая сессия — отдельный JSON-файл
@@ -9,25 +10,41 @@ import os from 'os'
 const SESSIONS_DIR = path.join(os.homedir(), '.zames', '.sessions')
 const INDEX_FILE = path.join(SESSIONS_DIR, 'last.json')
 
-function ensureDir() {
+interface SessionsIndex {
+  last?: string | null
+  byWorkdir?: Record<string, string>
+  updatedAt?: string
+}
+
+function ensureDir(): void {
   fs.mkdirSync(SESSIONS_DIR, { recursive: true })
 }
 
-function safeName(id) {
+function safeName(id: string): string {
   return String(id).replace(/[^a-zA-Z0-9_.-]/g, '_')
 }
 
 // Сохраняем/обновляем сессию. workdir нужен, чтобы при запуске из того же
 // проекта восстанавливать именно его последний чат.
-export function saveSession({ id, title = '', workdir = '' }) {
-  if (!id) return
+export function saveSession({
+  id,
+  title = '',
+  workdir = '',
+}: {
+  id: string
+  title?: string
+  workdir?: string
+}): Session | null {
+  if (!id) return null
   try {
     ensureDir()
     const file = path.join(SESSIONS_DIR, safeName(id) + '.json')
-    let prev = {}
-    try { prev = JSON.parse(fs.readFileSync(file, 'utf-8')) } catch {}
+    let prev: Partial<Session> = {}
+    try {
+      prev = JSON.parse(fs.readFileSync(file, 'utf-8'))
+    } catch {}
     const now = new Date().toISOString()
-    const data = {
+    const data: Session = {
       id,
       title: title || prev.title || '',
       workdir: workdir || prev.workdir || '',
@@ -42,13 +59,17 @@ export function saveSession({ id, title = '', workdir = '' }) {
   }
 }
 
-function writeIndex({ id, workdir }) {
+function writeIndex({ id, workdir }: { id: string; workdir: string }): void {
   try {
     ensureDir()
-    let index = {}
-    try { index = JSON.parse(fs.readFileSync(INDEX_FILE, 'utf-8')) } catch {}
+    let index: SessionsIndex = {}
+    try {
+      index = JSON.parse(fs.readFileSync(INDEX_FILE, 'utf-8'))
+    } catch {}
     if (!index || typeof index !== 'object') index = {}
-    if (!index.byWorkdir || typeof index.byWorkdir !== 'object') index.byWorkdir = {}
+    if (!index.byWorkdir || typeof index.byWorkdir !== 'object') {
+      index.byWorkdir = {}
+    }
     const key = workdir || ''
     index.byWorkdir[key] = id
     index.last = id
@@ -59,11 +80,13 @@ function writeIndex({ id, workdir }) {
 
 // Последняя сессия для рабочей директории. Если для неё ничего нет —
 // возвращаем последнюю сессию вообще (полезно при запуске из нового места).
-export function loadLastSession(workdir = '') {
+export function loadLastSession(workdir = ''): Session | null {
   try {
-    const index = JSON.parse(fs.readFileSync(INDEX_FILE, 'utf-8'))
+    const index: SessionsIndex = JSON.parse(fs.readFileSync(INDEX_FILE, 'utf-8'))
     const byWorkdir = index && index.byWorkdir ? index.byWorkdir : {}
-    const candidates = [byWorkdir[workdir], index.last].filter(Boolean)
+    const candidates = [byWorkdir[workdir], index.last].filter(
+      (x): x is string => Boolean(x),
+    )
     for (const id of candidates) {
       // Файл сессии мог быть удалён — индекс тогда устарел, и сессию
       // восстанавливать нельзя. Пробуем следующий кандидат.
@@ -76,7 +99,7 @@ export function loadLastSession(workdir = '') {
   }
 }
 
-export function readSession(id) {
+export function readSession(id: string | null): Session | null {
   if (!id) return null
   try {
     const file = path.join(SESSIONS_DIR, safeName(id) + '.json')
@@ -87,24 +110,30 @@ export function readSession(id) {
 }
 
 // Список всех сессий, свежие — первыми.
-export function listSessions() {
+export function listSessions(): Session[] {
   try {
     ensureDir()
-    const files = fs.readdirSync(SESSIONS_DIR).filter((f) => f.endsWith('.json') && f !== 'last.json')
-    const out = []
+    const files = fs
+      .readdirSync(SESSIONS_DIR)
+      .filter((f) => f.endsWith('.json') && f !== 'last.json')
+    const out: Session[] = []
     for (const f of files) {
       try {
-        const data = JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, f), 'utf-8'))
+        const data = JSON.parse(
+          fs.readFileSync(path.join(SESSIONS_DIR, f), 'utf-8'),
+        )
         if (data && data.id) out.push(data)
       } catch {}
     }
-    out.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
+    out.sort((a, b) =>
+      String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')),
+    )
     return out
   } catch {
     return []
   }
 }
 
-export function sessionsDir() {
+export function sessionsDir(): string {
   return SESSIONS_DIR
 }

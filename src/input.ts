@@ -24,7 +24,7 @@ const PASTE_END = ESC + '[201~'
 const DOTS = ['.', '..', '...']
 const HINT = theme.dim('  ·  Enter — отправить, Ctrl+J — новая строка, Esc — стоп')
 
-function safeJson(v) {
+function safeJson(v: unknown): string {
   try {
     return JSON.stringify(v)
   } catch {
@@ -33,7 +33,7 @@ function safeJson(v) {
 }
 
 // Видимая длина строки без ANSI-последовательностей.
-export function visLen(s) {
+export function visLen(s: string): number {
   s = String(s)
   let n = 0
   let i = 0
@@ -55,7 +55,24 @@ export function visLen(s) {
 
 // Раскладка ввода на визуальные строки с учётом ширины терминала.
 // Возвращает строки (с префиксом) и позицию курсора в визуальных координатах.
-export function layoutInput(promptStr, buf, cursor, cols) {
+export interface LayoutRow {
+  prefix: string
+  text: string
+  start: number
+}
+
+export interface LayoutResult {
+  rows: LayoutRow[]
+  cursorRow: number
+  cursorCol: number
+}
+
+export function layoutInput(
+  promptStr: string,
+  buf: string,
+  cursor: number,
+  cols: number,
+): LayoutResult {
   const width = Math.max(20, Number(cols) || 80)
   const promptW = visLen(promptStr)
   const pad = ' '.repeat(promptW)
@@ -64,8 +81,8 @@ export function layoutInput(promptStr, buf, cursor, cols) {
   const rows = []
   let i = 0
   while (true) {
-    const first = rows.length === 0
-    const prefix = first ? promptStr : pad
+    const first: boolean = rows.length === 0
+    const prefix: string = first ? promptStr : pad
     const avail = Math.max(1, width - promptW)
     let text = ''
     let count = 0
@@ -102,8 +119,30 @@ export function layoutInput(promptStr, buf, cursor, cols) {
   return { rows, cursorRow, cursorCol }
 }
 
+export interface LineEditorOptions {
+  prompt?: string
+}
+
 export class LineEditor {
-  constructor({ prompt = '> ' } = {}) {
+  promptStr: string
+  buf: string
+  cursor: number
+  statusText: string
+  pendingText: string | null
+  rendered: boolean
+  cursorRowFromTop: number
+  busy: boolean
+  onSubmit: ((text: string) => void) | null
+  onEscape: (() => void) | null
+  onCtrlC: (() => void) | null
+  _inPaste: boolean
+  _dotTimer: ReturnType<typeof setInterval> | null
+  _dotPhase: number
+  _thinkBase: string
+  _wasRaw: boolean
+  _onData: (b: Buffer) => void
+
+  constructor({ prompt = '> ' }: LineEditorOptions = {}) {
     this.promptStr = prompt
     this.buf = ''
     this.cursor = 0
@@ -120,7 +159,7 @@ export class LineEditor {
     this._dotPhase = 0
     this._thinkBase = ''
     this._wasRaw = false
-    this._onData = (b) => this._handle(b)
+    this._onData = (b: Buffer) => this._handle(b)
   }
 
   start() {
@@ -144,7 +183,7 @@ export class LineEditor {
     if (stdin.setRawMode) stdin.setRawMode(this._wasRaw || false)
   }
 
-  setPrompt(str) {
+  setPrompt(str: string): void {
     this.promptStr = str
     this._render()
   }
@@ -192,7 +231,7 @@ export class LineEditor {
   }
 
   // Напечатать блок ВЫШЕ строки ввода и вернуть строку ввода на место.
-  printAbove(text) {
+  printAbove(text: unknown): void {
     this._eraseBlock()
     process.stdout.write(String(text) + NL)
     this._writeBlock()
@@ -200,7 +239,7 @@ export class LineEditor {
 
   // ---------- интерфейс, совместимый со спиннером ----------
 
-  setStatus(text) {
+  setStatus(text: string): void {
     this.statusText = text || ''
     this._render()
   }
@@ -232,7 +271,7 @@ export class LineEditor {
     this._startThinking()
   }
 
-  setPending(text) {
+  setPending(text: string | null): void {
     this.pendingText = text && String(text).length ? String(text) : null
     if (this.pendingText) {
       this._stopDots()
@@ -247,18 +286,18 @@ export class LineEditor {
     this.setStatus('')
   }
 
-  toolCall(name, args) {
+  toolCall(name: string, args: unknown): void {
     const preview = safeJson(args).slice(0, 120)
     this.printAbove(theme.tool('🔧 ' + name) + ' ' + theme.dim(preview))
   }
 
-  toolResult(result) {
+  toolResult(result: unknown): void {
     const text = typeof result === 'string' ? result : safeJson(result)
     const preview = text.slice(0, 200).split(NL).join(' ↵ ')
     this.printAbove(theme.toolResult('   → ' + preview))
   }
 
-  assistant(msg) {
+  assistant(msg: string): void {
     this.stop()
     const rendered = renderMarkdown(msg)
     this.printAbove(
@@ -283,7 +322,7 @@ export class LineEditor {
     if (this.onSubmit) this.onSubmit(text)
   }
 
-  _insert(text) {
+  _insert(text: string): void {
     const chars = Array.from(this.buf)
     const ins = Array.from(String(text))
     const next = chars.slice(0, this.cursor).concat(ins, chars.slice(this.cursor))
@@ -354,7 +393,7 @@ export class LineEditor {
     this.cursor = nextStart + Math.min(col, nextEnd - nextStart)
   }
 
-  _handle(data) {
+  _handle(data: Buffer): void {
     let s = data.toString('utf-8')
 
     if (!this._inPaste && s === ESC) {

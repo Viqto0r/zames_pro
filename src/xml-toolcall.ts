@@ -1,30 +1,32 @@
-function unescapeXml(s) {
+import type { ParsedToolCall, ToolArgs } from './types.js'
+
+function unescapeXml(s: string): string {
   const A = String.fromCharCode(38) // ampersand
   return String(s)
-    .split(A + "lt;").join(String.fromCharCode(60))
-    .split(A + "gt;").join(String.fromCharCode(62))
-    .split(A + "quot;").join(String.fromCharCode(34))
-    .split(A + "apos;").join(String.fromCharCode(39))
-    .split(A + "amp;").join(A)
+    .split(A + 'lt;').join(String.fromCharCode(60))
+    .split(A + 'gt;').join(String.fromCharCode(62))
+    .split(A + 'quot;').join(String.fromCharCode(34))
+    .split(A + 'apos;').join(String.fromCharCode(39))
+    .split(A + 'amp;').join(A)
 }
 
-function readAttr(attrs, name) {
+function readAttr(attrs: string, name: string): string | null {
   const Q = String.fromCharCode(34)
-  const re = new RegExp(name + "[ ]*=[ ]*([" + Q + "]([^" + Q + "]*)[" + Q + "])")
+  const re = new RegExp(name + '[ ]*=[ ]*([' + Q + ']([^' + Q + ']*)[' + Q + '])')
   const m = attrs.match(re)
   return m ? m[2] : null
 }
 
-export function parseXmlToolCalls(text) {
-  if (!text || typeof text !== "string") return null
+export function parseXmlToolCalls(text: string): ParsedToolCall {
+  if (!text || typeof text !== 'string') return null
   if (!/<[^>]*invoke/i.test(text)) return null
 
   const invokeRe = /<[^>]*?invoke([^>]*)>/gi
-  const calls = []
-  let m
+  const calls: Array<{ tool: string; args: ToolArgs }> = []
+  let m: RegExpExecArray | null
   while ((m = invokeRe.exec(text)) !== null) {
-    const attrs = m[1] || ""
-    const name = readAttr(attrs, "name")
+    const attrs = m[1] || ''
+    const name = readAttr(attrs, 'name')
     if (!name) continue
 
     const rest = text.slice(invokeRe.lastIndex)
@@ -32,16 +34,18 @@ export function parseXmlToolCalls(text) {
     const closeMatch = closeRe.exec(rest)
     const body = closeMatch ? rest.slice(0, closeMatch.index) : rest
 
-    const args = {}
+    const args: ToolArgs = {}
     const paramRe = /<[^>]*?parameter([^>]*)>([\s\S]*?)<\/[^>]*?parameter[^>]*>/gi
-    let p
+    let p: RegExpExecArray | null
     while ((p = paramRe.exec(body)) !== null) {
-      const pname = readAttr(p[1] || "", "name")
+      const pname = readAttr(p[1] || '', 'name')
       if (!pname) continue
-      const isString = /string[ ]*=[ ]*"?true"?/i.test(p[1] || "")
-      let value = unescapeXml(p[2])
+      const isString = /string[ ]*=[ ]*"?true"?/i.test(p[1] || '')
+      let value: unknown = unescapeXml(p[2])
       if (!isString) {
-        try { value = JSON.parse(value) } catch (e) {}
+        try {
+          value = JSON.parse(value as string)
+        } catch {}
       }
       args[pname] = value
     }
@@ -49,7 +53,7 @@ export function parseXmlToolCalls(text) {
     // Некоторые модели кладут весь JSON-объект аргументов в один
     // parameter с именем args. Разворачиваем, чтобы не было
     // {args: {args: {...}}}.
-    let finalArgs = args
+    let finalArgs: ToolArgs = args
     const keys = Object.keys(args)
     if (
       keys.length === 1 &&
@@ -58,7 +62,7 @@ export function parseXmlToolCalls(text) {
       typeof args.args === 'object' &&
       !Array.isArray(args.args)
     ) {
-      finalArgs = args.args
+      finalArgs = args.args as ToolArgs
     }
 
     calls.push({ tool: name, args: finalArgs })

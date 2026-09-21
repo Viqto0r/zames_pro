@@ -1,7 +1,19 @@
-export function buildSystemPrompt({ workdir, tools, gitContext = null }) {
+import type { ToolDef } from './types.js'
+
+export interface BuildSystemPromptOptions {
+  workdir: string
+  tools: ToolDef[]
+  gitContext?: string | null
+}
+
+export function buildSystemPrompt({
+  workdir,
+  tools,
+  gitContext = null,
+}: BuildSystemPromptOptions): string {
   const toolDescriptions = tools
     .map(
-      (t) =>
+      (t: ToolDef) =>
         `### ${t.name}\n${t.description}\nПараметры: ${JSON.stringify(t.parameters)}`,
     )
     .join('\n\n')

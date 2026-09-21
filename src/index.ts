@@ -20,6 +20,22 @@ import {
   listSessions,
   sessionsDir,
 } from './sessions.js'
+import type { Session, ToolDef, ToolArgs } from './types.js'
+import type { ChatInfo } from './browser.js'
+
+interface RunTaskOptions {
+  transcript: Transcript
+  freshChat: boolean
+  sendSystemPrompt: boolean
+  queue?: string[]
+  ui?: LineEditor | null
+}
+
+interface ReviewMode {
+  snapDir: string
+  snapName: string
+  originalWorkdir: string
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -27,16 +43,16 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const args = process.argv.slice(2)
 
-function getArg(flag, fallback = null) {
+function getArg(flag: string, fallback: string | null = null): string | null {
   const i = args.indexOf(flag)
   return i !== -1 && args[i + 1] ? args[i + 1] : fallback
 }
 
-function hasFlag(flag) {
+function hasFlag(flag: string): boolean {
   return args.includes(flag)
 }
 
-function getPositional() {
+function getPositional(): string[] {
   const positional = []
   for (let i = 0; i < args.length; i++) {
     const a = args[i]
@@ -78,12 +94,12 @@ const resumeLastFlag = hasFlag('--resume-last')
 // сессия восстанавливается автоматически (если не передан --new-chat).
 // Раньше здесь был один файл last-chat.json, который терялся при смене
 // проекта и не давал списка сессий для восстановления.
-function saveLastChat(id, workdir = '', title = '') {
+function saveLastChat(id: string | null, workdir = '', title = ''): void {
   if (!id) return
   saveSession({ id, workdir, title })
 }
 
-function loadLastChat(workdir = '') {
+function loadLastChat(workdir = ''): string | null {
   const s = loadLastSession(workdir)
   return s ? s.id : null
 }
@@ -109,10 +125,22 @@ const RELOADABLE = [
   './config.js',
 ]
 
-const mod = {
+interface ModBag {
+  createTools: typeof createTools
+  runAgentLoop: typeof runAgentLoop
+  buildSystemPrompt: typeof import('./system-prompt.js').buildSystemPrompt
+  selfReview: typeof selfReview
+  selfDiff: typeof selfDiff
+  selfApply: typeof selfApply
+  selfList: typeof selfList
+  closeWeb: typeof closeWeb
+  createSpinner: typeof createSpinner
+}
+
+const mod: ModBag = {
   createTools,
   runAgentLoop,
-  buildSystemPrompt: null, // подгрузим ниже
+  buildSystemPrompt: null as unknown as ModBag['buildSystemPrompt'],
   selfReview,
   selfDiff,
   selfApply,
@@ -121,32 +149,32 @@ const mod = {
   createSpinner,
 }
 
-async function reloadModules() {
+async function reloadModules(): Promise<{ count: number; errors: string[] }> {
   const stamp = Date.now()
-  const loaded = new Map()
-  const errors = []
+  const loaded = new Map<string, Record<string, unknown>>()
+  const errors: string[] = []
   for (const rel of RELOADABLE) {
     try {
       const url = new URL(rel, import.meta.url)
       url.searchParams.set('t', String(stamp))
-      const m = await import(url.href)
+      const m = (await import(url.href)) as Record<string, unknown>
       loaded.set(rel, m)
     } catch (e) {
-      errors.push(`${rel}: ${e.message}`)
+      errors.push(`${rel}: ${(e as Error).message}`)
     }
   }
 
-  const pick = (rel, name) => loaded.get(rel)?.[name]
+  const pick = (rel: string, name: string): unknown => loaded.get(rel)?.[name]
 
-  if (pick('./tools.js', 'createTools')) mod.createTools = pick('./tools.js', 'createTools')
-  if (pick('./agent-loop.js', 'runAgentLoop')) mod.runAgentLoop = pick('./agent-loop.js', 'runAgentLoop')
-  if (pick('./system-prompt.js', 'buildSystemPrompt')) mod.buildSystemPrompt = pick('./system-prompt.js', 'buildSystemPrompt')
-  if (pick('./self-review.js', 'selfReview')) mod.selfReview = pick('./self-review.js', 'selfReview')
-  if (pick('./self-review.js', 'selfDiff')) mod.selfDiff = pick('./self-review.js', 'selfDiff')
-  if (pick('./self-review.js', 'selfApply')) mod.selfApply = pick('./self-review.js', 'selfApply')
-  if (pick('./self-review.js', 'selfList')) mod.selfList = pick('./self-review.js', 'selfList')
-  if (pick('./web.js', 'closeWeb')) mod.closeWeb = pick('./web.js', 'closeWeb')
-  if (pick('./spinner.js', 'createSpinner')) mod.createSpinner = pick('./spinner.js', 'createSpinner')
+  if (pick('./tools.js', 'createTools')) mod.createTools = pick('./tools.js', 'createTools') as ModBag['createTools']
+  if (pick('./agent-loop.js', 'runAgentLoop')) mod.runAgentLoop = pick('./agent-loop.js', 'runAgentLoop') as ModBag['runAgentLoop']
+  if (pick('./system-prompt.js', 'buildSystemPrompt')) mod.buildSystemPrompt = pick('./system-prompt.js', 'buildSystemPrompt') as ModBag['buildSystemPrompt']
+  if (pick('./self-review.js', 'selfReview')) mod.selfReview = pick('./self-review.js', 'selfReview') as ModBag['selfReview']
+  if (pick('./self-review.js', 'selfDiff')) mod.selfDiff = pick('./self-review.js', 'selfDiff') as ModBag['selfDiff']
+  if (pick('./self-review.js', 'selfApply')) mod.selfApply = pick('./self-review.js', 'selfApply') as ModBag['selfApply']
+  if (pick('./self-review.js', 'selfList')) mod.selfList = pick('./self-review.js', 'selfList') as ModBag['selfList']
+  if (pick('./web.js', 'closeWeb')) mod.closeWeb = pick('./web.js', 'closeWeb') as ModBag['closeWeb']
+  if (pick('./spinner.js', 'createSpinner')) mod.createSpinner = pick('./spinner.js', 'createSpinner') as ModBag['createSpinner']
 
   return { count: loaded.size, errors }
 }
@@ -160,7 +188,7 @@ await reloadModules()
 const devMode = hasFlag('--dev') || config.hotReload === true
 
 // Безопасный авто-reload: при ошибке загрузки оставляем прошлые рабочие модули.
-async function autoReload() {
+async function autoReload(): Promise<void> {
   if (!devMode) return
   const { errors } = await reloadModules()
   if (errors.length) {
@@ -174,7 +202,7 @@ async function autoReload() {
 
 // ---------- helpers ----------
 
-function printHelp() {
+function printHelp(): void {
   console.log(`
 ${theme.bold('zames')} — агент поверх chat.deepseek.com через Playwright
 
@@ -238,7 +266,7 @@ ${theme.bold('Файлы:')}
 `)
 }
 
-function dirLabel(p) {
+function dirLabel(p: string): string {
   return path.basename(p) || p
 }
 
@@ -246,12 +274,12 @@ function dirLabel(p) {
 // <проект>/tmp — эта папка в .gitignore и очищается при каждом запуске.
 const TMP_DIR = path.join(__dirname, '..', 'tmp')
 
-async function cleanTmpDir() {
+async function cleanTmpDir(): Promise<void> {
   try {
     await fs.rm(TMP_DIR, { recursive: true, force: true })
     await fs.mkdir(TMP_DIR, { recursive: true })
   } catch (e) {
-    if (debug) console.error('tmp: не удалось очистить:', e.message)
+    if (debug) console.error('tmp: не удалось очистить:', (e as Error).message)
   }
 }
 
@@ -268,15 +296,15 @@ async function cleanTmpDir() {
 //      вставленный текст в маркеры \x1b[200~ … \x1b[201~, поэтому мы точно
 //      знаем, что это вставка, а не набор с клавиатуры, и Enter внутри неё
 //      не считается отправкой.
-async function promptOnce(question) {
+async function promptOnce(question: string): Promise<string> {
   const stdin = process.stdin
   const stdout = process.stdout
 
   // Не-TTY (пайп, редирект): читаем всё до EOF одной строкой.
   if (!stdin.isTTY || !stdin.setRawMode) {
-    const chunks = []
+    const chunks: Buffer[] = []
     return await new Promise((resolve) => {
-      const onData = (b) => chunks.push(b)
+      const onData = (b: Buffer) => chunks.push(b)
       const onEnd = () => {
         stdin.removeListener('data', onData)
         stdin.removeListener('end', onEnd)
@@ -313,7 +341,7 @@ async function promptOnce(question) {
   }
 
   return await new Promise((resolve) => {
-    const finish = (value, submit) => {
+    const finish = (value: string, submit: boolean) => {
       stdin.removeListener('data', onData)
       stdout.write('\x1b[?2004l')
       if (stdin.setRawMode) stdin.setRawMode(wasRaw || false)
@@ -321,7 +349,7 @@ async function promptOnce(question) {
       resolve(value)
     }
 
-    const insertText = (text) => {
+    const insertText = (text: string) => {
       // Нормализуем переводы строк: они приходят от многострочной вставки,
       // но означают «отправить». Внутри сообщения заменяем на пробел, чтобы
       // вся вставка ушла ОДНИМ сообщением.
@@ -333,7 +361,7 @@ async function promptOnce(question) {
       cursor += clean.length
     }
 
-    const onData = (buf) => {
+    const onData = (buf: Buffer) => {
       let s = buf.toString('utf-8')
 
       // Fallback для терминалов без bracketed paste: если весь чанк — это
@@ -475,7 +503,7 @@ async function promptOnce(question) {
 // в строке спиннера через onChange -> ui.setPending(). Enter отправляет буфер
 // в onQueue, пустой Enter игнорируется. Поддержаны Backspace, Ctrl+U, Esc-
 // последовательности (стрелки/Home/End/Delete игнорируются) и bracketed paste.
-function watchInput({ onEscape, onChange, onQueue } = {}) {
+function watchInput({ onEscape, onChange, onQueue }: { onEscape?: () => void; onChange?: (text: string) => void; onQueue?: (text: string) => void } = {}): () => void {
   const stdin = process.stdin
   if (!stdin.isTTY || !stdin.setRawMode) return () => {}
 
@@ -497,20 +525,20 @@ function watchInput({ onEscape, onChange, onQueue } = {}) {
   const PASTE_END = ESC + '[201~'
   const CSI_RE = new RegExp('^' + CSI + '[0-9;]*[A-Za-z~]')
 
-  const emitChange = () => {
+  const emitChange = (): void => {
     if (onChange) onChange(buf)
   }
 
   // Вставленный текст: переводы строк внутри многострочной вставки
   // трактуем как пробелы — сообщение уходит одной строкой.
-  const insert = (text) => {
+  const insert = (text: string) => {
     buf += text
       .split(CR + LF).join(' ')
       .split(CR).join(' ')
       .split(LF).join(' ')
   }
 
-  function onData(data) {
+  function onData(data: Buffer) {
     let s = data.toString('utf-8')
 
     // Одиночный Esc — прервать генерацию. Стрелки приходят целым чанком
@@ -590,7 +618,7 @@ function watchInput({ onEscape, onChange, onQueue } = {}) {
     }
   }
 
-  const handler = (data) => onData(data)
+  const handler = (data: Buffer) => onData(data)
   stdin.on('data', handler)
   return () => {
     stdin.removeListener('data', handler)
@@ -603,7 +631,7 @@ function watchInput({ onEscape, onChange, onQueue } = {}) {
 
 // Агент работает в директории, из которой его запустили (process.cwd()).
 // Это корень sandbox: инструменты не могут выходить выше него.
-async function resolveWorkdir() {
+async function resolveWorkdir(): Promise<string> {
   const explicitDir = getArg('--dir', null)
   const dir = explicitDir ? path.resolve(explicitDir) : process.cwd()
   const stat = await fs.stat(dir).catch(() => null)
@@ -615,7 +643,7 @@ async function resolveWorkdir() {
 
 // ---------- task runner ----------
 
-async function runTask(browser, tools, taskText, workdir, opts) {
+async function runTask(browser: DeepSeekBrowser, tools: ToolDef[], taskText: string, workdir: string, opts: RunTaskOptions): Promise<void> {
   const { transcript, freshChat, sendSystemPrompt, queue = [], ui: editor } = opts
 
   // В TTY-режиме UI — это LineEditor: он владеет вводом (очередь, Esc,
@@ -667,7 +695,7 @@ async function runTask(browser, tools, taskText, workdir, opts) {
 
       if (!queue.length) break
 
-      const queued = queue.shift()
+      const queued = queue.shift() ?? ""
       ui.stop()
       if (editor) {
         editor.printAbove(theme.user('▶ Из очереди: ') + theme.assistant(queued))
@@ -679,9 +707,9 @@ async function runTask(browser, tools, taskText, workdir, opts) {
     }
   } catch (e) {
     ui.stop()
-    console.error(theme.error(String.fromCharCode(10) + '✖ Ошибка агента:'), e.message)
-    if (debug) console.error(e.stack)
-    transcript?.log('agent_error', { error: e.message })
+    console.error(theme.error(String.fromCharCode(10) + '✖ Ошибка агента:'), (e as Error).message)
+    if (debug) console.error((e as Error).stack)
+    transcript?.log('agent_error', { error: (e as Error).message })
   } finally {
     stopWatching()
     ui.stop()
@@ -690,7 +718,7 @@ async function runTask(browser, tools, taskText, workdir, opts) {
 
 // ---------- main ----------
 
-async function main() {
+async function main(): Promise<void> {
   if (hasFlag('--version') || hasFlag('-v')) {
     const pkg = JSON.parse(
       await fs.readFile(path.join(__dirname, '..', 'package.json'), 'utf-8'),
@@ -710,15 +738,16 @@ async function main() {
 
   await cleanTmpDir()
 
-  let currentWorkdir
+  let currentWorkdir: string
+  let sandboxRoot: string
   try {
     currentWorkdir = await resolveWorkdir()
-  // Корень sandbox: агент не может выходить выше директории запуска.
-  const sandboxRoot = currentWorkdir
+    // Корень sandbox: агент не может выходить выше директории запуска.
+    sandboxRoot = currentWorkdir
   } catch (e) {
     console.error(
       theme.error('Не удалось определить рабочую директорию:'),
-      e.message,
+      (e as Error).message,
     )
     process.exit(1)
   }
@@ -752,8 +781,8 @@ async function main() {
     await browser.waitForLogin()
   } catch (e) {
     bootSpinner.stop()
-    console.error(theme.error('Не удалось запустить браузер:'), e.message)
-    if (debug) console.error(e.stack)
+    console.error(theme.error('Не удалось запустить браузер:'), (e as Error).message)
+    if (debug) console.error((e as Error).stack)
     await browser.close().catch(() => {})
     transcript.close()
     process.exit(1)
@@ -785,7 +814,7 @@ async function main() {
         sendSystemPrompt = resendPrompt
         saveLastChat(resumeId, currentWorkdir)
       } catch (e) {
-        console.error(theme.error(`Не удалось открыть чат: ${e.message}`))
+        console.error(theme.error(`Не удалось открыть чат: ${(e as Error).message}`))
       }
     }
 
@@ -815,19 +844,19 @@ async function main() {
 
   let freshChatNext = true
   let sendSystemPromptNext = true
-  let lastChats = []
-  let currentChatId = null
+  let lastChats: ChatInfo[] = []
+  let currentChatId: string | null = null
   let running = true
 
   // Сообщения, набранные пользователем, пока агент работал. runTask
   // забирает их по одному после завершения текущей задачи.
-  const pendingQueue = []
+  const pendingQueue: string[] = []
 
   // ---------- review mode state ----------
   // null — обычный режим.
   // { snapDir, snapName, originalWorkdir } — мы внутри снапшота, чат уже
   // инициализирован review-промптом, юзер может просто писать «исправь...».
-  let reviewMode = null
+  let reviewMode: ReviewMode | null = null
 
   process.on('SIGINT', async () => {
     running = false
@@ -869,7 +898,7 @@ async function main() {
       saveLastChat(resumeId, currentWorkdir)
       console.log(theme.system(`Чат открыт: ${resumeId}\n`))
     } catch (e) {
-      console.error(theme.error(`Не удалось открыть чат: ${e.message}`))
+      console.error(theme.error(`Не удалось открыть чат: ${(e as Error).message}`))
     }
   }
 
@@ -878,11 +907,11 @@ async function main() {
   // статус над строкой ввода и печатает ответы агента ВЫШЕ неё, поэтому
   // набранный текст никогда не затирается выводом. В не-TTY (пайп) —
   // старый promptOnce.
-  let editor = null
-  let waiter = null
-  const takeInput = () => {
-    if (pendingQueue.length) return Promise.resolve(pendingQueue.shift())
-    return new Promise((resolve) => {
+  let editor: LineEditor | null = null
+  let waiter: ((v: string | null) => void) | null = null
+  const takeInput = (): Promise<string | null> => {
+    if (pendingQueue.length) return Promise.resolve(pendingQueue.shift() ?? null)
+    return new Promise<string | null>((resolve) => {
       waiter = resolve
     })
   }
@@ -898,24 +927,25 @@ async function main() {
   }
 
   if (process.stdin.isTTY && process.stdout.isTTY) {
-    editor = new LineEditor({ prompt: buildPrompt() })
-    editor.onSubmit = (text) => {
+    const ed = new LineEditor({ prompt: buildPrompt() })
+    editor = ed
+    ed.onSubmit = (text: string) => {
       pendingQueue.push(text)
       if (waiter) {
         const r = waiter
         waiter = null
-        r(pendingQueue.shift())
+        r(pendingQueue.shift() ?? null)
       }
     }
-    editor.onEscape = () => {
-      if (editor.busy) {
-        editor.printAbove(theme.warn('⏹ Esc — прерываю генерацию...'))
+    ed.onEscape = () => {
+      if (ed.busy) {
+        ed.printAbove(theme.warn('⏹ Esc — прерываю генерацию...'))
         browser.stopGeneration().catch(() => {})
       }
     }
-    editor.onCtrlC = () => {
-      if (editor.busy) {
-        editor.printAbove(theme.warn('⏹ Ctrl+C — прерываю генерацию...'))
+    ed.onCtrlC = () => {
+      if (ed.busy) {
+        ed.printAbove(theme.warn('⏹ Ctrl+C — прерываю генерацию...'))
         browser.stopGeneration().catch(() => {})
       } else {
         // Не заняты — выходим. Будим takeInput(), чтобы цикл завершился.
@@ -927,14 +957,14 @@ async function main() {
         }
       }
     }
-    editor.start()
+    ed.start()
 
     // Весь вывод команд (console.log/error) должен идти ВЫШЕ строки ввода,
     // иначе он затирает набираемый текст. Пока редактор активен, заворачиваем
-    // оба потока в editor.printAbove.
+    // оба потока в ed.printAbove.
     const origLog = console.log.bind(console)
     const origErr = console.error.bind(console)
-    const fmt = (a) =>
+    const fmt = (a: unknown): string =>
       typeof a === 'string' ? a : (() => {
         try {
           return JSON.stringify(a)
@@ -942,15 +972,16 @@ async function main() {
           return String(a)
         }
       })()
-    console.log = (...a) => editor.printAbove(a.map(fmt).join(' '))
-    console.error = (...a) => editor.printAbove(a.map(fmt).join(' '))
+    console.log = (...a) => ed.printAbove(a.map(fmt).join(' '))
+    console.error = (...a) => ed.printAbove(a.map(fmt).join(' '))
     // Сохраняем на случай отладки.
-    editor._origLog = origLog
-    editor._origErr = origErr
+    const edAny = ed as unknown as Record<string, unknown>
+    edAny._origLog = origLog
+    edAny._origErr = origErr
   }
 
   while (running) {
-    let input
+    let input: string | null
     try {
       if (editor) {
         editor.setPrompt(buildPrompt())
@@ -969,7 +1000,7 @@ async function main() {
       break
     }
 
-    const trimmed = (input || '').trim()
+    const trimmed = (input || "").trim()
     if (!trimmed) continue
 
     const lower = trimmed.toLowerCase()
@@ -992,7 +1023,7 @@ async function main() {
         transcript.log('new_chat')
         console.log(theme.system('Новый чат.\n'))
       } catch (e) {
-        console.error(theme.error('Не удалось создать новый чат:'), e.message)
+        console.error(theme.error('Не удалось создать новый чат:'), (e as Error).message)
       }
       continue
     }
@@ -1003,7 +1034,7 @@ async function main() {
       const focus = trimmed.slice('/self-review'.length).trim()
 
       // Запоминаем, куда вернуться
-      const originalWorkdir = reviewMode
+      const originalWorkdir: string = reviewMode
         ? reviewMode.originalWorkdir
         : currentWorkdir
 
@@ -1011,7 +1042,7 @@ async function main() {
         const result = await mod.selfReview({
           browser,
           config,
-          focus: focus || null,
+          focus: focus || undefined,
           transcript,
         })
 
@@ -1042,8 +1073,8 @@ async function main() {
           ),
         )
       } catch (e) {
-        console.error(theme.error('Самообзор провалился:'), e.message)
-        if (debug) console.error(e.stack)
+        console.error(theme.error('Самообзор провалился:'), (e as Error).message)
+        if (debug) console.error((e as Error).stack)
       }
       continue
     }
@@ -1065,7 +1096,7 @@ async function main() {
         continue
       }
 
-      const originalWorkdir = reviewMode
+      const originalWorkdir: string = reviewMode
         ? reviewMode.originalWorkdir
         : currentWorkdir
 
@@ -1121,7 +1152,7 @@ async function main() {
           ),
         )
       } catch (e) {
-        console.error(theme.error('Не удалось войти в снапшот:'), e.message)
+        console.error(theme.error('Не удалось войти в снапшот:'), (e as Error).message)
       }
       continue
     }
@@ -1147,7 +1178,7 @@ async function main() {
       try {
         await mod.selfList({ config })
       } catch (e) {
-        console.error(theme.error('Ошибка:'), e.message)
+        console.error(theme.error('Ошибка:'), (e as Error).message)
       }
       continue
     }
@@ -1161,7 +1192,7 @@ async function main() {
       try {
         await mod.selfDiff({ config, name })
       } catch (e) {
-        console.error(theme.error('Ошибка:'), e.message)
+        console.error(theme.error('Ошибка:'), (e as Error).message)
       }
       continue
     }
@@ -1175,7 +1206,7 @@ async function main() {
       try {
         await mod.selfApply({ config, name })
       } catch (e) {
-        console.error(theme.error('Ошибка:'), e.message)
+        console.error(theme.error('Ошибка:'), (e as Error).message)
       }
       continue
     }
@@ -1206,7 +1237,7 @@ async function main() {
         }
       } catch (e) {
         spin.stop()
-        console.error(theme.error('Не удалось получить список:'), e.message)
+        console.error(theme.error('Не удалось получить список:'), (e as Error).message)
       }
       continue
     }
@@ -1249,7 +1280,7 @@ async function main() {
             ),
         )
       } catch (e) {
-        console.error(theme.error('Не удалось открыть чат:'), e.message)
+        console.error(theme.error('Не удалось открыть чат:'), (e as Error).message)
       }
       continue
     }
@@ -1311,7 +1342,7 @@ async function main() {
         transcript.log('resume_chat', { id })
         console.log(theme.assistant('Чат открыт.') + theme.system(String.fromCharCode(10)))
       } catch (e) {
-        console.error(theme.error('Не удалось открыть чат:'), e.message)
+        console.error(theme.error('Не удалось открыть чат:'), (e as Error).message)
       }
       continue
     }
@@ -1336,7 +1367,7 @@ async function main() {
           )
         }
       } catch (e) {
-        console.error(theme.error('Ошибка reload:'), e.message)
+        console.error(theme.error('Ошибка reload:'), (e as Error).message)
       }
       continue
     }
@@ -1392,7 +1423,7 @@ async function main() {
 
     if (lower === '/undo') {
       const result = await undo.undoLast()
-      if (result.ok) {
+      if (result.ok && result.record) {
         console.log(
           theme.assistant(`↶ Откатили: ${result.record.originalPath}`) +
             theme.system(
@@ -1429,7 +1460,7 @@ async function main() {
         console.log(theme.system('Селекторы:'))
         console.log(JSON.stringify(result.selectors, null, 2))
       } catch (e) {
-        console.error(theme.error('Не удалось сохранить DOM:'), e.message)
+        console.error(theme.error('Не удалось сохранить DOM:'), (e as Error).message)
       }
       continue
     }
@@ -1463,7 +1494,7 @@ async function main() {
         sendSystemPromptNext = true
         console.log(theme.system('Рабочая директория: ' + newDir))
       } catch (e) {
-        console.error(theme.error('Не удалось перейти: ' + e.message))
+        console.error(theme.error('Не удалось перейти: ' + (e as Error).message))
       }
       continue
     }
@@ -1509,7 +1540,7 @@ async function main() {
 }
 
 main().catch((e) => {
-  console.error(theme.error('Критическая ошибка:'), e.message)
-  if (debug) console.error(e.stack)
+  console.error(theme.error('Критическая ошибка:'), (e as Error).message)
+  if (debug) console.error((e as Error).stack)
   process.exit(1)
 })

@@ -1,12 +1,13 @@
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import type { ZamesConfig } from './types.js'
 
 const ZAMES_HOME = path.join(os.homedir(), '.zames')
 const HOME_CONFIG = path.join(ZAMES_HOME, 'config.json')
 const PROJECT_CONFIG = path.join(process.cwd(), '.zamesrc.json')
 
-const DEFAULTS = {
+export const DEFAULTS: ZamesConfig = {
   maxIterations: 40,
   headless: false,
   debug: false,
@@ -17,14 +18,14 @@ const DEFAULTS = {
     edit: true,
     bash: true,
     alwaysConfirm: [
-      'rm\\s+-rf',
-      'rmdir\\s+/s',
-      'del\\s+/[sqf]',
-      'format\\s+[a-z]:',
+      'rm\s+-rf',
+      'rmdir\s+/s',
+      'del\s+/[sqf]',
+      'format\s+[a-z]:',
       'shutdown',
-      'reg\\s+delete',
+      'reg\s+delete',
       'remove-item.*-recurse',
-      'git\\s+push\\s+--force',
+      'git\s+push\s+--force',
     ],
   },
 
@@ -47,30 +48,37 @@ const DEFAULTS = {
   },
 }
 
-export function loadConfig() {
-  const merged = JSON.parse(JSON.stringify(DEFAULTS))
+export function loadConfig(): ZamesConfig {
+  const merged = JSON.parse(JSON.stringify(DEFAULTS)) as ZamesConfig
   for (const file of [HOME_CONFIG, PROJECT_CONFIG]) {
     try {
       const data = JSON.parse(fs.readFileSync(file, 'utf-8'))
-      deepMerge(merged, data)
+      deepMerge(merged as unknown as Record<string, unknown>, data)
     } catch (e) {
-      if (e.code !== 'ENOENT') {
-        console.error(`config: не удалось прочитать ${file}: ${e.message}`)
+      const err = e as NodeJS.ErrnoException
+      if (err.code !== 'ENOENT') {
+        console.error(`config: не удалось прочитать ${file}: ${err.message}`)
       }
     }
   }
   return merged
 }
 
-function deepMerge(target, source) {
+function deepMerge(
+  target: Record<string, unknown>,
+  source: Record<string, unknown>,
+): void {
   for (const key of Object.keys(source)) {
     if (
       source[key] &&
       typeof source[key] === 'object' &&
       !Array.isArray(source[key])
     ) {
-      target[key] = target[key] || {}
-      deepMerge(target[key], source[key])
+      target[key] = (target[key] as Record<string, unknown>) || {}
+      deepMerge(
+        target[key] as Record<string, unknown>,
+        source[key] as Record<string, unknown>,
+      )
     } else {
       target[key] = source[key]
     }

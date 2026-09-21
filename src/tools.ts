@@ -1,12 +1,17 @@
 import fs from 'fs/promises'
 import path from 'path'
-import { exec } from 'child_process'
+import { exec, type ExecOptions } from 'child_process'
 import { createGitTools } from './gitTools.js'
 import { createWebTools } from './web.js'
+import type { ToolArgs, ToolDef } from './types.js'
+import type { UndoStore } from './undo.js'
 
-export function createTools(workdir, { undo } = {}) {
+export function createTools(
+  workdir: string,
+  { undo }: { undo?: UndoStore | null } = {},
+): ToolDef[] {
   const root = path.resolve(workdir)
-  const safe = (p) => {
+  const safe = (p: string): string => {
     const resolved = path.resolve(root, p)
     // startsWith(root) пропускал бы соседние пути с общим префиксом
     // (C:\work\proj vs C:\work\proj-old). Считаем через relative().
@@ -19,7 +24,7 @@ export function createTools(workdir, { undo } = {}) {
 
   // Sandbox (вариант A): не даём команде выйти выше root.
   // Это защитный барьер, а не полноценная изоляция ОС.
-  const assertCommandInsideRoot = (command) => {
+  const assertCommandInsideRoot = (command: string): void => {
     const cmd = String(command || '')
     const cdRe = /(?:^|[;&|]|\s)(?:cd|pushd)\s+([^;&|]+)/gi
     let m
@@ -33,9 +38,9 @@ export function createTools(workdir, { undo } = {}) {
       }
     }
   }
-  const runShell = (command, timeout = 30_000) =>
+  const runShell = (command: string, timeout = 30_000): Promise<string> =>
     new Promise((resolve) => {
-      const options = {
+      const options: ExecOptions = {
         cwd: workdir,
         timeout,
         maxBuffer: 1024 * 1024 * 8,
@@ -78,18 +83,18 @@ export function createTools(workdir, { undo } = {}) {
       })
     })
 
-  const baseTools = [
+  const baseTools: ToolDef[] = [
     {
       name: 'Read',
       description:
         'Прочитать содержимое файла. Опционально: offset и limit (строки).',
       parameters: { path: 'string', offset: 'number?', limit: 'number?' },
-      fn: async ({ path: p, offset, limit }) => {
-        const file = safe(p)
+      fn: async ({ path: p, offset, limit }: ToolArgs) => {
+        const file = safe(String(p))
         const content = await fs.readFile(file, 'utf-8')
         const lines = content.split('\n')
-        const start = offset ?? 0
-        const end = limit ? start + limit : lines.length
+        const start = (offset as number | undefined) ?? 0
+        const end = limit ? start + (limit as number) : lines.length
         return lines.slice(start, end).join('\n')
       },
     },
@@ -98,11 +103,11 @@ export function createTools(workdir, { undo } = {}) {
       name: 'Write',
       description: 'Создать или перезаписать файл.',
       parameters: { path: 'string', content: 'string' },
-      fn: async ({ path: p, content }) => {
-        const file = safe(p)
+      fn: async ({ path: p, content }: ToolArgs) => {
+        const file = safe(String(p))
         if (undo) await undo.backup(file)
         await fs.mkdir(path.dirname(file), { recursive: true })
-        await fs.writeFile(file, content, 'utf-8')
+        await fs.writeFile(file, String(content), 'utf-8')
         return `Файл записан: ${p}`
       },
     },
@@ -116,8 +121,8 @@ export function createTools(workdir, { undo } = {}) {
         old_string: 'string',
         new_string: 'string',
       },
-      fn: async ({ path: p, old_string, new_string }) => {
-        const file = safe(p)
+      fn: async ({ path: p, old_string, new_string }: ToolArgs) => {
+        const file = safe(String(p))
         if (typeof old_string !== 'string' || old_string === '') {
           throw new Error('old_string пустой — нечего заменять.')
         }
@@ -134,7 +139,7 @@ export function createTools(workdir, { undo } = {}) {
           )
         }
         if (undo) await undo.backup(file)
-        content = content.replace(old_string, new_string)
+        content = content.replace(old_string, String(new_string))
         await fs.writeFile(file, content, 'utf-8')
         return `Отредактирован: ${p}`
       },
@@ -148,9 +153,9 @@ export function createTools(workdir, { undo } = {}) {
         'Не использовать для команд, требующих интерактивного ввода. ' +
         'Для git — инструменты Git*. Для интернета — WebFetch / WebSearch.',
       parameters: { command: 'string', timeout: 'number?' },
-      fn: async ({ command, timeout }) => {
-        assertCommandInsideRoot(command)
-        return runShell(command, timeout)
+      fn: async ({ command, timeout }: ToolArgs) => {
+        assertCommandInsideRoot(String(command))
+        return runShell(String(command), timeout as number | undefined)
       },
     },
 
@@ -158,10 +163,10 @@ export function createTools(workdir, { undo } = {}) {
       name: 'Glob',
       description: 'Найти файлы по glob-паттерну (например, "**/*.js").',
       parameters: { pattern: 'string' },
-      fn: async ({ pattern }) => {
+      fn: async ({ pattern }: ToolArgs) => {
         const { glob } = await import('fs/promises')
-        const results = []
-        for await (const f of glob(pattern, { cwd: workdir })) {
+        const results: string[] = []
+        for await (const f of glob(String(pattern), { cwd: workdir })) {
           // Sandbox: игнорируем всё, что выходит за пределы root.
           const abs = path.resolve(workdir, f)
           const rel = path.relative(root, abs)
@@ -176,10 +181,10 @@ export function createTools(workdir, { undo } = {}) {
       name: 'Grep',
       description: 'Поиск по содержимому файлов (регулярное выражение).',
       parameters: { pattern: 'string', path: 'string?' },
-      fn: async ({ pattern, path: searchPath }) => {
-        const target = searchPath ? safe(searchPath) : workdir
+      fn: async ({ pattern, path: searchPath }: ToolArgs) => {
+        const target = searchPath ? safe(String(searchPath)) : workdir
         if (process.platform === 'win32') {
-          const escaped = pattern.replace(/"/g, '\\"')
+          const escaped = String(pattern).replace(/"/g, '\\"')
           const scope = searchPath
             ? '"' + target + '\\*'
             : '*'
@@ -195,11 +200,11 @@ export function createTools(workdir, { undo } = {}) {
   const gitTools = createGitTools(workdir)
   const webTools = createWebTools()
 
-  const respondTool = {
+  const respondTool: ToolDef = {
     name: 'respond',
     description: 'Дать финальный ответ пользователю и завершить задачу.',
     parameters: { message: 'string' },
-    fn: async ({ message }) => message,
+    fn: async ({ message }: ToolArgs) => message,
   }
 
   return [...baseTools, ...gitTools, ...webTools, respondTool]

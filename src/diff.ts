@@ -1,10 +1,14 @@
 import { theme } from './theme.js'
 
-export function unifiedDiff(a, b, { label = '' } = {}) {
+export function unifiedDiff(
+  a: string,
+  b: string,
+  { label = '' }: { label?: string } = {},
+): string {
   const la = a.split(String.fromCharCode(10))
   const lb = b.split(String.fromCharCode(10))
   const n = Math.max(la.length, lb.length)
-  const out = []
+  const out: string[] = []
   if (label) out.push('... ' + label)
   for (let i = 0; i < n; i++) {
     const x = la[i]
@@ -16,10 +20,10 @@ export function unifiedDiff(a, b, { label = '' } = {}) {
   return out.join(String.fromCharCode(10))
 }
 
-export function colorDiff(diffText) {
+export function colorDiff(diffText: string): string {
   return diffText
     .split(String.fromCharCode(10))
-    .map((line) => {
+    .map((line: string) => {
       if (line.startsWith('+++') || line.startsWith('---')) return theme.bold(line)
       if (line.startsWith('+')) return theme.assistant(line)
       if (line.startsWith('-')) return theme.error(line)

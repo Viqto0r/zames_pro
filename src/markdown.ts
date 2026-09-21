@@ -5,7 +5,22 @@ import { highlight } from 'cli-highlight'
 // GFM (заголовки, списки, таблицы, цитаты, task lists) + подсветка кода.
 // Тема собрана из нашей спокойной палитры, без кислотных цветов.
 
-const theme = {
+interface MdTheme {
+  heading: { color: string; bold: boolean }
+  strong: { color: string; bold: boolean }
+  emph: { color: string; italic: boolean }
+  inlineCode: { color: string }
+  blockCode: { color: string }
+  code: { color: string }
+  link: { color: string; underline: boolean }
+  quote: { color: string; italic: boolean }
+  hr: { color: string }
+  listMarker: { color: string }
+  tableHeader: { color: string; bold: boolean }
+  tableCell: { color: string }
+}
+
+const theme: MdTheme = {
   heading: { color: '#9fb8d8', bold: true },
   strong: { color: '#e6e0cc', bold: true },
   emph: { color: '#cfc9b0', italic: true },
@@ -21,20 +36,27 @@ const theme = {
 }
 
 // Подсветка кода через cli-highlight (транзитивно уже есть у нас).
-function highlighter(code, lang) {
+function highlighter(code: string, lang?: string): string {
   try {
-    return highlight(code, { language: lang || 'plaintext', ignoreIllegals: true })
+    return highlight(code, {
+      language: lang || 'plaintext',
+      ignoreIllegals: true,
+    })
   } catch {
     return code
   }
 }
 
-export function renderMarkdown(text) {
+export function renderMarkdown(text: string): string {
   if (!text) return ''
   try {
     return render(String(text), {
       width: Math.min(process.stdout.columns || 80, 100),
-      theme,
+      theme: theme as unknown as Parameters<typeof render>[1] extends
+        | { theme?: infer T }
+        | undefined
+        ? T
+        : never,
       highlighter,
       codeBox: true,
       tableBorder: 'unicode',

@@ -1,12 +1,30 @@
 import path from 'path'
 import fs from 'fs/promises'
+import { readdirSync } from 'fs'
 import { theme } from './theme.js'
 import { fileURLToPath } from 'url'
 
 import { ZAMES_HOME } from './config.js'
+import type { BrowserLike, ToolArgs, TranscriptLike } from './types.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const SRC_DIR = __dirname
+
+// Исходники для самообзора — это .ts файлы. После сборки (tsc → dist/)
+// __dirname указывает на dist, где лежат .js. Поэтому ищем каталог с
+// исходниками: либо рядом (запуск из src/ через tsx), либо в ../src
+// (запуск собранного dist/ из корня репозитория).
+function resolveSrcDir(): string {
+const candidates = [__dirname, path.join(__dirname, '..', 'src')]
+for (const dir of candidates) {
+try {
+const entries = require('fs').readdirSync(dir)
+if (entries.some((e: string) => e.endsWith('.ts'))) return dir
+} catch {}
+}
+return __dirname
+}
+
+const SRC_DIR = resolveSrcDir()
 const SNAP_ROOT = path.join(ZAMES_HOME, 'snapshots')
 
 // Динамический импорт логики с timestamp — чтобы при /reload (или авто-reload)
@@ -25,16 +43,16 @@ async function loadFresh() {
   return { createTools, runAgentLoop }
 }
 
-async function ensureDir(p) {
+async function ensureDir(p: string): Promise<void> {
   await fs.mkdir(p, { recursive: true })
 }
 
-async function copyDirJsFiles(from, to) {
+async function copyDirJsFiles(from: string, to: string): Promise<string[]> {
   await ensureDir(to)
   const entries = await fs.readdir(from)
   const copied = []
   for (const e of entries) {
-    if (!e.endsWith('.js')) continue
+    if (!e.endsWith('.ts')) continue
     const data = await fs.readFile(path.join(from, e), 'utf-8')
     await fs.writeFile(path.join(to, e), data, 'utf-8')
     copied.push(e)
@@ -45,7 +63,7 @@ async function copyDirJsFiles(from, to) {
 
 // ---------- /self-review ----------
 
-export async function selfReview({ browser, config, focus, transcript }) {
+export async function selfReview({ browser, focus, transcript }: { browser: BrowserLike; focus?: string; transcript?: TranscriptLike | null; config?: unknown }): Promise<{ snapDir: string; reportPath: string; changed: string[] }> {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
   const snapRoot = path.join(SNAP_ROOT)
   const snapDir = path.join(snapRoot, `run-${stamp}`)
@@ -57,7 +75,7 @@ export async function selfReview({ browser, config, focus, transcript }) {
   if (copied.length === 0) {
     console.error(
       theme.error(
-        `\n✖ Самообзор отменён: в ${SRC_DIR} нет .js файлов.\n` +
+        `\n✖ Самообзор отменён: в ${SRC_DIR} нет .ts файлов.\n` +
           `Проверь, что src/ не пуст и ты запускаешь агента из корня проекта.\n`,
       ),
     )
@@ -93,15 +111,15 @@ export async function selfReview({ browser, config, focus, transcript }) {
     sendSystemPrompt: true,
     transcript,
     onThinking: () => {},
-    onToolCall: (name, args) => {
+    onToolCall: (name: string, args: ToolArgs) => {
       const preview = JSON.stringify(args).slice(0, 120)
       console.log(theme.warn(`🔧 ${name}`), theme.system(preview))
     },
-    onToolResult: (r) => {
+    onToolResult: (r: unknown) => {
       const t = typeof r === 'string' ? r : JSON.stringify(r)
       console.log(theme.system(`   → ${t.slice(0, 200).replace(/\n/g, ' ↵ ')}\n`))
     },
-    onAssistantMessage: (msg) => {
+    onAssistantMessage: (msg: string) => {
       finalMessage = msg
       console.log(theme.assistant('\n📋 Отчёт:\n'))
       console.log(msg)
@@ -146,7 +164,7 @@ export async function selfReview({ browser, config, focus, transcript }) {
 
 // ---------- /self-diff ----------
 
-export async function selfDiff({ config, name }) {
+export async function selfDiff({ name }: { name: string; config?: unknown }): Promise<void> {
   const snapDir = path.join(SNAP_ROOT, name)
   const snapStat = await fs.stat(snapDir).catch(() => null)
   if (!snapStat) throw new Error(`Снапшот не найден: ${snapDir}`)
@@ -156,7 +174,7 @@ export async function selfDiff({ config, name }) {
   let anyDiff = false
 
   for (const f of files) {
-    if (!f.endsWith('.js')) continue
+    if (!f.endsWith('.ts')) continue
     const orig = await fs
       .readFile(path.join(SRC_DIR, f), 'utf-8')
       .catch(() => '')
@@ -178,7 +196,7 @@ export async function selfDiff({ config, name }) {
 
 // ---------- /self-apply ----------
 
-export async function selfApply({ config, name }) {
+export async function selfApply({ name }: { name: string; config?: unknown }): Promise<void> {
   const snapDir = path.join(SNAP_ROOT, name)
   const snapStat = await fs.stat(snapDir).catch(() => null)
   if (!snapStat) throw new Error(`Снапшот не найден: ${snapDir}`)
@@ -192,11 +210,11 @@ export async function selfApply({ config, name }) {
   await copyDirJsFiles(SRC_DIR, backupDir)
 
   const files = await fs.readdir(snapDir)
-  const jsFiles = files.filter((f) => f.endsWith('.js'))
+  const jsFiles = files.filter((f) => f.endsWith('.ts'))
 
   if (jsFiles.length === 0) {
     throw new Error(
-      `В снапшоте ${snapDir} нет .js файлов. Apply отменён, чтобы не стирать src/.`,
+      `В снапшоте ${snapDir} нет .ts файлов. Apply отменён, чтобы не стирать src/.`,
     )
   }
 
@@ -217,7 +235,7 @@ export async function selfApply({ config, name }) {
 
 // ---------- /self-list ----------
 
-export async function selfList({ config }) {
+export async function selfList({ config }: { config?: unknown } = {}): Promise<void> {
   const snapRoot = path.join(SNAP_ROOT)
   let entries = []
   try {
@@ -256,11 +274,11 @@ export async function selfList({ config }) {
 
 // ---------- helpers ----------
 
-async function diffFiles(origDir, newDir) {
+async function diffFiles(origDir: string, newDir: string): Promise<string[]> {
   const files = await fs.readdir(newDir).catch(() => [])
   const changed = []
   for (const f of files) {
-    if (!f.endsWith('.js')) continue
+    if (!f.endsWith('.ts')) continue
     const a = await fs.readFile(path.join(origDir, f), 'utf-8').catch(() => '')
     const b = await fs.readFile(path.join(newDir, f), 'utf-8').catch(() => '')
     if (a !== b) changed.push(f)
@@ -268,7 +286,7 @@ async function diffFiles(origDir, newDir) {
   return changed
 }
 
-function buildReviewPrompt({ focus, snapDir }) {
+function buildReviewPrompt({ focus, snapDir }: { focus?: string; snapDir: string }): string {
   const focusLine = focus
     ? `\nThe user asked you to focus especially on: ${focus}\n`
     : ''
@@ -279,12 +297,12 @@ All source files are in your working directory: ${snapDir}
 ${focusLine}
 ## Your job
 
-1. Read EVERY .js file in your working directory. Use Glob("**/*.js") to list them, then Read each one. Do not skip files.
+1. Read EVERY .ts file in your working directory. Use Glob("**/*.ts") to list them, then Read each one. Do not skip files.
 2. Identify real, concrete problems. Focus on:
    - Race conditions and async/promise bugs (missing await, unhandled rejections, timing issues)
    - Error handling gaps: places that can throw and crash the agent
-   - JSON parsing edge cases in agent-loop.js (LLM output is unreliable)
-   - Fragile DOM selectors in browser.js (DeepSeek changes layout)
+   - JSON parsing edge cases in agent-loop.ts (LLM output is unreliable)
+   - Fragile DOM selectors in browser.ts (DeepSeek changes layout)
    - Cross-platform issues (Windows paths, cmd.exe vs bash, encoding)
    - Undo/transcript consistency: could undo leave files in bad state?
    - Self-review mode safety: could /self-apply corrupt src/?

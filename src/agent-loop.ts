@@ -1,6 +1,31 @@
 import { buildSystemPrompt } from './system-prompt.js'
 import { getGitContext, formatGitContext } from './gitTools.js'
 import { parseXmlToolCalls } from './xml-toolcall.js'
+import type {
+  BrowserLike,
+  ParsedToolCall,
+  ToolArgs,
+  ToolCall,
+  ToolDef,
+  TranscriptLike,
+} from './types.js'
+
+export interface RunAgentLoopOptions {
+  browser: BrowserLike
+  tools: ToolDef[]
+  task: string
+  workdir: string
+  maxIterations?: number
+  freshChat?: boolean
+  sendSystemPrompt?: boolean
+  transcript?: TranscriptLike | null
+  onThinking?: () => void
+  onAssistantThought?: (text: string) => void
+  onToolCall?: (name: string, args: ToolArgs) => void
+  onToolResult?: (result: unknown) => void
+  onAssistantMessage?: (msg: string) => void
+  debugLog?: boolean
+}
 
 export async function runAgentLoop({
   browser,
@@ -17,7 +42,7 @@ export async function runAgentLoop({
   onToolResult = () => {},
   onAssistantMessage = () => {},
   debugLog = false,
-}) {
+}: RunAgentLoopOptions): Promise<string> {
   if (freshChat) {
     await browser.newChat()
     transcript?.log('new_chat')
@@ -29,7 +54,7 @@ export async function runAgentLoop({
       const ctx = await getGitContext(workdir)
       gitText = formatGitContext(ctx)
     } catch (e) {
-      gitText = `(git context error: ${e.message})`
+      gitText = `(git context error: ${(e as Error).message})`
     }
 
     const systemPrompt = buildSystemPrompt({
@@ -135,7 +160,7 @@ export async function runAgentLoop({
       try {
         result = await tool.fn(call.args)
       } catch (e) {
-        result = `Ошибка: ${e.message}`
+        result = `Ошибка: ${(e as Error).message}`
       }
 
       onToolResult(result)
@@ -167,7 +192,7 @@ export async function runAgentLoop({
 
 // ============ JSON parsing ============
 
-function repairRawControlChars(str) {
+function repairRawControlChars(str: string): string {
   let out = ''
   let inString = false
   let escape = false
@@ -188,7 +213,7 @@ function repairRawControlChars(str) {
   return out
 }
 
-function tryParse(str) {
+function tryParse(str: string): ToolCall | null {
   try {
     const obj = JSON.parse(str)
     if (
@@ -206,7 +231,7 @@ function tryParse(str) {
   }
 }
 
-function tryParseArray(str) {
+function tryParseArray(str: string): ToolCall[] | null {
   try {
     const arr = JSON.parse(str)
     if (
@@ -230,8 +255,8 @@ function tryParseArray(str) {
 }
 
 // Жадный разбор args для грязного JSON (незаэкранированные кавычки в строке).
-function parseArgsGreedy(str) {
-  const result = {}
+function parseArgsGreedy(str: string): ToolArgs | null {
+  const result: ToolArgs = {}
   let i = str.indexOf('{') + 1
   if (i === 0) return null
   const skipWs = () => {
@@ -291,8 +316,8 @@ function parseArgsGreedy(str) {
   return result
 }
 
-function parseArgsPermissive(str) {
-  const result = {}
+function parseArgsPermissive(str: string): ToolArgs | null {
+  const result: ToolArgs = {}
   let i = 1
   while (i < str.length) {
     while (i < str.length && /[\s,]/.test(str[i])) i++
@@ -374,7 +399,7 @@ function parseArgsPermissive(str) {
   return result
 }
 
-function unescapeValue(s) {
+function unescapeValue(s: string): string {
   let out = ''
   let i = 0
   while (i < s.length) {
@@ -429,7 +454,7 @@ function unescapeValue(s) {
   return out
 }
 
-function parseToolCallPermissive(text) {
+function parseToolCallPermissive(text: string): { tool: string; args: ToolArgs } | null {
   const toolMatch = text.match(/"tool"\s*:\s*"([A-Za-z_][A-Za-z0-9_]*)"/)
   if (!toolMatch) return null
   const tool = toolMatch[1]
@@ -476,9 +501,9 @@ function parseToolCallPermissive(text) {
 
 // Специализированный разбор args для Edit: ровно три поля path/old_string/
 // new_string, значения могут содержать сырые кавычки и переводы строк.
-function parseEditArgs(str) {
-  const keyRe = (name) => new RegExp('"' + name + '"\\s*:\\s*"')
-  const readValue = (name, nextNames) => {
+function parseEditArgs(str: string): ToolArgs | null {
+  const keyRe = (name: string): RegExp => new RegExp('"' + name + '"\\s*:\\s*"')
+  const readValue = (name: string, nextNames: string[]): string | null => {
     const m = keyRe(name).exec(str)
     if (!m) return null
     const start = m.index + m[0].length
@@ -501,7 +526,7 @@ function parseEditArgs(str) {
   return { path: path, old_string: oldStr, new_string: newStr }
 }
 
-function extractJsonObjects(text) {
+function extractJsonObjects(text: string): string[] {
   const objects = []
   let i = 0
   while (i < text.length) {
@@ -526,7 +551,7 @@ function extractJsonObjects(text) {
   return objects
 }
 
-function findMatching(text, openIdx, openCh, closeCh) {
+function findMatching(text: string, openIdx: number, openCh: string, closeCh: string): number {
   let depth = 0
   let inString = false
   let escape = false
@@ -554,7 +579,7 @@ function findMatching(text, openIdx, openCh, closeCh) {
   return -1
 }
 
-export function parseToolCall(text) {
+export function parseToolCall(text: string): ParsedToolCall {
   if (!text || typeof text !== 'string') return null
 
   let cleaned = text.trim()
@@ -621,7 +646,7 @@ export function parseToolCall(text) {
   return null
 }
 
-function extractPreToolText(text) {
+function extractPreToolText(text: string): string {
   if (!text) return ''
   const patterns = ['{"tool"', '[{"tool"', '{"tool":', '[{"tool":']
   let earliest = -1

@@ -1,8 +1,24 @@
 import fs from 'fs'
 import path from 'path'
+import type { WriteStream } from 'fs'
+
+export interface TranscriptOptions {
+  dir: string
+  enabled?: boolean
+  sessionName?: string
+}
 
 export class Transcript {
-  constructor({ dir, enabled = true, sessionName = 'session' } = {}) {
+  enabled: boolean
+  file: string | null
+  stream: WriteStream | null
+  startedAt: number
+
+  constructor({
+    dir,
+    enabled = true,
+    sessionName = 'session',
+  }: TranscriptOptions) {
     this.enabled = enabled
     this.file = null
     this.stream = null
@@ -17,17 +33,19 @@ export class Transcript {
       this.stream = fs.createWriteStream(this.file, { flags: 'a' })
       // Ошибки записи (диск переполнен, файл удалён и т.п.) приходят
       // событием 'error'; без слушателя это uncaught exception.
-      this.stream.on('error', (e) => {
+      this.stream.on('error', (e: Error) => {
         console.error(`transcript: ошибка записи: ${e.message}`)
         this.enabled = false
       })
     } catch (e) {
-      console.error(`transcript: не удалось создать файл: ${e.message}`)
+      console.error(
+        `transcript: не удалось создать файл: ${(e as Error).message}`,
+      )
       this.enabled = false
     }
   }
 
-  log(type, data = {}) {
+  log(type: string, data: Record<string, unknown> = {}): void {
     if (!this.enabled || !this.stream) return
     const entry = {
       ts: new Date().toISOString(),
@@ -36,11 +54,11 @@ export class Transcript {
       ...data,
     }
     try {
-      this.stream.write(JSON.stringify(entry) + '\n')
+      this.stream.write(JSON.stringify(entry) + String.fromCharCode(10))
     } catch {}
   }
 
-  close() {
+  close(): void {
     if (this.stream) this.stream.end()
   }
 }

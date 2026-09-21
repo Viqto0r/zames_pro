@@ -1,6 +1,17 @@
-import ora from 'ora'
+import ora, { type Ora } from 'ora'
 import { theme } from './theme.js'
 import { renderMarkdown } from './markdown.js'
+
+export interface SpinnerUI {
+  thinking: () => void
+  setPending: (text: string | null) => void
+  toolCall: (name: string, args: unknown) => void
+  toolResult: (result: unknown) => void
+  assistant: (msg: string) => void
+  stop: () => void
+  succeed: () => void
+  fail: () => void
+}
 
 // Фразы для спиннера «агент работает». Выбираются в случайном порядке.
 const THINKING_PHRASES = [
@@ -36,24 +47,24 @@ const THINKING_PHRASES = [
   'Замешиваю кал из всего подряд…',
 ]
 
-export function randomThinkingPhrase() {
+export function randomThinkingPhrase(): string {
   return THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)]
 }
 
 // Убираем завершающее многоточие из фразы — точки анимируем отдельно.
-export function stripEllipsis(phrase) {
+export function stripEllipsis(phrase: string): string {
   return phrase.replace(/[.…]+\s*$/, '')
 }
 
-export function createSpinner() {
-  let spinner = null
-  let dotTimer = null
+export function createSpinner(): SpinnerUI {
+  let spinner: Ora | null = null
+  let dotTimer: ReturnType<typeof setInterval> | null = null
   let dotPhase = 0
-  let pending = null
+  let pending: string | null = null
 
   const DOTS = ['.', '..', '...']
 
-  const start = (text) => {
+  const start = (text: string) => {
     if (!spinner) spinner = ora(text).start()
     else spinner.start(text)
   }
@@ -107,26 +118,26 @@ export function createSpinner() {
 
     // Текст, который пользователь набирает во время работы агента.
     // Пустая строка / null — вернуть обычный спиннер.
-    setPending: (text) => {
+    setPending: (text: string | null) => {
       pending = text && String(text).length ? String(text) : null
       if (pending) showPending()
       else startThinking()
     },
 
-    toolCall: (name, args) => {
+    toolCall: (name: string, args: unknown) => {
       stop()
       const preview = JSON.stringify(args).slice(0, 120)
       console.log(theme.tool('🔧 ' + name), theme.dim(preview))
     },
 
-    toolResult: (result) => {
+    toolResult: (result: unknown) => {
       stop()
       const text = typeof result === 'string' ? result : JSON.stringify(result)
       const preview = text.slice(0, 200).split(String.fromCharCode(10)).join(' ↵ ')
       console.log(theme.toolResult('   → ' + preview + String.fromCharCode(10)))
     },
 
-    assistant: (msg) => {
+    assistant: (msg: string) => {
       stop()
       const NL = String.fromCharCode(10)
       const rendered = renderMarkdown(msg)

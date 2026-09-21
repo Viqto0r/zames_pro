@@ -1,10 +1,11 @@
 import { chromium } from 'playwright'
+import type { ToolArgs, ToolDef } from './types.js'
 
 const DEFAULT_TIMEOUT = 20_000
 const MAX_TEXT = 12_000
 
 // Убирает скрипты, стили, и превращает HTML в читабельный текст.
-function htmlToText(html) {
+function htmlToText(html: string): string {
   // Удаляем блоки, которые не нужны
   let s = html
     .replace(/<script[\s\S]*?<\/script>/gi, '')
@@ -57,9 +58,9 @@ function htmlToText(html) {
 
 // fetch с редиректами и таймаутом
 async function httpFetch(
-  url,
-  { timeout = DEFAULT_TIMEOUT, headers = {} } = {},
-) {
+  url: string,
+  { timeout = DEFAULT_TIMEOUT, headers = {} }: { timeout?: number; headers?: Record<string, string> } = {},
+): Promise<{ status: number; url: string; contentType: string; body: string }> {
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), timeout)
   try {
@@ -83,7 +84,7 @@ async function httpFetch(
 
 // Отдельный headless-браузер для JS-страниц.
 // Ленивая инициализация, чтобы не тратить ресурсы впустую.
-let _headless = null
+let _headless: Awaited<ReturnType<typeof chromium.launch>> | null = null
 async function getHeadless() {
   if (_headless) return _headless
   _headless = await chromium.launch({
@@ -102,7 +103,10 @@ export async function closeWeb() {
   }
 }
 
-async function renderWithHeadless(url, { timeout = DEFAULT_TIMEOUT } = {}) {
+async function renderWithHeadless(
+  url: string,
+  { timeout = DEFAULT_TIMEOUT }: { timeout?: number } = {},
+) {
   const browser = await getHeadless()
   const ctx = await browser.newContext({
     userAgent:
@@ -127,7 +131,7 @@ async function renderWithHeadless(url, { timeout = DEFAULT_TIMEOUT } = {}) {
 
 // ---------- инструменты ----------
 
-export function createWebTools() {
+export function createWebTools(): ToolDef[] {
   return [
     {
       name: 'WebFetch',
@@ -140,8 +144,8 @@ export function createWebTools() {
         render: 'boolean?',
         maxChars: 'number?',
       },
-      fn: async ({ url, render, maxChars }) => {
-        if (!/^https?:\/\//i.test(url)) {
+      fn: async ({ url, render, maxChars }: ToolArgs) => {
+        if (!/^https?:\/\//i.test(String(url))) {
           return `Ошибка: URL должен начинаться с http:// или https://`
         }
 
@@ -149,12 +153,12 @@ export function createWebTools() {
 
         try {
           if (render) {
-            const r = await renderWithHeadless(url)
+            const r = await renderWithHeadless(String(url))
             const text = htmlToText(r.html)
             return formatResult(r.status, r.url, text, limit)
           }
 
-          const r = await httpFetch(url)
+          const r = await httpFetch(String(url))
 
           // Если это JSON/plain text — вернуть как есть
           if (
@@ -180,7 +184,7 @@ export function createWebTools() {
 
           return formatResult(r.status, r.url, text, limit)
         } catch (e) {
-          return `Ошибка загрузки ${url}: ${e.message}`
+          return `Ошибка загрузки ${url}: ${(e as Error).message}`
         }
       },
     },
@@ -194,8 +198,8 @@ export function createWebTools() {
         query: 'string',
         maxResults: 'number?',
       },
-      fn: async ({ query, maxResults }) => {
-        const q = encodeURIComponent(query || '')
+      fn: async ({ query, maxResults }: ToolArgs) => {
+        const q = encodeURIComponent(String(query || ''))
         if (!q) return 'Ошибка: query пустой.'
 
         const limit = Math.min(Math.max(Number(maxResults) || 8, 1), 20)
@@ -245,14 +249,14 @@ export function createWebTools() {
           )
           return lines.join('\n\n')
         } catch (e) {
-          return `Ошибка поиска: ${e.message}`
+          return `Ошибка поиска: ${(e as Error).message}`
         }
       },
     },
   ]
 }
 
-function formatResult(status, url, text, limit) {
+function formatResult(status: number, url: string, text: string, limit: number): string {
   let out = text
   let truncated = false
   if (out.length > limit) {

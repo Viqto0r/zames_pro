@@ -14,43 +14,43 @@ sandbox-корнем: инструменты не могут читать/пис
 
 ## Поток выполнения
 
-1. `src/index.js` — CLI, парсинг аргументов, главный цикл ввода, команды `/...`.
-2. `src/agent-loop.js` — цикл агента: отправляет задачу, парсит ответ модели,
+1. `src/index.ts` — CLI, парсинг аргументов, главный цикл ввода, команды `/...`.
+2. `src/agent-loop.ts` — цикл агента: отправляет задачу, парсит ответ модели,
    ищет tool-call, выполняет инструмент, возвращает результат модели. До
    `maxIterations` итераций (по умолчанию 40).
-3. `src/browser.js` — вся работа с Playwright: поиск поля ввода, вставка текста
+3. `src/browser.ts` — вся работа с Playwright: поиск поля ввода, вставка текста
    (paste-событие для contenteditable), ожидание ответа, чтение ответа,
    Stop/Esc, определение текущего chat id, список чатов.
-4. `src/system-prompt.js` — формирует system-prompt (описание инструментов,
+4. `src/system-prompt.ts` — формирует system-prompt (описание инструментов,
    рабочая директория, git-контекст).
-5. `src/tools.js`, `src/gitTools.js`, `src/web.js` — реализация инструментов.
+5. `src/tools.ts`, `src/gitTools.ts`, `src/web.ts` — реализация инструментов.
 
 ## Инструменты (tools)
 
-Файловые (src/tools.js): Read, Write, Edit, Bash, Glob, Grep.
-Git (src/gitTools.js): GitStatus, GitDiff, GitLog, GitAdd, GitCommit, GitPush.
-Web (src/web.js): WebFetch, WebSearch.
+Файловые (src/tools.ts): Read, Write, Edit, Bash, Glob, Grep.
+Git (src/gitTools.ts): GitStatus, GitDiff, GitLog, GitAdd, GitCommit, GitPush.
+Web (src/web.ts): WebFetch, WebSearch.
 Служебный: respond (финальный ответ пользователю, завершает задачу).
 
-Список инструментов собирается в `createTools()` (src/tools.js) и передаётся
+Список инструментов собирается в `createTools()` (src/tools.ts) и передаётся
 в system-prompt. Чтобы добавить инструмент — опиши его в соответствующем
 модуле и добавь в общий список.
 
 ## Формат tool-call
 
-Модель возвращает вызов инструмента текстом. `agent-loop.js` парсит его
+Модель возвращает вызов инструмента текстом. `agent-loop.ts` парсит его
 (есть строгий и нестрогий/permissive парсер). Формат описан в system-prompt.
 Если добавляешь инструмент — синхронизируй описание в system-prompt.
 
 Парсер в `parseToolCall()` пробует по очереди: JSON-объект/массив (в т.ч.
 в ```-блоке и с «починенными» бэкслешами), permissive-разбор грязного JSON,
-хвост после прозы и, в самом конце, XML/DSML-блок (`src/xml-toolcall.js`).
+хвост после прозы и, в самом конце, XML/DSML-блок (`src/xml-toolcall.ts`).
 Последний нужен потому, что модель иногда отвечает не JSON-ом, а
 `<invoke name="Tool"><parameter name="x">…</parameter></invoke>` (тег может
 нести произвольный префикс) или DSML-блоком
 `<｜｜DSML｜｜invoke name="Read">…`. Без этого разбора такой ответ не считается
 tool-call, и агент молча завершает задачу — «вызвал инструмент и остановился».
-Если правишь формат ответа — обнови и `src/xml-toolcall.js`.
+Если правишь формат ответа — обнови и `src/xml-toolcall.ts`.
 
 Дополнительные страховки от «остановок» (проверены на реальных транскриптах):
 - `repairRawControlChars()` экранирует сырые переводы строк/табы внутри
@@ -84,7 +84,7 @@ DeepSeek любит добавлять короткие фразы вокруг 
 
 ## Ввод в терминале
 
-Интерактивный ввод обслуживает `LineEditor` (src/input.js) — собственный
+Интерактивный ввод обслуживает `LineEditor` (src/input.ts) — собственный
 редактор строки, не readline. Причина: readline отправляет сообщение на
 первом переводе строки, из-за чего многострочная вставка (Shift+Insert)
 уходила сразу и только первой строкой. Текущая логика:
@@ -98,18 +98,18 @@ DeepSeek любит добавлять короткие фразы вокруг 
 - перерисовка учитывает перенос по ширине терминала (`layoutInput`).
 
 В не-TTY режиме (пайп, редирект) `LineEditor` не стартует — используется
-`promptOnce()` (src/index.js), который читает всё до EOF.
+`promptOnce()` (src/index.ts), который читает всё до EOF.
 
 ВАЖНО при правке этого кода: не вставляй в строковые литералы «сырые»
 управляющие символы (CR/LF) — только escape-последовательности `\r`/`\n`
-(в src/input.js управляющие символы собираются через `String.fromCharCode`).
+(в src/input.ts управляющие символы собираются через `String.fromCharCode`).
 
 ## Ввод во время работы агента (очередь сообщений)
 
 Пока агент думает, терминал остаётся живым. В TTY этим владеет `LineEditor`:
 строка ввода остаётся на месте, и всё, что пользователь печатает, копится
 в её буфере. По Enter `LineEditor.onSubmit` кладёт текст в `pendingQueue`
-(src/index.js).
+(src/index.ts).
 
 - **Esc / Ctrl+C** — прервать текущую генерацию (`browser.stopGeneration()`);
   `Ctrl+C` в простое — выход из агента.
@@ -125,12 +125,12 @@ DeepSeek любит добавлять короткие фразы вокруг 
 Очередь (`pendingQueue`) живёт в интерактивном цикле `main()` и передаётся
 в `runTask()` через `opts.queue`. В разовом режиме (`--task`) очередь пустая.
 
-Fallback для не-TTY (`watchInput()` в src/index.js) оставлен для пайпов: он
+Fallback для не-TTY (`watchInput()` в src/index.ts) оставлен для пайпов: он
 читает stdin в raw-режиме и через `ui.setPending()` показывает набранный
 текст в строке спиннера, а по Enter кладёт его в очередь. В обычном
 интерактивном запуске не задействован.
 
-## Команды (главный цикл, src/index.js)
+## Команды (главный цикл, src/index.ts)
 
 - `/new`, `/clear` — новый чат (сброс контекста)
 - `/sessions` — список сохранённых сессий (папка `~/.zames/.sessions`)
@@ -156,7 +156,7 @@ Fallback для не-TTY (`watchInput()` в src/index.js) оставлен дл�
 - `/self-diff <name>` — различия между текущим src/ и снапшотом
 - `/self-apply <name>` — применить снапшот к src/ (с бэкапом)
 
-## Конфигурация (src/config.js)
+## Конфигурация (src/config.ts)
 
 Глобальный: `~/.zames/config.json`
 Локальный: `<project>/.zamesrc.json`
@@ -166,14 +166,14 @@ headless, debug, confirmation, undo, transcript, browser.
 `browser.minSendIntervalMs` (по умолчанию 15000) — минимальная пауза между
 отправками сообщений в [chat.deepseek.com](https://chat.deepseek.com/). DeepSeek ограничивает частоту
 («Messages too frequent. Try again later.»), поэтому `_waitForSendSlot()`
-в `browser.js` перед каждой отправкой ждёт, пока с прошлой (`_lastSentAt`)
+в `browser.ts` перед каждой отправкой ждёт, пока с прошлой (`_lastSentAt`)
 не пройдёт этот интервал. Первая отправка в сессии паузы не ждёт.
 
 Данные в `~/.zames`: profile (браузер), logs (транскрипт), undo, snapshots,
 `.sessions` (сессии/чаты). Временные файлы — `<project>/tmp` (в .gitignore,
 чистится при запуске).
 
-## Сессии (src/sessions.js)
+## Сессии (src/sessions.ts)
 
 Чтобы контекст не терялся после перезапуска, каждая сессия (chat id DeepSeek)
 сохраняется отдельным JSON-файлом в `~/.zames/.sessions/<id>.json`:
@@ -187,24 +187,45 @@ headless, debug, confirmation, undo, transcript, browser.
 
 API: `saveSession`, `loadLastSession(workdir)`, `readSession(id)`,
 `listSessions()`, `sessionsDir()`. Сохранение вызывается из `saveLastChat()`
-в `index.js` после каждой задачи, нового чата и `/resume`.
+в `index.ts` после каждой задачи, нового чата и `/resume`.
 
 ## Прочие модули
 
-- `theme.js` — палитра вывода (chalk)
-- `spinner.js` — спиннер «агент работает» (случайные фразы)
-- `markdown.js` — рендер ответов модели
-- `confirm.js` — подтверждения опасных операций
-- `diff.js` — показ диффов
-- `undo.js` — бэкапы/откат
-- `transcript.js` — запись транскрипта
-- `self-review.js` — снапшоты и самообзор
+- `theme.ts` — палитра вывода (chalk)
+- `spinner.ts` — спиннер «агент работает» (случайные фразы)
+- `markdown.ts` — рендер ответов модели
+- `confirm.ts` — подтверждения опасных операций
+- `diff.ts` — показ диффов
+- `undo.ts` — бэкапы/откат
+- `transcript.ts` — запись транскрипта
+- `self-review.ts` — снапшоты и самообзор
 
 ## Проверка изменений
 
-- Синтаксис: `node --check src/<file>.js`
-- Запуск: `npm start` (обычный) или `zames`
-- Нет тестового фреймворка и линтера (в package.json только start/dev).
+- Синтаксис/типы: `npm run typecheck` (tsc --noEmit)
+- Сборка: `npm run build` (tsc → dist/)
+- Запуск (прод): `npm start` (node dist/index.js) или `zames`
+- Запуск (dev, без сборки): `npm run dev` (tsx src/index.ts)
+- Нет тестового фреймворка и линтера (в package.json start/dev/build/typecheck).
+
+## TypeScript
+
+Проект на TypeScript, strict. Исходники — `src/*.ts`; сборка — `tsc` в `dist/`
+(`bin.zames` и npm-публикация указывают на `dist/index.js`, `files: ["dist", …]`).
+`prepublishOnly` собирает перед публикацией.
+
+Импорты в коде — с расширением `.js` (NodeNext), даже в `.ts`-файлах:
+`import { theme } from './theme.js'`. Так требует moduleResolution NodeNext.
+
+Контракты (tool-call, ToolDef, конфиг, BrowserLike) — в `src/types.ts`.
+Меняешь инструмент или формат tool-call — синхронизируй типы там.
+
+Hot-reload (`/reload`, `--dev`) динамически импортирует модули с `?t=timestamp`.
+В прод-режиме это `dist/*.js`, в dev — `src/*.ts` через tsx (tsx резолвит `.js`→`.ts`).
+
+Самообзор ищет каталог с `.ts`-исходниками: в dev это `src/`, в собранном
+`dist/` — `../src` (`resolveSrcDir()` в self-review.ts). Публикуемый пакет
+содержит только `dist/`, поэтому /self-review там работать не будет.
 
 ## Почему агент может «остановиться»
 
@@ -216,7 +237,7 @@ parseToolCall() не смог распознать (parsed === null). Такой
 
 Защита в два слоя:
 1. `parseToolCall()` пробует JSON, permissive-разбор и XML/DSML
-   (`src/xml-toolcall.js`) — см. «Формат tool-call».
+   (`src/xml-toolcall.ts`) — см. «Формат tool-call».
 2. Если ответ всё равно не распознан, но ПОХОЖ на вызов (есть `"tool"`,
    `invoke` или `parameter`), `runAgentLoop()` не завершает задачу, а шлёт
    модели корректирующее сообщение и продолжает цикл (до

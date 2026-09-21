@@ -1,4 +1,4 @@
-import { chromium } from 'playwright'
+import { chromium, type BrowserContext, type Page, type Locator } from 'playwright'
 import path from 'path'
 import os from 'os'
 import fs from 'fs/promises'
@@ -70,7 +70,37 @@ async function nukeProfile() {
 
 // ---------- class ----------
 
+export interface DeepSeekBrowserOptions {
+  headless?: boolean
+  debug?: boolean
+  channel?: string | null
+  answerTimeoutMs?: number
+  askRetries?: number
+  stabilityChecks?: number
+  stabilityDelayMs?: number
+  minSendIntervalMs?: number
+}
+
+export interface ChatInfo {
+  id: string
+  title: string
+  href?: string
+}
+
 export class DeepSeekBrowser {
+  headless: boolean
+  debug: boolean
+  channel: string | null
+  answerTimeoutMs: number
+  askRetries: number
+  stabilityChecks: number
+  stabilityDelayMs: number
+  minSendIntervalMs: number
+  _lastSentAt: number
+  _abort: boolean
+  context!: BrowserContext
+  page!: Page
+
   constructor({
     headless = false,
     debug = false,
@@ -80,7 +110,7 @@ export class DeepSeekBrowser {
     stabilityChecks = 3,
     stabilityDelayMs = 1000,
     minSendIntervalMs = 15000,
-  } = {}) {
+  }: DeepSeekBrowserOptions = {}) {
     this.headless = headless
     this.debug = debug
     this.channel = channel
@@ -92,11 +122,10 @@ export class DeepSeekBrowser {
     // частоту («Messages too frequent. Try again later.»).
     this.minSendIntervalMs = minSendIntervalMs
     this._lastSentAt = 0
-    this.context = null
-    this.page = null
+    this._abort = false
   }
 
-  async launch() {
+  async launch(): Promise<void> {
     await killStaleChrome()
     if (await profileLooksLocked()) {
       if (this.debug) console.error('profile: удаляю Singleton-файлы')
@@ -105,8 +134,8 @@ export class DeepSeekBrowser {
     await this._launchOnce()
   }
 
-  async _launchOnce() {
-    const options = {
+  async _launchOnce(): Promise<void> {
+    const options: Parameters<typeof chromium.launchPersistentContext>[1] = {
       headless: this.headless,
       slowMo: 30,
       args: ['--disable-blink-features=AutomationControlled'],
@@ -121,7 +150,7 @@ export class DeepSeekBrowser {
     } catch (e) {
       if (
         /Target page, context or browser has been closed|profile.*in use/i.test(
-          e.message,
+          (e as Error).message,
         )
       ) {
         if (this.debug)
@@ -149,17 +178,16 @@ export class DeepSeekBrowser {
 
     this.page = this.context.pages()[0] || (await this.context.newPage())
     await this.page.goto(CHAT_URL, { waitUntil: 'domcontentloaded' })
-    return this
   }
 
-  async restart() {
+  async restart(): Promise<void> {
     try {
       if (this.context) await this.context.close()
     } catch {}
     await this.launch()
   }
 
-  async waitForLogin() {
+  async waitForLogin(): Promise<void> {
     const loggedIn = await this.isLoggedIn()
     if (loggedIn) return
 
@@ -171,7 +199,7 @@ export class DeepSeekBrowser {
       input: process.stdin,
       output: process.stdout,
     })
-    await new Promise((resolve) => {
+    await new Promise<void>((resolve) => {
       rl.question('', () => {
         rl.close()
         resolve()
@@ -179,7 +207,7 @@ export class DeepSeekBrowser {
     })
   }
 
-  async isLoggedIn() {
+  async isLoggedIn(): Promise<boolean> {
     for (const sel of INPUT_SELECTORS) {
       try {
         await this.page.locator(sel).first().waitFor({
@@ -192,7 +220,7 @@ export class DeepSeekBrowser {
     return false
   }
 
-  async newChat() {
+  async newChat(): Promise<void> {
     const newChatBtn = this.page
       .locator('button, a')
       .filter({ hasText: /new chat|новый чат|новый диалог/i })
@@ -206,7 +234,7 @@ export class DeepSeekBrowser {
     }
   }
 
-  async _findVisible(selectors, timeout = 1000) {
+  async _findVisible(selectors: string[], timeout = 1000): Promise<Locator | null> {
     for (const sel of selectors) {
       const loc = this.page.locator(sel).last()
       try {
@@ -217,8 +245,8 @@ export class DeepSeekBrowser {
     return null
   }
 
-  async _readLastAnswerText() {
-    return await this.page.evaluate((sels) => {
+  async _readLastAnswerText(): Promise<string> {
+    return await this.page.evaluate((sels: string[]) => {
       let el = null
       for (const s of sels) {
         const list = document.querySelectorAll(s)
@@ -226,9 +254,9 @@ export class DeepSeekBrowser {
       }
       if (!el) return ''
 
-      const clone = el.cloneNode(true)
+      const clone = el.cloneNode(true) as Element
 
-      Array.from(clone.querySelectorAll('pre')).forEach((pre) => {
+      Array.from(clone.querySelectorAll("pre")).forEach((pre: Element) => {
         const codeEl = pre.querySelector('code')
         const source = codeEl || pre
         const text = (source.textContent || '').replace(/\n$/, '')
@@ -240,7 +268,7 @@ export class DeepSeekBrowser {
         if (pre.parentNode) pre.parentNode.replaceChild(replacement, pre)
       })
 
-      Array.from(clone.querySelectorAll('code')).forEach((c) => {
+      Array.from(clone.querySelectorAll("code")).forEach((c: Element) => {
         const replacement = document.createTextNode(
           '`' + (c.textContent || '') + '`',
         )
@@ -253,14 +281,14 @@ export class DeepSeekBrowser {
       const NL = String.fromCharCode(10)
       const BULLET = String.fromCharCode(45) + ' ' // '- '
 
-      function domToMarkdown(node) {
+      function domToMarkdown(node: any): string {
         if (node.nodeType === 3) return node.textContent || ''
         if (node.nodeType !== 1) return ''
         const tag = node.tagName.toLowerCase()
 
         if (tag === 'br') return NL
 
-        const inner = Array.from(node.childNodes)
+        const inner: string = Array.from(node.childNodes)
           .map(domToMarkdown)
           .join('')
 
@@ -304,7 +332,7 @@ export class DeepSeekBrowser {
     }, ANSWER_SELECTORS)
   }
 
-  async _readLastAnswerTextClean() {
+  async _readLastAnswerTextClean(): Promise<string> {
     const raw = await this._readLastAnswerText().catch(() => '')
     const t = (raw || '').trim()
     if (!t) return ''
@@ -313,14 +341,14 @@ export class DeepSeekBrowser {
     return raw
   }
 
-  async _isGenerating() {
+  async _isGenerating(): Promise<boolean> {
     const stop = await this._findVisible(STOP_SELECTORS, 300)
     return !!stop
   }
 
   // Прервать текущую генерацию: нажать Stop в интерфейсе.
   // Используется при нажатии Esc пользователем.
-  async stopGeneration() {
+  async stopGeneration(): Promise<boolean> {
     this._abort = true
     const btn = await this._findVisible(STOP_SELECTORS, 500)
     if (btn) {
@@ -332,7 +360,7 @@ export class DeepSeekBrowser {
     return false
   }
 
-  async ask(prompt, { timeout = this.answerTimeoutMs } = {}) {
+  async ask(prompt: string, { timeout = this.answerTimeoutMs }: { timeout?: number } = {}): Promise<string> {
     let lastErr = null
 
     for (let attempt = 1; attempt <= this.askRetries; attempt++) {
@@ -341,16 +369,16 @@ export class DeepSeekBrowser {
       } catch (e) {
         lastErr = e
         console.error(
-          `\n⚠ ask() попытка ${attempt}/${this.askRetries} провалилась: ${e.message}`,
+          `\n⚠ ask() попытка ${attempt}/${this.askRetries} провалилась: ${(e as Error).message}`,
         )
 
-        if (/closed|crash|Target page|browser/i.test(e.message)) {
+        if (/closed|crash|Target page|browser/i.test((e as Error).message)) {
           console.error('⚠ перезапускаю браузер...')
           try {
             await this.restart()
             await this.waitForLogin()
           } catch (re) {
-            console.error(`⚠ не удалось перезапустить: ${re.message}`)
+            console.error(`⚠ не удалось перезапустить: ${(re as Error).message}`)
           }
         }
 
@@ -361,7 +389,7 @@ export class DeepSeekBrowser {
     }
 
     throw new Error(
-      `ask() провалился после ${this.askRetries} попыток: ${lastErr?.message}`,
+      `ask() провалился после ${this.askRetries} попыток: ${(lastErr as Error | null)?.message}`,
     )
   }
 
@@ -373,7 +401,7 @@ export class DeepSeekBrowser {
   // для contenteditable и [role=textbox] эмулируем paste-событие с полным
   // текстом — то же, что делает Shift+Insert. Для нативных textarea/input
   // перевод строки работает и так.
-  async _setInputText(input, text) {
+  async _setInputText(input: Locator, text: string): Promise<void> {
     const tag = await input.evaluate((el) => el.tagName.toLowerCase())
     const isNative = tag === 'textarea' || tag === 'input'
 
@@ -410,13 +438,13 @@ export class DeepSeekBrowser {
 
     // Проверяем, что текст реально попал в поле. Если редактор проигнорировал
     // paste — падаем на insertText.
-    const got = await input.evaluate((el) => {
+    const got = await input.evaluate((el: any) => {
       if (el.tagName.toLowerCase() === 'textarea' || el.tagName.toLowerCase() === 'input') {
         return el.value
       }
       return el.innerText || el.textContent || ''
     })
-    const norm = (s) =>
+    const norm = (s: string | null | undefined): string =>
       (s || '').replace(/\r\n/g, '\n').replace(/\u00a0/g, ' ').trim()
     if (!norm(got)) {
       await input.click()
@@ -426,7 +454,7 @@ export class DeepSeekBrowser {
 
   // Ждём, пока с прошлой отправки пройдёт minSendIntervalMs. Защита от
   // «Messages too frequent. Try again later.» на [chat.deepseek.com](https://chat.deepseek.com/).
-  async _waitForSendSlot() {
+  async _waitForSendSlot(): Promise<void> {
     if (!this._lastSentAt) return // первая отправка — пауза не нужна
     const gap = this.minSendIntervalMs - (Date.now() - this._lastSentAt)
     if (gap <= 0) return
@@ -438,7 +466,7 @@ export class DeepSeekBrowser {
     await this.page.waitForTimeout(gap)
   }
 
-  async _askOnce(prompt, { timeout }) {
+  async _askOnce(prompt: string, { timeout }: { timeout: number }): Promise<string> {
     const input = await this._findVisible(INPUT_SELECTORS, 10_000)
     if (!input) {
       throw new Error(
@@ -505,14 +533,14 @@ export class DeepSeekBrowser {
     throw new Error('Таймаут ожидания ответа. Попробуйте /debug-dom.')
   }
 
-  async dumpDom(filePath) {
+  async dumpDom(filePath: string): Promise<{ file: string; selectors: unknown }> {
     if (!this.page) throw new Error('браузер не запущен')
     const html = await this.page.content()
     await fs.writeFile(filePath, html, 'utf-8')
 
     const report = await this.page.evaluate(
-      (sels) => {
-        const result = { answers: {}, stops: {}, inputs: {} }
+      (sels: { answers: string[]; stops: string[]; inputs: string[] }) => {
+        const result: { answers: Record<string, number>; stops: Record<string, number>; inputs: Record<string, number> } = { answers: {}, stops: {}, inputs: {} }
         for (const s of sels.answers) {
           result.answers[s] = document.querySelectorAll(s).length
         }
@@ -536,7 +564,7 @@ export class DeepSeekBrowser {
 
   // ---------- список чатов ----------
 
-  async _ensureSidebarOpen() {
+  async _ensureSidebarOpen(): Promise<void> {
     const toggles = [
       'button[aria-label*="sidebar" i]',
       'button[aria-label*="история" i]',
@@ -556,7 +584,7 @@ export class DeepSeekBrowser {
     }
   }
 
-  async listChats(limit = 30) {
+  async listChats(limit = 30): Promise<ChatInfo[]> {
     await this._ensureSidebarOpen()
     return await this.page.evaluate((lim) => {
       const out = []
@@ -584,7 +612,7 @@ export class DeepSeekBrowser {
     }, limit)
   }
 
-  async openChat(id) {
+  async openChat(id: string): Promise<boolean> {
     const candidates = [`a[href$="/chat/s/${id}"]`, `a[href*="${id}"]`]
     for (const sel of candidates) {
       try {
@@ -604,11 +632,11 @@ export class DeepSeekBrowser {
       await this.page.waitForTimeout(1500)
       return true
     } catch (e) {
-      throw new Error(`Не удалось открыть чат ${id}: ${e.message}`)
+      throw new Error(`Не удалось открыть чат ${id}: ${(e as Error).message}`)
     }
   }
 
-  async getCurrentChatId() {
+  async getCurrentChatId(): Promise<string | null> {
     try {
       const url = this.page.url()
       const m = url.match(/\/chat\/s\/([a-zA-Z0-9_-]+)/)
@@ -618,7 +646,7 @@ export class DeepSeekBrowser {
     }
   }
 
-  async close() {
+  async close(): Promise<void> {
     try {
       if (this.context) await this.context.close()
     } catch {}

@@ -1,6 +1,13 @@
 import { exec } from 'child_process'
+import type { GitContext, ToolDef } from './types.js'
 
-function runGit(cmd, cwd, timeout = 15_000) {
+const BS = String.fromCharCode(92)
+
+export function runGit(
+  cmd: string,
+  cwd: string,
+  timeout = 15_000,
+): Promise<string> {
   return new Promise((resolve) => {
     exec(
       cmd,
@@ -26,14 +33,14 @@ function runGit(cmd, cwd, timeout = 15_000) {
           return
         }
 
-        const parts = []
+        const parts: string[] = []
         if (err.killed) parts.push(`⏱ Таймаут ${timeout}ms`)
         else if (err.code !== undefined && err.code !== null)
           parts.push(`Exit code: ${err.code}`)
         else parts.push(`Ошибка: ${err.message}`)
         if (out.trim()) parts.push(out.trim())
         if (errStr.trim()) parts.push(errStr.trim())
-        resolve(parts.join('\n'))
+        resolve(parts.join(String.fromCharCode(10)))
       },
     )
   })
@@ -41,7 +48,7 @@ function runGit(cmd, cwd, timeout = 15_000) {
 
 // Безопасно квотит пути/аргументы для передачи в shell.
 // Строка или массив -> строка с двойными кавычками и экранированием.
-function quoteArgs(input) {
+function quoteArgs(input: string | string[]): string {
   const list = Array.isArray(input) ? input : [input]
   return list
     .map((v) => String(v).trim())
@@ -51,7 +58,7 @@ function quoteArgs(input) {
 }
 
 // Проверяет, является ли директория git-репозиторием, и собирает контекст.
-export async function getGitContext(workdir) {
+export async function getGitContext(workdir: string): Promise<GitContext | null> {
   const probe = await runGit(
     'git rev-parse --is-inside-work-tree',
     workdir,
@@ -70,18 +77,18 @@ export async function getGitContext(workdir) {
 
   const branch = branchR.trim() || '(detached HEAD)'
   const statusLines = statusR
-    .split('\n')
+    .split(String.fromCharCode(10))
     .map((l) => l.trimEnd())
     .filter(Boolean)
   const remotes = remoteR
-    .split('\n')
+    .split(String.fromCharCode(10))
     .map((l) => l.trim())
     .filter(Boolean)
   const hasOrigin = remotes.includes('origin')
 
   let ahead = 0
   let behind = 0
-  const m = aheadR.match(/^(\d+)\s+(\d+)/)
+  const m = aheadR.match(new RegExp('^(' + BS + 'd+)' + BS + 's+(' + BS + 'd+)'))
   if (m) {
     behind = Number(m[1])
     ahead = Number(m[2])
@@ -90,14 +97,14 @@ export async function getGitContext(workdir) {
   return {
     branch,
     changedFiles: statusLines.length,
-    statusPreview: statusLines.slice(0, 30).join('\n'),
+    statusPreview: statusLines.slice(0, 30).join(String.fromCharCode(10)),
     hasOrigin,
     ahead,
     behind,
   }
 }
 
-export function formatGitContext(ctx) {
+export function formatGitContext(ctx: GitContext | null): string {
   if (!ctx) return 'Not a git repository (or git is not installed).'
 
   let s = `- Branch: \`${ctx.branch}\``
@@ -108,7 +115,8 @@ export function formatGitContext(ctx) {
   }
 
   if (ctx.changedFiles > 0) {
-    s += `\n- Uncommitted changes: ${ctx.changedFiles} file(s)\n`
+    s += `\n- Uncommitted changes: ${ctx.changedFiles} file(s)
+`
     s += '```\n' + ctx.statusPreview + '\n```'
   } else {
     s += '\n- Working tree: clean'
@@ -116,8 +124,8 @@ export function formatGitContext(ctx) {
   return s
 }
 
-export function createGitTools(workdir) {
-  const ensureRepo = async () => {
+export function createGitTools(workdir: string): ToolDef[] {
+  const ensureRepo = async (): Promise<string | null> => {
     const probe = await runGit(
       'git rev-parse --is-inside-work-tree',
       workdir,
@@ -186,7 +194,7 @@ export function createGitTools(workdir) {
         if (err) return err
         return runGit(
           paths && String(paths).trim()
-            ? 'git add -- ' + quoteArgs(paths)
+            ? 'git add -- ' + quoteArgs(paths as string | string[])
             : 'git add -A',
           workdir,
           20_000,
@@ -203,13 +211,20 @@ export function createGitTools(workdir) {
         const err = await ensureRepo()
         if (err) return err
 
-        if (!message || !message.trim()) {
+        const msg = String(message || '')
+        if (!msg.trim()) {
           return 'Ошибка: message пустой.'
         }
 
         // Индексируем всё только если в индексе пусто (как обещает описание).
-        const staged = await runGit('git diff --cached --name-only', workdir, 10_000)
-        const hasStaged = !/^\s*$/.test(staged) && staged.trim() !== '(команда выполнена, вывода нет)'
+        const staged = await runGit(
+          'git diff --cached --name-only',
+          workdir,
+          10_000,
+        )
+        const hasStaged =
+          !/^\s*/.test(staged) &&
+          staged.trim() !== '(команда выполнена, вывода нет)'
         const addResult = hasStaged
           ? '(индекс уже не пуст — add -A пропущен)'
           : await runGit('git add -A', workdir, 20_000)
@@ -218,7 +233,7 @@ export function createGitTools(workdir) {
         const path = await import('path')
         const os = await import('os')
         const tmp = path.join(os.tmpdir(), `dsa-commit-${Date.now()}.txt`)
-        await fs.writeFile(tmp, message, 'utf-8')
+        await fs.writeFile(tmp, msg, 'utf-8')
         try {
           const result = await runGit(
             `git commit -F ${JSON.stringify(tmp)}`,
@@ -242,8 +257,8 @@ export function createGitTools(workdir) {
         if (err) return err
 
         const b =
-          branch && branch.trim()
-            ? branch.trim()
+          branch && String(branch).trim()
+            ? String(branch).trim()
             : (await runGit('git branch --show-current', workdir, 5000)).trim()
         if (!b) return 'Ошибка: не удалось определить ветку для push.'
 
