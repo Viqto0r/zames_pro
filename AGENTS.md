@@ -204,7 +204,7 @@ API: `saveSession`, `loadLastSession(workdir)`, `readSession(id)`,
 
 - Синтаксис/типы: `npm run typecheck` (tsc --noEmit)
 - Тесты: `npm test` (tsx --test test/*.test.ts); watch — `npm run test:watch`
-- Сборка: `npm run build` (tsc → dist/)
+- Сборка: `npm run build` (tsc -p tsconfig.build.json → dist/)
 - Запуск (прод): `npm start` (node dist/index.js) или `zames`
 - Запуск (dev, без сборки): `npm run dev` (tsx src/index.ts)
 
@@ -451,8 +451,16 @@ API: `saveSession`, `loadLastSession(workdir)`, `readSession(id)`,
 (`bin.zames` и npm-публикация указывают на `dist/index.js`, `files: ["dist", …]`).
 `prepublishOnly` собирает перед публикацией.
 
+Два конфига:
+- `tsconfig.json` — для IDE и `npm run typecheck` (`noEmit`, включает и `src/`,
+  и `test/`; `allowImportingTsExtensions`, потому что тесты импортируют
+  `../src/*.ts`). Благодаря этому в тестах видны типы `node:test` и `@types/node`.
+- `tsconfig.build.json` — только сборка (`tsc -p tsconfig.build.json`):
+  `include: [src/**/*.ts]`, `outDir: dist`, `sourceMap: false` (в dist только .js).
+
 Импорты в коде — с расширением `.js` (NodeNext), даже в `.ts`-файлах:
 `import { theme } from './theme.js'`. Так требует moduleResolution NodeNext.
+В тестах импорт исходников — `../src/foo.ts` (разрешено `allowImportingTsExtensions`).
 
 Контракты (tool-call, ToolDef, конфиг, BrowserLike) — в `src/types.ts`.
 Меняешь инструмент или формат tool-call — синхронизируй типы там.
