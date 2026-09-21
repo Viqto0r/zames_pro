@@ -80,16 +80,21 @@ export async function runAgentLoop({
       // (есть tool/invoke/parameter, но JSON/XML битый) — это почти всегда
       // ошибка формата. Не считаем её финальным ответом (иначе агент молча
       // остановится), а просим модель переотправить вызов корректно.
-      const looksLikeToolCall = /("tool"\s*:|\binvoke\b|\bparameter\b)/i.test(rawResponse)
+      const looksLikeToolCall =
+        /("tool"\s*:|\btool_calls?\b|\binvoke\b|\bparameter\b|DSML|function_call)/i.test(
+          rawResponse,
+        ) || /\{\s*"?(tool|name)"?\s*:/.test(rawResponse)
       if (looksLikeToolCall && malformedRetries < MAX_MALFORMED_RETRIES) {
         malformedRetries++
         transcript?.log("malformed_toolcall", { attempt: malformedRetries, response: rawResponse })
         if (debugLog) {
           console.error("внимание: ответ похож на tool-call, но не распознан (попытка " + malformedRetries + "/" + MAX_MALFORMED_RETRIES + ")")
         }
-        message = "Твой предыдущий ответ не распознан как вызов инструмента. " +
-          "Ответь РОВНО одним JSON-объектом вызова инструмента, без текста до и после. " +
-          "Например: " + String.fromCharCode(39) + "tool" + String.fromCharCode(39) + ": ..., args: {...}"
+        message =
+          'Твой предыдущий ответ не распознан как вызов инструмента. ' +
+          'Ответь РОВНО одним JSON-объектом вызова инструмента, без текста до и после. ' +
+          'НЕ используй XML/DSML-теги — только JSON. ' +
+          'Например: {"tool": "Read", "args": {"path": "src/index.js"}}'
         continue
       }
 
@@ -161,6 +166,27 @@ export async function runAgentLoop({
 }
 
 // ============ JSON parsing ============
+
+function repairRawControlChars(str) {
+  let out = ''
+  let inString = false
+  let escape = false
+  for (let i = 0; i < str.length; i++) {
+    const c = str[i]
+    if (escape) { out += c; escape = false; continue }
+    if (c === '\\') { out += c; escape = true; continue }
+    if (c === '"') { inString = !inString; out += c; continue }
+    if (inString) {
+      if (c === '\n') { out += '\\n'; continue }
+      if (c === '\r') { out += '\\r'; continue }
+      if (c === '\t') { out += '\\t'; continue }
+      const code = c.charCodeAt(0)
+      if (code < 0x20) { out += '\\u' + code.toString(16).padStart(4, '0'); continue }
+    }
+    out += c
+  }
+  return out
+}
 
 function tryParse(str) {
   try {
@@ -417,17 +443,34 @@ function parseToolCallPermissive(text) {
   // а не первый попавшийся '}'. Иначе вложенные объекты/массивы или
   // фигурные скобки внутри строк ломают разбор.
   const endIdx = findMatching(text, openIdx, '{', '}')
-  if (endIdx === -1) return null
 
-  const argsStr = text.slice(openIdx, endIdx + 1)
   if (tool === 'Edit') {
-    const e = parseEditArgs(argsStr)
-    if (e) return { tool, args: e }
+    // Edit-аргументы часто содержат сырые кавычки и переводы строк, из-за
+    // чего балансировка скобок сбоит. parseEditArgs рассчитан ровно на
+    // такой случай, поэтому пробуем его и на «хвосте» до конца текста,
+    // а не только на сбалансированном фрагменте.
+    const balanced = endIdx === -1 ? null : text.slice(openIdx, endIdx + 1)
+    const tailToEnd = text.slice(openIdx)
+    for (const frag of [balanced, tailToEnd]) {
+      if (!frag) continue
+      const e = parseEditArgs(frag)
+      if (e) return { tool, args: e }
+    }
   }
-  const args = parseArgsPermissive(argsStr)
-  if (args) return { tool, args }
-  const greedy = parseArgsGreedy(argsStr)
-  if (greedy) return { tool, args: greedy }
+
+  // Балансировка скобок сбоит, если в строковых значениях есть сырые
+  // кавычки/скобки (частый случай для Bash/Write с кодом внутри). Тогда
+  // пробуем разобрать args из «хвоста» до конца текста и жадным парсером.
+  const frags = []
+  if (endIdx !== -1) frags.push(text.slice(openIdx, endIdx + 1))
+  frags.push(text.slice(openIdx))
+
+  for (const argsStr of frags) {
+    const args = parseArgsPermissive(argsStr)
+    if (args) return { tool, args }
+    const greedy = parseArgsGreedy(argsStr)
+    if (greedy) return { tool, args: greedy }
+  }
   return null
 }
 
@@ -511,7 +554,7 @@ function findMatching(text, openIdx, openCh, closeCh) {
   return -1
 }
 
-function parseToolCall(text) {
+export function parseToolCall(text) {
   if (!text || typeof text !== 'string') return null
 
   let cleaned = text.trim()
@@ -539,9 +582,20 @@ function parseToolCall(text) {
     const repaired = raw.replace(/\\(?!["\\/bfnrtu])/g, '\\\\')
     const second = tryParse(repaired)
     if (second) return second
+
+    // Сырые переводы строк/табы внутри строковых значений (old_string,
+    // new_string, content) делают JSON невалидным. Экранируем их и
+    // пробуем снова, иначе многострочный вызов не распознаётся.
+    const ctrl = repairRawControlChars(raw)
+    const third = tryParse(ctrl)
+    if (third) return third
+    const ctrlArr = tryParseArray(ctrl)
+    if (ctrlArr) return ctrlArr
   }
 
-  const permissive = parseToolCallPermissive(cleaned)
+  const permissive =
+    parseToolCallPermissive(cleaned) ||
+    parseToolCallPermissive(repairRawControlChars(cleaned))
   if (permissive) return { ...permissive, _permissive: true }
 
   // Fallback: модель могла обернуть JSON в прозу и/или добавить мусорные
@@ -550,8 +604,13 @@ function parseToolCall(text) {
   const toolIdx = cleaned.search(/["']?tool["']?\s:/)
   if (toolIdx > 0) {
     let tail = cleaned.slice(toolIdx)
-    tail = tail.replace(/<[^>]>.*$/s, '').trim()
-    const tailPermissive = parseToolCallPermissive('{"' + tail)
+    // Регексп обязан матчить многосимвольные теги (<|DSML|invoke ...>),
+    // поэтому <[^>]*>, а не <[^>]> — иначе DSML-хвост не срезается,
+    // permissive-разбор падает и агент молча останавливается.
+    tail = tail.replace(/<[^>]*>.*$/s, '').trim()
+    const tailPermissive =
+      parseToolCallPermissive('{"' + tail) ||
+      parseToolCallPermissive('{"' + repairRawControlChars(tail))
     if (tailPermissive) return { ...tailPermissive, _permissive: true }
   }
 

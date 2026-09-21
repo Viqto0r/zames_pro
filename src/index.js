@@ -14,6 +14,12 @@ import { Transcript } from './transcript.js'
 import { UndoStore } from './undo.js'
 import { selfReview, selfDiff, selfApply, selfList } from './self-review.js'
 import { closeWeb } from './web.js'
+import {
+  saveSession,
+  loadLastSession,
+  listSessions,
+  sessionsDir,
+} from './sessions.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -60,40 +66,26 @@ const chatIdArg = getArg('--chat', null)
 // переотправляется (он уже есть в начале чата). Флаг --resend-prompt
 // заставляет дослать его заново — например, если промпт обновился.
 const resendPrompt = hasFlag('--resend-prompt')
-// --new-chat: намеренно начать с чистого чата, игнорируя сохранённый
-// --resume-last: при старте вернуться в последний сохранённый чат.
-// По умолчанию НЕ восстанавливаем — открывается новый чат.
-// (Флаг --new-chat сохранён для совместимости и ничего не меняет.)
+// --new-chat: намеренно начать с чистого чата, игнорируя сохранённую сессию.
+// --resume-last: оставлен для совместимости (восстановление и так по умолчанию).
+// По умолчанию последняя сессия для рабочей директории восстанавливается.
+const newChatFlag = hasFlag('--new-chat')
 const resumeLastFlag = hasFlag('--resume-last')
 
-// ---------- last chat persistence ----------
-// Запоминаем последний открытый chat id, чтобы после перезапуска процесса
-// (в т.ч. автоперезапуска через `node --watch`) автоматически вернуться
-// в ту же сессию, а не создавать новый чат.
-const LAST_CHAT_FILE = path.join(ZAMES_HOME, 'last-chat.json')
-
-async function saveLastChat(id) {
+// ---------- session persistence ----------
+// Сессии (чаты DeepSeek) храним в ~/.zames/.sessions, чтобы они переживали
+// перезапуск процесса. При старте из той же рабочей директории последняя
+// сессия восстанавливается автоматически (если не передан --new-chat).
+// Раньше здесь был один файл last-chat.json, который терялся при смене
+// проекта и не давал списка сессий для восстановления.
+function saveLastChat(id, workdir = '', title = '') {
   if (!id) return
-  try {
-    await fs.mkdir(ZAMES_HOME, { recursive: true })
-    await fs.writeFile(
-      LAST_CHAT_FILE,
-      JSON.stringify({ id, updatedAt: new Date().toISOString() }, null, 2),
-      'utf-8',
-    )
-  } catch (e) {
-    if (debug) console.error('last-chat: не удалось сохранить:', e.message)
-  }
+  saveSession({ id, workdir, title })
 }
 
-async function loadLastChat() {
-  try {
-    const raw = await fs.readFile(LAST_CHAT_FILE, 'utf-8')
-    const data = JSON.parse(raw)
-    return data && typeof data.id === 'string' ? data.id : null
-  } catch {
-    return null
-  }
+function loadLastChat(workdir = '') {
+  const s = loadLastSession(workdir)
+  return s ? s.id : null
 }
 
 
@@ -190,8 +182,8 @@ ${theme.bold('Опции CLI:')}
   --dir <path>       рабочая директория агента
   --task <text>      задача одной строкой
   --chat <id>        продолжить существующий чат по id
-  --resume-last      вернуться в последний сохранённый чат
-  --new-chat         начать новый чат (по умолчанию и так новый)
+  --resume-last      вернуться в последний сохранённый чат (по умолчанию)
+  --new-chat         начать новый чат, не восстанавливать сессию
   --resend-prompt    дослать system-prompt в существующий чат
   --max-iter <n>     лимит итераций (по умолчанию ${config.maxIterations})
   --headless         браузер без UI
@@ -207,6 +199,8 @@ ${theme.bold('Пока агент работает:')}
 
 ${theme.bold('Обычные команды:')}
   /new, /clear             новый чат (сброс контекста)
+  /sessions                список сохранённых сессий (~/.zames/.sessions)
+  /resume-id <id>          восстановить сессию по полному id
   /chats                   список последних чатов DeepSeek
   /resume <n>              открыть чат №n из /chats
   /chat                    показать текущий chat id
@@ -235,6 +229,7 @@ ${theme.bold('Самообзор (отладка агента):')}
 ${theme.bold('Файлы:')}
   Логи:        ${config.transcript.dir}
   Undo:        ~/.zames/undo
+  Сессии:      ${sessionsDir()}
   Профиль:     ~/.zames/profile
   Снапшоты:    ~/.zames/snapshots
   Временные:   <проект>/tmp (в .gitignore, чистится при запуске)
@@ -771,13 +766,15 @@ async function main() {
     let freshChat = true
     let sendSystemPrompt = true
 
-    // По умолчанию — новый чат. Продолжить прошлый можно явно:
-    //   --chat <id>     открыть конкретный чат
-    //   --resume-last   вернуться в последний сохранённый чат
+    // По умолчанию восстанавливаем последнюю сессию для этой директории.
+    // Начать с чистого листа — --new-chat.
     let resumeId = chatIdArg
-    if (!resumeId && resumeLastFlag) {
-      resumeId = await loadLastChat()
-      if (resumeId) console.log(theme.system(`Восстанавливаю чат ${resumeId}...`))
+    if (!resumeId && !newChatFlag) {
+      const last = loadLastSession(currentWorkdir)
+      if (last && last.id) {
+        resumeId = last.id
+        console.log(theme.system(`Восстанавливаю сессию ${resumeId}...`))
+      }
     }
 
     if (resumeId) {
@@ -786,6 +783,7 @@ async function main() {
         await browser.openChat(resumeId)
         freshChat = false
         sendSystemPrompt = resendPrompt
+        saveLastChat(resumeId, currentWorkdir)
       } catch (e) {
         console.error(theme.error(`Не удалось открыть чат: ${e.message}`))
       }
@@ -842,13 +840,23 @@ async function main() {
     process.exit(0)
   })
 
-  // По умолчанию — новый чат. Продолжить прошлый можно явно:
+  // Восстановление сессии при старте. По умолчанию возвращаемся в последний
+  // чат для этой рабочей директории (сессии лежат в ~/.zames/.sessions),
+  // чтобы контекст не терялся после перезапуска. Явно начать с чистого листа
+  // можно флагом --new-chat.
   //   --chat <id>     открыть конкретный чат
-  //   --resume-last   вернуться в последний сохранённый чат
+  //   --new-chat      не восстанавливать, начать новый чат
   let resumeId = chatIdArg
-  if (!resumeId && resumeLastFlag) {
-    resumeId = await loadLastChat()
-    if (resumeId) console.log(theme.system(`Восстанавливаю чат ${resumeId}...`))
+  if (!resumeId && !newChatFlag) {
+    const last = loadLastSession(currentWorkdir)
+    if (last && last.id) {
+      resumeId = last.id
+      console.log(
+        theme.system(
+          `Восстанавливаю сессию ${last.id}${last.title ? ` (${last.title})` : ''}...`,
+        ),
+      )
+    }
   }
 
   if (resumeId) {
@@ -858,7 +866,7 @@ async function main() {
       currentChatId = resumeId
       freshChatNext = false
       sendSystemPromptNext = resendPrompt
-      await saveLastChat(resumeId)
+      saveLastChat(resumeId, currentWorkdir)
       console.log(theme.system(`Чат открыт: ${resumeId}\n`))
     } catch (e) {
       console.error(theme.error(`Не удалось открыть чат: ${e.message}`))
@@ -980,7 +988,7 @@ async function main() {
         freshChatNext = false
         sendSystemPromptNext = true
         currentChatId = await browser.getCurrentChatId()
-        await saveLastChat(currentChatId)
+        saveLastChat(currentChatId, currentWorkdir)
         transcript.log('new_chat')
         console.log(theme.system('Новый чат.\n'))
       } catch (e) {
@@ -1020,7 +1028,7 @@ async function main() {
         freshChatNext = false
         sendSystemPromptNext = false
         currentChatId = await browser.getCurrentChatId()
-        await saveLastChat(currentChatId)
+        saveLastChat(currentChatId, currentWorkdir)
 
         console.log(
           theme.user(
@@ -1105,7 +1113,7 @@ async function main() {
         freshChatNext = false
         sendSystemPromptNext = false
         currentChatId = await browser.getCurrentChatId()
-        await saveLastChat(currentChatId)
+        saveLastChat(currentChatId, currentWorkdir)
 
         console.log(
           theme.user(
@@ -1232,7 +1240,7 @@ async function main() {
         currentChatId = pick.id
         freshChatNext = false
         sendSystemPromptNext = resendPrompt
-        await saveLastChat(pick.id)
+        saveLastChat(pick.id, currentWorkdir, pick.title)
         transcript.log('resume_chat', { id: pick.id, title: pick.title })
         console.log(
           theme.assistant(`Чат открыт.`) +
@@ -1259,6 +1267,51 @@ async function main() {
         console.log(
           theme.system(id ? `Текущий chat id: ${id}` : 'Чат ещё не создан.'),
         )
+      }
+      continue
+    }
+
+    if (lower === '/sessions' || lower === '/session') {
+      const all = listSessions()
+      console.log(theme.system(`Папка сессий: ${sessionsDir()}`))
+      if (!all.length) {
+        console.log(
+          theme.system(
+            'Сохранённых сессий нет. Они появятся после первой задачи/чата.',
+          ),
+        )
+      } else {
+        all.forEach((s, i) => {
+          const n = String(i + 1).padStart(2, ' ')
+          const mark = s.id === currentChatId ? theme.user(' *') : ''
+          const title = s.title ? `  ${s.title}` : ''
+          const wd = s.workdir ? theme.dim(`  [${dirLabel(s.workdir)}]`) : ''
+          console.log(`  ${theme.user(n)}. ${s.id.slice(0, 8)}…${title}${wd}${mark}`)
+        })
+        console.log(
+          theme.system('Восстановить: /resume-id <id>  (полный id) или /resume <n> после /chats.'),
+        )
+      }
+      continue
+    }
+
+    if (lower.startsWith('/resume-id ')) {
+      const id = trimmed.slice('/resume-id'.length).trim()
+      if (!id) {
+        console.error(theme.error('Использование: /resume-id <chat id>'))
+        continue
+      }
+      try {
+        console.log(theme.system(`Открываю чат ${id}...`))
+        await browser.openChat(id)
+        currentChatId = id
+        freshChatNext = false
+        sendSystemPromptNext = resendPrompt
+        saveLastChat(id, currentWorkdir)
+        transcript.log('resume_chat', { id })
+        console.log(theme.assistant('Чат открыт.') + theme.system(String.fromCharCode(10)))
+      } catch (e) {
+        console.error(theme.error('Не удалось открыть чат:'), e.message)
       }
       continue
     }
@@ -1313,8 +1366,9 @@ async function main() {
         theme.system(`Resend prompt (--resend-prompt): ${resendPrompt ? 'да' : 'нет'}`),
       )
       console.log(
-        theme.system(`Last chat: ${(await loadLastChat()) || 'нет'}`),
+        theme.system(`Last chat: ${loadLastChat(currentWorkdir) || 'нет'}`),
       )
+      console.log(theme.system(`Сессии: ${sessionsDir()}`))
       console.log(
         theme.system(`Dev mode (auto-reload): ${devMode ? 'вкл' : 'выкл'}`),
       )
@@ -1445,7 +1499,7 @@ async function main() {
     if (!currentChatId) {
       currentChatId = await browser.getCurrentChatId()
     }
-    await saveLastChat(currentChatId)
+    saveLastChat(currentChatId, currentWorkdir)
   }
 
   if (editor) editor.dispose()

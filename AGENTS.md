@@ -47,9 +47,25 @@ Web (src/web.js): WebFetch, WebSearch.
 хвост после прозы и, в самом конце, XML/DSML-блок (`src/xml-toolcall.js`).
 Последний нужен потому, что модель иногда отвечает не JSON-ом, а
 `<invoke name="Tool"><parameter name="x">…</parameter></invoke>` (тег может
-нести произвольный префикс). Без этого разбора такой ответ не считается
+нести произвольный префикс) или DSML-блоком
+`<｜｜DSML｜｜invoke name="Read">…`. Без этого разбора такой ответ не считается
 tool-call, и агент молча завершает задачу — «вызвал инструмент и остановился».
 Если правишь формат ответа — обнови и `src/xml-toolcall.js`.
+
+Дополнительные страховки от «остановок» (проверены на реальных транскриптах):
+- `repairRawControlChars()` экранирует сырые переводы строк/табы внутри
+  строковых значений JSON (`old_string`, `new_string`, `content`) — иначе
+  `JSON.parse` падает и многострочный вызов не распознаётся;
+- для `Edit` и для грязного JSON args разбираются из «хвоста» до конца
+  текста (`parseEditArgs`/`parseArgsPermissive`/`parseArgsGreedy`), потому что
+  балансировка скобок сбоит на сырых кавычках внутри строк (частый случай
+  для `Bash`/`Write` с кодом внутри);
+- срез XML/DSML-хвоста использует `<[^>]*>` (а не `<[^>]>`), иначе
+  многосимвольные теги (`<|DSML|invoke ...>`) не срезаются;
+- в `runAgentLoop()` срабатывает guard `looksLikeToolCall`: если ответ похож
+  на вызов (есть `"tool":`, `invoke`, `parameter`, `tool_calls`, `DSML`,
+  `function_call`), но не распознан — модель просят переотправить вызов
+  (до `MAX_MALFORMED_RETRIES`), а не завершать задачу.
 
 ## Общение с оператором
 
@@ -117,6 +133,8 @@ Fallback для не-TTY (`watchInput()` в src/index.js) оставлен дл�
 ## Команды (главный цикл, src/index.js)
 
 - `/new`, `/clear` — новый чат (сброс контекста)
+- `/sessions` — список сохранённых сессий (папка `~/.zames/.sessions`)
+- `/resume-id <id>` — восстановить сессию по полному chat id
 - `/chats` — список последних чатов DeepSeek
 - `/resume <n>` — открыть чат №n из `/chats`
 - `/chat` — текущий chat id
@@ -145,14 +163,31 @@ Fallback для не-TTY (`watchInput()` в src/index.js) оставлен дл�
 Дефолты и слияние — в DEFAULTS/deepMerge. Ключевые секции: maxIterations,
 headless, debug, confirmation, undo, transcript, browser.
 
-`browser.minSendIntervalMs` (по умолчанию 25000) — минимальная пауза между
+`browser.minSendIntervalMs` (по умолчанию 15000) — минимальная пауза между
 отправками сообщений в [chat.deepseek.com](https://chat.deepseek.com/). DeepSeek ограничивает частоту
 («Messages too frequent. Try again later.»), поэтому `_waitForSendSlot()`
 в `browser.js` перед каждой отправкой ждёт, пока с прошлой (`_lastSentAt`)
 не пройдёт этот интервал. Первая отправка в сессии паузы не ждёт.
 
-Данные в `~/.zames`: profile (браузер), logs (транскрипт), undo, snapshots.
-Временные файлы — `<project>/tmp` (в .gitignore, чистится при запуске).
+Данные в `~/.zames`: profile (браузер), logs (транскрипт), undo, snapshots,
+`.sessions` (сессии/чаты). Временные файлы — `<project>/tmp` (в .gitignore,
+чистится при запуске).
+
+## Сессии (src/sessions.js)
+
+Чтобы контекст не терялся после перезапуска, каждая сессия (chat id DeepSeek)
+сохраняется отдельным JSON-файлом в `~/.zames/.sessions/<id>.json`:
+`{ id, title, workdir, createdAt, updatedAt }`. Индекс `last.json` хранит
+`byWorkdir` (последняя сессия для каждой рабочей директории) и общий `last`.
+
+При старте `main()` восстанавливает последнюю сессию **для текущей рабочей
+директории** (`loadLastSession(workdir)`), если не передан `--new-chat`
+или `--chat <id>`. Это заменяет прежний единственный `last-chat.json`,
+который терялся при смене проекта и не давал списка для восстановления.
+
+API: `saveSession`, `loadLastSession(workdir)`, `readSession(id)`,
+`listSessions()`, `sessionsDir()`. Сохранение вызывается из `saveLastChat()`
+в `index.js` после каждой задачи, нового чата и `/resume`.
 
 ## Прочие модули
 
