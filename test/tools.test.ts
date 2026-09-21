@@ -8,7 +8,7 @@ import type { ToolDef } from '../src/types.ts'
 
 const NL = String.fromCharCode(10)
 
-function tmpDir(): string {
+function tmpDir(): Promise<string> {
   return fs.mkdtemp(path.join(os.tmpdir(), 'zames-tools-'))
 }
 
@@ -60,7 +60,7 @@ test('Edit падает, если строка не найдена', async () =>
   const dir = await tmpDir()
   await fs.writeFile(path.join(dir, 'a.txt'), 'foo', 'utf-8')
   const tools = createTools(dir, {})
-  await assert.rejects(() =>
+  await assert.rejects(async () =>
     tool(tools, 'Edit').fn({ path: 'a.txt', old_string: 'nope', new_string: 'x' }),
   )
   await fs.rm(dir, { recursive: true, force: true })
@@ -70,7 +70,7 @@ test('Edit падает при нескольких вхождениях (тре
   const dir = await tmpDir()
   await fs.writeFile(path.join(dir, 'a.txt'), 'a a a', 'utf-8')
   const tools = createTools(dir, {})
-  await assert.rejects(() =>
+  await assert.rejects(async () =>
     tool(tools, 'Edit').fn({ path: 'a.txt', old_string: 'a', new_string: 'b' }),
   )
   await fs.rm(dir, { recursive: true, force: true })
@@ -80,7 +80,7 @@ test('Edit с пустым old_string отвергается', async () => {
   const dir = await tmpDir()
   await fs.writeFile(path.join(dir, 'a.txt'), 'foo', 'utf-8')
   const tools = createTools(dir, {})
-  await assert.rejects(() =>
+  await assert.rejects(async () =>
     tool(tools, 'Edit').fn({ path: 'a.txt', old_string: '', new_string: 'x' }),
   )
   await fs.rm(dir, { recursive: true, force: true })
@@ -89,7 +89,7 @@ test('Edit с пустым old_string отвергается', async () => {
 test('инструменты не читают выше рабочей директории (sandbox)', async () => {
   const dir = await tmpDir()
   const tools = createTools(dir, {})
-  await assert.rejects(() => tool(tools, 'Read').fn({ path: '../../../etc/passwd' }))
+  await assert.rejects(async () => tool(tools, 'Read').fn({ path: '../../../etc/passwd' }))
   await fs.rm(dir, { recursive: true, force: true })
 })
 
@@ -123,7 +123,7 @@ test('Bash сообщает exit code при ошибке', async () => {
 test('Bash блокирует cd выше рабочей директории', async () => {
   const dir = await tmpDir()
   const tools = createTools(dir, {})
-  await assert.rejects(() => tool(tools, 'Bash').fn({ command: 'cd ../../.. && pwd' }))
+  await assert.rejects(async () => tool(tools, 'Bash').fn({ command: 'cd ../../.. && pwd' }))
   await fs.rm(dir, { recursive: true, force: true })
 })
 

@@ -3,9 +3,10 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": ["ES2023", "DOM"],
-    "outDir": "dist",
-    "rootDir": "src",
+    "lib": [
+      "ES2023",
+      "DOM"
+    ],
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -16,11 +17,20 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "sourceMap": true,
-    "declaration": false,
     "allowJs": false,
-    "types": ["node"]
+    "types": [
+      "node"
+    ],
+    "noEmit": true,
+    "allowImportingTsExtensions": true
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "tmp"]
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "tmp"
+  ]
 }
