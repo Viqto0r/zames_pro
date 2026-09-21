@@ -1088,10 +1088,6 @@ async function main() {
             sendSystemPrompt: false,
             transcript,
             onThinking: () => ui.thinking(),
-            onAssistantThought: (text) => {
-              ui.stop()
-              console.log(theme.system('\n💭 ' + text.slice(0, 1200) + '\n'))
-            },
             onToolCall: (name, toolArgs) => ui.toolCall(name, toolArgs),
             onToolResult: (r) => ui.toolResult(r),
             onAssistantMessage: (m) => {
