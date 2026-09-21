@@ -29,6 +29,11 @@ zames
 
 The agent works inside the directory it was started in and cannot leave it (sandbox).
 
+While the agent is working you can keep typing: press Enter to queue a message
+(it is sent right after the current task, in the same chat), or Esc / Ctrl+C to
+abort the current generation. This mirrors typing during generation on the
+DeepSeek website.
+
 ### Options
 
 ```

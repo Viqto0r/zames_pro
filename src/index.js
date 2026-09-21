@@ -8,6 +8,7 @@ import { DeepSeekBrowser } from './browser.js'
 import { createTools } from './tools.js'
 import { runAgentLoop } from './agent-loop.js'
 import { createSpinner } from './spinner.js'
+import { LineEditor } from './input.js'
 import { loadConfig, CONFIG_PATHS, ZAMES_HOME } from './config.js'
 import { Transcript } from './transcript.js'
 import { UndoStore } from './undo.js'
@@ -199,6 +200,10 @@ ${theme.bold('Опции CLI:')}
   --dev              режим разработки: авто-перечитывание модулей
   --version, -v      показать версию
   --help, -h         эта справка
+
+${theme.bold('Пока агент работает:')}
+  печать + Enter           поставить сообщение в очередь (уйдёт после текущей задачи)
+  Esc, Ctrl+C              прервать текущую генерацию
 
 ${theme.bold('Обычные команды:')}
   /new, /clear             новый чат (сброс контекста)
@@ -464,26 +469,140 @@ async function promptOnce(question) {
 }
 
 // Слежение за клавиатурой во время работы агента.
-// Esc — прервать текущую генерацию (клик Stop в браузере).
-function watchEscape(onEscape) {
+//
+// Терминал остаётся живым, пока агент думает:
+//   - Esc (или Ctrl+C) — прервать текущую генерацию (клик Stop в браузере);
+//   - набор текста + Enter — поставить сообщение в очередь; оно уйдёт
+//     агенту сразу после того, как текущая задача завершится
+//     (как «отправить во время генерации» в веб-версии DeepSeek).
+//
+// Ввод буферизуется без построчного редактора: набранный текст отображается
+// в строке спиннера через onChange -> ui.setPending(). Enter отправляет буфер
+// в onQueue, пустой Enter игнорируется. Поддержаны Backspace, Ctrl+U, Esc-
+// последовательности (стрелки/Home/End/Delete игнорируются) и bracketed paste.
+function watchInput({ onEscape, onChange, onQueue } = {}) {
   const stdin = process.stdin
-  if (!stdin.isTTY) return () => {}
+  if (!stdin.isTTY || !stdin.setRawMode) return () => {}
+
+  // Управляющие символы собираем из кодов: в этом файле нельзя писать
+  // «сырые» ESC/CR/LF в строковых литералах (см. AGENTS.md).
+  const ESC = String.fromCharCode(27)
+  const CSI = String.fromCharCode(91)
+  const CR = String.fromCharCode(13)
+  const LF = String.fromCharCode(10)
+
   const wasRaw = stdin.isRaw
-  if (stdin.setRawMode) stdin.setRawMode(true)
+  stdin.setRawMode(true)
   stdin.resume()
-  const handler = (buf) => {
-    if (buf.length === 1 && buf[0] === 27) {
-      onEscape()
+  process.stdout.write(ESC + '[?2004h')
+
+  let buf = ''
+  let inPaste = false
+  const PASTE_START = ESC + '[200~'
+  const PASTE_END = ESC + '[201~'
+  const CSI_RE = new RegExp('^' + CSI + '[0-9;]*[A-Za-z~]')
+
+  const emitChange = () => {
+    if (onChange) onChange(buf)
+  }
+
+  // Вставленный текст: переводы строк внутри многострочной вставки
+  // трактуем как пробелы — сообщение уходит одной строкой.
+  const insert = (text) => {
+    buf += text
+      .split(CR + LF).join(' ')
+      .split(CR).join(' ')
+      .split(LF).join(' ')
+  }
+
+  function onData(data) {
+    let s = data.toString('utf-8')
+
+    // Одиночный Esc — прервать генерацию. Стрелки приходят целым чанком
+    // и сюда не попадают.
+    if (!inPaste && s === ESC) {
+      if (onEscape) onEscape()
+      return
+    }
+
+    while (s.length) {
+      if (inPaste) {
+        const end = s.indexOf(PASTE_END)
+        if (end === -1) {
+          insert(s)
+          s = ''
+        } else {
+          insert(s.slice(0, end))
+          s = s.slice(end + PASTE_END.length)
+          inPaste = false
+        }
+        emitChange()
+        continue
+      }
+
+      const start = s.indexOf(PASTE_START)
+      if (start !== -1) {
+        const before = s.slice(0, start)
+        s = s.slice(start + PASTE_START.length)
+        inPaste = true
+        if (before) {
+          insert(before)
+          emitChange()
+        }
+        continue
+      }
+
+      const ch = s[0]
+      const code = s.charCodeAt(0)
+      s = s.slice(1)
+
+      if (ch === CR || ch === LF) {
+        const text = buf.trim()
+        buf = ''
+        emitChange()
+        if (text && onQueue) onQueue(text)
+        continue
+      }
+      if (code === 3) {
+        // Ctrl+C — как Esc: прервать генерацию.
+        if (onEscape) onEscape()
+        continue
+      }
+      if (code === 21) {
+        // Ctrl+U — очистить набранное.
+        buf = ''
+        emitChange()
+        continue
+      }
+      if (code === 127 || code === 8) {
+        // Backspace.
+        if (buf) {
+          buf = buf.slice(0, -1)
+          emitChange()
+        }
+        continue
+      }
+      if (ch === ESC) {
+        // Escape-последовательность (стрелки, Home/End, Delete) — пропускаем.
+        const m = s.match(CSI_RE)
+        if (m) s = s.slice(m[0].length)
+        continue
+      }
+      if (code < 32) continue // прочие управляющие — игнорируем
+
+      buf += ch
+      emitChange()
     }
   }
+
+  const handler = (data) => onData(data)
   stdin.on('data', handler)
   return () => {
     stdin.removeListener('data', handler)
+    process.stdout.write(ESC + '[?2004l')
     if (stdin.setRawMode) stdin.setRawMode(wasRaw || false)
   }
 }
-
-// ---------- workdir resolution ----------
 
 // ---------- workdir resolution ----------
 
@@ -502,47 +621,75 @@ async function resolveWorkdir() {
 // ---------- task runner ----------
 
 async function runTask(browser, tools, taskText, workdir, opts) {
-  const { transcript, freshChat, sendSystemPrompt } = opts
+  const { transcript, freshChat, sendSystemPrompt, queue = [], ui: editor } = opts
 
-  const ui = mod.createSpinner()
-  ui.thinking()
-
-  // Esc во время работы — прервать генерацию.
-  const stopWatching = watchEscape(() => {
-    ui.stop()
-    console.error(theme.warn('⏹ Esc — прерываю генерацию...'))
-    browser.stopGeneration().catch(() => {})
-  })
-
-  let finished = false
+  // В TTY-режиме UI — это LineEditor: он владеет вводом (очередь, Esc,
+  // Ctrl+C) и рисует статус НАД постоянной строкой ввода. В не-TTY режиме
+  // (пайпы) — обычный спиннер + watchInput.
+  const ui = editor || mod.createSpinner()
+  const stopWatching = editor
+    ? () => {}
+    : watchInput({
+        onEscape: () => {
+          ui.stop()
+          console.error(theme.warn('⏹ Esc — прерываю генерацию...'))
+          browser.stopGeneration().catch(() => {})
+        },
+        onChange: (text) => ui.setPending(text),
+        onQueue: (text) => {
+          queue.push(text)
+          ui.setPending(null)
+          ui.stop()
+          console.log(
+            theme.user('📨 В очередь (' + queue.length + '): ') + theme.assistant(text),
+          )
+          ui.thinking()
+        },
+      })
 
   try {
-    await mod.runAgentLoop({
-      browser,
-      tools,
-      task: taskText,
-      workdir,
-      maxIterations: maxIter,
-      freshChat,
-      sendSystemPrompt,
-      transcript,
-      onThinking: () => ui.thinking(),
-      onToolCall: (name, toolArgs) => ui.toolCall(name, toolArgs),
-      onToolResult: (result) => ui.toolResult(result),
-      onAssistantMessage: (msg) => {
-        ui.assistant(msg)
-        finished = true
-      },
-      debugLog: debug,
-    })
+    let next = { task: taskText, freshChat, sendSystemPrompt }
+
+    // Выполняем задачу, затем — всё, что пользователь успел напечатать за
+    // время работы. Очередь может пополняться прямо во время дренажа.
+    while (true) {
+      ui.thinking()
+      await mod.runAgentLoop({
+        browser,
+        tools,
+        task: next.task,
+        workdir,
+        maxIterations: maxIter,
+        freshChat: next.freshChat,
+        sendSystemPrompt: next.sendSystemPrompt,
+        transcript,
+        onThinking: () => ui.thinking(),
+        onToolCall: (name, toolArgs) => ui.toolCall(name, toolArgs),
+        onToolResult: (result) => ui.toolResult(result),
+        onAssistantMessage: (msg) => ui.assistant(msg),
+        debugLog: debug,
+      })
+
+      if (!queue.length) break
+
+      const queued = queue.shift()
+      ui.stop()
+      if (editor) {
+        editor.printAbove(theme.user('▶ Из очереди: ') + theme.assistant(queued))
+      } else {
+        console.log(theme.user('▶ Из очереди: ') + theme.assistant(queued))
+      }
+      transcript?.log('queued_task', { task: queued })
+      next = { task: queued, freshChat: false, sendSystemPrompt: false }
+    }
   } catch (e) {
     ui.stop()
-    console.error(theme.error('\n✖ Ошибка агента:'), e.message)
+    console.error(theme.error(String.fromCharCode(10) + '✖ Ошибка агента:'), e.message)
     if (debug) console.error(e.stack)
     transcript?.log('agent_error', { error: e.message })
   } finally {
     stopWatching()
-    if (!finished) ui.stop()
+    ui.stop()
   }
 }
 
@@ -659,7 +806,12 @@ async function main() {
 
   console.log(
     theme.system(
-      'Интерактивный режим. Введите задачу. Команды — /help. Выход — /exit.\n',
+      'Интерактивный режим. Введите задачу. Команды — /help. Выход — /exit.',
+    ),
+  )
+  console.log(
+    theme.system(
+      'Пока агент работает, можно печатать следующее сообщение — оно уйдёт в очередь (Enter — отправить, Esc — прервать).',
     ),
   )
 
@@ -668,6 +820,10 @@ async function main() {
   let lastChats = []
   let currentChatId = null
   let running = true
+
+  // Сообщения, набранные пользователем, пока агент работал. runTask
+  // забирает их по одному после завершения текущей задачи.
+  const pendingQueue = []
 
   // ---------- review mode state ----------
   // null — обычный режим.
@@ -709,18 +865,98 @@ async function main() {
     }
   }
 
+  // ---------- ввод: постоянная строка внизу + статус сверху ----------
+  // В TTY используем LineEditor: он владеет вводом всё время, показывает
+  // статус над строкой ввода и печатает ответы агента ВЫШЕ неё, поэтому
+  // набранный текст никогда не затирается выводом. В не-TTY (пайп) —
+  // старый promptOnce.
+  let editor = null
+  let waiter = null
+  const takeInput = () => {
+    if (pendingQueue.length) return Promise.resolve(pendingQueue.shift())
+    return new Promise((resolve) => {
+      waiter = resolve
+    })
+  }
+
+  const buildPrompt = () => {
+    let tail
+    if (reviewMode) {
+      tail = theme.warn('REVIEW') + theme.dim(':') + theme.dir(reviewMode.snapName)
+    } else {
+      tail = theme.dir(dirLabel(currentWorkdir))
+    }
+    return theme.prompt('❯ ') + tail + theme.dim(' › ')
+  }
+
+  if (process.stdin.isTTY && process.stdout.isTTY) {
+    editor = new LineEditor({ prompt: buildPrompt() })
+    editor.onSubmit = (text) => {
+      pendingQueue.push(text)
+      if (waiter) {
+        const r = waiter
+        waiter = null
+        r(pendingQueue.shift())
+      }
+    }
+    editor.onEscape = () => {
+      if (editor.busy) {
+        editor.printAbove(theme.warn('⏹ Esc — прерываю генерацию...'))
+        browser.stopGeneration().catch(() => {})
+      }
+    }
+    editor.onCtrlC = () => {
+      if (editor.busy) {
+        editor.printAbove(theme.warn('⏹ Ctrl+C — прерываю генерацию...'))
+        browser.stopGeneration().catch(() => {})
+      } else {
+        // Не заняты — выходим. Будим takeInput(), чтобы цикл завершился.
+        running = false
+        if (waiter) {
+          const r = waiter
+          waiter = null
+          r(null)
+        }
+      }
+    }
+    editor.start()
+
+    // Весь вывод команд (console.log/error) должен идти ВЫШЕ строки ввода,
+    // иначе он затирает набираемый текст. Пока редактор активен, заворачиваем
+    // оба потока в editor.printAbove.
+    const origLog = console.log.bind(console)
+    const origErr = console.error.bind(console)
+    const fmt = (a) =>
+      typeof a === 'string' ? a : (() => {
+        try {
+          return JSON.stringify(a)
+        } catch {
+          return String(a)
+        }
+      })()
+    console.log = (...a) => editor.printAbove(a.map(fmt).join(' '))
+    console.error = (...a) => editor.printAbove(a.map(fmt).join(' '))
+    // Сохраняем на случай отладки.
+    editor._origLog = origLog
+    editor._origErr = origErr
+  }
+
   while (running) {
     let input
     try {
-      // Компактное приглашение: золотая стрелка + светло-голубая директория.
-      let tail
-      if (reviewMode) {
-        tail =
-          theme.warn('REVIEW') + theme.dim(':') + theme.dir(reviewMode.snapName)
+      if (editor) {
+        editor.setPrompt(buildPrompt())
+        input = await takeInput()
       } else {
-        tail = theme.dir(dirLabel(currentWorkdir))
+        let tail
+        if (reviewMode) {
+          tail =
+            theme.warn('REVIEW') + theme.dim(':') + theme.dir(reviewMode.snapName)
+        } else {
+          tail = theme.dir(dirLabel(currentWorkdir))
+        }
+        input = await promptOnce(theme.prompt('❯ ') + tail + theme.dim(' › '))
       }
-      input = await promptOnce(theme.prompt('❯ ') + tail + theme.dim(' › '))
     } catch {
       break
     }
@@ -943,7 +1179,7 @@ async function main() {
     // ---------- Обычные команды ----------
 
     if (lower === '/chats') {
-      const spin = mod.createSpinner()
+      const spin = editor || mod.createSpinner()
       spin.thinking()
       try {
         lastChats = await browser.listChats(30)
@@ -1195,11 +1431,18 @@ async function main() {
     transcript.log('user_task', { task: trimmed, workdir: currentWorkdir })
 
     const tools = mod.createTools(currentWorkdir, { undo })
-    await runTask(browser, tools, trimmed, currentWorkdir, {
-      transcript,
-      freshChat: freshChatNext,
-      sendSystemPrompt: sendSystemPromptNext,
-    })
+    if (editor) editor.busy = true
+    try {
+      await runTask(browser, tools, trimmed, currentWorkdir, {
+        transcript,
+        freshChat: freshChatNext,
+        sendSystemPrompt: sendSystemPromptNext,
+        queue: pendingQueue,
+        ui: editor || null,
+      })
+    } finally {
+      if (editor) editor.busy = false
+    }
 
     freshChatNext = false
     sendSystemPromptNext = false
@@ -1209,6 +1452,7 @@ async function main() {
     await saveLastChat(currentChatId)
   }
 
+  if (editor) editor.dispose()
   await browser.close().catch(() => {})
   await mod.closeWeb().catch(() => {})
   transcript.close()

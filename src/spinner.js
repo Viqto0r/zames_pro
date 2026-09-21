@@ -36,12 +36,12 @@ const THINKING_PHRASES = [
   'Замешиваю кал из всего подряд…',
 ]
 
-function randomThinkingPhrase() {
+export function randomThinkingPhrase() {
   return THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)]
 }
 
 // Убираем завершающее многоточие из фразы — точки анимируем отдельно.
-function stripEllipsis(phrase) {
+export function stripEllipsis(phrase) {
   return phrase.replace(/[.…]+\s*$/, '')
 }
 
@@ -49,6 +49,7 @@ export function createSpinner() {
   let spinner = null
   let dotTimer = null
   let dotPhase = 0
+  let pending = null
 
   const DOTS = ['.', '..', '...']
 
@@ -65,22 +66,52 @@ export function createSpinner() {
     if (spinner) spinner.stop()
   }
 
+  // Подсказка в строке статуса: во время работы агента терминал живой,
+  // можно печатать следующее сообщение. Без неё это неочевидно.
+  const HINT = theme.dim('  ·  печатай — Enter в очередь, Esc стоп')
+
   // Запуск анимированного статуса: коричневый текст + «бегущие» точки.
   const startThinking = () => {
     const base = theme.brown(stripEllipsis(randomThinkingPhrase()))
-    start(base + DOTS[0])
+    start(base + DOTS[0] + HINT)
     dotPhase = 0
     if (dotTimer) clearInterval(dotTimer)
     dotTimer = setInterval(() => {
       if (!spinner) return
       dotPhase = (dotPhase + 1) % DOTS.length
-      spinner.text = base + DOTS[dotPhase]
+      spinner.text = base + DOTS[dotPhase] + HINT
     }, 400)
     if (dotTimer.unref) dotTimer.unref()
   }
 
+  // Показать набранный, но ещё не отправленный текст вместо спиннера.
+  // Позволяет печатать сообщение прямо во время работы агента.
+  const showPending = () => {
+    if (dotTimer) {
+      clearInterval(dotTimer)
+      dotTimer = null
+    }
+    if (!spinner) spinner = ora('')
+    spinner.start()
+    spinner.text = theme.prompt('✎ ') + pending + HINT
+  }
+
   return {
-    thinking: () => startThinking(),
+    thinking: () => {
+      if (pending) {
+        showPending()
+        return
+      }
+      startThinking()
+    },
+
+    // Текст, который пользователь набирает во время работы агента.
+    // Пустая строка / null — вернуть обычный спиннер.
+    setPending: (text) => {
+      pending = text && String(text).length ? String(text) : null
+      if (pending) showPending()
+      else startThinking()
+    },
 
     toolCall: (name, args) => {
       stop()

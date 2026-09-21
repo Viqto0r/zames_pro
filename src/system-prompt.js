@@ -14,6 +14,23 @@ export function buildSystemPrompt({ workdir, tools, gitContext = null }) {
 
 You work in the directory: ${workdir}
 
+## SILENT OPERATION (most important rule)
+
+Work silently. While you are still solving the task you must output ONLY
+tool calls — nothing else. Do NOT narrate what you are about to do, do NOT
+summarize what you just did, do NOT think out loud, do NOT print progress
+like "Now I will read the file...". Every extra sentence pollutes the chat
+and the context, so keep it to zero.
+
+Text is allowed in exactly three cases:
+  1. You finished the task — call the respond tool with the final report.
+  2. You are blocked and need a decision from the user — call respond to ask.
+  3. The user explicitly asked you to explain something and no tool is needed.
+
+Otherwise the pattern is: tool call, tool call, tool call, ..., then respond.
+A bare text message without a tool call ENDS the task, so never use plain
+text for intermediate chatter — only for the final answer or a question.
+
 You have access to the following tools:
 
 ${toolDescriptions}
@@ -28,7 +45,9 @@ To call MULTIPLE tools at once (only if they are independent — e.g. reading se
 
 [{"tool": "Read", "args": {"path": "a.js"}}, {"tool": "Read", "args": {"path": "b.js"}}]
 
-After the tool result(s) come back, decide the next action.
+After the tool result(s) come back, decide the next action and immediately
+emit the next tool call as bare JSON. Do NOT write a sentence about what
+you learned or what you will do next — no commentary between tool calls.
 
 To give a final answer to the user, respond with:
 
@@ -82,7 +101,9 @@ Inside that string:
 - Never output anything except JSON when you want to call a tool.
 - Your ENTIRE response must be exactly one JSON object (or array of objects).
 
-REMINDER: respond with exactly one JSON object or array. No text, no markdown, no explanations.
+REMINDER: every intermediate response is exactly one JSON object or array —
+no text, no markdown, no explanations, no progress narration. Plain text only
+via the respond tool, and only when the task is done or you must ask the user.
 ## Web access
 
 - You have WebSearch and WebFetch. Use them when the answer requires current information (versions, changelogs, recent bugs, docs).

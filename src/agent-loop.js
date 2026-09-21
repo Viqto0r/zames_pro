@@ -1,5 +1,6 @@
 import { buildSystemPrompt } from './system-prompt.js'
 import { getGitContext, formatGitContext } from './gitTools.js'
+import { parseXmlToolCalls } from './xml-toolcall.js'
 
 export async function runAgentLoop({
   browser,
@@ -530,6 +531,10 @@ function parseToolCall(text) {
     const tailPermissive = parseToolCallPermissive('{"' + tail)
     if (tailPermissive) return { ...tailPermissive, _permissive: true }
   }
+
+  // Последний fallback: модель ответила XML/DSML-блоком вместо JSON.
+  const xmlCalls = parseXmlToolCalls(cleaned)
+  if (xmlCalls) return Array.isArray(xmlCalls) ? xmlCalls : [xmlCalls]
 
   return null
 }
