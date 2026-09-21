@@ -1,4 +1,5 @@
 import { chromium, type BrowserContext, type Page, type Locator } from 'playwright'
+import { extractAnswer, dumpNetBody } from './net-capture.js'
 import path from 'path'
 import os from 'os'
 import fs from 'fs/promises'
@@ -100,6 +101,14 @@ export class DeepSeekBrowser {
   _abort: boolean
   context!: BrowserContext
   page!: Page
+  // Перехват сетевых ответов DeepSeek: там лежит СЫРОЙ текст ответа модели
+  // (markdown без рендер-искажений LaTeX/автолинков). Собираем его по мере
+  // стрима, чтобы _readLastAnswerText отдавал исходник, а не DOM-рендер.
+  _netCapture: string
+  _netCaptureAt: number
+  _netSniff: Array<{ url: string; contentType: string; body: string }>
+  _netSniffLimit: number
+  _netHookInstalled: boolean
 
   constructor({
     headless = false,
@@ -123,6 +132,11 @@ export class DeepSeekBrowser {
     this.minSendIntervalMs = minSendIntervalMs
     this._lastSentAt = 0
     this._abort = false
+    this._netCapture = ''
+    this._netCaptureAt = 0
+    this._netSniff = []
+    this._netSniffLimit = 5
+    this._netHookInstalled = false
   }
 
   async launch(): Promise<void> {
@@ -177,7 +191,48 @@ export class DeepSeekBrowser {
     }
 
     this.page = this.context.pages()[0] || (await this.context.newPage())
+    this._installNetHook()
     await this.page.goto(CHAT_URL, { waitUntil: 'domcontentloaded' })
+  }
+
+  // Перехват сетевых ответов DeepSeek. Ответ модели приходит стримом
+  // (SSE/JSON) — это СЫРОЙ markdown без рендер-искажений. Накапливаем его,
+  // чтобы чтение ответа отдавало исходник, а не DOM-рендер.
+  _installNetHook(): void {
+    if (this._netHookInstalled) return
+    const pg = this['page']
+    if (!pg) return
+    this._netHookInstalled = true
+    pg.on('response', (resp: import('playwright').Response) => {
+      void this._onResponse(resp).catch(() => {})
+    })
+  }
+
+  async _onResponse(resp: import('playwright').Response): Promise<void> {
+    try {
+      const url = resp.url()
+      if (!/deepseek\.com/i.test(url)) return
+      if (/\.(js|css|png|jpg|jpeg|svg|woff2?|ico|map)(\?|$)/i.test(url)) return
+      const ct = (resp.headers()['content-type'] || '').toLowerCase()
+      const interesting =
+        ct.includes('event-stream') ||
+        ct.includes('json') ||
+        ct.includes('text/plain')
+      if (!interesting) return
+
+      const body = await resp.text().catch(() => '')
+      if (!body) return
+
+      this._netSniff.push({ url, contentType: ct, body })
+      if (this._netSniff.length > this._netSniffLimit) this._netSniff.shift()
+      void dumpNetBody(url, body)
+
+      const extracted = extractAnswer(body)
+      if (extracted) {
+        this._netCapture = extracted
+        this._netCaptureAt = Date.now()
+      }
+    } catch {}
   }
 
   async restart(): Promise<void> {
@@ -246,6 +301,12 @@ export class DeepSeekBrowser {
   }
 
   async _readLastAnswerText(): Promise<string> {
+    // Если удалось перехватить сырой текст ответа по сети (без рендер-
+    // искажений DeepSeek) и он относится к текущему ответу — отдаём его.
+    // Это защищает $, экранированные переводы строк и т.п. в аргументах.
+    if (this._netCapture && this._netCaptureAt >= this._lastSentAt) {
+      return this._netCapture
+    }
     return await this.page.evaluate((sels: string[]) => {
       let el = null
       for (const s of sels) {
@@ -477,6 +538,9 @@ export class DeepSeekBrowser {
     const beforeText = await this._readLastAnswerTextClean().catch(() => '')
 
     await this._waitForSendSlot()
+    // Сбрасываем прошлый перехват: ответ на это сообщение ещё придёт.
+    this._netCapture = ''
+    this._netCaptureAt = 0
     await this._setInputText(input, prompt)
     await this.page.waitForTimeout(200)
 
@@ -529,7 +593,22 @@ export class DeepSeekBrowser {
       await this.page.waitForTimeout(800)
     }
 
-    if (last) return last
+    if (last) {
+      if (this.debug) {
+        const src =
+          this._netCapture && this._netCaptureAt >= this._lastSentAt
+            ? 'NET'
+            : 'DOM'
+        console.error('[browser] ответ прочитан из: ' + src)
+        if (this._netSniff.length) {
+          console.error(
+            '[browser] перехваченные ответы: ' +
+              this._netSniff.map((s) => s.url).join(', '),
+          )
+        }
+      }
+      return last
+    }
     throw new Error('Таймаут ожидания ответа. Попробуйте /debug-dom.')
   }
 
