@@ -17,7 +17,10 @@
     "dev": "tsx ./src/index.ts --dev",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "test": "tsx --test test/*.test.ts",
+    "test:watch": "tsx --test --watch test/*.test.ts",
+    "prepare": "husky"
   },
   "keywords": [
     "agent",
@@ -51,6 +54,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.6.2",
+    "husky": "^9.1.7",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   }

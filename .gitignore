@@ -8,4 +8,5 @@ projects
 *.bak3
 bad.txt
 tmp/
+.husky/_
 

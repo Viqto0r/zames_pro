@@ -29,6 +29,7 @@ interface RunTaskOptions {
   sendSystemPrompt: boolean
   queue?: string[]
   ui?: LineEditor | null
+  onChatReady?: (chatId: string | null) => void
 }
 
 interface ReviewMode {
@@ -644,7 +645,7 @@ async function resolveWorkdir(): Promise<string> {
 // ---------- task runner ----------
 
 async function runTask(browser: DeepSeekBrowser, tools: ToolDef[], taskText: string, workdir: string, opts: RunTaskOptions): Promise<void> {
-  const { transcript, freshChat, sendSystemPrompt, queue = [], ui: editor } = opts
+  const { transcript, freshChat, sendSystemPrompt, queue = [], ui: editor, onChatReady } = opts
 
   // В TTY-режиме UI — это LineEditor: он владеет вводом (очередь, Esc,
   // Ctrl+C) и рисует статус НАД постоянной строкой ввода. В не-TTY режиме
@@ -690,6 +691,7 @@ async function runTask(browser: DeepSeekBrowser, tools: ToolDef[], taskText: str
         onToolCall: (name, toolArgs) => ui.toolCall(name, toolArgs),
         onToolResult: (result) => ui.toolResult(result),
         onAssistantMessage: (msg) => ui.assistant(msg),
+        onChatReady,
         debugLog: debug,
       })
 
@@ -824,6 +826,9 @@ async function main(): Promise<void> {
       transcript,
       freshChat,
       sendSystemPrompt,
+      onChatReady: (chatId) => {
+        if (chatId) saveLastChat(chatId, currentWorkdir)
+      },
     })
     await browser.close()
     await mod.closeWeb().catch(() => {})
@@ -1520,6 +1525,15 @@ async function main(): Promise<void> {
         sendSystemPrompt: sendSystemPromptNext,
         queue: pendingQueue,
         ui: editor || null,
+        onChatReady: (chatId) => {
+          // Сохраняем сессию сразу при начале диалога, не дожидаясь конца
+          // задачи. Иначе при долгой/прерванной задаче чат не попадал в
+          // ~/.zames/.sessions и терялся после перезапуска.
+          if (chatId) {
+            currentChatId = chatId
+            saveLastChat(chatId, currentWorkdir)
+          }
+        },
       })
     } finally {
       if (editor) editor.busy = false

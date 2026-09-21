@@ -24,6 +24,7 @@ export interface RunAgentLoopOptions {
   onToolCall?: (name: string, args: ToolArgs) => void
   onToolResult?: (result: unknown) => void
   onAssistantMessage?: (msg: string) => void
+  onChatReady?: (chatId: string | null) => void
   debugLog?: boolean
 }
 
@@ -41,12 +42,31 @@ export async function runAgentLoop({
   onToolCall = () => {},
   onToolResult = () => {},
   onAssistantMessage = () => {},
+  onChatReady = () => {},
   debugLog = false,
 }: RunAgentLoopOptions): Promise<string> {
   if (freshChat) {
     await browser.newChat()
     transcript?.log('new_chat')
   }
+
+  // Сообщаем вызывающему актуальный chat id. После newChat() URL ещё без id
+  // (он появляется только после первой отправки), поэтому зовём колбэк и
+  // здесь, и после первой реальной отправки ниже.
+  let lastReportedChatId: string | null = null
+  const reportChat = async (): Promise<void> => {
+    let id: string | null = null
+    try {
+      id = await browser.getCurrentChatId()
+    } catch {
+      id = null
+    }
+    if (id && id !== lastReportedChatId) {
+      lastReportedChatId = id
+      onChatReady(id)
+    }
+  }
+  await reportChat()
 
   if (sendSystemPrompt) {
     let gitText = null
@@ -68,6 +88,7 @@ export async function runAgentLoop({
     })
     onThinking()
     await browser.ask(systemPrompt, { timeout: 60_000 })
+    await reportChat()
   }
 
   let message = task
@@ -82,6 +103,7 @@ export async function runAgentLoop({
   for (let i = 0; i < maxIterations; i++) {
     onThinking()
     const rawResponse = await browser.ask(message)
+    await reportChat()
     transcript?.log('assistant_raw', { response: rawResponse })
 
     const parsed = parseToolCall(rawResponse)
