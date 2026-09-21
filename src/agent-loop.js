@@ -48,6 +48,12 @@ export async function runAgentLoop({
   let message = task
   transcript?.log('task', { task })
 
+  // Счётчик «ответ похож на tool-call, но не распознан». Чтобы модель,
+  // написавшая битый JSON/XML, не останавливала агента молча, мы просим
+  // её переотправить вызов. Ограничиваем число таких попыток.
+  let malformedRetries = 0
+  const MAX_MALFORMED_RETRIES = 3
+
   for (let i = 0; i < maxIterations; i++) {
     onThinking()
     const rawResponse = await browser.ask(message)
@@ -70,6 +76,23 @@ export async function runAgentLoop({
     }
 
     if (!parsed) {
+      // Ответ не распознан как tool-call. Если он ПОХОЖ на попытку вызова
+      // (есть tool/invoke/parameter, но JSON/XML битый) — это почти всегда
+      // ошибка формата. Не считаем её финальным ответом (иначе агент молча
+      // остановится), а просим модель переотправить вызов корректно.
+      const looksLikeToolCall = /("tool"\s*:|\binvoke\b|\bparameter\b)/i.test(rawResponse)
+      if (looksLikeToolCall && malformedRetries < MAX_MALFORMED_RETRIES) {
+        malformedRetries++
+        transcript?.log("malformed_toolcall", { attempt: malformedRetries, response: rawResponse })
+        if (debugLog) {
+          console.error("внимание: ответ похож на tool-call, но не распознан (попытка " + malformedRetries + "/" + MAX_MALFORMED_RETRIES + ")")
+        }
+        message = "Твой предыдущий ответ не распознан как вызов инструмента. " +
+          "Ответь РОВНО одним JSON-объектом вызова инструмента, без текста до и после. " +
+          "Например: " + String.fromCharCode(39) + "tool" + String.fromCharCode(39) + ": ..., args: {...}"
+        continue
+      }
+
       onAssistantMessage(rawResponse)
       transcript?.log('assistant_final', { message: rawResponse })
       return rawResponse

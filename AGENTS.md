@@ -145,6 +145,12 @@ Fallback для не-TTY (`watchInput()` в src/index.js) оставлен дл�
 Дефолты и слияние — в DEFAULTS/deepMerge. Ключевые секции: maxIterations,
 headless, debug, confirmation, undo, transcript, browser.
 
+`browser.minSendIntervalMs` (по умолчанию 25000) — минимальная пауза между
+отправками сообщений в [chat.deepseek.com](https://chat.deepseek.com/). DeepSeek ограничивает частоту
+(«Messages too frequent. Try again later.»), поэтому `_waitForSendSlot()`
+в `browser.js` перед каждой отправкой ждёт, пока с прошлой (`_lastSentAt`)
+не пройдёт этот интервал. Первая отправка в сессии паузы не ждёт.
+
 Данные в `~/.zames`: profile (браузер), logs (транскрипт), undo, snapshots.
 Временные файлы — `<project>/tmp` (в .gitignore, чистится при запуске).
 
@@ -167,9 +173,19 @@ headless, debug, confirmation, undo, transcript, browser.
 
 ## Почему агент может «остановиться»
 
-Единственная точка выхода из runAgentLoop() без выполнения инструмента —
-ответ, который parseToolCall() не смог распознать (parsed === null).
-В этом случае ответ считается финальным текстом модели, и цикл завершается.
-Поэтому любые остановки после вызова инструмента — это почти всегда
-не распознанный формат tool-call (DSML/XML, грязный JSON, проза вокруг).
-Расширяя форматы ответа, добавляй разбор в parseToolCall().
+Точка выхода из runAgentLoop() без выполнения инструмента — ответ, который
+parseToolCall() не смог распознать (parsed === null). Такой ответ считается
+финальным текстом модели, и цикл завершается. Поэтому «остановки после
+вызова инструмента» — это почти всегда не распознанный формат tool-call
+(DSML/XML, грязный JSON, проза вокруг).
+
+Защита в два слоя:
+1. `parseToolCall()` пробует JSON, permissive-разбор и XML/DSML
+   (`src/xml-toolcall.js`) — см. «Формат tool-call».
+2. Если ответ всё равно не распознан, но ПОХОЖ на вызов (есть `"tool"`,
+   `invoke` или `parameter`), `runAgentLoop()` не завершает задачу, а шлёт
+   модели корректирующее сообщение и продолжает цикл (до
+   MAX_MALFORMED_RETRIES раз). Это вторая страховка от молчаливой остановки.
+
+Расширяя форматы ответа, добавляй разбор в `parseToolCall()`, а не полагайся
+на то, что модель всегда вернёт чистый JSON.

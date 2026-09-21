@@ -3,6 +3,7 @@ import path from 'path'
 import os from 'os'
 import fs from 'fs/promises'
 import { execSync } from 'child_process'
+import { theme } from './theme.js'
 
 const USER_DATA_DIR = path.join(os.homedir(), '.zames', 'profile')
 const CHAT_URL = 'https://chat.deepseek.com/'
@@ -78,6 +79,7 @@ export class DeepSeekBrowser {
     askRetries = 3,
     stabilityChecks = 3,
     stabilityDelayMs = 1000,
+    minSendIntervalMs = 25000,
   } = {}) {
     this.headless = headless
     this.debug = debug
@@ -86,6 +88,10 @@ export class DeepSeekBrowser {
     this.askRetries = askRetries
     this.stabilityChecks = stabilityChecks
     this.stabilityDelayMs = stabilityDelayMs
+    // Минимальный интервал между отправками в чат: DeepSeek ограничивает
+    // частоту («Messages too frequent. Try again later.»).
+    this.minSendIntervalMs = minSendIntervalMs
+    this._lastSentAt = 0
     this.context = null
     this.page = null
   }
@@ -418,6 +424,20 @@ export class DeepSeekBrowser {
     }
   }
 
+  // Ждём, пока с прошлой отправки пройдёт minSendIntervalMs. Защита от
+  // «Messages too frequent. Try again later.» на [chat.deepseek.com](https://chat.deepseek.com/).
+  async _waitForSendSlot() {
+    if (!this._lastSentAt) return // первая отправка — пауза не нужна
+    const gap = this.minSendIntervalMs - (Date.now() - this._lastSentAt)
+    if (gap <= 0) return
+    console.error(
+      theme.warn(
+        `⏳ пауза ${Math.ceil(gap / 1000)}с перед отправкой (лимит частоты DeepSeek)...`,
+      ),
+    )
+    await this.page.waitForTimeout(gap)
+  }
+
   async _askOnce(prompt, { timeout }) {
     const input = await this._findVisible(INPUT_SELECTORS, 10_000)
     if (!input) {
@@ -428,6 +448,7 @@ export class DeepSeekBrowser {
 
     const beforeText = await this._readLastAnswerTextClean().catch(() => '')
 
+    await this._waitForSendSlot()
     await this._setInputText(input, prompt)
     await this.page.waitForTimeout(200)
 
@@ -440,6 +461,7 @@ export class DeepSeekBrowser {
     } catch {
       await this.page.keyboard.press('Enter')
     }
+    this._lastSentAt = Date.now()
 
     const startDeadline = Date.now() + 15_000
     let started = false

@@ -43,6 +43,7 @@ const DEFAULTS = {
     askRetries: 3,
     stabilityChecks: 3,
     stabilityDelayMs: 1000,
+    minSendIntervalMs: 25000,
   },
 }
 
