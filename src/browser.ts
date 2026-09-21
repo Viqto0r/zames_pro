@@ -106,6 +106,7 @@ export class DeepSeekBrowser {
   // стрима, чтобы _readLastAnswerText отдавал исходник, а не DOM-рендер.
   _netCapture: string
   _netCaptureAt: number
+  _netChatId: string | null
   _netSniff: Array<{ url: string; contentType: string; body: string }>
   _netSniffLimit: number
   _netHookInstalled: boolean
@@ -134,6 +135,7 @@ export class DeepSeekBrowser {
     this._abort = false
     this._netCapture = ''
     this._netCaptureAt = 0
+    this._netChatId = null
     this._netSniff = []
     this._netSniffLimit = 5
     this._netHookInstalled = false
@@ -230,6 +232,8 @@ export class DeepSeekBrowser {
       const extracted = extractAnswer(body)
       if (extracted) {
         this._netCapture = extracted
+        const cid = url.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/)
+        if (cid) this._netChatId = cid[0]
         this._netCaptureAt = Date.now()
       }
     } catch {}
@@ -719,9 +723,10 @@ export class DeepSeekBrowser {
     try {
       const url = this.page.url()
       const m = url.match(/\/chat\/s\/([a-zA-Z0-9_-]+)/)
-      return m ? m[1] : null
+      if (m) return m[1]
+      return this._netChatId
     } catch {
-      return null
+      return this._netChatId
     }
   }
 

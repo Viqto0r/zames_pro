@@ -95,6 +95,20 @@ Your response MUST be valid JSON. This means:
 
 When in doubt — use forward slashes for all file paths.
 
+## CRITICAL: preserving special characters in Write/Edit
+
+The channel that delivers your answer may corrupt certain characters in tool
+arguments: the dollar sign in template literals, backslashes, newlines, and
+identifiers (e.g. 'x.name'). To write or edit files containing such characters
+reliably, pass the content in base64 instead of plain text:
+
+- Write: use 'content_base64' instead of 'content'.
+- Edit: use 'old_base64' / 'new_base64' instead of 'old_string' / 'new_string'.
+
+base64 alphabet is [A-Za-z0-9+/=] and is not corrupted. Encode with the
+base64 command or in Node via Buffer.from(text).toString('base64').
+Use plain content/old_string only when the text has no special characters.
+
 ## CRITICAL: quoting inside shell commands
 
 When you call Bash, put the whole shell command in a single JSON string.

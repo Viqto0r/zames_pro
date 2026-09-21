@@ -83,6 +83,20 @@ export function createTools(
       })
     })
 
+  // Достаёт текст из content/content_base64. base64 нужен, потому что канал
+  // передачи ответа модели может искажать символы ($, обратные слэши,
+  // переводы строк). base64 состоит только из [A-Za-z0-9+/=] и искажению
+  // не подвержен.
+  const decodeContent = (
+    content: unknown,
+    contentBase64: unknown,
+  ): string => {
+    if (typeof contentBase64 === 'string' && contentBase64.length) {
+      return Buffer.from(contentBase64, 'base64').toString('utf-8')
+    }
+    return String(content ?? '')
+  }
+
   const baseTools: ToolDef[] = [
     {
       name: 'Read',
@@ -101,36 +115,50 @@ export function createTools(
 
     {
       name: 'Write',
-      description: 'Создать или перезаписать файл.',
-      parameters: { path: 'string', content: 'string' },
-      fn: async ({ path: p, content }: ToolArgs) => {
+      description:
+        'Создать или перезаписать файл. content — текст; content_base64 — тот же ' +
+        'контент в base64 (используй, если текст содержит , обратные слэши, ' +
+        'переводы строк или другие символы, которые могут исказиться).',
+      parameters: {
+        path: 'string',
+        content: 'string?',
+        content_base64: 'string?',
+      },
+      fn: async ({ path: p, content, content_base64 }: ToolArgs) => {
         const file = safe(String(p))
+        const text = decodeContent(content, content_base64)
         if (undo) await undo.backup(file)
         await fs.mkdir(path.dirname(file), { recursive: true })
-        await fs.writeFile(file, String(content), 'utf-8')
-        return `Файл записан: ${p}`
+        await fs.writeFile(file, text, 'utf-8')
+        return `Файл записан: {p}`
       },
     },
 
     {
       name: 'Edit',
       description:
-        'Точечная замена строки в файле. old_string должен встречаться один раз.',
+        'Точечная замена строки в файле. old_string должен встречаться один раз. ' +
+        'old_base64/new_base64 — те же строки в base64 (если текст содержит ' +
+        'спецсимволы, которые могут исказиться).',
       parameters: {
         path: 'string',
-        old_string: 'string',
-        new_string: 'string',
+        old_string: 'string?',
+        new_string: 'string?',
+        old_base64: 'string?',
+        new_base64: 'string?',
       },
-      fn: async ({ path: p, old_string, new_string }: ToolArgs) => {
+      fn: async ({ path: p, old_string, new_string, old_base64, new_base64 }: ToolArgs) => {
         const file = safe(String(p))
-        if (typeof old_string !== 'string' || old_string === '') {
+        const oldStr = decodeContent(old_string, old_base64)
+        const newStr = decodeContent(new_string, new_base64)
+        if (oldStr === '') {
           throw new Error('old_string пустой — нечего заменять.')
         }
         let content = await fs.readFile(file, 'utf-8')
-        const occurrences = content.split(old_string).length - 1
+        const occurrences = content.split(oldStr).length - 1
         if (occurrences === 0) {
           throw new Error(
-            `Строка не найдена в ${p}: "${old_string.slice(0, 60)}..."`,
+            `Строка не найдена в ${p}: "${oldStr.slice(0, 60)}..."`,
           )
         }
         if (occurrences > 1) {
@@ -139,7 +167,7 @@ export function createTools(
           )
         }
         if (undo) await undo.backup(file)
-        content = content.replace(old_string, String(new_string))
+        content = content.replace(oldStr, newStr)
         await fs.writeFile(file, content, 'utf-8')
         return `Отредактирован: ${p}`
       },
