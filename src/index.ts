@@ -83,16 +83,16 @@ const chatIdArg = getArg('--chat', null)
 // переотправляется (он уже есть в начале чата). Флаг --resend-prompt
 // заставляет дослать его заново — например, если промпт обновился.
 const resendPrompt = hasFlag('--resend-prompt')
-// --new-chat: намеренно начать с чистого чата, игнорируя сохранённую сессию.
-// --resume-last: оставлен для совместимости (восстановление и так по умолчанию).
-// По умолчанию последняя сессия для рабочей директории восстанавливается.
+// По умолчанию при старте начинается НОВЫЙ чат (контекст не тянется).
+// --resume-last: вернуться в последнюю сессию для рабочей директории.
+// --new-chat: оставлен для совместимости — это и так поведение по умолчанию.
 const newChatFlag = hasFlag('--new-chat')
 const resumeLastFlag = hasFlag('--resume-last')
 
 // ---------- session persistence ----------
 // Сессии (чаты DeepSeek) храним в ~/.zames/.sessions, чтобы они переживали
-// перезапуск процесса. При старте из той же рабочей директории последняя
-// сессия восстанавливается автоматически (если не передан --new-chat).
+// перезапуск и были доступны для явного восстановления (--resume-last,
+// --chat <id>, /resume <n>). Автоматически при старте они НЕ поднимаются.
 // Раньше здесь был один файл last-chat.json, который терялся при смене
 // проекта и не давал списка сессий для восстановления.
 function saveLastChat(id: string | null, workdir = '', title = ''): void {
@@ -234,8 +234,8 @@ ${theme.bold('Опции CLI:')}
   --dir <path>       рабочая директория агента
   --task <text>      задача одной строкой
   --chat <id>        продолжить существующий чат по id
-  --resume-last      вернуться в последний сохранённый чат (по умолчанию)
-  --new-chat         начать новый чат, не восстанавливать сессию
+  --resume-last      вернуться в последний сохранённый чат
+  --new-chat         начать новый чат (поведение по умолчанию)
   --resend-prompt    дослать system-prompt в существующий чат
   --max-iter <n>     лимит итераций (по умолчанию ${config.maxIterations})
   --headless         браузер без UI
@@ -854,10 +854,10 @@ async function main(): Promise<void> {
     let freshChat = true
     let sendSystemPrompt = true
 
-    // По умолчанию восстанавливаем последнюю сессию для этой директории.
-    // Начать с чистого листа — --new-chat.
+    // По умолчанию начинаем новый чат. Продолжить прошлую сессию —
+    // явно: --chat <id> или --resume-last.
     let resumeId = chatIdArg
-    if (!resumeId && !newChatFlag) {
+    if (!resumeId && resumeLastFlag && !newChatFlag) {
       const last = loadLastSession(currentWorkdir)
       if (last && last.id) {
         resumeId = last.id
@@ -933,14 +933,13 @@ async function main(): Promise<void> {
     process.exit(0)
   })
 
-  // Восстановление сессии при старте. По умолчанию возвращаемся в последний
-  // чат для этой рабочей директории (сессии лежат в ~/.zames/.sessions),
-  // чтобы контекст не терялся после перезапуска. Явно начать с чистого листа
-  // можно флагом --new-chat.
+  // По умолчанию при старте начинаем НОВЫЙ чат: контекст прошлой сессии
+  // не тянется автоматически. Продолжить прошлую сессию можно явно:
   //   --chat <id>     открыть конкретный чат
-  //   --new-chat      не восстанавливать, начать новый чат
+  //   --resume-last   вернуться в последний чат для этой рабочей директории
+  //   --new-chat      оставлен для совместимости (это и так поведение по умолчанию)
   let resumeId = chatIdArg
-  if (!resumeId && !newChatFlag) {
+  if (!resumeId && resumeLastFlag && !newChatFlag) {
     const last = loadLastSession(currentWorkdir)
     if (last && last.id) {
       resumeId = last.id
