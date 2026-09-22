@@ -60,6 +60,38 @@ zames --help
 Global config: `~/.zames/config.json`
 Local (per project): `.zamesrc.json`
 
+You can view and change settings without leaving the agent — use the
+`/config` command. Run it without arguments to open an interactive menu
+(↑/↓ to move, Enter to change, `d` to reset, `q` to quit). Booleans and enums
+toggle in place; numbers and strings open an input prompt.
+
+```
+/config                       interactive settings menu
+/config list                  print all editable settings
+/config get <path>            show a setting
+/config set <path> <value>    change a setting
+/config reset <path>          reset a setting to its default
+/config path                  show config file paths
+/config lang <ru|en>          switch interface and agent language
+```
+
+Examples:
+
+```
+/config set maxIterations 20
+/config set confirmation.bash false
+/config lang en
+```
+
+Changes are written to the project `.zamesrc.json` and applied right away
+(where possible without a restart).
+
+### Language
+
+`/config lang ru` or `/config lang en` switches both the interface language
+(help, messages, spinner) and the language the agent answers you in. The
+locale lives in `ui.locale` in the config file.
+
 Agent data is stored in `~/.zames`: browser profile, logs, undo history, self-review snapshots.
 
 ## License

@@ -1,6 +1,5 @@
 import path from 'path'
 import fs from 'fs/promises'
-import { readdirSync } from 'fs'
 import { theme } from './theme.js'
 import { fileURLToPath } from 'url'
 

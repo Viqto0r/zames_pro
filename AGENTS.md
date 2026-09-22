@@ -159,7 +159,8 @@ Fallback для не-TTY (`watchInput()` в src/index.ts) оставлен дл�
 - `/reload` — перечитать модули логики без перезапуска
 - `/undo`, `/undo-list` (`/history`) — откат правок
 - `/transcript` — путь к файлу транскрипта
-- `/config` — текущий конфиг
+- `/config` — просмотр и правка настроек (см. «Конфигурация»)
+- `/config lang <ru|en>` — сменить язык интерфейса и агента
 - `/debug-dom` — сохранить HTML страницы (отладка селекторов)
 - `/help`, `help` — справка
 - `/exit`, `/quit` — выход
@@ -177,7 +178,61 @@ Fallback для не-TTY (`watchInput()` в src/index.ts) оставлен дл�
 Глобальный: `~/.zames/config.json`
 Локальный: `<project>/.zamesrc.json`
 Дефолты и слияние — в DEFAULTS/deepMerge. Ключевые секции: maxIterations,
-headless, debug, confirmation, undo, transcript, browser.
+headless, debug, confirmation, undo, transcript, browser, ui.
+
+### Правка через /config
+
+`CONFIG_SCHEMA` (src/config.ts) — список настроек, которые можно менять из
+`/config`. Каждая запись: `path` (например `confirmation.write`), `type`
+(boolean/number/string/enum), `labelKey`/`groupKey` (i18n-ключи подписи и
+группы), опционально `values`/`min`/`max`. Схема — единственный источник
+правды: по ней валидируется `set`, строится меню и текстовый список.
+
+**Подписи локализованы**: в схеме нет английских строк, только ключи
+(`cfg.f.*`, `cfg.group.*`) — их переводы лежат в src/i18n.ts. Так меню и
+список всегда на выбранном языке.
+
+Интерактивное меню — `runConfigMenu()` в src/config-menu.ts. Вызывается
+`/config` (без аргументов) в TTY. Управление: ↑/↓ или j/k — выбор, Enter —
+изменить (boolean/enum переключаются на месте, number/string запрашивают
+ввод), d — сбросить к дефолту, q/Esc — выход. Меню само читает клавиши и
+рисует в stdout, поэтому на время его работы LineEditor «ставится на паузу»
+(`editor.pause()` / `editor.resume()` в index.ts), иначе вывод меню
+наложился бы на строку ввода. Ввод разбирается по токенам (буфер может
+содержать несколько клавиш: стрелки+Enter) — см. `onData`.
+
+Текстовые подкоманды (для скриптов и не-TTY): `/config [menu|list]`,
+`/config get <path>`, `/config set <path> <val>`, `/config reset <path>`,
+`/config path`, `/config lang <ru|en>`. Значения пишутся в **проектный**
+`.zamesrc.json` (writeConfigValue/resetConfigValue), не замораживая дефолты
+в файле пользователя. После изменения рантайм-объект `config` обновляется —
+значение действует сразу (если применимо без перезапуска).
+
+**Чтобы добавить новую настройку**: допиши поле в `DEFAULTS` и в `types.ts`
+(интерфейс секции), запись в `CONFIG_SCHEMA` (с `labelKey`/`groupKey`) и
+соответствующие ключи в `CATALOG` i18n. Не добавляй в схему секреты и
+значения, требующие перезапуска (transcript.dir, browserChannel).
+
+### Локализация (src/i18n.ts)
+
+`Locale = 'ru' | 'en'`. Строки интерфейса — в каталоге `CATALOG`
+(ключ → `{ ru, en }`), доступ через `translate(locale)(key, params)`.
+Текущий язык хранится в `config.ui.locale`, меняется `/config lang <ru|en>`
+(и `/config set ui.locale en`).
+
+Что локализовано:
+- `printHelp()`, подсказки slash-команд (buildSlashCommands в index.ts);
+- служебные сообщения главного цикла, `/status`, `/config`;
+- фразы спиннера (`createSpinner(locale)` / `randomThinkingPhrase(locale)`);
+- **язык ответов агента** — через system-prompt: `buildSystemPrompt({ locale })`
+  добавляет раздел LANGUAGE (`prompt.answer_language`), где модели велено
+  отвечать оператору на выбранном языке. `runAgentLoop` прокидывает `locale`
+  в `buildSystemPrompt`.
+
+При смене языка на лету: `currentLocale` в index.ts обновляется, редактор
+пересобирает подсказки (`editor.setCommands`), а `config.ui.locale` — чтобы
+следующая задача ушла с новым языком в system-prompt. Новые строки добавляй
+в `CATALOG` (оба языка) — тест `test/i18n.test.ts` проверяет наличие ru/en.
 
 `browser.minSendIntervalMs` (по умолчанию 15000) — минимальная пауза между
 отправками сообщений в [chat.deepseek.com](https://chat.deepseek.com/). DeepSeek ограничивает частоту
@@ -257,12 +312,26 @@ parseToolCall() не смог распознать (parsed === null). Такой
 (DSML/XML, грязный JSON, проза вокруг).
 
 Защита в два слоя:
-1. `parseToolCall()` пробует JSON, permissive-разбор и XML/DSML
-   (`src/xml-toolcall.ts`) — см. «Формат tool-call».
-2. Если ответ всё равно не распознан, но ПОХОЖ на вызов (есть `"tool"`,
-   `invoke` или `parameter`), `runAgentLoop()` не завершает задачу, а шлёт
-   модели корректирующее сообщение и продолжает цикл (до
-   MAX_MALFORMED_RETRIES раз). Это вторая страховка от молчаливой остановки.
+1. `parseToolCall()` пробует JSON, permissive-разбор, XML/DSML
+   (`src/xml-toolcall.ts`) и, как последний fallback, `repairToolCallPreamble()`
+   — восстановление «поломанной головы» вызова (`<｜tool": ...`, `tool": ...`,
+   `**tool**: ...`). Fallback запускается ТОЛЬКО после обычного разбора, иначе
+   легко испортить валидный JSON (массив вызовов начинается с `[`, внутри —
+   `{"tool":`).
+2. Если ответ всё равно не распознан, но ПОХОЖ на вызов, `runAgentLoop()` не
+   завершает задачу, а шлёт модели корректирующее сообщение и продолжает цикл
+   (до `MAX_MALFORMED_RETRIES` раз). Детектор вынесен в экспортируемую
+   `responseLooksLikeToolCall()` (src/agent-loop.ts) и покрыт тестом
+   `test/guard-toolcall.test.ts`. Он ловит: `"tool":`, `tool":` без кавычки,
+   `**tool**:`, XML/DSML, а также **обрезанные** вызовы (начинаются с `{`/`[`,
+   есть ключ аргумента, но нет закрывающей скобки). Обычную прозу с
+   `path:`/`command:` (без ведущей скобки) детектор НЕ трогает.
+
+Реальный кейс остановки (транскрипт 2026-09-22): DeepSeek вернул
+`<｜tool": "Bash", "args": {"command": "...` — потерялась открывающая `{` и
+первая кавычка ключа, ответ оборвался на ~400 символов. Старый детектор не
+видел `tool":` без кавычки/скобки перед словом и принимал это за финал —
+агент вставал. Теперь это ловится, и вызов восстанавливается.
 
 Расширяя форматы ответа, добавляй разбор в `parseToolCall()`, а не полагайся
 на то, что модель всегда вернёт чистый JSON.

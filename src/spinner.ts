@@ -1,6 +1,7 @@
 import ora, { type Ora } from 'ora'
 import { theme } from './theme.js'
 import { renderMarkdown } from './markdown.js'
+import { translate, type Locale } from './i18n.js'
 
 export interface SpinnerUI {
   thinking: () => void
@@ -14,41 +15,12 @@ export interface SpinnerUI {
 }
 
 // Фразы для спиннера «агент работает». Выбираются в случайном порядке.
-const THINKING_PHRASES = [
-  'Замешиваю кал…',
-  'Взбиваю кал до однородной массы…',
-  'Мешаю кал с логикой…',
-  'Взбалтываю кал в коктейль…',
-  'Кручу венчиком по калу…',
-  'Смешиваю кал с кофеином…',
-  'Замешиваю тесто из кала…',
-  'Взбиваю пену из кала…',
-  'Перемешиваю кал лопатой…',
-  'Замешиваю глину из кала…',
-  'Гомогенизирую кал до состояния бетона…',
-  'Взбалтываю кал до просветления…',
-  'Блендерю кал в смузи…',
-  'Замешиваю цемент из кала…',
-  'Взбиваю кашу из кала…',
-  'Мешаю кал с надеждой…',
-  'Взбалтываю осадок из кала…',
-  'Кручу блендером по калу…',
-  'Смешиваю кал до неразличимости…',
-  'Замешиваю раствор из кала…',
-  'Взбиваю коктейль «кал»…',
-  'Перемешиваю кал лопатой дедлайна…',
-  'Замешиваю кашу из кала…',
-  'Взбиваю пенку из кала…',
-  'Гомогенизирую кал до однородности…',
-  'Взбалтываю кал в бетономешалке…',
-  'Замешиваю кал в тесто…',
-  'Сбиваю кал в однородную массу…',
-  'Размешиваю кал до просветления…',
-  'Замешиваю кал из всего подряд…',
-]
-
-export function randomThinkingPhrase(): string {
-  return THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)]
+// Текст берётся из i18n по ключу 'spinner.phrases' (строки разделены «|»).
+export function randomThinkingPhrase(locale: Locale = 'ru'): string {
+  const raw = translate(locale)('spinner.phrases')
+  const phrases = raw.split('|').filter((s) => s.trim().length)
+  if (!phrases.length) return ''
+  return phrases[Math.floor(Math.random() * phrases.length)]
 }
 
 // Убираем завершающее многоточие из фразы — точки анимируем отдельно.
@@ -56,7 +28,7 @@ export function stripEllipsis(phrase: string): string {
   return phrase.replace(/[.…]+\s*$/, '')
 }
 
-export function createSpinner(): SpinnerUI {
+export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
   let spinner: Ora | null = null
   let dotTimer: ReturnType<typeof setInterval> | null = null
   let dotPhase = 0
@@ -82,11 +54,11 @@ export function createSpinner(): SpinnerUI {
 
   // Подсказка в строке статуса: во время работы агента терминал живой,
   // можно печатать следующее сообщение. Без неё это неочевидно.
-  const HINT = theme.dim('  ·  Esc — стоп')
+  const HINT = theme.dim('  ·  ' + translate(locale)('spinner.hint'))
 
   // Запуск анимированного статуса: коричневый текст + «бегущие» точки.
   const startThinking = () => {
-    const base = theme.brown(stripEllipsis(randomThinkingPhrase()))
+    const base = theme.brown(stripEllipsis(randomThinkingPhrase(locale)))
     // Точки того же цвета, что и база, и фиксированной ширины — иначе
     // подсказка справа «прыгает» при смене фазы анимации.
     const dots = (n: number) =>

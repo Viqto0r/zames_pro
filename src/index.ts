@@ -9,7 +9,26 @@ import { createTools } from './tools.js'
 import { runAgentLoop } from './agent-loop.js'
 import { createSpinner } from './spinner.js'
 import { LineEditor } from './input.js'
-import { loadConfig, CONFIG_PATHS, ZAMES_HOME } from './config.js'
+import {
+  loadConfig,
+  DEFAULTS,
+  CONFIG_PATHS,
+  ZAMES_HOME,
+  CONFIG_SCHEMA,
+  getByPath,
+  validateConfigValue,
+  writeConfigValue,
+  resetConfigValue,
+  type ConfigField,
+} from './config.js'
+import { runConfigMenu } from './config-menu.js'
+import {
+  translate,
+  normalizeLocale,
+  localeDisplayName,
+  isLocale,
+  type Locale,
+} from './i18n.js'
 import { Transcript } from './transcript.js'
 import { UndoStore } from './undo.js'
 import { selfReview, selfDiff, selfApply, selfList } from './self-review.js'
@@ -20,7 +39,7 @@ import {
   listSessions,
   sessionsDir,
 } from './sessions.js'
-import type { Session, ToolDef, ToolArgs } from './types.js'
+import type { ToolDef } from './types.js'
 import type { ChatInfo } from './browser.js'
 
 interface RunTaskOptions {
@@ -68,6 +87,15 @@ function getPositional(): string[] {
 }
 
 const config = loadConfig()
+
+// Текущий язык интерфейса/агента. Меняется командой /config lang <ru|en>.
+let currentLocale: Locale = isLocale(config.ui?.locale)
+  ? config.ui.locale
+  : 'ru'
+// Перевод: читает currentLocale в момент вызова, поэтому смена языка
+// действует сразу, без перезапуска (для уже напечатанных строк).
+const t = (key: string, params?: Record<string, string | number>): string =>
+  translate(currentLocale)(key, params)
 
 const headless = hasFlag('--headless') || config.headless
 const debug = hasFlag('--debug') || config.debug
@@ -215,11 +243,7 @@ async function autoReload(): Promise<void> {
   if (!devMode) return
   const { errors } = await reloadModules()
   if (errors.length) {
-    console.error(
-      theme.warn(
-        '⚠ авто-reload: часть модулей не загрузилась, работаю на прежней версии:',
-      ),
-    )
+    console.error(theme.warn(t('reload.auto_partial')))
     for (const e of errors) console.error(theme.warn('  ' + e))
   }
 }
@@ -228,69 +252,68 @@ async function autoReload(): Promise<void> {
 
 function printHelp(): void {
   console.log(`
-${theme.bold('zames')} — агент поверх chat.deepseek.com через Playwright
+${theme.bold('zames')} — ${t('app.tagline')}
 
-${theme.bold('Опции CLI:')}
-  --dir <path>       рабочая директория агента
-  --task <text>      задача одной строкой
-  --chat <id>        продолжить существующий чат по id
-  --resume-last      вернуться в последний сохранённый чат
-  --new-chat         начать новый чат (поведение по умолчанию)
-  --resend-prompt    дослать system-prompt в существующий чат
-  --max-iter <n>     лимит итераций (по умолчанию ${config.maxIterations})
-  --headless         браузер без UI
-  --debug            подробный лог
-  --calibrate        режим калибровки селекторов
-  --dev              режим разработки: авто-перечитывание модулей
-  --version, -v      показать версию
-  --help, -h         эта справка
+${theme.bold(t('help.options'))}
+  --dir <path>       ${t('help.opt.dir')}
+  --task <text>      ${t('help.opt.task')}
+  --chat <id>        ${t('help.opt.chat')}
+  --resume-last      ${t('help.opt.resume_last')}
+  --new-chat         ${t('help.opt.new_chat')}
+  --resend-prompt    ${t('help.opt.resend_prompt')}
+  --max-iter <n>     ${t('help.opt.max_iter', { n: config.maxIterations })}
+  --headless         ${t('help.opt.headless')}
+  --debug            ${t('help.opt.debug')}
+  --calibrate        ${t('help.opt.calibrate')}
+  --dev              ${t('help.opt.dev')}
+  --version, -v      ${t('help.opt.version')}
+  --help, -h         ${t('help.opt.help')}
 
-${theme.bold('Пока агент работает:')}
-  печать + Enter           поставить сообщение в очередь (уйдёт после текущей задачи)
-  ↑ / ↓                    история введённых сообщений
-  Ctrl+← / Ctrl+→          перемещение по словам
-  / + Tab                  подсказка и автодополнение slash-команд
-  Ctrl+J / Ctrl+Enter      новая строка (Shift+Enter в терминалах с поддержкой)
-  \ + Enter                тоже новая строка: «\» удаляется, текст переносится
-  Esc, Ctrl+C              прервать текущую генерацию
+${theme.bold(t('help.while_working'))}
+  ${t('help.key.queue')}
+  ${t('help.key.history')}
+  ${t('help.key.words')}
+  ${t('help.key.slash')}
+  ${t('help.key.newline')}
+  ${t('help.key.backslash')}
+  ${t('help.key.esc')}
 
-${theme.bold('Обычные команды:')}
-  /new, /clear             новый чат (сброс контекста)
-  /sessions                список сохранённых сессий (~/.zames/.sessions)
-  /resume-id <id>          восстановить сессию по полному id
-  /chats                   список последних чатов DeepSeek
-  /resume <n>              открыть чат №n из /chats
-  /chat                    показать текущий chat id
-  /cd <path>               сменить рабочую директорию
-  /pwd                     текущая директория
-  /status                  состояние сессии
-  /reload                  перечитать модули логики без перезапуска
-  /undo                    откатить последнюю запись/правку
-  /undo-list               список того, что можно откатить
-  /transcript              путь к файлу транскрипта
-  /config                  показать текущий конфиг
-  /debug-dom               сохранить HTML страницы (для отладки)
-  /help, help              справка
-  /exit, /quit, exit       выход
+${theme.bold(t('help.commands'))}
+  ${t('help.cmd.new')}
+  ${t('help.cmd.sessions')}
+  ${t('help.cmd.resume_id')}
+  ${t('help.cmd.chats')}
+  ${t('help.cmd.resume')}
+  ${t('help.cmd.chat')}
+  ${t('help.cmd.cd')}
+  ${t('help.cmd.pwd')}
+  ${t('help.cmd.status')}
+  ${t('help.cmd.reload')}
+  ${t('help.cmd.undo')}
+  ${t('help.cmd.undo_list')}
+  ${t('help.cmd.transcript')}
+  ${t('help.cmd.config')}
+  ${t('help.cmd.lang')}
+  ${t('help.cmd.debug_dom')}
+  ${t('help.cmd.help')}
+  ${t('help.cmd.exit')}
 
-${theme.bold('Самообзор (отладка агента):')}
-  /self-review [фокус]     снять снапшот src/ и запустить ревью
-                            после этой команды ты остаёшься В СНАПШОТЕ
-                            и можешь писать «исправь ошибки» и т.п.
-  /self-fix <name> [фокус] вернуться в существующий снапшот и продолжить
-  /self-done               выйти из режима ревью (вернуться в свою папку)
-  /self-list               список снапшотов
-  /self-diff <name>        различия между текущим src/ и снапшотом
-  /self-apply <name>       применить снапшот к src/ (с бэкапом)
+${theme.bold(t('help.self_review'))}
+  ${t('help.self.review')}
+  ${t('help.self.fix')}
+  ${t('help.self.done')}
+  ${t('help.self.list')}
+  ${t('help.self.diff')}
+  ${t('help.self.apply')}
 
-${theme.bold('Файлы:')}
-  Логи:        ${config.transcript.dir}
-  Undo:        ~/.zames/undo
-  Сессии:      ${sessionsDir()}
-  Профиль:     ~/.zames/profile
-  Снапшоты:    ~/.zames/snapshots
-  Временные:   <проект>/tmp (в .gitignore, чистится при запуске)
-  Конфиг:      ${CONFIG_PATHS.HOME_CONFIG}
+${theme.bold(t('help.files'))}
+  ${t('help.files.logs')}        ${config.transcript.dir}
+  ${t('help.files.undo')}        ~/.zames/undo
+  ${t('help.files.sessions')}      ${sessionsDir()}
+  ${t('help.files.profile')}     ~/.zames/profile
+  ${t('help.files.snapshots')}    ~/.zames/snapshots
+  ${t('help.files.tmp')}   <project>/tmp (.gitignore, cleaned on start)
+  ${t('help.files.config')}      ${CONFIG_PATHS.HOME_CONFIG}
                ${CONFIG_PATHS.PROJECT_CONFIG}
 `)
 }
@@ -300,33 +323,43 @@ function dirLabel(p: string): string {
 }
 
 // Список slash-команд для автодополнения при вводе «/» (Tab — дополнить).
-const SLASH_COMMANDS: Array<{ name: string; description: string }> = [
-  { name: '/help', description: 'справка по командам и опциям' },
-  { name: '/new', description: 'новый чат (сброс контекста)' },
-  { name: '/clear', description: 'то же, что /new' },
-  { name: '/sessions', description: 'список сохранённых сессий' },
-  { name: '/chats', description: 'последние чаты DeepSeek' },
-  { name: '/resume', description: 'открыть чат №n из /chats' },
-  { name: '/resume-id', description: 'восстановить сессию по полному id' },
-  { name: '/chat', description: 'показать текущий chat id' },
-  { name: '/cd', description: 'сменить рабочую директорию' },
-  { name: '/pwd', description: 'текущая рабочая директория' },
-  { name: '/status', description: 'состояние сессии' },
-  { name: '/reload', description: 'перечитать модули логики без перезапуска' },
-  { name: '/undo', description: 'откатить последнюю запись/правку' },
-  { name: '/undo-list', description: 'список того, что можно откатить' },
-  { name: '/transcript', description: 'путь к файлу транскрипта' },
-  { name: '/config', description: 'показать текущий конфиг' },
-  { name: '/debug-dom', description: 'сохранить HTML страницы (отладка)' },
-  { name: '/self-review', description: 'снапшот src/ и запуск ревью' },
-  { name: '/self-fix', description: 'продолжить в существующем снапшоте' },
-  { name: '/self-done', description: 'выйти из режима ревью' },
-  { name: '/self-list', description: 'список снапшотов' },
-  { name: '/self-diff', description: 'различия текущего src/ и снапшота' },
-  { name: '/self-apply', description: 'применить снапшот к src/ (с бэкапом)' },
-  { name: '/exit', description: 'выход' },
-  { name: '/quit', description: 'выход' },
+// Описание локализуется по ключу help.cmd.* в момент отображения — см.
+// buildSlashCommands().
+const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
+  { name: '/help', key: 'help.cmd.help' },
+  { name: '/new', key: 'help.cmd.new' },
+  { name: '/clear', key: 'help.cmd.new' },
+  { name: '/sessions', key: 'help.cmd.sessions' },
+  { name: '/chats', key: 'help.cmd.chats' },
+  { name: '/resume', key: 'help.cmd.resume' },
+  { name: '/resume-id', key: 'help.cmd.resume_id' },
+  { name: '/chat', key: 'help.cmd.chat' },
+  { name: '/cd', key: 'help.cmd.cd' },
+  { name: '/pwd', key: 'help.cmd.pwd' },
+  { name: '/status', key: 'help.cmd.status' },
+  { name: '/reload', key: 'help.cmd.reload' },
+  { name: '/undo', key: 'help.cmd.undo' },
+  { name: '/undo-list', key: 'help.cmd.undo_list' },
+  { name: '/transcript', key: 'help.cmd.transcript' },
+  { name: '/config', key: 'help.cmd.config' },
+  { name: '/debug-dom', key: 'help.cmd.debug_dom' },
+  { name: '/self-review', key: 'help.self.review' },
+  { name: '/self-fix', key: 'help.self.fix' },
+  { name: '/self-done', key: 'help.self.done' },
+  { name: '/self-list', key: 'help.self.list' },
+  { name: '/self-diff', key: 'help.self.diff' },
+  { name: '/self-apply', key: 'help.self.apply' },
+  { name: '/exit', key: 'help.cmd.exit' },
+  { name: '/quit', key: 'help.cmd.exit' },
 ]
+
+// Описания slash-команд на текущем языке (для подсказок LineEditor).
+function buildSlashCommands(): Array<{ name: string; description: string }> {
+  return SLASH_COMMANDS.map((c) => ({
+    name: c.name,
+    description: t(c.key),
+  }))
+}
 
 // Временные файлы агента (одноразовые скрипты и т.п.) складываем в
 // <проект>/tmp — эта папка в .gitignore и очищается при каждом запуске.
@@ -736,13 +769,13 @@ async function runTask(
   browser._stopped = false
   browser._abort = false
 
-  const ui = editor || mod.createSpinner()
+  const ui = editor || mod.createSpinner(currentLocale)
   const stopWatching = editor
     ? () => {}
     : watchInput({
         onEscape: () => {
           ui.stop()
-          console.error(theme.warn('⏹ Esc — прерываю генерацию...'))
+          console.error(theme.warn(t('msg.abort_gen_short')))
           browser.stopGeneration().catch(() => {})
         },
         onChange: (text) => ui.setPending(text),
@@ -751,7 +784,7 @@ async function runTask(
           ui.setPending(null)
           ui.stop()
           console.log(
-            theme.user('📨 В очередь (' + queue.length + '): ') +
+            theme.user(t('msg.queued', { n: queue.length })) +
               theme.assistant(text),
           )
           ui.thinking()
@@ -780,6 +813,7 @@ async function runTask(
         onAssistantMessage: (msg) => ui.assistant(msg),
         onChatReady,
         debugLog: debug,
+        locale: currentLocale,
       })
 
       // Прервали (Esc/Ctrl+C) — не запускаем следующие задачи из очереди
@@ -794,10 +828,10 @@ async function runTask(
       ui.stop()
       if (editor) {
         editor.printAbove(
-          theme.user('▶ Из очереди: ') + theme.assistant(queued),
+          theme.user(t('msg.from_queue')) + theme.assistant(queued),
         )
       } else {
-        console.log(theme.user('▶ Из очереди: ') + theme.assistant(queued))
+        console.log(theme.user(t('msg.from_queue')) + theme.assistant(queued))
       }
       transcript?.log('queued_task', { task: queued })
       next = { task: queued, freshChat: false, sendSystemPrompt: false }
@@ -805,7 +839,7 @@ async function runTask(
   } catch (e) {
     ui.stop()
     console.error(
-      theme.error(String.fromCharCode(10) + '✖ Ошибка агента:'),
+      theme.error(String.fromCharCode(10) + t('msg.agent_error')),
       (e as Error).message,
     )
     if (debug) console.error((e as Error).stack)
@@ -833,7 +867,7 @@ async function main(): Promise<void> {
   }
 
   if (calibrate) {
-    console.log(theme.warn('\n🔧 Режим калибровки селекторов\n'))
+    console.log(theme.warn(t('calibrate')))
   }
 
   await cleanTmpDir()
@@ -846,13 +880,13 @@ async function main(): Promise<void> {
     sandboxRoot = currentWorkdir
   } catch (e) {
     console.error(
-      theme.error('Не удалось определить рабочую директорию:'),
+      theme.error(t('msg.workdir_error')),
       (e as Error).message,
     )
     process.exit(1)
   }
 
-  console.log(theme.system(`Рабочая директория: ${currentWorkdir}`))
+  console.log(theme.system(t('msg.working_dir', { v: currentWorkdir })))
 
   const transcript = new Transcript({
     dir: config.transcript.dir,
@@ -860,7 +894,7 @@ async function main(): Promise<void> {
     sessionName: dirLabel(currentWorkdir),
   })
   if (transcript.file) {
-    console.log(theme.system(`Транскрипт: ${transcript.file}`))
+    console.log(theme.system(t('msg.transcript', { v: transcript.file })))
   }
 
   const undo = new UndoStore(config.undo)
@@ -872,7 +906,7 @@ async function main(): Promise<void> {
     ...config.browser,
   })
 
-  const bootSpinner = mod.createSpinner()
+  const bootSpinner = mod.createSpinner(currentLocale)
   bootSpinner.thinking()
 
   try {
@@ -882,7 +916,7 @@ async function main(): Promise<void> {
   } catch (e) {
     bootSpinner.stop()
     console.error(
-      theme.error('Не удалось запустить браузер:'),
+      theme.error(t('msg.browser_error')),
       (e as Error).message,
     )
     if (debug) console.error((e as Error).stack)
@@ -905,20 +939,20 @@ async function main(): Promise<void> {
       const last = loadLastSession(currentWorkdir)
       if (last && last.id) {
         resumeId = last.id
-        console.log(theme.system(`Восстанавливаю сессию ${resumeId}...`))
+        console.log(theme.system(t('msg.resuming', { id: resumeId })))
       }
     }
 
     if (resumeId) {
       try {
-        console.log(theme.system(`Открываю чат ${resumeId}...`))
+        console.log(theme.system(t('msg.opening_chat', { id: resumeId })))
         await browser.openChat(resumeId)
         freshChat = false
         sendSystemPrompt = resendPrompt
         saveLastChat(resumeId, currentWorkdir)
       } catch (e) {
         console.error(
-          theme.error(`Не удалось открыть чат: ${(e as Error).message}`),
+          theme.error(t('msg.open_chat_error', { v: (e as Error).message })),
         )
       }
     }
@@ -939,16 +973,8 @@ async function main(): Promise<void> {
     return
   }
 
-  console.log(
-    theme.system(
-      'Интерактивный режим. Введите задачу. Команды — /help. Выход — /exit.',
-    ),
-  )
-  console.log(
-    theme.system(
-      'Пока агент работает, можно печатать следующее сообщение — оно уйдёт в очередь (Enter — отправить, Esc — прервать).',
-    ),
-  )
+  console.log(theme.system(t('msg.interactive')))
+  console.log(theme.system(t('msg.queue_hint')))
 
   let freshChatNext = true
   let sendSystemPromptNext = true
@@ -973,7 +999,7 @@ async function main(): Promise<void> {
     // висеть отдельным процессом после выхода агента.
     await mod.closeWeb().catch(() => {})
     transcript.close()
-    console.log(theme.system('\nВыход.'))
+    console.log(theme.system(String.fromCharCode(10) + t('msg.bye')))
     process.exit(0)
   })
 
@@ -997,16 +1023,16 @@ async function main(): Promise<void> {
 
   if (resumeId) {
     try {
-      console.log(theme.system(`Открываю чат ${resumeId}...`))
+      console.log(theme.system(t('msg.opening_chat', { id: resumeId })))
       await browser.openChat(resumeId)
       currentChatId = resumeId
       freshChatNext = false
       sendSystemPromptNext = resendPrompt
       saveLastChat(resumeId, currentWorkdir)
-      console.log(theme.system(`Чат открыт: ${resumeId}\n`))
+      console.log(theme.system(t('msg.chat_opened') + ' ' + resumeId + String.fromCharCode(10)))
     } catch (e) {
       console.error(
-        theme.error(`Не удалось открыть чат: ${(e as Error).message}`),
+        theme.error(t('msg.open_chat_error', { v: (e as Error).message })),
       )
     }
   }
@@ -1030,7 +1056,7 @@ async function main(): Promise<void> {
     let tail
     if (reviewMode) {
       tail =
-        theme.warn('REVIEW') + theme.dim(':') + theme.dir(reviewMode.snapName)
+        theme.warn(t('prompt.review')) + theme.dim(':') + theme.dir(reviewMode.snapName)
     } else {
       tail = theme.dir(dirLabel(currentWorkdir))
     }
@@ -1040,7 +1066,7 @@ async function main(): Promise<void> {
   if (process.stdin.isTTY && process.stdout.isTTY) {
     const ed = new LineEditor({
       prompt: buildPrompt(),
-      commands: SLASH_COMMANDS,
+      commands: buildSlashCommands(),
     })
     editor = ed
     ed.onSubmit = (text: string) => {
@@ -1053,13 +1079,13 @@ async function main(): Promise<void> {
     }
     ed.onEscape = () => {
       if (ed.busy) {
-        ed.printAbove(theme.warn('⏹ Esc — прерываю генерацию...'))
+        ed.printAbove(theme.warn(t('msg.abort_gen_short')))
         browser.stopGeneration().catch(() => {})
       }
     }
     ed.onCtrlC = () => {
       if (ed.busy) {
-        ed.printAbove(theme.warn('⏹ Ctrl+C — прерываю генерацию...'))
+        ed.printAbove(theme.warn(t('msg.abort_ctrlc_short')))
         browser.stopGeneration().catch(() => {})
       } else {
         // Не заняты — выходим. Будим takeInput(), чтобы цикл завершился.
@@ -1096,6 +1122,244 @@ async function main(): Promise<void> {
     edAny._origErr = origErr
   }
 
+  // ---------- /config ----------
+  // Просмотр и правка настроек без перезапуска. Значения валидируются по
+  // CONFIG_SCHEMA (src/config.ts) и пишутся в проектный .zamesrc.json.
+  // Язык (ui.locale) применяется сразу: меняем currentLocale, пересобираем
+  // подсказки редактора и обновляем config.ui.locale (его читает agent-loop
+  // при следующей задаче).
+  //
+  // Без аргументов в интерактивном терминале открывается меню (стрелки,
+  // Enter — изменить, d — сбросить, q — выйти). Есть и текстовые подкоманды
+  // (list/get/set/reset/lang/path) — для скриптов и не-TTY.
+  function setConfigRuntime(path: string, value: unknown): void {
+    const segs = path.split('.')
+    let obj: Record<string, unknown> = config as unknown as Record<string, unknown>
+    for (let i = 0; i < segs.length - 1; i++) {
+      obj = obj[segs[i]] as Record<string, unknown>
+    }
+    obj[segs[segs.length - 1]] = value
+    if (path === 'ui.locale' && isLocale(value)) {
+      currentLocale = value
+      config.ui.locale = value
+      if (editor) {
+        editor.setCommands(buildSlashCommands())
+        editor.setPrompt(buildPrompt())
+      }
+    }
+  }
+
+  function configSetRaw(field: ConfigField, raw: string): void {
+    const value = validateConfigValue(field, raw)
+    writeConfigValue('project', field.path, raw)
+    setConfigRuntime(field.path, value)
+  }
+
+  function configResetField(field: ConfigField): void {
+    resetConfigValue('project', field.path)
+    // Возвращаем рантайм-значение к дефолту.
+    const def = getByPath(DEFAULTS, field.path)
+    setConfigRuntime(field.path, def)
+  }
+
+  function configLabel(field: ConfigField): string {
+    return t(field.labelKey)
+  }
+
+  function configShowList(): void {
+    console.log(theme.system(t('cfg.title')))
+    let lastGroup = ''
+    for (const f of CONFIG_SCHEMA) {
+      const g = t(f.groupKey)
+      if (g !== lastGroup) {
+        console.log(theme.system('\n  ' + g))
+        lastGroup = g
+      }
+      const cur = getByPath(config, f.path)
+      const shown =
+        cur === undefined
+          ? t('cfg.menu.default')
+          : typeof cur === 'boolean'
+            ? cur
+              ? t('common.on')
+              : t('common.off')
+            : JSON.stringify(cur)
+      const extra = f.values ? '  [' + f.values.join('|') + ']' : ''
+      console.log(
+        '    ' +
+          theme.user(f.path) +
+          theme.dim(' = ') +
+          theme.assistant(shown) +
+          theme.dim(extra) +
+          theme.dim('   # ' + configLabel(f)),
+      )
+    }
+    console.log(theme.dim('\n' + t('cfg.usage')))
+  }
+
+  async function configOpenMenu(): Promise<void> {
+    if (!(process.stdin.isTTY && process.stdout.isTTY)) {
+      configShowList()
+      return
+    }
+    // Меню рисует напрямую в stdout и само читает клавиши. Чтобы его вывод
+    // не накладывался на постоянную строку ввода LineEditor, на время меню
+    // «ставим редактор на паузу», а после — возвращаем.
+    if (editor) editor.pause()
+    try {
+      await runConfigMenu({
+        fields: CONFIG_SCHEMA,
+        t,
+        get: (path) => getByPath(config, path),
+        set: (field, raw) => configSetRaw(field, raw),
+        reset: (field) => configResetField(field),
+      })
+    } catch (e) {
+      console.error(theme.error(String((e as Error).message || e)))
+    } finally {
+      if (editor) editor.resume()
+    }
+  }
+
+  async function handleConfigCommand(input: string): Promise<void> {
+    const parts = input.trim().split(/\s+/)
+    const sub = (parts[1] || '').toLowerCase()
+
+    // Без подкоманды — меню (или текстовый список в не-TTY).
+    if (!sub || sub === 'menu' || sub === 'ui') {
+      await configOpenMenu()
+      return
+    }
+
+    if (sub === 'list' || sub === 'show' || sub === 'ls') {
+      configShowList()
+      return
+    }
+
+    if (sub === 'path' || sub === 'paths') {
+      console.log(
+        theme.system(
+          t('cfg.paths', {
+            global: CONFIG_PATHS.HOME_CONFIG,
+            project: CONFIG_PATHS.PROJECT_CONFIG,
+          }),
+        ),
+      )
+      return
+    }
+
+    // /config lang <ru|en> — быстрый доступ к ui.locale
+    if (sub === 'lang' || sub === 'language' || sub === 'язык') {
+      const val = parts[2]
+      if (!val) {
+        console.log(
+          theme.system(
+            t('status.locale', { v: localeDisplayName(currentLocale) }),
+          ),
+        )
+        console.log(theme.dim(t('cfg.lang_usage')))
+        return
+      }
+      const field = CONFIG_SCHEMA.find((f) => f.path === 'ui.locale')!
+      const loc = normalizeLocale(val)
+      try {
+        configSetRaw(field, loc)
+      } catch (e) {
+        console.error(
+          theme.error(t('cfg.write_error', { v: (e as Error).message })),
+        )
+        return
+      }
+      console.log(
+        theme.assistant(t('cfg.lang_set', { v: localeDisplayName(loc) })),
+      )
+      return
+    }
+
+    if (sub === 'get') {
+      const key = parts[2]
+      if (!key) {
+        console.log(theme.dim(t('cfg.usage')))
+        return
+      }
+      const field = CONFIG_SCHEMA.find((f) => f.path === key)
+      if (!field) {
+        console.error(theme.error(t('cfg.unknown_key', { v: key })))
+        return
+      }
+      const cur = getByPath(config, key)
+      console.log(
+        theme.system(
+          t('cfg.value', {
+            v: key,
+            value:
+              cur === undefined ? t('cfg.menu.default') : JSON.stringify(cur),
+          }),
+        ),
+      )
+      return
+    }
+
+    if (sub === 'set') {
+      const key = parts[2]
+      const raw = parts.slice(3).join(' ')
+      const field = CONFIG_SCHEMA.find((f) => f.path === key)
+      if (!field) {
+        console.error(theme.error(t('cfg.unknown_key', { v: key || '' })))
+        return
+      }
+      if (!raw) {
+        console.log(theme.dim(t('cfg.usage')))
+        return
+      }
+      try {
+        configSetRaw(field, raw)
+      } catch {
+        console.error(
+          theme.error(
+            t('cfg.bad_value', {
+              v: key,
+              type: field.values ? field.values.join('|') : field.type,
+            }),
+          ),
+        )
+        return
+      }
+      console.log(
+        theme.assistant(
+          t('cfg.saved', {
+            v: key,
+            value: JSON.stringify(getByPath(config, key)),
+          }),
+        ),
+      )
+      return
+    }
+
+    if (sub === 'reset' || sub === 'unset') {
+      const key = parts[2]
+      const field = CONFIG_SCHEMA.find((f) => f.path === key)
+      if (!field) {
+        console.error(theme.error(t('cfg.unknown_key', { v: key || '' })))
+        return
+      }
+      try {
+        configResetField(field)
+      } catch (e) {
+        console.error(
+          theme.error(t('cfg.write_error', { v: (e as Error).message })),
+        )
+        return
+      }
+      console.log(theme.assistant(t('cfg.reset', { v: key })))
+      return
+    }
+
+    // Неизвестная подкоманда — показываем список.
+    console.error(theme.error(t('cfg.unknown_key', { v: sub })))
+    configShowList()
+  }
+
   while (running) {
     let input: string | null
     try {
@@ -1106,7 +1370,7 @@ async function main(): Promise<void> {
         let tail
         if (reviewMode) {
           tail =
-            theme.warn('REVIEW') +
+            theme.warn(t('prompt.review')) +
             theme.dim(':') +
             theme.dir(reviewMode.snapName)
         } else {
@@ -1131,7 +1395,7 @@ async function main(): Promise<void> {
     }
 
     if (['/new', '/clear', 'new'].includes(lower)) {
-      console.log(theme.system('Создаю новый чат...'))
+      console.log(theme.system(t('msg.new_chat')))
       try {
         await browser.newChat()
         freshChatNext = false
@@ -1139,10 +1403,10 @@ async function main(): Promise<void> {
         currentChatId = await browser.getCurrentChatId()
         saveLastChat(currentChatId, currentWorkdir)
         transcript.log('new_chat')
-        console.log(theme.system('Новый чат.\n'))
+        console.log(theme.system(t('msg.new_chat_ok') + String.fromCharCode(10)))
       } catch (e) {
         console.error(
-          theme.error('Не удалось создать новый чат:'),
+          theme.error(t('msg.new_chat_error', { v: (e as Error).message })),
           (e as Error).message,
         )
       }
@@ -1184,18 +1448,12 @@ async function main(): Promise<void> {
 
         console.log(
           theme.user(
-            '\n💡 Теперь ты в режиме ревью. Просто пиши агенту, например:\n' +
-              '   «исправь ошибки»\n' +
-              '   «доработай обработку ошибок в ask()»\n' +
-              '   «покажи, что не так с undo»\n' +
-              'Выйти: /self-done.  Применить: /self-apply ' +
-              reviewMode.snapName +
-              '\n',
+            t('self.review_hint', { name: reviewMode.snapName }),
           ),
         )
       } catch (e) {
         console.error(
-          theme.error('Самообзор провалился:'),
+          theme.error(t('self.review_failed')),
           (e as Error).message,
         )
         if (debug) console.error((e as Error).stack)
@@ -1206,7 +1464,7 @@ async function main(): Promise<void> {
     if (lower === '/self-fix' || lower.startsWith('/self-fix ')) {
       const rest = trimmed.slice('/self-fix'.length).trim()
       if (!rest) {
-        console.error(theme.error('Использование: /self-fix <name> [фокус]'))
+        console.error(theme.error(t('self.fix_usage')))
         continue
       }
       const sp = rest.indexOf(' ')
@@ -1216,7 +1474,7 @@ async function main(): Promise<void> {
       const snapRoot = path.join(ZAMES_HOME, 'snapshots', name)
       const stat = await fs.stat(snapRoot).catch(() => null)
       if (!stat || !stat.isDirectory()) {
-        console.error(theme.error(`Снапшот не найден: ${snapRoot}`))
+        console.error(theme.error(t('self.snapshot_not_found', { v: snapRoot })))
         continue
       }
 
@@ -1227,19 +1485,19 @@ async function main(): Promise<void> {
       // Свежий чат + review-промпт на этот снапшот
       try {
         const { runAgentLoop: ral } = await import('./agent-loop.js')
-        const { buildSystemPrompt } = await import('./system-prompt.js')
         const tools = mod.createTools(snapRoot, { undo: null })
 
         await browser.newChat()
         const sysPrompt = mod.buildSystemPrompt({
           workdir: snapRoot,
           tools,
+          locale: currentLocale,
         })
-        console.log(theme.system('Инициализирую review-чат для снапшота...'))
+        console.log(theme.system(t('self.init_review_chat')))
         await browser.ask(sysPrompt, { timeout: 60_000 })
 
         if (focus) {
-          const ui = mod.createSpinner()
+          const ui = mod.createSpinner(currentLocale)
           ui.thinking()
           await ral({
             browser,
@@ -1272,12 +1530,12 @@ async function main(): Promise<void> {
 
         console.log(
           theme.user(
-            `\n💡 Режим ревью по снапшоту ${name}. Пиши агенту задачу или /self-done.\n`,
+t('self.fix_hint', { name }),
           ),
         )
       } catch (e) {
         console.error(
-          theme.error('Не удалось войти в снапшот:'),
+          theme.error(t('self.enter_failed')),
           (e as Error).message,
         )
       }
@@ -1286,7 +1544,7 @@ async function main(): Promise<void> {
 
     if (lower === '/self-done') {
       if (!reviewMode) {
-        console.log(theme.system('Ты и так не в режиме ревью.'))
+        console.log(theme.system(t('self.not_in_review')))
         continue
       }
       const back = reviewMode.originalWorkdir
@@ -1297,7 +1555,7 @@ async function main(): Promise<void> {
       sendSystemPromptNext = true
       console.log(
         theme.system(
-          `Вернулся в ${back}. Следующая задача начнёт новый чат.\n`,
+t('self.done_hint', { v: back }),
         ),
       )
       continue
@@ -1315,7 +1573,7 @@ async function main(): Promise<void> {
     if (lower === '/self-diff' || lower.startsWith('/self-diff ')) {
       const name = trimmed.slice('/self-diff'.length).trim()
       if (!name) {
-        console.error(theme.error('Использование: /self-diff <name>'))
+        console.error(theme.error(t('self.diff_usage')))
         continue
       }
       try {
@@ -1329,7 +1587,7 @@ async function main(): Promise<void> {
     if (lower === '/self-apply' || lower.startsWith('/self-apply ')) {
       const name = trimmed.slice('/self-apply'.length).trim()
       if (!name) {
-        console.error(theme.error('Использование: /self-apply <name>'))
+        console.error(theme.error(t('self.apply_usage')))
         continue
       }
       try {
@@ -1343,7 +1601,7 @@ async function main(): Promise<void> {
     // ---------- Обычные команды ----------
 
     if (lower === '/chats') {
-      const spin = editor || mod.createSpinner()
+      const spin = editor || mod.createSpinner(currentLocale)
       spin.thinking()
       try {
         lastChats = await browser.listChats(30)
@@ -1355,7 +1613,7 @@ async function main(): Promise<void> {
             ),
           )
         } else {
-          console.log(theme.system('Последние чаты DeepSeek:'))
+          console.log(theme.system(t('chats.recent')))
           lastChats.forEach((c, i) => {
             const n = String(i + 1).padStart(2, ' ')
             console.log(
@@ -1363,13 +1621,13 @@ async function main(): Promise<void> {
             )
           })
           console.log(
-            theme.system('\nИспользуй /resume <n> для продолжения.\n'),
+            theme.system(t('chats.use_resume')),
           )
         }
       } catch (e) {
         spin.stop()
         console.error(
-          theme.error('Не удалось получить список:'),
+          theme.error(t('chats.fetch_error')),
           (e as Error).message,
         )
       }
@@ -1380,28 +1638,28 @@ async function main(): Promise<void> {
       const arg = trimmed.slice(7).trim()
       if (!arg) {
         console.error(
-          theme.error('Использование: /resume <n>  (или /chats для списка)'),
+          theme.error(t('chats.resume_usage')),
         )
         continue
       }
       const n = Number(arg)
       if (!Number.isFinite(n) || n < 1) {
-        console.error(theme.error('Нужен номер из /chats.'))
+        console.error(theme.error(t('chats.need_number')))
         continue
       }
       if (!lastChats.length) {
-        console.error(theme.error('Сначала выполни /chats.'))
+        console.error(theme.error(t('chats.run_chats_first')))
         continue
       }
       const pick = lastChats[n - 1]
       if (!pick) {
         console.error(
-          theme.error(`Нет чата №${n}. Всего: ${lastChats.length}.`),
+          theme.error(t('chats.no_n', { n, total: lastChats.length })),
         )
         continue
       }
 
-      console.log(theme.system(`Открываю: ${pick.title}`))
+      console.log(theme.system(t('chats.opening', { v: pick.title })))
       try {
         await browser.openChat(pick.id)
         currentChatId = pick.id
@@ -1410,7 +1668,7 @@ async function main(): Promise<void> {
         saveLastChat(pick.id, currentWorkdir, pick.title)
         transcript.log('resume_chat', { id: pick.id, title: pick.title })
         console.log(
-          theme.assistant(`Чат открыт.`) +
+          theme.assistant(t('msg.chat_opened')) +
             theme.system(
               resendPrompt
                 ? ' Системный промпт будет переслан на следующей задаче.\n'
@@ -1419,7 +1677,7 @@ async function main(): Promise<void> {
         )
       } catch (e) {
         console.error(
-          theme.error('Не удалось открыть чат:'),
+          theme.error(t('msg.open_chat_error', { v: '' })),
           (e as Error).message,
         )
       }
@@ -1428,7 +1686,7 @@ async function main(): Promise<void> {
 
     if (lower === '/chat') {
       if (currentChatId) {
-        console.log(theme.system(`Текущий chat id: ${currentChatId}`))
+        console.log(theme.system(t('chats.current_id', { v: currentChatId })))
         console.log(
           theme.system(
             `URL: https://chat.deepseek.com/a/chat/s/${currentChatId}`,
@@ -1437,7 +1695,7 @@ async function main(): Promise<void> {
       } else {
         const id = await browser.getCurrentChatId()
         console.log(
-          theme.system(id ? `Текущий chat id: ${id}` : 'Чат ещё не создан.'),
+          theme.system(id ? t('chats.current_id', { v: id }) : t('chats.not_created')),
         )
       }
       continue
@@ -1445,11 +1703,11 @@ async function main(): Promise<void> {
 
     if (lower === '/sessions' || lower === '/session') {
       const all = listSessions()
-      console.log(theme.system(`Папка сессий: ${sessionsDir()}`))
+      console.log(theme.system(t('sessions.dir', { v: sessionsDir() })))
       if (!all.length) {
         console.log(
           theme.system(
-            'Сохранённых сессий нет. Они появятся после первой задачи/чата.',
+            t('sessions.none'),
           ),
         )
       } else {
@@ -1464,7 +1722,7 @@ async function main(): Promise<void> {
         })
         console.log(
           theme.system(
-            'Восстановить: /resume-id <id>  (полный id) или /resume <n> после /chats.',
+            t('sessions.restore_hint'),
           ),
         )
       }
@@ -1474,11 +1732,11 @@ async function main(): Promise<void> {
     if (lower.startsWith('/resume-id ')) {
       const id = trimmed.slice('/resume-id'.length).trim()
       if (!id) {
-        console.error(theme.error('Использование: /resume-id <chat id>'))
+        console.error(theme.error(t('sessions.resume_id_usage')))
         continue
       }
       try {
-        console.log(theme.system(`Открываю чат ${id}...`))
+        console.log(theme.system(t('msg.opening_chat', { id })))
         await browser.openChat(id)
         currentChatId = id
         freshChatNext = false
@@ -1491,7 +1749,7 @@ async function main(): Promise<void> {
         )
       } catch (e) {
         console.error(
-          theme.error('Не удалось открыть чат:'),
+          theme.error(t('msg.open_chat_error', { v: '' })),
           (e as Error).message,
         )
       }
@@ -1504,11 +1762,11 @@ async function main(): Promise<void> {
     }
 
     if (lower === '/reload') {
-      console.log(theme.system('Перечитываю модули логики...'))
+      console.log(theme.system(t('msg.reload_start')))
       try {
         const { count, errors } = await reloadModules()
         if (errors.length) {
-          console.error(theme.error('Часть модулей не перезагрузилась:'))
+          console.error(theme.error(t('msg.reload_partial')))
           for (const e of errors) console.error(theme.error('  ' + e))
         } else {
           console.log(
@@ -1518,61 +1776,92 @@ async function main(): Promise<void> {
           )
         }
       } catch (e) {
-        console.error(theme.error('Ошибка reload:'), (e as Error).message)
+        console.error(theme.error(t('msg.reload_error')), (e as Error).message)
       }
       continue
     }
 
     if (lower === '/status') {
-      console.log(theme.system(`Рабочая директория: ${currentWorkdir}`))
+      const yes = t('common.yes')
+      const no = t('common.no')
+      console.log(theme.system(t('status.workdir', { v: currentWorkdir })))
       console.log(
         theme.system(
-          `Режим ревью: ${reviewMode ? reviewMode.snapName : 'нет'}`,
+          t('status.review_mode', {
+            v: reviewMode ? reviewMode.snapName : t('status.review_none'),
+          }),
         ),
       )
       if (reviewMode) {
         console.log(
-          theme.system(`Исходная директория: ${reviewMode.originalWorkdir}`),
+          theme.system(
+            t('status.orig_dir', { v: reviewMode.originalWorkdir }),
+          ),
         )
       }
-      console.log(theme.system(`Текущий чат: ${currentChatId || '(нет)'}`))
       console.log(
         theme.system(
-          `Fresh chat на след. задаче: ${freshChatNext ? 'да' : 'нет'}`,
+          t('status.chat', { v: currentChatId || t('common.none') }),
+        ),
+      )
+      console.log(
+        theme.system(t('status.fresh_next', { v: freshChatNext ? yes : no })),
+      )
+      console.log(
+        theme.system(
+          t('status.prompt_next', { v: sendSystemPromptNext ? yes : no }),
+        ),
+      )
+      console.log(
+        theme.system(t('status.resend', { v: resendPrompt ? yes : no })),
+      )
+      console.log(
+        theme.system(
+          t('status.last_chat', {
+            v: loadLastChat(currentWorkdir) || t('common.none'),
+          }),
+        ),
+      )
+      console.log(theme.system(t('status.sessions', { v: sessionsDir() })))
+      console.log(
+        theme.system(
+          t('status.dev', {
+            v: devMode ? t('common.on') : t('common.off'),
+          }),
+        ),
+      )
+      console.log(theme.system(t('status.max_iter', { v: maxIter })))
+      console.log(theme.system(t('status.headless', { v: headless ? yes : no })))
+      console.log(theme.system(t('status.debug', { v: debug ? yes : no })))
+      console.log(
+        theme.system(
+          t('status.undo', {
+            v: config.undo.enabled ? t('common.on') : t('common.off'),
+          }),
         ),
       )
       console.log(
         theme.system(
-          `System prompt на след. задаче: ${sendSystemPromptNext ? 'да' : 'нет'}`,
+          t('status.transcript', {
+            v: transcript.file || t('common.off'),
+          }),
         ),
       )
       console.log(
         theme.system(
-          `Resend prompt (--resend-prompt): ${resendPrompt ? 'да' : 'нет'}`,
+          t('status.locale', { v: localeDisplayName(currentLocale) }),
         ),
       )
-      console.log(
-        theme.system(`Last chat: ${loadLastChat(currentWorkdir) || 'нет'}`),
-      )
-      console.log(theme.system(`Сессии: ${sessionsDir()}`))
-      console.log(
-        theme.system(`Dev mode (auto-reload): ${devMode ? 'вкл' : 'выкл'}`),
-      )
-      console.log(theme.system(`Лимит итераций: ${maxIter}`))
-      console.log(theme.system(`Headless: ${headless ? 'да' : 'нет'}`))
-      console.log(theme.system(`Debug: ${debug ? 'да' : 'нет'}`))
-      console.log(theme.system(`Undo: ${config.undo.enabled ? 'вкл' : 'выкл'}`))
-      console.log(theme.system(`Транскрипт: ${transcript.file || 'выкл'}`))
       continue
     }
 
-    if (lower === '/config') {
-      console.log(JSON.stringify(config, null, 2))
+    if (lower === '/config' || lower.startsWith('/config ')) {
+      await handleConfigCommand(trimmed)
       continue
     }
 
     if (lower === '/transcript') {
-      console.log(theme.system(transcript.file || '(выключен)'))
+      console.log(theme.system(transcript.file || t('common.off')))
       continue
     }
 
@@ -1580,14 +1869,16 @@ async function main(): Promise<void> {
       const result = await undo.undoLast()
       if (result.ok && result.record) {
         console.log(
-          theme.assistant(`↶ Откатили: ${result.record.originalPath}`) +
+          theme.assistant(t('undo.reverted', { v: result.record.originalPath })) +
             theme.system(
-              result.record.existed ? ' (восстановлено)' : ' (удалено)',
+              result.record.existed ? t('undo.restored') : t('undo.deleted'),
             ),
         )
         transcript.log('undo', { path: result.record.originalPath })
       } else {
-        console.error(theme.error(`Не удалось откатить: ${result.reason}`))
+        console.error(
+          theme.error(t('undo.failed', { v: String(result.reason ?? '') })),
+        )
       }
       continue
     }
@@ -1595,11 +1886,11 @@ async function main(): Promise<void> {
     if (lower === '/undo-list' || lower === '/history') {
       const list = await undo.list(10)
       if (!list.length) {
-        console.log(theme.system('История пуста.'))
+        console.log(theme.system(t('undo.empty')))
       } else {
         for (const r of list) {
           const stamp = new Date(r.stamp).toLocaleString()
-          const flag = r.existed ? 'изменён' : 'создан'
+          const flag = r.existed ? t('undo.changed') : t('undo.created')
           console.log(theme.system(`${stamp}  [${flag}]  ${r.originalPath}`))
         }
       }
@@ -1611,12 +1902,12 @@ async function main(): Promise<void> {
       const file = path.join(config.transcript.dir, `dom-${stamp}.html`)
       try {
         const result = await browser.dumpDom(file)
-        console.log(theme.assistant(`HTML сохранён: ${result.file}`))
-        console.log(theme.system('Селекторы:'))
+        console.log(theme.assistant(t('dom.saved', { v: result.file })))
+        console.log(theme.system(t('dom.selectors')))
         console.log(JSON.stringify(result.selectors, null, 2))
       } catch (e) {
         console.error(
-          theme.error('Не удалось сохранить DOM:'),
+          theme.error(t('dom.save_error')),
           (e as Error).message,
         )
       }
@@ -1631,29 +1922,29 @@ async function main(): Promise<void> {
           : sandboxRoot
         const rel = path.relative(sandboxRoot, newDir)
         if (rel.startsWith('..') || path.isAbsolute(rel)) {
-          console.error(theme.error('Нельзя выйти за пределы: ' + sandboxRoot))
+          console.error(theme.error(t('cd.outside', { v: sandboxRoot })))
           continue
         }
         const stat = await fs.stat(newDir).catch(() => null)
         if (!stat || !stat.isDirectory()) {
-          console.error(theme.error('Не директория: ' + newDir))
+          console.error(theme.error(t('cd.not_dir', { v: newDir })))
           continue
         }
         if (newDir === currentWorkdir) {
-          console.log(theme.system('Уже здесь.'))
+          console.log(theme.system(t('cd.already')))
           continue
         }
         if (reviewMode) {
-          console.log(theme.system('Вышел из режима ревью (/cd).'))
+          console.log(theme.system(t('cd.left_review')))
           reviewMode = null
         }
         currentWorkdir = newDir
         freshChatNext = true
         sendSystemPromptNext = true
-        console.log(theme.system('Рабочая директория: ' + newDir))
+        console.log(theme.system(t('cd.changed', { v: newDir })))
       } catch (e) {
         console.error(
-          theme.error('Не удалось перейти: ' + (e as Error).message),
+          theme.error(t('cd.failed', { v: (e as Error).message })),
         )
       }
       continue
@@ -1661,7 +1952,7 @@ async function main(): Promise<void> {
 
     if (lower.startsWith('/')) {
       console.error(
-        theme.error(`Неизвестная команда: ${trimmed}. Набери /help.`),
+        theme.error(t('msg.unknown_cmd', { v: trimmed })),
       )
       continue
     }
@@ -1711,7 +2002,7 @@ async function main(): Promise<void> {
 }
 
 main().catch((e) => {
-  console.error(theme.error('Критическая ошибка:'), (e as Error).message)
+  console.error(theme.error(t('msg.critical')), (e as Error).message)
   if (debug) console.error((e as Error).stack)
   process.exit(1)
 })

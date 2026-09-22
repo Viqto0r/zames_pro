@@ -1,20 +1,24 @@
 import type { ToolDef } from './types.js'
+import { translate, type Locale } from './i18n.js'
 
 export interface BuildSystemPromptOptions {
   workdir: string
   tools: ToolDef[]
   gitContext?: string | null
+  locale?: Locale
 }
 
 export function buildSystemPrompt({
   workdir,
   tools,
   gitContext = null,
+  locale = 'ru',
 }: BuildSystemPromptOptions): string {
+  const t = translate(locale)
   const toolDescriptions = tools
     .map(
-      (t: ToolDef) =>
-        `### ${t.name}\n${t.description}\nПараметры: ${JSON.stringify(t.parameters)}`,
+      (t2: ToolDef) =>
+        `### ${t2.name}\n${t2.description}\nПараметры: ${JSON.stringify(t2.parameters)}`,
     )
     .join('\n\n')
 
@@ -25,6 +29,10 @@ export function buildSystemPrompt({
   return `You are a coding agent running in a terminal. You help the user with software engineering tasks by reading files, writing code, running commands, and iterating until the task is done.
 
 You work in the directory: ${workdir}
+
+## LANGUAGE
+
+${t('prompt.answer_language')}
 
 ## SILENT OPERATION (most important rule)
 

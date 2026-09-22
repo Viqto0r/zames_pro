@@ -9,6 +9,7 @@ import type {
   ToolDef,
   TranscriptLike,
 } from './types.js'
+import type { Locale } from './i18n.js'
 
 export interface RunAgentLoopOptions {
   browser: BrowserLike
@@ -26,6 +27,7 @@ export interface RunAgentLoopOptions {
   onAssistantMessage?: (msg: string) => void
   onChatReady?: (chatId: string | null) => void
   debugLog?: boolean
+  locale?: Locale
 }
 
 export async function runAgentLoop({
@@ -44,6 +46,7 @@ export async function runAgentLoop({
   onAssistantMessage = () => {},
   onChatReady = () => {},
   debugLog = false,
+  locale = 'ru',
 }: RunAgentLoopOptions): Promise<string> {
   if (freshChat) {
     await browser.newChat()
@@ -79,6 +82,7 @@ export async function runAgentLoop({
       workdir,
       tools,
       gitContext: gitText,
+      locale,
     })
     transcript?.log('system_prompt', {
       length: systemPrompt.length,
@@ -142,15 +146,7 @@ export async function runAgentLoop({
       // только явный JSON, но и XML/DSML-формы, «грязные» варианты и
       // незакрытые фрагменты: если такой ответ молча принять за финальный,
       // агент встанет, хотя модель пыталась позвать инструмент.
-      const looksLikeToolCall =
-        /("tool"\s*:|\btool_calls?\b|\binvoke\b|\bparameter\b|DSML|function_call)/i.test(
-          rawResponse,
-        ) ||
-        // Ключи могут быть в одинарных кавычках или без кавычек — модель
-        // регулярно отдаёт «{'tool': 'Read', ...}» или {tool: Read,...}.
-        /[\{\[]\s*['"]?(tool|name|args)['"]?\s*:/.test(rawResponse) ||
-        /<\s*\|?\s*(DSML|invoke|parameter)/i.test(rawResponse) ||
-        /^\s*\[?\s*\{[^}]*$/.test(rawResponse.trim())
+      const looksLikeToolCall = responseLooksLikeToolCall(rawResponse)
       if (looksLikeToolCall && malformedRetries < MAX_MALFORMED_RETRIES) {
         malformedRetries++
         transcript?.log('malformed_toolcall', {
@@ -327,6 +323,39 @@ export async function runAgentLoop({
   }
 
   return 'Достигнут лимит итераций.'
+}
+
+// Ответ похож на вызов инструмента, но parseToolCall() его не распознал.
+// Используется как страховка от «агент вызвал инструмент и остановился»:
+// в этом случае runAgentLoop просит модель переотправить вызов, а не
+// завершает задачу. Ловим и явные форматы, и «поломанные» головы вызова
+// (`<｜tool": ...`, `**tool**:`, `tool": ...`), и обрезанные вызовы.
+export function responseLooksLikeToolCall(rawResponse: string): boolean {
+  const raw = rawResponse || ''
+  return (
+    // Явные маркеры форматов tool-call: JSON-ключ "tool", XML/DSML-теги,
+    // function_call и т.п.
+    /("tool"\s*:|\btool_calls?\b|\binvoke\b|\bparameter\b|DSML|function_call)/i.test(
+      raw,
+    ) ||
+    // «tool» без открывающей кавычки/скобки, с мусорным префиксом
+    // (`<｜tool":`, `**tool**:`, `- tool:`): ключ вызова, а не проза.
+    /(^|[^A-Za-z0-9_])(?:\*\*)?tool(?:\*\*)?["'`\u2018\u2019\u201c\u201d]*\s*:/.test(
+      raw,
+    ) ||
+    // Ключи в одинарных кавычках или без кавычек: {'tool': 'Read', ...}.
+    /[\{\[]\s*['"]?(tool|name|args)['"]?\s*:/.test(raw) ||
+    // Обрезанный вызов: начинается как JSON-объект, но не закрыт, и в нём
+    // есть ключ аргумента (args/command/path/...). Требуем именно открывающую
+    // скобку в начале (после пробелов/префикса), чтобы не ловить обычную
+    // прозу с двоеточиями вроде «path: ...».
+    /^\s*[\[\{]/.test(raw) &&
+      /["']?(?:tool|args|command|path|old_string|content|content_base64)["']?\s*:/.test(
+        raw,
+      ) ||
+    /<\s*\|?\s*(DSML|invoke|parameter)/i.test(raw) ||
+    /^\s*\[?\s*\{[^}]*$/.test(raw.trim())
+  )
 }
 
 // Текст, который обещает вызов инструмента в будущем времени, но самого
@@ -813,6 +842,35 @@ function normalizePseudoJson(str: string): string {
   return res
 }
 
+// Модель иногда портит начало вызова: `<｜tool": "Bash", "args": {...}`,
+// `tool": "Read", ...`, `**tool**: ...`, `- tool: ...`. В таких ответах
+// нет открывающей `{`, а ключ `tool` лишился первой кавычки. Если такой
+// ответ принять за финальный, агент молча встанет (частая «остановка»).
+// Восстанавливаем: срезаем мусорный префикс до слова tool, добавляем `{` и
+// доводим кавычки ключа до парных.
+function repairToolCallPreamble(text: string): string | null {
+  const t = (text || '').trim()
+  const m = t.match(/(?:^|[^A-Za-z0-9_])(?:\*\*)?(tool)(?:\*\*)?["'`\u2018\u2019\u201c\u201d]*\s*:/)
+  if (!m || m.index === undefined) return null
+  // Начало ищем с первой кавычки/скобки вокруг ключа, иначе — с слова tool.
+  let start = m.index
+  const brace = t.indexOf('{', Math.max(0, start - 1))
+  if (brace !== -1 && brace < start) start = brace
+  let frag = t.slice(start)
+  // Если фрагмент не начинается с `{` — добавляем его.
+  if (!frag.startsWith('{')) {
+    // Ключ мог потерять открывающую кавычку: tool": → "tool":.
+    // Срезаем ведущий мусор до слова tool и нормализуем кавычки ключа.
+    frag = frag.replace(/^[^A-Za-z0-9_]*/, '')
+    frag = frag.replace(
+      /^(?:\*\*)?(["'`\u2018\u2019\u201c\u201d]*)(tool)(?:\*\*)?["'`\u2018\u2019\u201c\u201d]*\s*:/,
+      '"$2":',
+    )
+    frag = '{' + frag
+  }
+  return frag
+}
+
 export function parseToolCall(text: string): ParsedToolCall {
   if (!text || typeof text !== 'string') return null
 
@@ -881,6 +939,29 @@ export function parseToolCall(text: string): ParsedToolCall {
 
   const xmlCalls = parseXmlToolCalls(cleaned)
   if (xmlCalls) return Array.isArray(xmlCalls) ? xmlCalls : [xmlCalls]
+
+  // Последняя попытка: «починить» испорченную голову вызова (`<｜tool": ...`,
+  // `tool": ...`, `**tool**: ...`, `- tool: ...`). Делаем это ТОЛЬКО как
+  // fallback, после обычного разбора — иначе легко испортить валидный JSON
+  // (например, массив вызовов начинается с `[`, внутри которого `{"tool":`).
+  const preamble = repairToolCallPreamble(cleaned)
+  if (preamble && preamble !== cleaned) {
+    const reps = [
+      preamble,
+      repairRawControlChars(preamble),
+      normalizePseudoJson(preamble),
+    ]
+    for (const rep of reps) {
+      for (const raw of extractJsonObjects(rep)) {
+        const a = tryParseArray(raw)
+        if (a) return a
+        const o = tryParse(raw)
+        if (o) return o
+      }
+    }
+    const perm = parseToolCallPermissive(preamble)
+    if (perm) return { ...perm, _permissive: true }
+  }
 
   return null
 }

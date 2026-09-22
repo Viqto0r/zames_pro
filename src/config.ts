@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import type { ZamesConfig } from './types.js'
+import { DEFAULT_LOCALE } from './i18n.js'
 
 const ZAMES_HOME = path.join(os.homedir(), '.zames')
 const HOME_CONFIG = path.join(ZAMES_HOME, 'config.json')
@@ -48,6 +49,10 @@ export const DEFAULTS: ZamesConfig = {
     rateLimitWaitMs: 300000,
     maxRateLimitRetries: 6,
   },
+
+  ui: {
+    locale: DEFAULT_LOCALE,
+  },
 }
 
 export function loadConfig(): ZamesConfig {
@@ -85,6 +90,179 @@ function deepMerge(
       target[key] = source[key]
     }
   }
+}
+
+// ---------- редактирование конфига (/config) ----------
+//
+// Настройки, которые разрешено менять из /config. Список задаёт и тип
+// значения (bool/number/string), и путь в объекте конфига. Он же служит
+// «схемой» для /config list и для валидации set.
+//
+// Чтобы добавить новую настройку — допиши её сюда и в DEFAULTS/types.ts.
+// НЕ добавляй сюда секреты и пути, которые меняются на лету (transcript.dir,
+// browserChannel) — их правка требует перезапуска и может удивить.
+
+export type ConfigValueType = 'boolean' | 'number' | 'string' | 'enum'
+
+export interface ConfigField {
+  /** Путь в объекте конфига, например 'confirmation.write'. */
+  path: string
+  type: ConfigValueType
+  /** i18n-ключ подписи (см. src/i18n.ts, секция cfg.f.*). */
+  labelKey: string
+  /** i18n-ключ группы для меню (cfg.group.*). */
+  groupKey: string
+  /** Допустимые значения для enum. */
+  values?: string[]
+  /** Минимум для number. */
+  min?: number
+  /** Максимум для number. */
+  max?: number
+}
+
+export const CONFIG_SCHEMA: ConfigField[] = [
+  { path: 'ui.locale', type: 'enum', values: ['ru', 'en'], labelKey: 'cfg.f.ui_locale', groupKey: 'cfg.group.ui' },
+  { path: 'maxIterations', type: 'number', min: 1, max: 1000, labelKey: 'cfg.f.maxIterations', groupKey: 'cfg.group.agent' },
+  { path: 'headless', type: 'boolean', labelKey: 'cfg.f.headless', groupKey: 'cfg.group.agent' },
+  { path: 'debug', type: 'boolean', labelKey: 'cfg.f.debug', groupKey: 'cfg.group.agent' },
+  { path: 'hotReload', type: 'boolean', labelKey: 'cfg.f.hotReload', groupKey: 'cfg.group.agent' },
+  { path: 'confirmation.write', type: 'boolean', labelKey: 'cfg.f.confirmation_write', groupKey: 'cfg.group.confirmation' },
+  { path: 'confirmation.edit', type: 'boolean', labelKey: 'cfg.f.confirmation_edit', groupKey: 'cfg.group.confirmation' },
+  { path: 'confirmation.bash', type: 'boolean', labelKey: 'cfg.f.confirmation_bash', groupKey: 'cfg.group.confirmation' },
+  { path: 'undo.enabled', type: 'boolean', labelKey: 'cfg.f.undo_enabled', groupKey: 'cfg.group.undo' },
+  { path: 'undo.maxBackups', type: 'number', min: 1, max: 100000, labelKey: 'cfg.f.undo_maxBackups', groupKey: 'cfg.group.undo' },
+  { path: 'transcript.enabled', type: 'boolean', labelKey: 'cfg.f.transcript_enabled', groupKey: 'cfg.group.transcript' },
+  { path: 'browser.answerTimeoutMs', type: 'number', min: 1000, max: 3600000, labelKey: 'cfg.f.browser_answerTimeoutMs', groupKey: 'cfg.group.browser' },
+  { path: 'browser.askRetries', type: 'number', min: 1, max: 100, labelKey: 'cfg.f.browser_askRetries', groupKey: 'cfg.group.browser' },
+  { path: 'browser.stabilityChecks', type: 'number', min: 1, max: 100, labelKey: 'cfg.f.browser_stabilityChecks', groupKey: 'cfg.group.browser' },
+  { path: 'browser.stabilityDelayMs', type: 'number', min: 0, max: 60000, labelKey: 'cfg.f.browser_stabilityDelayMs', groupKey: 'cfg.group.browser' },
+  { path: 'browser.minSendIntervalMs', type: 'number', min: 0, max: 600000, labelKey: 'cfg.f.browser_minSendIntervalMs', groupKey: 'cfg.group.browser' },
+  { path: 'browser.rateLimitWaitMs', type: 'number', min: 0, max: 3600000, labelKey: 'cfg.f.browser_rateLimitWaitMs', groupKey: 'cfg.group.browser' },
+  { path: 'browser.maxRateLimitRetries', type: 'number', min: 0, max: 100, labelKey: 'cfg.f.browser_maxRateLimitRetries', groupKey: 'cfg.group.browser' },
+]
+
+
+export function getConfigField(path: string): ConfigField | undefined {
+  return CONFIG_SCHEMA.find((f) => f.path === path)
+}
+
+export function getByPath(obj: unknown, path: string): unknown {
+  const parts = path.split('.')
+  let cur: unknown = obj
+  for (const p of parts) {
+    if (cur === null || cur === undefined || typeof cur !== 'object') {
+      return undefined
+    }
+    cur = (cur as Record<string, unknown>)[p]
+  }
+  return cur
+}
+
+export function setByPath(obj: Record<string, unknown>, path: string, value: unknown): void {
+  const parts = path.split('.')
+  let cur: Record<string, unknown> = obj
+  for (let i = 0; i < parts.length - 1; i++) {
+    const p = parts[i]
+    if (typeof cur[p] !== 'object' || cur[p] === null) cur[p] = {}
+    cur = cur[p] as Record<string, unknown>
+  }
+  cur[parts[parts.length - 1]] = value
+}
+
+function parseConfigValue(field: ConfigField, raw: string): unknown {
+  switch (field.type) {
+    case 'boolean': {
+      const s = raw.trim().toLowerCase()
+      if (['true', '1', 'yes', 'y', 'on', 'да', 'вкл'].includes(s)) return true
+      if (['false', '0', 'no', 'n', 'off', 'нет', 'выкл'].includes(s)) return false
+      throw new Error('boolean')
+    }
+    case 'number': {
+      const n = Number(raw)
+      if (!Number.isFinite(n)) throw new Error('number')
+      if (field.min !== undefined && n < field.min) throw new Error('number')
+      if (field.max !== undefined && n > field.max) throw new Error('number')
+      return n
+    }
+    case 'enum': {
+      const s = raw.trim().toLowerCase()
+      if (field.values && !field.values.includes(s)) throw new Error('enum')
+      return s
+    }
+    default:
+      return raw
+  }
+}
+
+export function validateConfigValue(field: ConfigField, raw: string): unknown {
+  return parseConfigValue(field, raw)
+}
+
+export type ConfigScope = 'project' | 'home'
+
+export function configPathFor(scope: ConfigScope): string {
+  return scope === 'project' ? PROJECT_CONFIG : HOME_CONFIG
+}
+
+/**
+ * Прочитать только тот файл конфига, что указан (без слияния с дефолтами),
+ * чтобы запись не «замораживала» все дефолты в файле пользователя.
+ */
+export function readConfigFile(file: string): Record<string, unknown> {
+  try {
+    const data = JSON.parse(fs.readFileSync(file, 'utf-8'))
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+      return data as Record<string, unknown>
+    }
+  } catch (e) {
+    const err = e as NodeJS.ErrnoException
+    if (err.code !== 'ENOENT') {
+      throw new Error(`не удалось прочитать ${file}: ${err.message}`)
+    }
+  }
+  return {}
+}
+
+/**
+ * Записать значение настройки в файл. Возвращает итоговый объект, который
+ * лёг в файл. Значение сперва валидируется по схеме.
+ */
+export function writeConfigValue(
+  scope: ConfigScope,
+  key: string,
+  raw: string,
+): { value: unknown; file: string } {
+  const field = getConfigField(key)
+  if (!field) throw new Error(`unknown setting: ${key}`)
+  const value = parseConfigValue(field, raw)
+  const file = configPathFor(scope)
+  const data = readConfigFile(file)
+  setByPath(data, key, value)
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, JSON.stringify(data, null, 2) + '\n', 'utf-8')
+  return { value, file }
+}
+
+/** Сбросить настройку к дефолту (удалить ключ из файла). */
+export function resetConfigValue(scope: ConfigScope, key: string): string {
+  const field = getConfigField(key)
+  if (!field) throw new Error(`unknown setting: ${key}`)
+  const file = configPathFor(scope)
+  const data = readConfigFile(file)
+  const parts = key.split('.')
+  let cur: Record<string, unknown> | undefined = data
+  for (let i = 0; i < parts.length - 1; i++) {
+    const p = parts[i]
+    if (!cur || typeof cur[p] !== 'object' || cur[p] === null) {
+      cur = undefined
+      break
+    }
+    cur = cur[p] as Record<string, unknown>
+  }
+  if (cur) delete cur[parts[parts.length - 1]]
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, JSON.stringify(data, null, 2) + '\n', 'utf-8')
+  return file
 }
 
 export const CONFIG_PATHS = { HOME_CONFIG, PROJECT_CONFIG }

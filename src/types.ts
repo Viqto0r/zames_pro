@@ -57,6 +57,13 @@ export interface BrowserConfig {
   maxRateLimitRetries: number
 }
 
+import type { Locale } from './i18n.js'
+
+export interface UiConfig {
+  /** Язык интерфейса и ответов агента. */
+  locale: Locale
+}
+
 export interface ZamesConfig {
   maxIterations: number
   headless: boolean
@@ -67,6 +74,7 @@ export interface ZamesConfig {
   undo: UndoConfig
   transcript: TranscriptConfig
   browser: BrowserConfig
+  ui: UiConfig
 }
 
 export type DeepPartial<T> = {

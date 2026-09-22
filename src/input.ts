@@ -271,8 +271,37 @@ export class LineEditor {
     if (stdin.setRawMode) stdin.setRawMode(this._wasRaw || false)
   }
 
+  // Временно отдать терминал внешнему UI (например, меню /config):
+  // снимаем свой обработчик ввода и стираем блок ввода, чтобы чужой вывод
+  // не накладывался на строку ввода. Парно с resume().
+  pause() {
+    const stdin = process.stdin
+    this._stopDots()
+    if (this.rendered) this._eraseBlock()
+    stdin.removeListener('data', this._onData)
+    process.stdout.write(ESC + '[?2004l')
+  }
+
+  resume() {
+    const stdin = process.stdin
+    if (!stdin.isTTY || !stdin.setRawMode) return
+    this._wasRaw = stdin.isRaw
+    stdin.setRawMode(true)
+    stdin.resume()
+    process.stdout.write(ESC + '[?2004h')
+    stdin.on('data', this._onData)
+    this._writeBlock()
+    this._render()
+  }
+
   setPrompt(str: string): void {
     this.promptStr = str
+    this._render()
+  }
+
+  // Обновить описания slash-команд (смена языка интерфейса).
+  setCommands(commands: SlashCommand[]): void {
+    this.slashCommands = commands
     this._render()
   }
 
