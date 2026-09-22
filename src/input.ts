@@ -15,7 +15,9 @@ import { randomThinkingPhrase, stripEllipsis } from './spinner.js'
 //   * перемещение по словам: Ctrl+←/→ (и Alt+B/Alt+F), удаление слова
 //     Ctrl+W; Ctrl+K — удалить до конца строки;
 //   * история введённых сообщений: ↑/↓ на краях ввода (внутри многострочного
-//     ввода стрелки двигают по строкам, как в обычном терминале).
+//     ввода стрелки двигают по строкам, как в обычном терминале);
+//   * подсказки slash-команд: при вводе «/» под строкой показываются
+//     подходящие команды с описанием, Tab — дополнить.
 //
 // Все управляющие символы собираются из кодов, чтобы в файле не было
 // «сырых» ESC/CR/LF в строковых литералах (см. AGENTS.md).
@@ -145,8 +147,14 @@ export function layoutInput(
   return { rows, cursorRow, cursorCol }
 }
 
+export interface SlashCommand {
+  name: string
+  description: string
+}
+
 export interface LineEditorOptions {
   prompt?: string
+  commands?: SlashCommand[]
 }
 
 export class LineEditor {
@@ -171,8 +179,11 @@ export class LineEditor {
   history: string[]
   _histIndex: number
   _histDraft: string
+  // Подсказки slash-команд (показываются при вводе «/»).
+  slashCommands: SlashCommand[]
+  _suggestCount: number
 
-  constructor({ prompt = '> ' }: LineEditorOptions = {}) {
+  constructor({ prompt = '> ', commands = [] }: LineEditorOptions = {}) {
     this.promptStr = prompt
     this.buf = ''
     this.cursor = 0
@@ -193,6 +204,41 @@ export class LineEditor {
     this.history = []
     this._histIndex = 0
     this._histDraft = ''
+    this.slashCommands = commands
+    this._suggestCount = 0
+  }
+
+  // Список подсказок для текущего ввода. Показываем, только когда строка
+  // начинается с «/» и это одно слово (без пробелов/переводов строк) — как
+  // автодополнение команд в Claude Code.
+  _suggestions(): SlashCommand[] {
+    const b = this.buf
+    if (!b.startsWith('/')) return []
+    if (b.includes(NL) || b.includes(' ')) return []
+    const q = b.toLowerCase()
+    return this.slashCommands.filter((c) => c.name.toLowerCase().startsWith(q))
+  }
+
+  // Tab: дополнить команду до общего префикса; если совпадение одно —
+  // подставить его целиком и добавить пробел.
+  _completeCommand() {
+    const sugg = this._suggestions()
+    if (!sugg.length) return
+    if (sugg.length === 1) {
+      this.buf = sugg[0].name + ' '
+      this.cursor = Array.from(this.buf).length
+      return
+    }
+    let prefix = sugg[0].name
+    for (const c of sugg) {
+      while (!c.name.toLowerCase().startsWith(prefix.toLowerCase())) {
+        prefix = prefix.slice(0, -1)
+      }
+    }
+    if (prefix.length > this.buf.length) {
+      this.buf = prefix
+      this.cursor = Array.from(this.buf).length
+    }
   }
 
   start() {
@@ -248,9 +294,30 @@ export class LineEditor {
     }
     const lay = layoutInput(this.promptStr, this.buf, this.cursor, cols)
     out += lay.rows.map((r) => r.prefix + r.text).join(NL)
+
+    // Подсказки slash-команд рисуем НИЖЕ строки ввода. Курсор потом
+    // возвращаем вверх, на строку ввода, поэтому cursorRowFromTop не меняется.
+    const sugg = this._suggestions()
+    const shown = sugg.slice(0, 8)
+    this._suggestCount = shown.length
+    if (shown.length) {
+      const maxName = Math.max(...shown.map((c) => c.name.length))
+      const lines = shown.map((c) => {
+        const name = theme.prompt(c.name.padEnd(maxName))
+        const desc = theme.dim('  ' + c.description)
+        return '   ' + name + desc
+      })
+      out += NL + lines.join(NL)
+      const hidden = sugg.length - shown.length
+      if (hidden > 0) out += NL + theme.dim('   …ещё ' + hidden)
+    }
+
     process.stdout.write(out)
     const lastRow = lay.rows.length - 1
-    const up = lastRow - lay.cursorRow
+    // Курсор вверх: сначала на строку ввода внутри lay, затем ещё на
+    // строки подсказок (если они есть) — курсор должен стоять на вводе.
+    const linesBelow = shown.length ? shown.length + (sugg.length > shown.length ? 1 : 0) : 0
+    const up = lastRow - lay.cursorRow + linesBelow
     if (up > 0) process.stdout.write(ESC + '[' + up + 'A')
     process.stdout.write(CR)
     if (lay.cursorCol > 0) process.stdout.write(ESC + '[' + lay.cursorCol + 'C')
@@ -557,6 +624,7 @@ export class LineEditor {
       if (code === 4) { if (!this.buf && this.onCtrlC) this.onCtrlC(); continue }
       if (code === 1) { this._home(); this._render(); continue }
       if (code === 5) { this._end(); this._render(); continue }
+      if (code === 9) { this._completeCommand(); this._render(); continue }
       if (code === 21) { this.buf = ''; this.cursor = 0; this._render(); continue }
       if (code === 23) { this._deleteWordLeft(); this._render(); continue }
       if (code === 11) {

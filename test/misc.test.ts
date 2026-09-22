@@ -84,3 +84,38 @@ test('layoutInput переносит по словам, не разрывая с
   const joined = r.rows.map((x) => x.text).join('')
   assert.equal(joined, 'hello world foo bar')
 })
+
+import { LineEditor } from '../src/input.ts'
+
+test('slash-подсказки: фильтрация и Tab-дополнение', () => {
+  const cmds = [
+    { name: '/help', description: 'h' },
+    { name: '/self-review', description: 'r' },
+    { name: '/self-fix', description: 'f' },
+    { name: '/new', description: 'n' },
+  ]
+  const e = new LineEditor({ commands: cmds })
+
+  e.buf = '/'
+  assert.equal(e._suggestions().length, 4)
+  e.buf = '/s'
+  assert.deepEqual(
+    e._suggestions().map((c) => c.name),
+    ['/self-review', '/self-fix'],
+  )
+  e.buf = '/x'
+  assert.equal(e._suggestions().length, 0)
+  // Внутри аргументов (есть пробел) подсказки не показываем.
+  e.buf = '/resume 3'
+  assert.equal(e._suggestions().length, 0)
+
+  // Tab при единственном совпадении дополняет целиком.
+  e.buf = '/he'
+  e._completeCommand()
+  assert.equal(e.buf, '/help ')
+
+  // Tab при нескольких — до общего префикса.
+  e.buf = '/self-'
+  e._completeCommand()
+  assert.equal(e.buf, '/self-')
+})

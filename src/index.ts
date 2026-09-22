@@ -249,6 +249,7 @@ ${theme.bold('Пока агент работает:')}
   печать + Enter           поставить сообщение в очередь (уйдёт после текущей задачи)
   ↑ / ↓                    история введённых сообщений
   Ctrl+← / Ctrl+→          перемещение по словам
+  / + Tab                  подсказка и автодополнение slash-команд
   Ctrl+J                   новая строка (Shift+Enter в терминалах с поддержкой)
   Esc, Ctrl+C              прервать текущую генерацию
 
@@ -296,6 +297,35 @@ ${theme.bold('Файлы:')}
 function dirLabel(p: string): string {
   return path.basename(p) || p
 }
+
+// Список slash-команд для автодополнения при вводе «/» (Tab — дополнить).
+const SLASH_COMMANDS: Array<{ name: string; description: string }> = [
+  { name: '/help', description: 'справка по командам и опциям' },
+  { name: '/new', description: 'новый чат (сброс контекста)' },
+  { name: '/clear', description: 'то же, что /new' },
+  { name: '/sessions', description: 'список сохранённых сессий' },
+  { name: '/chats', description: 'последние чаты DeepSeek' },
+  { name: '/resume', description: 'открыть чат №n из /chats' },
+  { name: '/resume-id', description: 'восстановить сессию по полному id' },
+  { name: '/chat', description: 'показать текущий chat id' },
+  { name: '/cd', description: 'сменить рабочую директорию' },
+  { name: '/pwd', description: 'текущая рабочая директория' },
+  { name: '/status', description: 'состояние сессии' },
+  { name: '/reload', description: 'перечитать модули логики без перезапуска' },
+  { name: '/undo', description: 'откатить последнюю запись/правку' },
+  { name: '/undo-list', description: 'список того, что можно откатить' },
+  { name: '/transcript', description: 'путь к файлу транскрипта' },
+  { name: '/config', description: 'показать текущий конфиг' },
+  { name: '/debug-dom', description: 'сохранить HTML страницы (отладка)' },
+  { name: '/self-review', description: 'снапшот src/ и запуск ревью' },
+  { name: '/self-fix', description: 'продолжить в существующем снапшоте' },
+  { name: '/self-done', description: 'выйти из режима ревью' },
+  { name: '/self-list', description: 'список снапшотов' },
+  { name: '/self-diff', description: 'различия текущего src/ и снапшота' },
+  { name: '/self-apply', description: 'применить снапшот к src/ (с бэкапом)' },
+  { name: '/exit', description: 'выход' },
+  { name: '/quit', description: 'выход' },
+]
 
 // Временные файлы агента (одноразовые скрипты и т.п.) складываем в
 // <проект>/tmp — эта папка в .gitignore и очищается при каждом запуске.
@@ -997,7 +1027,10 @@ async function main(): Promise<void> {
   }
 
   if (process.stdin.isTTY && process.stdout.isTTY) {
-    const ed = new LineEditor({ prompt: buildPrompt() })
+    const ed = new LineEditor({
+      prompt: buildPrompt(),
+      commands: SLASH_COMMANDS,
+    })
     editor = ed
     ed.onSubmit = (text: string) => {
       pendingQueue.push(text)
