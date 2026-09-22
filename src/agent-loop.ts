@@ -9,7 +9,7 @@ import type {
   ToolDef,
   TranscriptLike,
 } from './types.js'
-import type { Locale } from './i18n.js'
+import { translate, type Locale } from './i18n.js'
 
 export interface RunAgentLoopOptions {
   browser: BrowserLike
@@ -26,6 +26,8 @@ export interface RunAgentLoopOptions {
   onToolResult?: (result: unknown) => void
   onAssistantMessage?: (msg: string) => void
   onChatReady?: (chatId: string | null) => void
+  /** Предупреждение для оператора (в терминал, не только в транскрипт). */
+  onWarning?: (text: string) => void
   debugLog?: boolean
   locale?: Locale
 }
@@ -45,6 +47,7 @@ export async function runAgentLoop({
   onToolResult = () => {},
   onAssistantMessage = () => {},
   onChatReady = () => {},
+  onWarning = () => {},
   debugLog = false,
   locale = 'ru',
 }: RunAgentLoopOptions): Promise<string> {
@@ -237,6 +240,14 @@ export async function runAgentLoop({
         continue
       }
 
+      // Все попытки переспросить исчерпаны, а ответ всё ещё похож на вызов
+      // инструмента. Скорее всего, это молчаливая остановка: показываем
+      // оператору предупреждение в терминале (а не только в транскрипт),
+      // чтобы он видел проблему сразу, а не гадал, почему агент встал.
+      if (responseLooksLikeToolCall(rawResponse)) {
+        transcript?.log('suspicious_final', { response: rawResponse })
+        onWarning(translate(locale)('msg.suspicious_stop'))
+      }
       onAssistantMessage(rawResponse)
       transcript?.log('assistant_final', { message: rawResponse })
       return rawResponse

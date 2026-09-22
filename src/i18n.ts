@@ -151,6 +151,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   'msg.queued': { ru: '📨 В очередь ({n}): ', en: '📨 Queued ({n}): ' },
   'msg.from_queue': { ru: '▶ Из очереди: ', en: '▶ From queue: ' },
   'msg.agent_error': { ru: '✖ Ошибка агента:', en: '✖ Agent error:' },
+  'msg.suspicious_stop': {
+    ru: 'агент, похоже, остановился, не распознав вызов инструмента. Ответ сохранён в транскрипте (событие suspicious_final). Можно попросить продолжить или переотправить задачу.',
+    en: 'the agent seems to have stopped without recognizing a tool call. The response is saved in the transcript (suspicious_final event). You can ask it to continue or resend the task.',
+  },
   'msg.critical': { ru: 'Критическая ошибка:', en: 'Critical error:' },
   'msg.not_dir': { ru: 'Не директория: {v}', en: 'Not a directory: {v}' },
   'prompt.review': { ru: 'REVIEW', en: 'REVIEW' },

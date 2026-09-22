@@ -9,6 +9,7 @@ export interface SpinnerUI {
   toolCall: (name: string, args: unknown) => void
   toolResult: (result: unknown) => void
   assistant: (msg: string) => void
+  warning: (msg: string) => void
   stop: () => void
   succeed: () => void
   fail: () => void
@@ -125,6 +126,11 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
       console.log(NL + theme.assistant('● Ответ') + NL)
       console.log(rendered)
       console.log(theme.dim('─'.repeat(60)) + NL)
+    },
+
+    warning: (msg: string) => {
+      stop()
+      console.log(String.fromCharCode(10) + theme.warn('⚠ ' + msg))
     },
 
     stop,

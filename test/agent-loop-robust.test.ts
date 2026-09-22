@@ -176,3 +176,21 @@ test('короткое уведомление о лимите по-прежне�
   assert.equal(result, 'ok')
   assert.ok(asks.length >= 2, 'ask calls: ' + asks.length)
 })
+
+test('подозрительный финал (похож на вызов) вызывает onWarning оператору', async () => {
+  // Агент 3 раза отдаёт «поломанный» вызов, потом всё равно финал.
+  // Каждый раз guard просит переотправить; после исчерпания — onWarning.
+  const broken = '{"tool": "Bash", "args": {"command": "ls'
+  const { browser } = makeBrowser([broken, broken, broken, broken])
+  const warnings: string[] = []
+  await runAgentLoop({
+    browser,
+    tools: [respondTool],
+    task: 'test',
+    workdir: process.cwd(),
+    maxIterations: 10,
+    onWarning: (m) => warnings.push(m),
+  })
+  assert.equal(warnings.length, 1)
+  assert.ok(warnings[0].length > 0)
+})

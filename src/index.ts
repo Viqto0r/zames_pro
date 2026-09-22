@@ -811,6 +811,7 @@ async function runTask(
         onToolCall: (name, toolArgs) => ui.toolCall(name, toolArgs),
         onToolResult: (result) => ui.toolResult(result),
         onAssistantMessage: (msg) => ui.assistant(msg),
+        onWarning: (msg) => ui.warning(msg),
         onChatReady,
         debugLog: debug,
         locale: currentLocale,
@@ -1514,6 +1515,8 @@ async function main(): Promise<void> {
             onAssistantMessage: (m) => {
               ui.assistant(m)
             },
+            onWarning: (m) => ui.warning(m),
+            locale: currentLocale,
           })
         }
 
