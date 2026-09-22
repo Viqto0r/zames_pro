@@ -5,7 +5,7 @@ import { runConfigMenu } from '../src/config-menu.ts'
 import { CONFIG_SCHEMA } from '../src/config.ts'
 import { translate } from '../src/i18n.ts'
 
-// Минимальный фейковый поток: EventEmitter + isTTY/setRawMode + write-заглушка.
+// Minimal fake stream: EventEmitter + isTTY/setRawMode + a write stub.
 class FakeIn extends EventEmitter {
   isTTY = true
   isRaw = false
@@ -32,7 +32,7 @@ test('меню: Enter на boolean переключает значение', asy
   const store: Record<string, unknown> = { debug: false }
   let cursorPath = ''
 
-  // Поставим курсор на debug (boolean). Найдём его индекс и прокрутим вниз.
+  // Put the cursor on debug (boolean). Find its index and scroll down.
   const fields = CONFIG_SCHEMA
   const debugIdx = fields.findIndex((f) => f.path === 'debug')
   assert.ok(debugIdx >= 0)
@@ -52,13 +52,13 @@ test('меню: Enter на boolean переключает значение', asy
     output: output as unknown as NodeJS.WriteStream,
   })
 
-  // Спускаемся до debug.
+  // Go down to debug.
   for (let i = 0; i < debugIdx; i++) input.emit('data', Buffer.from('\x1b[B'))
   input.emit('data', Buffer.from('\r')) // Enter → toggle
   assert.equal(cursorPath, 'debug')
   assert.equal(store.debug, true)
 
-  // Ещё раз Enter → обратно false.
+  // Enter again → back to false.
   input.emit('data', Buffer.from('\r'))
   assert.equal(store.debug, false)
 
@@ -109,12 +109,12 @@ test('меню: number открывает ввод и сохраняет', async
     input: input as unknown as NodeJS.ReadStream,
     output: output as unknown as NodeJS.WriteStream,
   })
-  // maxIterations — первый после ui.locale (enum), спустимся на 1.
+  // maxIterations is the first after ui.locale (enum), go down by 1.
   input.emit('data', Buffer.from('\x1b[B'))
-  input.emit('data', Buffer.from('\r')) // войти в редактирование
-  input.emit('data', Buffer.from('\x7f\x7f')) // стереть «40»
+  input.emit('data', Buffer.from('\r')) // enter edit mode
+  input.emit('data', Buffer.from('\x7f\x7f')) // erase "40"
   input.emit('data', Buffer.from('25'))
-  input.emit('data', Buffer.from('\r')) // сохранить
+  input.emit('data', Buffer.from('\r')) // save
   assert.equal(saved, '25')
   assert.equal(store.maxIterations, 25)
   input.emit('data', Buffer.from('q'))
@@ -139,7 +139,7 @@ test('меню: пакет клавиш (стрелки+Enter) обрабаты�
     output: output as unknown as NodeJS.WriteStream,
   })
   const debugIdx = CONFIG_SCHEMA.findIndex((f) => f.path === 'debug')
-  // Один пакет: debugIdx стрелок вниз + Enter.
+  // One packet: debugIdx down-arrows + Enter.
   const seq = '\x1b[B'.repeat(debugIdx) + '\r'
   input.emit('data', Buffer.from(seq))
   assert.equal(setPath, 'debug')

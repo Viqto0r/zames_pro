@@ -77,10 +77,10 @@ test('RateLimitError: имя и сообщение', () => {
 test('layoutInput переносит по словам, не разрывая слово', () => {
   const r = layoutInput('> ', 'hello world foo bar', 21, 20)
   assert.equal(r.rows.length, 2)
-  // Разрыв на границе слова: слово целиком уходит на новую строку.
+  // Break at a word boundary: the whole word moves to the new line.
   assert.equal(r.rows[0].text, 'hello world foo')
   assert.equal(r.rows[1].text, ' bar')
-  // Слово нигде не разрезано посередине.
+  // The word is not split anywhere in the middle.
   const joined = r.rows.map((x) => x.text).join('')
   assert.equal(joined, 'hello world foo bar')
 })
@@ -105,16 +105,16 @@ test('slash-подсказки: фильтрация и Tab-дополнение
   )
   e.buf = '/x'
   assert.equal(e._suggestions().length, 0)
-  // Внутри аргументов (есть пробел) подсказки не показываем.
+  // Inside arguments (there is a space) we don't show hints.
   e.buf = '/resume 3'
   assert.equal(e._suggestions().length, 0)
 
-  // Tab при единственном совпадении дополняет целиком.
+  // Tab with a single match completes it whole.
   e.buf = '/he'
   e._completeCommand()
   assert.equal(e.buf, '/help ')
 
-  // Tab при нескольких — до общего префикса.
+  // Tab with several matches — up to the common prefix.
   e.buf = '/self-'
   e._completeCommand()
   assert.equal(e.buf, '/self-')
@@ -128,13 +128,13 @@ test('Enter после «\\» удаляет «\\» и переносит стр
   e.onSubmit = (t) => { submitted = t }
   const CRc = String.fromCharCode(13)
 
-  // Обычный Enter — отправка.
+  // A plain Enter — submit.
   e.buf = 'hello'
   e.cursor = 5
   e._handle(Buffer.from(CRc))
   assert.equal(submitted, 'hello')
 
-  // «\» + Enter — перенос, отправки нет, «\» исчезает.
+  // «\» + Enter — a line break, no submit, the «\» disappears.
   submitted = ''
   e.buf = 'line1\\'
   e.cursor = 6
@@ -143,7 +143,7 @@ test('Enter после «\\» удаляет «\\» и переносит стр
   assert.equal(e.buf, 'line1' + String.fromCharCode(10))
   assert.equal(e.cursor, 6)
 
-  // Ctrl+J всегда переносит, даже без «\».
+  // Ctrl+J always breaks the line, even without «\».
   e.buf = 'a'
   e.cursor = 1
   e._handle(Buffer.from(String.fromCharCode(10)))
@@ -156,14 +156,14 @@ test('visRows считает перенос статуса по ширине', (
   assert.equal(visRows('short', 80), 1)
   assert.equal(visRows('x'.repeat(120), 80), 2)
   assert.equal(visRows('x'.repeat(200), 80), 3)
-  // ANSI-последовательности не влияют на видимую длину.
+  // ANSI sequences don't affect the visible length.
   assert.equal(visRows('\u001b[31m' + 'x'.repeat(80), 80), 1)
 })
 
 test('buildSystemPrompt содержит требования к формату tool-call', () => {
   const sp = buildSystemPrompt({ workdir: '/w', tools: [] })
   assert.ok(sp.includes('TOOL CALL FORMAT'))
-  // Должны быть явные запреты на реальные ошибки формата.
+  // There must be explicit prohibitions against real format mistakes.
   assert.ok(/DOUBLE quotes/.test(sp))
   assert.ok(/single quotes/.test(sp))
   assert.ok(/XML\/DSML/.test(sp))

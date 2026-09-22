@@ -2,9 +2,9 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { responseLooksLikeToolCall } from '../src/agent-loop.ts'
 
-// Страховка от «вызвал инструмент и остановился»: если parseToolCall не
-// распознал ответ, но он похож на вызов — агент должен переспросить, а не
-// завершать задачу. Тест фиксирует, какие формы считаются «похоже на вызов».
+// Safeguard against "called a tool and stopped": if parseToolCall did not
+// recognize the answer but it looks like a call — the agent must re-ask, not
+// finish the task. The test pins down which forms count as "looks like a call".
 
 test('ловит нормальный JSON-вызов', () => {
   assert.equal(

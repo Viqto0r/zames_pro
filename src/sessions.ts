@@ -3,10 +3,10 @@ import path from 'path'
 import os from 'os'
 import type { Session } from './types.js'
 
-// Сессии (чаты DeepSeek) храним в отдельной папке, чтобы они не терялись
-// после перезапуска процесса. Каждая сессия — отдельный JSON-файл
-// <id>.json в ~/.zames/.sessions. last.json указывает на последнюю
-// открытую сессию для конкретной рабочей директории.
+// We store sessions (DeepSeek chats) in a separate folder so they aren't lost
+// after a process restart. Each session is a separate JSON file
+// <id>.json in ~/.zames/.sessions. last.json points to the last
+// opened session for a specific working directory.
 const SESSIONS_DIR = path.join(os.homedir(), '.zames', '.sessions')
 const INDEX_FILE = path.join(SESSIONS_DIR, 'last.json')
 
@@ -24,8 +24,8 @@ function safeName(id: string): string {
   return String(id).replace(/[^a-zA-Z0-9_.-]/g, '_')
 }
 
-// Сохраняем/обновляем сессию. workdir нужен, чтобы при запуске из того же
-// проекта восстанавливать именно его последний чат.
+// Save/update a session. workdir is needed so that when launched from the same
+// project we restore exactly its last chat.
 export function saveSession({
   id,
   title = '',
@@ -78,8 +78,8 @@ function writeIndex({ id, workdir }: { id: string; workdir: string }): void {
   } catch {}
 }
 
-// Последняя сессия для рабочей директории. Если для неё ничего нет —
-// возвращаем последнюю сессию вообще (полезно при запуске из нового места).
+// The last session for the working directory. If there is none —
+// we return the last session overall (useful when launched from a new place).
 export function loadLastSession(workdir = ''): Session | null {
   try {
     const index: SessionsIndex = JSON.parse(fs.readFileSync(INDEX_FILE, 'utf-8'))
@@ -88,8 +88,8 @@ export function loadLastSession(workdir = ''): Session | null {
       (x): x is string => Boolean(x),
     )
     for (const id of candidates) {
-      // Файл сессии мог быть удалён — индекс тогда устарел, и сессию
-      // восстанавливать нельзя. Пробуем следующий кандидат.
+      // The session file may have been deleted — the index is then stale and
+      // the session cannot be restored. We try the next candidate.
       const s = readSession(id)
       if (s) return s
     }
@@ -109,7 +109,7 @@ export function readSession(id: string | null): Session | null {
   }
 }
 
-// Список всех сессий, свежие — первыми.
+// List all sessions, newest first.
 export function listSessions(): Session[] {
   try {
     ensureDir()

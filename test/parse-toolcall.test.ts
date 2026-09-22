@@ -133,3 +133,29 @@ test('несколько XML-вызовов возвращаются масси�
   assert.ok(Array.isArray(res))
   assert.equal((res as unknown[]).length, 2)
 })
+
+test('несколько JSON-вызовов подряд возвращаются массивом', () => {
+  // Regression: the model often emits several separate {"tool": ...} objects
+  // instead of one array. Only the first used to be returned, so the rest were
+  // dropped and the agent could "stall after a tool call" with pending work.
+  const res = parseToolCall(
+    call('Read', { path: 'a.js' }) + NL + call('Edit', { path: 'b.js' }),
+  )
+  assert.ok(Array.isArray(res))
+  assert.equal((res as unknown[]).length, 2)
+  assert.equal((res as Array<{ tool: string }>)[0].tool, 'Read')
+  assert.equal((res as Array<{ tool: string }>)[1].tool, 'Edit')
+})
+
+test('JSON-вызовы, разделённые прозой, собираются все', () => {
+  const res = parseToolCall(
+    'Сначала прочитаю. ' +
+      call('Read', { path: 'a.js' }) +
+      NL +
+      'Теперь запишу. ' +
+      call('Write', { path: 'b.js', content: 'x' }),
+  )
+  assert.ok(Array.isArray(res))
+  const tools = (res as Array<{ tool: string }>).map((c) => c.tool)
+  assert.deepEqual(tools, ['Read', 'Write'])
+})

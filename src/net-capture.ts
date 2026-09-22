@@ -2,14 +2,14 @@ import fs from 'fs/promises'
 import os from 'os'
 import path from 'path'
 
-// Извлечение СЫРОГО текста ответа модели из сетевых данных DeepSeek.
+// Extraction of the RAW model answer text from DeepSeek's network data.
 //
-// Зачем: чтение ответа идёт из ОТРЕНДЕРЕННОГО DOM, а рендер DeepSeek
-// искажает ответ — превращает доллар-формулы в LaTeX (символ доллара
-// теряется), нормализует переводы строк, делает автолинки. Из-за этого
-// tool-call с шаблонными строками и экранированными переводами строк в
-// аргументах доходил до инструментов искажённым. Здесь мы достаём исходный
-// текст из тела сетевого ответа.
+// Why: the answer is read from the RENDERED DOM, and DeepSeek's rendering
+// distorts the answer — it turns dollar formulas into LaTeX (the dollar sign
+// is lost), normalizes newlines, and auto-links. Because of this a tool-call
+// with template strings and escaped newlines in its arguments reached the
+// tools distorted. Here we extract the original text from the network
+// response body.
 //
 // Format DeepSeek (SSE, chat.deepseek.com/api/v0/chat/completion):
 //   * startovy fragment otveta lezhit v data-chanke s uzlom v.response
@@ -37,11 +37,11 @@ function parseDataLines(body: string): unknown[] {
   return out
 }
 
-// Собирает текст ответа из SSE-потока. Поддерживает два формата:
-//   * OpenAI-совместимый: choices[].delta.content (reasoning_content
-//     игнорируется — это размышления, а не ответ);
-//   * DeepSeek chat.deepseek.com: стартовый v.response.fragments[] и
-//     инкрементальные APPEND-чанки response/fragments/-1/content.
+// Assembles the answer text from the SSE stream. Supports two formats:
+//   * OpenAI-compatible: choices[].delta.content (reasoning_content
+//     is ignored — that's reasoning, not the answer);
+//   * DeepSeek chat.deepseek.com: the initial v.response.fragments[] and
+//     incremental APPEND chunks response/fragments/-1/content.
 export function extractFromSse(body: string): string {
   let out = ''
   for (const obj of parseDataLines(body)) {
@@ -69,8 +69,8 @@ export function extractFromSse(body: string): string {
       continue
     }
 
-    // Инкрементальный APPEND: p='response/fragments/-1/content' -> v=строка;
-    // последующие чанки идут с одним полем v.
+    // Incremental APPEND: p='response/fragments/-1/content' -> v=string;
+    // subsequent chunks come with a single v field.
     if (o.p === 'response/fragments/-1/content' && typeof o.v === 'string') {
       out += o.v
       continue
@@ -92,9 +92,9 @@ export function extractFromJson(body: string): string {
   return pickAnswerText(obj)
 }
 
-// Достает финальный текст ответа из узла, НЕ смешивая его с reasoning.
-// Порядок: choices/messages -> delta/message -> content; reasoning_content
-// намеренно не берем — это размышления модели, а не ответ.
+// Extracts the final answer text from a node, WITHOUT mixing it with reasoning.
+// Order: choices/messages -> delta/message -> content; reasoning_content is
+// deliberately not taken — that's the model's reasoning, not the answer.
 function pickAnswerText(node: unknown): string {
   if (node == null) return ''
   if (typeof node === 'string') return node
@@ -128,15 +128,15 @@ function pickAnswerText(node: unknown): string {
   return ''
 }
 
-// Универсальная попытка: сначала SSE, затем обычный JSON.
+// A universal attempt: first SSE, then regular JSON.
 export function extractAnswer(body: string): string {
   const sse = extractFromSse(body)
   if (sse) return sse
   return extractFromJson(body)
 }
 
-// Сохраняет тело сетевого ответа DeepSeek на диск для разбора постфактум.
-// Файлы лежат в ~/.zames/net-log — po nim видно реальный формат ответа.
+// Saves the DeepSeek network response body to disk for post-mortem analysis.
+// The files live in ~/.zames/net-log — from them the real answer format is visible.
 export async function dumpNetBody(url: string, body: string): Promise<void> {
   try {
     const dir = path.join(os.homedir(), '.zames', 'net-log')

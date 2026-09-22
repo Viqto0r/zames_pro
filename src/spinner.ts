@@ -15,8 +15,8 @@ export interface SpinnerUI {
   fail: () => void
 }
 
-// Фразы для спиннера «агент работает». Выбираются в случайном порядке.
-// Текст берётся из i18n по ключу 'spinner.phrases' (строки разделены «|»).
+// Phrases for the "agent is working" spinner. Chosen in random order.
+// The text comes from i18n via the key 'spinner.phrases' (strings separated by "|").
 export function randomThinkingPhrase(locale: Locale = 'ru'): string {
   const raw = translate(locale)('spinner.phrases')
   const phrases = raw.split('|').filter((s) => s.trim().length)
@@ -24,7 +24,7 @@ export function randomThinkingPhrase(locale: Locale = 'ru'): string {
   return phrases[Math.floor(Math.random() * phrases.length)]
 }
 
-// Убираем завершающее многоточие из фразы — точки анимируем отдельно.
+// Strip the trailing ellipsis from the phrase — dots are animated separately.
 export function stripEllipsis(phrase: string): string {
   return phrase.replace(/[.…]+\s*$/, '')
 }
@@ -35,8 +35,8 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
   let dotPhase = 0
   let pending: string | null = null
 
-  // Анимация точек: старт с пустой строки (0 точек), затем рост.
-  // Ширину выравниваем по максимуму (3), чтобы подсказка не смещалась.
+  // Dot animation: start from an empty string (0 dots), then grow.
+  // We align the width to the maximum (3) so the hint doesn't shift.
   const DOTS = ['', '.', '..', '...']
   const DOTS_PAD = '   '
 
@@ -53,15 +53,15 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
     if (spinner) spinner.stop()
   }
 
-  // Подсказка в строке статуса: во время работы агента терминал живой,
-  // можно печатать следующее сообщение. Без неё это неочевидно.
+  // Hint in the status line: while the agent works the terminal is live,
+  // so you can type the next message. Without it this is not obvious.
   const HINT = theme.dim('  ·  ' + translate(locale)('spinner.hint'))
 
-  // Запуск анимированного статуса: коричневый текст + «бегущие» точки.
+  // Start the animated status: brown text + "running" dots.
   const startThinking = () => {
     const base = theme.brown(stripEllipsis(randomThinkingPhrase(locale)))
-    // Точки того же цвета, что и база, и фиксированной ширины — иначе
-    // подсказка справа «прыгает» при смене фазы анимации.
+    // The dots are the same color as the base and of fixed width — otherwise
+    // the hint on the right "jumps" when the animation phase changes.
     const dots = (n: number) =>
       theme.brown(DOTS[n] + DOTS_PAD.slice(DOTS[n].length))
     start(base + dots(0) + HINT)
@@ -75,8 +75,8 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
     if (dotTimer.unref) dotTimer.unref()
   }
 
-  // Показать набранный, но ещё не отправленный текст вместо спиннера.
-  // Позволяет печатать сообщение прямо во время работы агента.
+  // Show the typed but not yet sent text instead of the spinner.
+  // Lets you type a message right while the agent is working.
   const showPending = () => {
     if (dotTimer) {
       clearInterval(dotTimer)
@@ -96,8 +96,8 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
       startThinking()
     },
 
-    // Текст, который пользователь набирает во время работы агента.
-    // Пустая строка / null — вернуть обычный спиннер.
+    // The text the user types while the agent is working.
+    // Empty string / null — restore the regular spinner.
     setPending: (text: string | null) => {
       pending = text && String(text).length ? String(text) : null
       if (pending) showPending()
@@ -121,8 +121,8 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
       stop()
       const NL = String.fromCharCode(10)
       const rendered = renderMarkdown(msg)
-      // Маркер ответа модели: помогает визуально отделить его от ввода
-      // пользователя (который подсвечен приглашением с золотой стрелкой).
+      // Model answer marker: helps visually separate it from the user's input
+      // (which is highlighted by the prompt with a golden arrow).
       console.log(NL + theme.assistant('● Ответ') + NL)
       console.log(rendered)
       console.log(theme.dim('─'.repeat(60)) + NL)

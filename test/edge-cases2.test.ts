@@ -43,7 +43,7 @@ test('Glob не возвращает файлы выше рабочей дире
   await fs.writeFile(path.join(dir, 'top.txt'), 'x', 'utf-8')
   await fs.writeFile(path.join(sub, 'in.txt'), 'y', 'utf-8')
   const tools = createTools(sub, {})
-  // паттерн, пытающийся выйти на уровень выше
+  // a pattern trying to go one level up
   const out = String(await tool(tools, 'Glob').fn({ pattern: '../*.txt' }))
   assert.ok(!out.includes('top.txt'), 'не должен показывать файлы выше root: ' + out)
   await fs.rm(dir, { recursive: true, force: true })

@@ -13,8 +13,8 @@ export function createTools(
   const root = path.resolve(workdir)
   const safe = (p: string): string => {
     const resolved = path.resolve(root, p)
-    // startsWith(root) пропускал бы соседние пути с общим префиксом
-    // (C:\work\proj vs C:\work\proj-old). Считаем через relative().
+    // startsWith(root) would let through sibling paths with a common prefix
+    // (C:\work\proj vs C:\work\proj-old). We compute via relative().
     const rel = path.relative(root, resolved)
     if (rel.startsWith('..') || path.isAbsolute(rel)) {
       throw new Error(`Доступ за пределы рабочей директории: ${p}`)
@@ -22,8 +22,8 @@ export function createTools(
     return resolved
   }
 
-  // Sandbox (вариант A): не даём команде выйти выше root.
-  // Это защитный барьер, а не полноценная изоляция ОС.
+  // Sandbox (option A): don't let the command go above root.
+  // This is a protective barrier, not full OS isolation.
   const assertCommandInsideRoot = (command: string): void => {
     const cmd = String(command || '')
     const cdRe = /(?:^|[;&|]|\s)(?:cd|pushd)\s+([^;&|]+)/gi
@@ -83,10 +83,10 @@ export function createTools(
       })
     })
 
-  // Достаёт текст из content/content_base64. base64 нужен, потому что канал
-  // передачи ответа модели может искажать символы ($, обратные слэши,
-  // переводы строк). base64 состоит только из [A-Za-z0-9+/=] и искажению
-  // не подвержен.
+  // Extracts text from content/content_base64. base64 is needed because the
+  // channel that delivers the model's answer may corrupt characters ($,
+  // backslashes, newlines). base64 consists only of [A-Za-z0-9+/=] and is not
+  // subject to corruption.
   const decodeContent = (
     content: unknown,
     contentBase64: unknown,
@@ -195,7 +195,7 @@ export function createTools(
         const { glob } = await import('fs/promises')
         const results: string[] = []
         for await (const f of glob(String(pattern), { cwd: workdir })) {
-          // Sandbox: игнорируем всё, что выходит за пределы root.
+          // Sandbox: ignore anything that goes outside root.
           const abs = path.resolve(workdir, f)
           const rel = path.relative(root, abs)
           if (rel.startsWith('..') || path.isAbsolute(rel)) continue

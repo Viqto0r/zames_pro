@@ -1,26 +1,26 @@
-// Общие типы-контракты для всего агента.
-// Здесь только типы — ни рантайм-кода, ни побочных эффектов.
+// Shared contract types for the whole agent.
+// Types only here — no runtime code, no side effects.
 
-// ---------- tool-call протокол ----------
+// ---------- tool-call protocol ----------
 
-/** Аргументы инструмента: произвольный JSON-объект. */
+/** Tool arguments: an arbitrary JSON object. */
 export type ToolArgs = Record<string, unknown>
 
-/** Разобранный вызов инструмента. */
+/** A parsed tool call. */
 export interface ToolCall {
   tool: string
   args: ToolArgs
-  /** true, если вызов распознан нестрогим (permissive) парсером. */
+  /** true if the call was recognized by the permissive parser. */
   _permissive?: boolean
 }
 
-/** Результат parseToolCall: один вызов, массив вызовов или null. */
+/** Result of parseToolCall: a single call, an array of calls, or null. */
 export type ParsedToolCall = ToolCall | ToolCall[] | null
 
-/** Параметры инструмента в описании (имя -> тип-строка вроде "string?" ). */
+/** Tool parameters in a description (name -> type string like "string?" ). */
 export type ToolParameters = Record<string, string>
 
-/** Определение инструмента, как его видит агент. */
+/** Tool definition as the agent sees it. */
 export interface ToolDef {
   name: string
   description: string
@@ -28,7 +28,7 @@ export interface ToolDef {
   fn: (args: ToolArgs) => Promise<unknown> | unknown
 }
 
-// ---------- конфиг ----------
+// ---------- config ----------
 
 export interface ConfirmationConfig {
   write: boolean
@@ -60,7 +60,7 @@ export interface BrowserConfig {
 import type { Locale } from './i18n.js'
 
 export interface UiConfig {
-  /** Язык интерфейса и ответов агента. */
+  /** Language of the interface and the agent's answers. */
   locale: Locale
 }
 
@@ -92,7 +92,7 @@ export interface GitContext {
   behind: number
 }
 
-// ---------- сессии ----------
+// ---------- sessions ----------
 
 export interface Session {
   id: string
@@ -107,15 +107,15 @@ export interface SessionsIndex {
   byWorkdir: Record<string, string>
 }
 
-// ---------- транскрипт ----------
+// ---------- transcript ----------
 
 export interface TranscriptLike {
   log: (event: string, data?: Record<string, unknown>) => void
 }
 
-// ---------- браузер ----------
+// ---------- browser ----------
 
-/** Минимальный интерфейс браузера, который нужен agent-loop и self-review. */
+/** Minimal browser interface needed by agent-loop and self-review. */
 export interface BrowserLike {
   ask(
     prompt: string,

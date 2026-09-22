@@ -78,7 +78,7 @@ test('агент выполняет tool-call и передаёт результ
   })
 
   assert.equal(result, 'готово')
-  // второй запрос к модели должен содержать результат чтения файла
+  // the second request to the model must contain the file read result
   assert.ok(asks[1].includes('file-content'), asks[1])
   await fs.rm(dir, { recursive: true, force: true })
 })
@@ -163,8 +163,8 @@ test('пустой/служебный ответ не завершает зад�
     workdir: process.cwd(),
   })
   assert.equal(result, 'готово')
-  // Первый ответ (Reading) и пустой — оба должны были привести к повторному
-  // запросу, а не к остановке. Значит ask вызван минимум 3 раза.
+  // The first answer (Reading) and an empty one — both should have led to a
+  // repeated request, not a stop. So ask is called at least 3 times.
   assert.ok(asks.length >= 3, 'ask calls: ' + asks.length)
 })
 
@@ -239,8 +239,8 @@ test('первое сообщение идёт без agent, последующ�
     },
   ]
   await runAgentLoop({ browser, tools, task: 'задача', workdir: dir })
-  // Первый ask — задача пользователя: agent не выставлен (falsy).
+  // The first ask — the user's task: agent is not set (falsy).
   assert.ok(!calls[0].opts || calls[0].opts.agent !== true, 'первое сообщение не должно быть agent')
-  // Второй ask — tool-result агента: agent: true.
+  // The second ask — the agent's tool-result: agent: true.
   assert.equal(calls[1].opts?.agent, true)
 })

@@ -4,9 +4,9 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 
-// config.ts фиксирует пути (HOME_CONFIG/PROJECT_CONFIG) в момент импорта,
-// поэтому для проверки проектного конфига перечитываем модуль динамически
-// с query-параметром ПОСЛЕ смены cwd.
+// config.ts fixes the paths (HOME_CONFIG/PROJECT_CONFIG) at import time,
+// so to test the project config we re-read the module dynamically with a
+// query parameter AFTER changing cwd.
 async function freshConfig(): Promise<typeof import('../src/config.ts')> {
   return import('../src/config.ts?t=' + Date.now())
 }

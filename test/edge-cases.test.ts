@@ -16,7 +16,7 @@ function tool(tools: ToolDef[], name: string): ToolDef {
   return t
 }
 
-// --- Краевые случаи парсера, которые могут вскрыть баги ---
+// --- Parser edge cases that may expose bugs ---
 
 test('Bash с командной подстановкой (...) распознаётся целиком', () => {
   const cmd = 'echo ' + Q + 'total: ' + Q + '(ls | wc -l)' + Q
@@ -46,7 +46,7 @@ test('Edit с $ и обратными слэшами в new_string распоз�
   assert.equal(res.args['new_string'], newStr)
 })
 
-// --- Инструмент Grep (не был покрыт ранее) ---
+// --- The Grep tool (was not covered before) ---
 
 test('Grep находит совпадения по регулярному выражению', async () => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-grep-'))

@@ -31,7 +31,7 @@ test('SSE: reasoning_content не попадает в ответ', () => {
 })
 
 test('SSE: сохраняет доллар и экранированный перевод строки 1:1', () => {
-  const literalN = BS + 'n' // два символа: обратный слэш и n
+  const literalN = BS + 'n' // two characters: a backslash and n
   const content = 'const s = ' + D + '{x}' + literalN + 'line2'
   const payload = JSON.stringify({
     tool: 'Write',

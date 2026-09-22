@@ -40,7 +40,7 @@ test('isLocale / localeDisplayName', () => {
 })
 
 test('все ключи каталога имеют оба языка (ru/en)', () => {
-  // Проверяем через выборку нескольких ключей из разных секций.
+  // We check via a sample of several keys from different sections.
   const keys = [
     'help.options',
     'help.cmd.config',

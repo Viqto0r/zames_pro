@@ -17,13 +17,13 @@ function readAttr(attrs: string, name: string): string | null {
   return m ? m[2] : null
 }
 
-// Достаёт параметры из тела <invoke>. Тег открытия и закрытия может нести
-// произвольный префикс (DSML и т.п.), а некоторые модели путают пары тегов
-// (<parameter …> … </|DSML| parameter>). Регулярка ниже матчит любую пару
-// <…parameter…> … </…parameter…>, поэтому такие «смешанные» теги тоже
-// разбираются. Значения дедуплицируются: если модель повторила parameter
-// несколько раз, берём ПЕРВОЕ значение, а не последнее (повторы обычно
-// дублируют корректный параметр).
+// Extracts parameters from an <invoke> body. The opening and closing tags may
+// carry an arbitrary prefix (DSML, etc.), and some models confuse tag pairs
+// (<parameter …> … </|DSML| parameter>). The regex below matches any pair
+// <…parameter…> … </…parameter…>, so such "mixed" tags are parsed too.
+// Values are deduplicated: if the model repeated a parameter several times,
+// we take the FIRST value, not the last (repeats usually duplicate a correct
+// parameter).
 function parseParameters(body: string): ToolArgs {
   const args: ToolArgs = {}
   const paramRe = /<[^>]*?parameter([^>]*)>([\s\S]*?)<\/[^>]*?parameter[^>]*>/gi
@@ -61,8 +61,8 @@ export function parseXmlToolCalls(text: string): ParsedToolCall {
 
     const args = parseParameters(body)
 
-    // Некоторые модели кладут весь JSON-объект аргументов в один
-    // parameter с именем args. Разворачиваем, чтобы не было
+    // Some models put the whole JSON arguments object into a single
+    // parameter named args. We unwrap it so there's no
     // {args: {args: {...}}}.
     let finalArgs: ToolArgs = args
     const keys = Object.keys(args)
@@ -81,10 +81,10 @@ export function parseXmlToolCalls(text: string): ParsedToolCall {
 
   if (calls.length) return calls.length === 1 ? calls[0] : calls
 
-  // Модель иногда опускает тег <invoke> и оставляет только DSML-обёртку
-  // (<|DSML| calls> … <|DSML| parameter name=…>…). Имя инструмента в таком
-  // ответе отсутствует, поэтому восстановить вызов нельзя — но и молча
-  // принимать его за финальный ответ нельзя: agent-loop попросит повторить
-  // (looksLikeToolCall срабатывает по слову parameter/DSML).
+  // The model sometimes omits the <invoke> tag and leaves only the DSML
+  // wrapper (<|DSML| calls> … <|DSML| parameter name=…>…). There's no tool
+  // name in such an answer, so the call can't be restored — but it also must
+  // not be silently taken as the final answer: agent-loop will ask to retry
+  // (looksLikeToolCall triggers on the word parameter/DSML).
   return null
 }

@@ -8,10 +8,10 @@ import type { BrowserLike, ToolArgs, TranscriptLike } from './types.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-// Исходники для самообзора — это .ts файлы. После сборки (tsc → dist/)
-// __dirname указывает на dist, где лежат .js. Поэтому ищем каталог с
-// исходниками: либо рядом (запуск из src/ через tsx), либо в ../src
-// (запуск собранного dist/ из корня репозитория).
+// The sources for self-review are .ts files. After the build (tsc → dist/)
+// __dirname points to dist, where the .js files live. So we look for the
+// source directory: either nearby (running from src/ via tsx), or in ../src
+// (running the built dist/ from the repo root).
 function resolveSrcDir(): string {
 const candidates = [__dirname, path.join(__dirname, '..', 'src')]
 for (const dir of candidates) {
@@ -26,9 +26,9 @@ return __dirname
 const SRC_DIR = resolveSrcDir()
 const SNAP_ROOT = path.join(ZAMES_HOME, 'snapshots')
 
-// Динамический импорт логики с timestamp — чтобы при /reload (или авто-reload)
-// self-review использовал СВЕЖИЕ tools/agent-loop, а не закэшированные при
-// первой загрузке. Иначе reload не доходил бы до зависимостей self-review.
+// Dynamic import of the logic with a timestamp — so that on /reload (or
+// auto-reload) self-review uses FRESH tools/agent-loop, not the ones cached on
+// first load. Otherwise reload wouldn't reach self-review's dependencies.
 async function loadFresh() {
   const stamp = Date.now()
   const toolsUrl = new URL('./tools.js', import.meta.url)
@@ -81,7 +81,7 @@ export async function selfReview({ browser, focus, transcript }: { browser: Brow
     throw new Error('SRC_DIR пуст — нечего ревьюить')
   }
 
-  // Копируем package.json для контекста — чтобы агент видел зависимости
+  // Copy package.json for context — so the agent sees the dependencies
   try {
     const pkg = await fs.readFile(
       path.resolve(SRC_DIR, '..', 'package.json'),
@@ -126,11 +126,11 @@ export async function selfReview({ browser, focus, transcript }: { browser: Brow
     },
   })
 
-  // Сохраняем отчёт
+  // Save the report
   const reportPath = path.join(snapDir, '_report.md')
   await fs.writeFile(reportPath, finalMessage || '(пусто)', 'utf-8')
 
-  // Считаем, что изменилось
+  // Compute what changed
   const changed = await diffFiles(SRC_DIR, snapDir)
 
   console.log(theme.system('─'.repeat(60)))
@@ -200,7 +200,7 @@ export async function selfApply({ name }: { name: string; config?: unknown }): P
   const snapStat = await fs.stat(snapDir).catch(() => null)
   if (!snapStat) throw new Error(`Снапшот не найден: ${snapDir}`)
 
-  // Бэкап текущего src перед перезаписью
+  // Back up the current src before overwriting
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
   const backupDir = path.join(
     SNAP_ROOT,
@@ -320,16 +320,16 @@ ${focusLine}
 
 When done, respond with a markdown report as the message:
 
-## Найдено
+## Found
 - (bullet list of issues you found, with file:line if possible)
 
-## Исправлено
-- (bullet list: file — что именно изменил)
+## Fixed
+- (bullet list: file — what exactly you changed)
 
-## Не исправлено (осознанно)
+## Not fixed (deliberately)
 - (bullet list: what you left alone and why)
 
-## Проверка
+## Verification
 - (bullet list: what you verified, e.g. \`node --check\` results)
 
 Be honest and specific. If the code is fine in some area, say so.`

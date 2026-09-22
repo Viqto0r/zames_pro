@@ -1,13 +1,13 @@
-// Интерактивное меню настроек для команды /config.
+// Interactive settings menu for the /config command.
 //
-// Меню рисует список параметров, сгруппированных по секциям, и позволяет
-// менять их стрелками: boolean/enum переключаются на месте, number/string
-// запрашивают ввод. Все строки берутся из i18n (cfg.*), поэтому меню
-// полностью локализовано.
+// The menu renders a list of parameters grouped by sections and lets you
+// change them with the arrow keys: boolean/enum toggle in place, number/string
+// prompt for input. All strings come from i18n (cfg.*), so the menu is
+// fully localized.
 //
-// Модуль не знает про config.ts напрямую (кроме типов схемы): чтение и
-// запись значений делает вызывающий через колбэки. Так меню легко тестировать
-// и переиспользовать.
+// The module doesn't know about config.ts directly (except for the schema
+// types): the caller reads and writes values through callbacks. This makes the
+// menu easy to test and reuse.
 
 import { theme } from './theme.js'
 import type { TranslateFn } from './i18n.js'
@@ -16,20 +16,20 @@ import type { ConfigField } from './config.js'
 export interface ConfigMenuOptions {
   fields: ConfigField[]
   t: TranslateFn
-  /** Текущее значение поля (может быть undefined = дефолт). */
+  /** Current field value (may be undefined = default). */
   get: (path: string) => unknown
-  /** Сохранить новое значение. Бросает при ошибке валидации. */
+  /** Save a new value. Throws on a validation error. */
   set: (field: ConfigField, raw: string) => void
-  /** Сбросить к дефолту. */
+  /** Reset to the default. */
   reset: (field: ConfigField) => void
-  /** Ввод/вывод; по умолчанию process.stdin/stdout. */
+  /** Input/output; defaults to process.stdin/stdout. */
   input?: NodeJS.ReadStream
   output?: NodeJS.WriteStream
 }
 
 const ESC = String.fromCharCode(27)
 
-// Убираем ANSI-последовательности, чтобы посчитать видимую длину строки.
+// Strip ANSI sequences to compute the visible length of a line.
 function stripAnsi(s: string): string {
   return s.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
 }
@@ -49,9 +49,9 @@ function groupLabel(field: ConfigField, t: TranslateFn): string {
 }
 
 /**
- * Показать интерактивное меню. Возвращает промис, который резолвится, когда
- * пользователь вышел (q/Esc/Ctrl+C). В не-TTY бросает ошибку — вызывающий
- * должен показать текстовый список.
+ * Show the interactive menu. Returns a promise that resolves when the
+ * user exits (q/Esc/Ctrl+C). In a non-TTY it throws — the caller
+ * must show a text list.
  */
 export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
   const input = opts.input || process.stdin
@@ -72,10 +72,10 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
   const wasRaw = input.isRaw
   input.setRawMode(true)
   input.resume()
-  output.write(ESC + '[?25l') // прячем курсор на время отрисовки
+  output.write(ESC + '[?25l') // hide the cursor while rendering
 
-  // Отрисовка меню: строки идут сверху вниз, курсор возвращаем в начало
-  // блока через относительные перемещения, чтобы не плодить пустые строки.
+  // Menu rendering: lines go top to bottom, and we return the cursor to the
+  // start of the block via relative moves so we don't spawn blank lines.
   let lastRows = 0
   const render = (): void => {
     const lines: string[] = []
@@ -108,9 +108,9 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
       lines.push(theme.dim(t('cfg.menu.hint')))
     }
 
-    // Стираем прошлый блок и печатаем новый. Считаем ВИЗУАЛЬНЫЕ строки
-    // (с учётом переноса по ширине терминала), иначе на узких терминалах
-    // остаётся «мусор» из нестёртых хвостов.
+    // Erase the previous block and print the new one. We count VISUAL lines
+    // (accounting for wrapping by terminal width), otherwise on narrow
+    // terminals you get "garbage" from unerased tails.
     const cols = output.columns || 80
     const rowsOf = (s: string): number => {
       const len = stripAnsi(s).length
@@ -132,7 +132,7 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
     exited = true
     input.removeListener('data', onData)
     if (input.setRawMode) input.setRawMode(wasRaw || false)
-    output.write(ESC + '[?25h') // возвращаем курсор
+    output.write(ESC + '[?25h') // restore the cursor
     if (resolveDone) resolveDone()
   }
 
@@ -172,7 +172,7 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
       message = null
       return
     }
-    // number/string — запрашиваем ввод.
+    // number/string — prompt for input.
     editing = true
     editBuf = get(f.path) === undefined ? '' : String(get(f.path))
   }
@@ -180,8 +180,8 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
   const onData = (buf: Buffer): void => {
     const s = buf.toString('utf-8')
     if (editing) {
-      // Обрабатываем ввод посимвольно: терминал может прислать несколько
-      // байт сразу (вставка, авто-повтор), Enter — 0x0d/0x0a, backspace — 0x7f.
+      // Process input character by character: the terminal may send several
+      // bytes at once (paste, auto-repeat), Enter is 0x0d/0x0a, backspace is 0x7f.
       for (const ch of s) {
         if (ch === '\r' || ch === '\n') {
           commitEdit()
@@ -207,9 +207,9 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
       return
     }
 
-    // Терминал может прислать несколько клавиш одним пакетом (быстрый набор,
-    // авто-повтор, автоматизация). Разбираем буфер по токенам: сначала
-    // escape-последовательности (стрелки), затем одиночные символы.
+    // The terminal may send several keys in one packet (fast typing,
+    // auto-repeat, automation). We parse the buffer into tokens: first
+    // escape sequences (arrows), then single characters.
     let i = 0
     while (i < s.length) {
       if (s.startsWith('\x1b[A', i)) {

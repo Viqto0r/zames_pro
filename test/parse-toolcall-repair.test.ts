@@ -2,10 +2,10 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { parseToolCall } from '../src/agent-loop.ts'
 
-// Регрессия: DeepSeek иногда «ломает голову» вызова — теряет открывающую
-// `{` и первую кавычку ключа, добавляет мусорный префикс (`<｜`, `**`, `- `).
-// Раньше такой ответ не распознавался, агент молча вставал после вызова
-// инструмента (assistant_final вместо tool_call).
+// Regression: DeepSeek sometimes "breaks the head" of a call — it loses the
+// opening `{` and the first quote of the key, adds a junk prefix (`<｜`, `**`, `- `).
+// Previously such an answer was not recognized, and the agent silently stalled
+// after a tool call (assistant_final instead of tool_call).
 
 test('восстанавливает <｜tool": ... без открывающей скобки', () => {
   const p = parseToolCall(
@@ -25,7 +25,7 @@ test('восстанавливает tool": ... (потеряна открыва
   assert.deepEqual(call.args, { path: 'a.txt' })
 })
 
-test('восстанавливает **tool**: ... (markdown-обёртка)', () => {
+test('repairs **tool**: ... (markdown wrapper)', () => {
   const p = parseToolCall('**tool**: "Bash", "args": {"command": "ls"}')
   assert.ok(p)
   const call = Array.isArray(p) ? p[0] : p

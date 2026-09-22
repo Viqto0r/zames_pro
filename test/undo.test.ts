@@ -29,7 +29,7 @@ test('backup + undoLast восстанавливает исходное соде
 })
 
 test('undoLast удаляет файл, которого не было при backup', async () => {
-  const f = await tmpFile() // не существует
+  const f = await tmpFile() // does not exist
   const undo = new UndoStore()
   await undo.backup(f)
   await fs.writeFile(f, 'created later', 'utf-8')

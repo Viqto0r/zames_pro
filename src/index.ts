@@ -88,12 +88,12 @@ function getPositional(): string[] {
 
 const config = loadConfig()
 
-// Текущий язык интерфейса/агента. Меняется командой /config lang <ru|en>.
+// Current interface/agent language. Changed by the /config lang <ru|en> command.
 let currentLocale: Locale = isLocale(config.ui?.locale)
   ? config.ui.locale
   : 'ru'
-// Перевод: читает currentLocale в момент вызова, поэтому смена языка
-// действует сразу, без перезапуска (для уже напечатанных строк).
+// Translation: reads currentLocale at call time, so a language change takes
+// effect immediately, without a restart (for lines printed afterwards).
 const t = (key: string, params?: Record<string, string | number>): string =>
   translate(currentLocale)(key, params)
 
@@ -107,22 +107,22 @@ const maxIter =
 const positional = getPositional()
 const task = getArg('--task', positional.join(' ').trim() || null)
 const chatIdArg = getArg('--chat', null)
-// При возобновлении существующего чата system-prompt по умолчанию НЕ
-// переотправляется (он уже есть в начале чата). Флаг --resend-prompt
-// заставляет дослать его заново — например, если промпт обновился.
+// When resuming an existing chat, the system-prompt is by default NOT
+// resent (it is already at the start of the chat). The --resend-prompt flag
+// forces resending it — for example, if the prompt was updated.
 const resendPrompt = hasFlag('--resend-prompt')
-// По умолчанию при старте начинается НОВЫЙ чат (контекст не тянется).
-// --resume-last: вернуться в последнюю сессию для рабочей директории.
-// --new-chat: оставлен для совместимости — это и так поведение по умолчанию.
+// By default a NEW chat is started on launch (context is not carried over).
+// --resume-last: return to the last session for the working directory.
+// --new-chat: kept for compatibility — this is the default behavior anyway.
 const newChatFlag = hasFlag('--new-chat')
 const resumeLastFlag = hasFlag('--resume-last')
 
 // ---------- session persistence ----------
-// Сессии (чаты DeepSeek) храним в ~/.zames/.sessions, чтобы они переживали
-// перезапуск и были доступны для явного восстановления (--resume-last,
-// --chat <id>, /resume <n>). Автоматически при старте они НЕ поднимаются.
-// Раньше здесь был один файл last-chat.json, который терялся при смене
-// проекта и не давал списка сессий для восстановления.
+// We store sessions (DeepSeek chats) in ~/.zames/.sessions so they survive
+// a restart and are available for explicit restore (--resume-last,
+// --chat <id>, /resume <n>). They are NOT brought up automatically on launch.
+// Previously there was a single last-chat.json file that got lost when the
+// project changed and gave no list of sessions to restore.
 function saveLastChat(id: string | null, workdir = '', title = ''): void {
   if (!id) return
   saveSession({ id, workdir, title })
@@ -134,13 +134,13 @@ function loadLastChat(workdir = ''): string | null {
 }
 
 // ---------- hot reload ----------
-// Держим ссылки на модули логики в объекте mod. Команда /reload перечитывает
-// их через динамический import с timestamp-query — Node кэширует ESM по URL,
-// поэтому такой import вернёт свежую версию модуля. Браузер, чат и текущее
-// состояние НЕ перезапускаются: обновляется только логика.
-// В dev-режиме tsx грузит .ts-исходники из src/, а в собранном dist — .js.
-// Динамический import с query ?t= идёт мимо переписывания расширений tsx,
-// поэтому расширение подбираем сами — по фактическому файлу текущего модуля.
+// We keep references to the logic modules in the mod object. The /reload
+// command re-reads them via a dynamic import with a timestamp query — Node
+// caches ESM by URL, so such an import returns a fresh version of the module.
+// The browser, chat and current state are NOT restarted: only the logic is updated.
+// In dev mode tsx loads the .ts sources from src/, and in the built dist — .js.
+// A dynamic import with the ?t= query bypasses tsx's extension rewriting,
+// so we pick the extension ourselves — from the actual file of the current module.
 const SRC_EXT = /[.]ts$/.test(new URL(import.meta.url).pathname) ? '.ts' : '.js'
 const RELOADABLE = [
   'tools',
@@ -230,15 +230,15 @@ async function reloadModules(): Promise<{ count: number; errors: string[] }> {
   return { count: loaded.size, errors }
 }
 
-// Первичная загрузка, чтобы mod.buildSystemPrompt и остальные были заполнены.
+// Initial load so that mod.buildSystemPrompt and the rest are populated.
 await reloadModules()
 
-// Dev-режим: авто-перечитывание модулей логики перед каждой задачей.
-// Включается флагом --dev (его ставит `npm run dev`) или config.hotReload === true.
-// В обычном режиме (npm start, глобальный zames) авто-reload выключен.
+// Dev mode: auto-reload of the logic modules before each task.
+// Enabled by the --dev flag (`npm run dev` sets it) or config.hotReload === true.
+// In normal mode (npm start, global zames) auto-reload is off.
 const devMode = hasFlag('--dev') || config.hotReload === true
 
-// Безопасный авто-reload: при ошибке загрузки оставляем прошлые рабочие модули.
+// Safe auto-reload: on a load error we keep the previous working modules.
 async function autoReload(): Promise<void> {
   if (!devMode) return
   const { errors } = await reloadModules()
@@ -322,8 +322,8 @@ function dirLabel(p: string): string {
   return path.basename(p) || p
 }
 
-// Список slash-команд для автодополнения при вводе «/» (Tab — дополнить).
-// Описание локализуется по ключу help.cmd.* в момент отображения — см.
+// List of slash commands for completion when you type «/» (Tab — complete).
+// The description is localized by the help.cmd.* key at display time — see
 // buildSlashCommands().
 const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
   { name: '/help', key: 'help.cmd.help' },
@@ -353,7 +353,7 @@ const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
   { name: '/quit', key: 'help.cmd.exit' },
 ]
 
-// Описания slash-команд на текущем языке (для подсказок LineEditor).
+// Slash-command descriptions in the current language (for LineEditor hints).
 function buildSlashCommands(): Array<{ name: string; description: string }> {
   return SLASH_COMMANDS.map((c) => ({
     name: c.name,
@@ -361,8 +361,8 @@ function buildSlashCommands(): Array<{ name: string; description: string }> {
   }))
 }
 
-// Временные файлы агента (одноразовые скрипты и т.п.) складываем в
-// <проект>/tmp — эта папка в .gitignore и очищается при каждом запуске.
+// We put the agent's temporary files (one-off scripts, etc.) in
+// <project>/tmp — this folder is in .gitignore and is cleaned on every launch.
 const TMP_DIR = path.join(__dirname, '..', 'tmp')
 
 async function cleanTmpDir(): Promise<void> {
@@ -374,24 +374,23 @@ async function cleanTmpDir(): Promise<void> {
   }
 }
 
-// Ввод строки в терминале с корректной обработкой вставки (Shift+Insert,
-// Ctrl+Shift+V, правая кнопка мыши и т.п.).
+// Terminal line input with correct paste handling (Shift+Insert,
+// Ctrl+Shift+V, right mouse button, etc.).
 //
-// Зачем свой ридер вместо readline:
-//   1) readline отправляет строку на ПЕРВОМ переводе строки. При вставке
-//      многострочного текста это приводило к немедленной отправке и к тому,
-//      что в чат уходила только первая строка. Здесь переводы строк внутри
-//      вставки заменяются на пробелы, а отправка происходит только по
-//      одиночному нажатию Enter.
-//   2) Включаем bracketed paste mode (\x1b[?2004h): терминал оборачивает
-//      вставленный текст в маркеры \x1b[200~ … \x1b[201~, поэтому мы точно
-//      знаем, что это вставка, а не набор с клавиатуры, и Enter внутри неё
-//      не считается отправкой.
+// Why a custom reader instead of readline:
+//   1) readline submits the line on the FIRST newline. When pasting
+//      multiline text this caused immediate submission and only the first
+//      line went to the chat. Here newlines inside a paste are replaced with
+//      spaces, and submission happens only on a single Enter press.
+//   2) We enable bracketed paste mode (\x1b[?2004h): the terminal wraps the
+//      pasted text in the markers \x1b[200~ … \x1b[201~, so we know for sure
+//      that this is a paste, not keyboard typing, and Enter inside it is not
+//      treated as submission.
 async function promptOnce(question: string): Promise<string> {
   const stdin = process.stdin
   const stdout = process.stdout
 
-  // Не-TTY (пайп, редирект): читаем всё до EOF одной строкой.
+  // Non-TTY (pipe, redirect): read everything up to EOF as a single string.
   if (!stdin.isTTY || !stdin.setRawMode) {
     const chunks: Buffer[] = []
     return await new Promise((resolve) => {
@@ -411,7 +410,7 @@ async function promptOnce(question: string): Promise<string> {
   stdin.setRawMode(true)
   stdin.resume()
 
-  // Bracketed paste включаем/выключаем парно.
+  // We enable/disable bracketed paste in pairs.
   stdout.write('\x1b[?2004h')
   stdout.write(question)
 
@@ -422,11 +421,11 @@ async function promptOnce(question: string): Promise<string> {
   const PASTE_END = '\x1b[201~'
 
   const redraw = () => {
-    // Возвращаемся в начало строки, стираем и печатаем заново.
+    // Return to the start of the line, erase and print again.
     stdout.write(String.fromCharCode(13))
     stdout.write('\x1b[K')
     stdout.write(question + line)
-    // Ставим курсор в нужную позицию.
+    // Put the cursor in the right position.
     const back = line.length - cursor
     if (back > 0) stdout.write('\x1b[' + back + 'D')
   }
@@ -441,9 +440,9 @@ async function promptOnce(question: string): Promise<string> {
     }
 
     const insertText = (text: string) => {
-      // Нормализуем переводы строк: они приходят от многострочной вставки,
-      // но означают «отправить». Внутри сообщения заменяем на пробел, чтобы
-      // вся вставка ушла ОДНИМ сообщением.
+      // Normalize newlines: they come from a multiline paste but mean
+      // "submit". Inside the message we replace them with a space so the
+      // whole paste goes as ONE message.
       const clean = text
         .replace(/\r\n/g, ' ')
         .replace(/\r/g, ' ')
@@ -455,11 +454,11 @@ async function promptOnce(question: string): Promise<string> {
     const onData = (buf: Buffer) => {
       let s = buf.toString('utf-8')
 
-      // Fallback для терминалов без bracketed paste: если весь чанк — это
-      // «голый» перевод строки (один байт), значит нажали Enter → отправляем.
-      // Если переводы строк пришли ВМЕСТЕ с другим текстом в одном чанке —
-      // это вставка; такие переводы строк не отправляют сообщение, а
-      // заменяются на пробелы (см. insertText).
+      // Fallback for terminals without bracketed paste: if the whole chunk is
+      // a "bare" newline (one byte), then Enter was pressed → submit.
+      // If newlines came TOGETHER with other text in one chunk — that's a
+      // paste; such newlines don't submit the message but are replaced with
+      // spaces (see insertText).
       if (!inPaste && (s === '\r' || s === '\n')) {
         return finish(line, true)
       }
@@ -481,14 +480,14 @@ async function promptOnce(question: string): Promise<string> {
 
         const start = s.indexOf(PASTE_START)
         if (start !== -1) {
-          // Всё до маркера обрабатываем как обычный ввод.
+          // Everything before the marker is processed as regular input.
           const before = s.slice(0, start)
           s = s.slice(start + PASTE_START.length)
           inPaste = true
           if (before) {
             for (const ch of before) {
               if (ch === '\r' || ch === '\n') {
-                /* внутри вставки — пропускаем */
+                /* inside a paste — skip */
               } else insertText(ch)
             }
             redraw()
@@ -501,22 +500,22 @@ async function promptOnce(question: string): Promise<string> {
         s = s.slice(1)
 
         if (ch === '\r' || ch === '\n') {
-          // Перевод строки внутри чанка с другим текстом (вставка без
-          // bracketed paste): не отправляем, а вставляем пробел.
+          // A newline inside a chunk with other text (paste without
+          // bracketed paste): don't submit, insert a space instead.
           insertText(' ')
           redraw()
           continue
         }
         if (code === 3) {
-          // Ctrl+C — прерываем ввод.
+          // Ctrl+C — abort input.
           return finish('', true)
         }
         if (code === 4) {
-          // Ctrl+D — как отправка пустой строки.
+          // Ctrl+D — like submitting an empty line.
           return finish(line, true)
         }
         if (code === 21) {
-          // Ctrl+U — стереть строку.
+          // Ctrl+U — erase the line.
           line = ''
           cursor = 0
           redraw()
@@ -532,7 +531,7 @@ async function promptOnce(question: string): Promise<string> {
           continue
         }
         if (ch === '\x1b') {
-          // Escape-последовательности (стрелки, Home/End, Delete…).
+          // Escape sequences (arrows, Home/End, Delete…).
           const rest = s
           if (rest.startsWith('[D')) {
             if (cursor > 0) cursor--
@@ -567,12 +566,12 @@ async function promptOnce(question: string): Promise<string> {
             s = s.slice(3)
             continue
           }
-          // Прочие ESC-последовательности пропускаем до буквы/тильды.
+          // Other ESC sequences are skipped up to a letter/tilde.
           const m = s.match(/^\[[0-9;]*[A-Za-z~]/)
           if (m) s = s.slice(m[0].length)
           continue
         }
-        if (code < 32) continue // прочие управляющие символы игнорируем
+        if (code < 32) continue // other control characters are ignored
 
         insertText(ch)
         redraw()
@@ -583,18 +582,18 @@ async function promptOnce(question: string): Promise<string> {
   })
 }
 
-// Слежение за клавиатурой во время работы агента.
+// Keyboard monitoring while the agent works.
 //
-// Терминал остаётся живым, пока агент думает:
-//   - Esc (или Ctrl+C) — прервать текущую генерацию (клик Stop в браузере);
-//   - набор текста + Enter — поставить сообщение в очередь; оно уйдёт
-//     агенту сразу после того, как текущая задача завершится
-//     (как «отправить во время генерации» в веб-версии DeepSeek).
+// The terminal stays live while the agent thinks:
+//   - Esc (or Ctrl+C) — abort the current generation (a Stop click in the browser);
+//   - typing + Enter — queue a message; it goes to the agent right after
+//     the current task finishes (like "send during generation" in the
+//     DeepSeek web version).
 //
-// Ввод буферизуется без построчного редактора: набранный текст отображается
-// в строке спиннера через onChange -> ui.setPending(). Enter отправляет буфер
-// в onQueue, пустой Enter игнорируется. Поддержаны Backspace, Ctrl+U, Esc-
-// последовательности (стрелки/Home/End/Delete игнорируются) и bracketed paste.
+// Input is buffered without a line editor: the typed text is shown in the
+// spinner line via onChange -> ui.setPending(). Enter sends the buffer to
+// onQueue, an empty Enter is ignored. Backspace, Ctrl+U, Esc sequences
+// (arrows/Home/End/Delete are ignored) and bracketed paste are supported.
 function watchInput({
   onEscape,
   onChange,
@@ -607,8 +606,8 @@ function watchInput({
   const stdin = process.stdin
   if (!stdin.isTTY || !stdin.setRawMode) return () => {}
 
-  // Управляющие символы собираем из кодов: в этом файле нельзя писать
-  // «сырые» ESC/CR/LF в строковых литералах (см. AGENTS.md).
+  // Control characters are assembled from codes: this file must not contain
+  // "raw" ESC/CR/LF in string literals (see AGENTS.md).
   const ESC = String.fromCharCode(27)
   const CSI = String.fromCharCode(91)
   const CR = String.fromCharCode(13)
@@ -629,8 +628,8 @@ function watchInput({
     if (onChange) onChange(buf)
   }
 
-  // Вставленный текст: переводы строк внутри многострочной вставки
-  // трактуем как пробелы — сообщение уходит одной строкой.
+  // Pasted text: newlines inside a multiline paste are treated as spaces —
+  // the message goes as a single line.
   const insert = (text: string) => {
     buf += text
       .split(CR + LF)
@@ -644,8 +643,8 @@ function watchInput({
   function onData(data: Buffer) {
     let s = data.toString('utf-8')
 
-    // Одиночный Esc — прервать генерацию. Стрелки приходят целым чанком
-    // и сюда не попадают.
+    // A single Esc — abort generation. Arrows come as a whole chunk and
+    // don't reach here.
     if (!inPaste && s === ESC) {
       if (onEscape) onEscape()
       return
@@ -690,12 +689,12 @@ function watchInput({
         continue
       }
       if (code === 3) {
-        // Ctrl+C — как Esc: прервать генерацию.
+        // Ctrl+C — like Esc: abort generation.
         if (onEscape) onEscape()
         continue
       }
       if (code === 21) {
-        // Ctrl+U — очистить набранное.
+        // Ctrl+U — clear what was typed.
         buf = ''
         emitChange()
         continue
@@ -709,12 +708,12 @@ function watchInput({
         continue
       }
       if (ch === ESC) {
-        // Escape-последовательность (стрелки, Home/End, Delete) — пропускаем.
+        // Escape sequence (arrows, Home/End, Delete) — skip.
         const m = s.match(CSI_RE)
         if (m) s = s.slice(m[0].length)
         continue
       }
-      if (code < 32) continue // прочие управляющие — игнорируем
+      if (code < 32) continue // other control characters — ignore
 
       buf += ch
       emitChange()
@@ -732,8 +731,8 @@ function watchInput({
 
 // ---------- workdir resolution ----------
 
-// Агент работает в директории, из которой его запустили (process.cwd()).
-// Это корень sandbox: инструменты не могут выходить выше него.
+// The agent works in the directory it was launched from (process.cwd()).
+// This is the sandbox root: tools cannot go above it.
 async function resolveWorkdir(): Promise<string> {
   const explicitDir = getArg('--dir', null)
   const dir = explicitDir ? path.resolve(explicitDir) : process.cwd()
@@ -762,10 +761,10 @@ async function runTask(
     onChatReady,
   } = opts
 
-  // В TTY-режиме UI — это LineEditor: он владеет вводом (очередь, Esc,
-  // Ctrl+C) и рисует статус НАД постоянной строкой ввода. В не-TTY режиме
-  // (пайпы) — обычный спиннер + watchInput.
-  // Новая задача с промпта — сбрасываем «стоп» от прошлого прерывания.
+  // In TTY mode the UI is a LineEditor: it owns the input (queue, Esc,
+  // Ctrl+C) and draws the status ABOVE the permanent input line. In non-TTY
+  // mode (pipes) — a regular spinner + watchInput.
+  // A new task from the prompt — we reset the "stop" from the previous abort.
   browser._stopped = false
   browser._abort = false
 
@@ -794,8 +793,8 @@ async function runTask(
   try {
     let next = { task: taskText, freshChat, sendSystemPrompt }
 
-    // Выполняем задачу, затем — всё, что пользователь успел напечатать за
-    // время работы. Очередь может пополняться прямо во время дренажа.
+    // Execute the task, then everything the user managed to type while it
+    // ran. The queue may be replenished right during draining.
     while (true) {
       ui.thinking()
       await mod.runAgentLoop({
@@ -817,8 +816,8 @@ async function runTask(
         locale: currentLocale,
       })
 
-      // Прервали (Esc/Ctrl+C) — не запускаем следующие задачи из очереди
-      // и очищаем её, чтобы «стоп» действительно останавливал всё.
+      // Aborted (Esc/Ctrl+C) — we don't start the next tasks from the queue
+      // and clear it, so "stop" really stops everything.
       if (browser._stopped) {
         queue.length = 0
         break
@@ -877,7 +876,7 @@ async function main(): Promise<void> {
   let sandboxRoot: string
   try {
     currentWorkdir = await resolveWorkdir()
-    // Корень sandbox: агент не может выходить выше директории запуска.
+    // Sandbox root: the agent cannot go above the launch directory.
     sandboxRoot = currentWorkdir
   } catch (e) {
     console.error(
@@ -926,15 +925,15 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
-  // Разовый режим
+  // One-shot mode
   if (task) {
     const tools = mod.createTools(currentWorkdir, { undo })
 
     let freshChat = true
     let sendSystemPrompt = true
 
-    // По умолчанию начинаем новый чат. Продолжить прошлую сессию —
-    // явно: --chat <id> или --resume-last.
+    // By default we start a new chat. To continue a previous session —
+    // explicitly: --chat <id> or --resume-last.
     let resumeId = chatIdArg
     if (!resumeId && resumeLastFlag && !newChatFlag) {
       const last = loadLastSession(currentWorkdir)
@@ -983,32 +982,33 @@ async function main(): Promise<void> {
   let currentChatId: string | null = null
   let running = true
 
-  // Сообщения, набранные пользователем, пока агент работал. runTask
-  // забирает их по одному после завершения текущей задачи.
+  // Messages the user typed while the agent worked. runTask takes them one
+  // by one after the current task finishes.
   const pendingQueue: string[] = []
 
   // ---------- review mode state ----------
-  // null — обычный режим.
-  // { snapDir, snapName, originalWorkdir } — мы внутри снапшота, чат уже
-  // инициализирован review-промптом, юзер может просто писать «исправь...».
+  // null — normal mode.
+  // { snapDir, snapName, originalWorkdir } — we're inside a snapshot, the chat
+  // is already initialized with the review prompt, the user can just type "fix...".
   let reviewMode: ReviewMode | null = null
 
   process.on('SIGINT', async () => {
     running = false
     await browser.close().catch(() => {})
-    // Закрываем ленивый headless-браузер из web.js, иначе он останется
-    // висеть отдельным процессом после выхода агента.
+    // Close the lazy headless browser from web.js, otherwise it would stay
+    // as a separate process after the agent exits.
     await mod.closeWeb().catch(() => {})
     transcript.close()
     console.log(theme.system(String.fromCharCode(10) + t('msg.bye')))
     process.exit(0)
   })
 
-  // По умолчанию при старте начинаем НОВЫЙ чат: контекст прошлой сессии
-  // не тянется автоматически. Продолжить прошлую сессию можно явно:
-  //   --chat <id>     открыть конкретный чат
-  //   --resume-last   вернуться в последний чат для этой рабочей директории
-  //   --new-chat      оставлен для совместимости (это и так поведение по умолчанию)
+  // By default we start a NEW chat on launch: the context of a previous
+  // session is not carried over automatically. To continue a previous
+  // session explicitly:
+  //   --chat <id>     open a specific chat
+  //   --resume-last   return to the last chat for this working directory
+  //   --new-chat      kept for compatibility (this is the default behavior)
   let resumeId = chatIdArg
   if (!resumeId && resumeLastFlag && !newChatFlag) {
     const last = loadLastSession(currentWorkdir)
@@ -1038,11 +1038,11 @@ async function main(): Promise<void> {
     }
   }
 
-  // ---------- ввод: постоянная строка внизу + статус сверху ----------
-  // В TTY используем LineEditor: он владеет вводом всё время, показывает
-  // статус над строкой ввода и печатает ответы агента ВЫШЕ неё, поэтому
-  // набранный текст никогда не затирается выводом. В не-TTY (пайп) —
-  // старый promptOnce.
+  // ---------- input: permanent line below + status above ----------
+  // In TTY we use LineEditor: it owns the input all the time, shows the
+  // status above the input line and prints the agent's answers ABOVE it, so
+  // the typed text is never overwritten by output. In non-TTY (pipe) —
+  // the old promptOnce.
   let editor: LineEditor | null = null
   let waiter: ((v: string | null) => void) | null = null
   const takeInput = (): Promise<string | null> => {
@@ -1089,7 +1089,7 @@ async function main(): Promise<void> {
         ed.printAbove(theme.warn(t('msg.abort_ctrlc_short')))
         browser.stopGeneration().catch(() => {})
       } else {
-        // Не заняты — выходим. Будим takeInput(), чтобы цикл завершился.
+        // Not busy — exit. We wake takeInput() so the loop finishes.
         running = false
         if (waiter) {
           const r = waiter
@@ -1100,9 +1100,9 @@ async function main(): Promise<void> {
     }
     ed.start()
 
-    // Весь вывод команд (console.log/error) должен идти ВЫШЕ строки ввода,
-    // иначе он затирает набираемый текст. Пока редактор активен, заворачиваем
-    // оба потока в ed.printAbove.
+    // All command output (console.log/error) must go ABOVE the input line,
+    // otherwise it overwrites the text being typed. While the editor is
+    // active, we wrap both streams in ed.printAbove.
     const origLog = console.log.bind(console)
     const origErr = console.error.bind(console)
     const fmt = (a: unknown): string =>
@@ -1117,22 +1117,22 @@ async function main(): Promise<void> {
           })()
     console.log = (...a) => ed.printAbove(a.map(fmt).join(' '))
     console.error = (...a) => ed.printAbove(a.map(fmt).join(' '))
-    // Сохраняем на случай отладки.
+    // Save for debugging.
     const edAny = ed as unknown as Record<string, unknown>
     edAny._origLog = origLog
     edAny._origErr = origErr
   }
 
   // ---------- /config ----------
-  // Просмотр и правка настроек без перезапуска. Значения валидируются по
-  // CONFIG_SCHEMA (src/config.ts) и пишутся в проектный .zamesrc.json.
-  // Язык (ui.locale) применяется сразу: меняем currentLocale, пересобираем
-  // подсказки редактора и обновляем config.ui.locale (его читает agent-loop
-  // при следующей задаче).
+  // View and edit settings without a restart. Values are validated against
+  // CONFIG_SCHEMA (src/config.ts) and written to the project .zamesrc.json.
+  // The language (ui.locale) is applied immediately: we change currentLocale,
+  // rebuild the editor hints and update config.ui.locale (agent-loop reads it
+  // on the next task).
   //
-  // Без аргументов в интерактивном терминале открывается меню (стрелки,
-  // Enter — изменить, d — сбросить, q — выйти). Есть и текстовые подкоманды
-  // (list/get/set/reset/lang/path) — для скриптов и не-TTY.
+  // With no arguments in an interactive terminal a menu opens (arrows,
+  // Enter — edit, d — reset, q — quit). There are also text subcommands
+  // (list/get/set/reset/lang/path) — for scripts and non-TTY.
   function setConfigRuntime(path: string, value: unknown): void {
     const segs = path.split('.')
     let obj: Record<string, unknown> = config as unknown as Record<string, unknown>
@@ -1158,7 +1158,7 @@ async function main(): Promise<void> {
 
   function configResetField(field: ConfigField): void {
     resetConfigValue('project', field.path)
-    // Возвращаем рантайм-значение к дефолту.
+    // Reset the runtime value to the default.
     const def = getByPath(DEFAULTS, field.path)
     setConfigRuntime(field.path, def)
   }
@@ -1203,9 +1203,9 @@ async function main(): Promise<void> {
       configShowList()
       return
     }
-    // Меню рисует напрямую в stdout и само читает клавиши. Чтобы его вывод
-    // не накладывался на постоянную строку ввода LineEditor, на время меню
-    // «ставим редактор на паузу», а после — возвращаем.
+    // The menu draws directly to stdout and reads keys itself. So that its
+    // output doesn't overlap the LineEditor's permanent input line, we "pause"
+    // the editor for the duration of the menu and restore it afterwards.
     if (editor) editor.pause()
     try {
       await runConfigMenu({
@@ -1226,7 +1226,7 @@ async function main(): Promise<void> {
     const parts = input.trim().split(/\s+/)
     const sub = (parts[1] || '').toLowerCase()
 
-    // Без подкоманды — меню (или текстовый список в не-TTY).
+    // With no subcommand — the menu (or a text list in non-TTY).
     if (!sub || sub === 'menu' || sub === 'ui') {
       await configOpenMenu()
       return
@@ -1249,7 +1249,7 @@ async function main(): Promise<void> {
       return
     }
 
-    // /config lang <ru|en> — быстрый доступ к ui.locale
+    // /config lang <ru|en> — quick access to ui.locale
     if (sub === 'lang' || sub === 'language' || sub === 'язык') {
       const val = parts[2]
       if (!val) {
@@ -1356,7 +1356,7 @@ async function main(): Promise<void> {
       return
     }
 
-    // Неизвестная подкоманда — показываем список.
+    // Unknown subcommand — show the list.
     console.error(theme.error(t('cfg.unknown_key', { v: sub })))
     configShowList()
   }
@@ -1414,12 +1414,12 @@ async function main(): Promise<void> {
       continue
     }
 
-    // ---------- Самообзор ----------
+    // ---------- Self-review ----------
 
     if (lower === '/self-review' || lower.startsWith('/self-review ')) {
       const focus = trimmed.slice('/self-review'.length).trim()
 
-      // Запоминаем, куда вернуться
+      // Remember where to return
       const originalWorkdir: string = reviewMode
         ? reviewMode.originalWorkdir
         : currentWorkdir
@@ -1432,10 +1432,10 @@ async function main(): Promise<void> {
           transcript,
         })
 
-        // Переходим в review-режим:
-        //  - рабочая директория = снапшот
-        //  - чат НЕ сбрасываем — внутри selfReview уже создан свежий чат
-        //    и отправлен review-промпт, продолжим в нём
+        // Switch to review mode:
+        //  - working directory = snapshot
+        //  - we do NOT reset the chat — inside selfReview a fresh chat was
+        //    already created and the review prompt sent, we continue in it
         reviewMode = {
           snapDir: result.snapDir,
           snapName: path.basename(result.snapDir),
@@ -1483,7 +1483,7 @@ async function main(): Promise<void> {
         ? reviewMode.originalWorkdir
         : currentWorkdir
 
-      // Свежий чат + review-промпт на этот снапшот
+      // Fresh chat + review prompt for this snapshot
       try {
         const { runAgentLoop: ral } = await import('./agent-loop.js')
         const tools = mod.createTools(snapRoot, { undo: null })
@@ -1553,7 +1553,7 @@ t('self.fix_hint', { name }),
       const back = reviewMode.originalWorkdir
       reviewMode = null
       currentWorkdir = back
-      // Раз чат занят review-контекстом, для обычной работы создадим новый
+      // Since the chat is busy with the review context, we'll create a new one for regular work
       freshChatNext = true
       sendSystemPromptNext = true
       console.log(
@@ -1601,7 +1601,7 @@ t('self.done_hint', { v: back }),
       continue
     }
 
-    // ---------- Обычные команды ----------
+    // ---------- Regular commands ----------
 
     if (lower === '/chats') {
       const spin = editor || mod.createSpinner(currentLocale)
@@ -1960,9 +1960,9 @@ t('self.done_hint', { v: back }),
       continue
     }
 
-    // ---- Обычная задача (в том числе в review-режиме) ----
+    // ---- Regular task (including in review mode) ----
 
-    // Dev-режим: подхватываем свежие модули логики перед задачей.
+    // Dev mode: pick up fresh logic modules before the task.
     await autoReload()
 
     transcript.log('user_task', { task: trimmed, workdir: currentWorkdir })
@@ -1977,9 +1977,9 @@ t('self.done_hint', { v: back }),
         queue: pendingQueue,
         ui: editor || null,
         onChatReady: (chatId) => {
-          // Сохраняем сессию сразу при начале диалога, не дожидаясь конца
-          // задачи. Иначе при долгой/прерванной задаче чат не попадал в
-          // ~/.zames/.sessions и терялся после перезапуска.
+          // Save the session right at the start of the dialog, without waiting
+          // for the task to finish. Otherwise a long/aborted task would not
+          // get the chat into ~/.zames/.sessions and it would be lost after a restart.
           if (chatId) {
             currentChatId = chatId
             saveLastChat(chatId, currentWorkdir)

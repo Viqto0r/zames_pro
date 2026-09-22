@@ -50,8 +50,8 @@ test('обрезанный JSON-вызов не завершает задачу 
 })
 
 test('вызов инструмента в одинарных кавычках выполняется, а не принимается за финал', async () => {
-  // Ровно тот случай, из-за которого агент вставал: модель отдала
-  // {'tool': 'Read', ...} (одинарные кавычки) — не валидный JSON.
+  // Exactly the case that made the agent stall: the model returned
+  // {'tool': 'Read', ...} (single quotes) — not valid JSON.
   const SQ = String.fromCharCode(39)
   const pseudo =
     '{' + SQ + 'tool' + SQ + ': ' + SQ + 'Read' + SQ + ', ' +
@@ -142,9 +142,9 @@ test('обычный финальный текст (без обещания) з�
 })
 
 test('длинный ответ со словами про rate limit не считается служебным', async () => {
-  // В транскрипте был ответ на 1365 символов, где агент цитирует код
-  // ask() и слова «слишком часто». Он ошибочно принимался за служебный
-  // и вызывал лишний переспрос.
+  // The transcript had a 1365-char answer where the agent quotes the ask()
+  // code and the words "too frequent". It was mistakenly taken as a service
+  // answer and caused an extra re-ask.
   const long =
     'Да, именно так сейчас и сделано — повтор идёт в тот же чат.' +
     String.fromCharCode(10, 10) +
@@ -178,8 +178,8 @@ test('короткое уведомление о лимите по-прежне�
 })
 
 test('подозрительный финал (похож на вызов) вызывает onWarning оператору', async () => {
-  // Агент 3 раза отдаёт «поломанный» вызов, потом всё равно финал.
-  // Каждый раз guard просит переотправить; после исчерпания — onWarning.
+  // The agent returns a "broken" call 3 times, then a final answer anyway.
+  // Each time the guard asks to resend; after exhausting attempts — onWarning.
   const broken = '{"tool": "Bash", "args": {"command": "ls'
   const { browser } = makeBrowser([broken, broken, broken, broken])
   const warnings: string[] = []

@@ -4,9 +4,9 @@ import type { ToolArgs, ToolDef } from './types.js'
 const DEFAULT_TIMEOUT = 20_000
 const MAX_TEXT = 12_000
 
-// Убирает скрипты, стили, и превращает HTML в читабельный текст.
+// Removes scripts, styles, and turns HTML into readable text.
 function htmlToText(html: string): string {
-  // Удаляем блоки, которые не нужны
+  // Remove blocks we don't need
   let s = html
     .replace(/<script[\s\S]*?<\/script>/gi, '')
     .replace(/<style[\s\S]*?<\/style>/gi, '')
@@ -14,7 +14,7 @@ function htmlToText(html: string): string {
     .replace(/<svg[\s\S]*?<\/svg>/gi, '')
     .replace(/<!--[\s\S]*?-->/g, '')
 
-  // Ссылки: <a href="URL">text</a> → text (URL)
+  // Links: <a href="URL">text</a> → text (URL)
   s = s.replace(
     /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
     (_, href, text) => {
@@ -23,14 +23,14 @@ function htmlToText(html: string): string {
     },
   )
 
-  // Заголовки, параграфы, BR → переводы строк
+  // Headings, paragraphs, BR → newlines
   s = s
     .replace(/<\/(h[1-6]|p|div|li|tr|section|article)>/gi, '\n')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<li[^>]*>/gi, '- ')
     .replace(/<[^>]+>/g, '')
 
-  // HTML entities — базовые
+  // HTML entities — the basic ones
   s = s
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
@@ -46,7 +46,7 @@ function htmlToText(html: string): string {
       String.fromCodePoint(parseInt(n, 16)),
     )
 
-  // Сжимаем пустые строки
+  // Collapse blank lines
   s = s
     .split('\n')
     .map((l) => l.replace(/[ \t]+/g, ' ').trim())
@@ -56,7 +56,7 @@ function htmlToText(html: string): string {
   return s
 }
 
-// fetch с редиректами и таймаутом
+// fetch with redirects and a timeout
 async function httpFetch(
   url: string,
   { timeout = DEFAULT_TIMEOUT, headers = {} }: { timeout?: number; headers?: Record<string, string> } = {},
@@ -82,8 +82,8 @@ async function httpFetch(
   }
 }
 
-// Отдельный headless-браузер для JS-страниц.
-// Ленивая инициализация, чтобы не тратить ресурсы впустую.
+// A separate headless browser for JS pages.
+// Lazy initialization so we don't waste resources.
 let _headless: Awaited<ReturnType<typeof chromium.launch>> | null = null
 async function getHeadless() {
   if (_headless) return _headless
@@ -118,7 +118,7 @@ async function renderWithHeadless(
       waitUntil: 'domcontentloaded',
       timeout,
     })
-    // Дать JS немного времени дорисовать
+    // Give JS a little time to finish rendering
     await page.waitForTimeout(1500)
     const html = await page.content()
     const status = resp ? resp.status() : 0
@@ -129,7 +129,7 @@ async function renderWithHeadless(
   }
 }
 
-// ---------- инструменты ----------
+// ---------- tools ----------
 
 export function createWebTools(): ToolDef[] {
   return [
@@ -160,7 +160,7 @@ export function createWebTools(): ToolDef[] {
 
           const r = await httpFetch(String(url))
 
-          // Если это JSON/plain text — вернуть как есть
+          // If it's JSON/plain text — return as is
           if (
             /application\/json|text\/plain|text\/markdown/i.test(r.contentType)
           ) {
@@ -168,10 +168,10 @@ export function createWebTools(): ToolDef[] {
             return `HTTP ${r.status}  ${r.url}\nContent-Type: ${r.contentType}\n\n${trimmed}`
           }
 
-          // HTML — почистить
+          // HTML — clean it up
           const text = htmlToText(r.body)
 
-          // Если текста почти нет — вероятно JS-страница, дать намёк
+          // If there's almost no text — probably a JS page, give a hint
           if (text.length < 200) {
             return (
               `HTTP ${r.status}  ${r.url}\n` +
@@ -219,7 +219,7 @@ export function createWebTools(): ToolDef[] {
             return `DuckDuckGo вернул HTTP ${r.status}`
           }
 
-          // Парсим простыми регексами. Формат html.duckduckgo.com стабильный.
+          // We parse with simple regexes. The html.duckduckgo.com format is stable.
           const results = []
           const re =
             /<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?(?:<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>)?/gi
@@ -227,7 +227,7 @@ export function createWebTools(): ToolDef[] {
           let m
           while ((m = re.exec(r.body)) && results.length < limit) {
             let href = m[1]
-            // DuckDuckGo заворачивает ссылки в редирект вида /l/?uddg=...
+            // DuckDuckGo wraps links in a redirect like /l/?uddg=...
             const uddgMatch = href.match(/[?&]uddg=([^&]+)/)
             if (uddgMatch) href = decodeURIComponent(uddgMatch[1])
 

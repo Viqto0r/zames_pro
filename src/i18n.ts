@@ -1,12 +1,12 @@
 // Localization (i18n).
 //
-// Задачи:
-//   * менять язык интерфейса (справка, служебные сообщения);
-//   * язык ответов агента — через system-prompt;
-//   * язык ответов агента на обычный язык.
+// Goals:
+//   * change the interface language (help, service messages);
+//   * the agent's answer language — via the system-prompt;
+//   * the agent's answer language for a plain language.
 //
-// Стратегия: единая карта переводов по ключам. Новые ключи легко добавить.
-// Тексты на русском (ru) — дефолт, английский (en) — альтернатива.
+// Strategy: a single key->translation map. New keys are easy to add.
+// Russian texts (ru) are the default, English (en) is the alternative.
 
 export type Locale = 'ru' | 'en'
 
@@ -37,7 +37,7 @@ export function normalizeLocale(v: unknown): Locale {
 
 export type TranslateParams = Record<string, string | number>
 
-// Каталог строк. Ключ -> { ru, en }. Если ключа нет — вернём сам ключ.
+// String catalog. Key -> { ru, en }. If a key is missing — we return the key itself.
 const CATALOG: Record<string, { ru: string; en: string }> = {
   'app.tagline': {
     ru: 'агент поверх chat.deepseek.com через Playwright',

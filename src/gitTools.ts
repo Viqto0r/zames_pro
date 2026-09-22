@@ -46,8 +46,8 @@ export function runGit(
   })
 }
 
-// Безопасно квотит пути/аргументы для передачи в shell.
-// Строка или массив -> строка с двойными кавычками и экранированием.
+// Safely quotes paths/arguments for passing to the shell.
+// String or array -> a string with double quotes and escaping.
 function quoteArgs(input: string | string[]): string {
   const list = Array.isArray(input) ? input : [input]
   return list
@@ -57,7 +57,7 @@ function quoteArgs(input: string | string[]): string {
     .join(' ')
 }
 
-// Проверяет, является ли директория git-репозиторием, и собирает контекст.
+// Checks whether the directory is a git repository and gathers the context.
 export async function getGitContext(workdir: string): Promise<GitContext | null> {
   const probe = await runGit(
     'git rev-parse --is-inside-work-tree',
@@ -216,7 +216,7 @@ export function createGitTools(workdir: string): ToolDef[] {
           return 'Ошибка: message пустой.'
         }
 
-        // Индексируем всё только если в индексе пусто (как обещает описание).
+        // We stage everything only if the index is empty (as the description promises).
         const staged = await runGit(
           'git diff --cached --name-only',
           workdir,

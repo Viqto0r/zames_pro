@@ -1,354 +1,362 @@
-# AGENTS.md — внутреннее устройство zames
+# AGENTS.md — internal structure of zames
 
-Этот файл для тех, кто работает над самим агентом (в т.ч. сам агент во время
-self-review). README.md — для пользователей.
+This file is for those who work on the agent itself (including the agent
+during self-review). README.md is for users.
 
-## Что это
+## What it is
 
-zames — терминальный кодинг-агент. Он не использует API модели напрямую, а
-управляет браузером (Playwright) и общается с [chat.deepseek.com](https://chat.deepseek.com/) как обычный
-пользователь: печатает промпт в поле ввода, читает ответ со страницы.
+zames is a terminal coding agent. It does not use the model API directly; it
+drives a browser (Playwright) and talks to [chat.deepseek.com](https://chat.deepseek.com/) like a regular
+user: it types the prompt into the input field and reads the answer from the page.
 
-Запускается в директории проекта (`process.cwd()`), которая является
-sandbox-корнем: инструменты не могут читать/писать выше неё.
+It runs in the project directory (`process.cwd()`), which is the sandbox
+root: tools cannot read/write above it.
 
-## Поток выполнения
+## Execution flow
 
-1. `src/index.ts` — CLI, парсинг аргументов, главный цикл ввода, команды `/...`.
-2. `src/agent-loop.ts` — цикл агента: отправляет задачу, парсит ответ модели,
-   ищет tool-call, выполняет инструмент, возвращает результат модели. До
-   `maxIterations` итераций (по умолчанию 40).
-3. `src/browser.ts` — вся работа с Playwright: поиск поля ввода, вставка текста
-   (paste-событие для contenteditable), ожидание ответа, чтение ответа,
-   Stop/Esc, определение текущего chat id, список чатов.
-4. `src/system-prompt.ts` — формирует system-prompt (описание инструментов,
-   рабочая директория, git-контекст).
-5. `src/tools.ts`, `src/gitTools.ts`, `src/web.ts` — реализация инструментов.
+1. `src/index.ts` — CLI, argument parsing, the main input loop, `/...` commands.
+2. `src/agent-loop.ts` — the agent loop: sends the task, parses the model's
+   answer, looks for a tool-call, runs the tool, returns the result to the
+   model. Up to `maxIterations` iterations (40 by default).
+3. `src/browser.ts` — all Playwright work: finding the input field, inserting
+   text (a paste event for contenteditable), waiting for the answer, reading
+   the answer, Stop/Esc, determining the current chat id, listing chats.
+4. `src/system-prompt.ts` — builds the system-prompt (tool descriptions,
+   working directory, git context).
+5. `src/tools.ts`, `src/gitTools.ts`, `src/web.ts` — tool implementations.
 
-## Инструменты (tools)
+## Tools
 
-Файловые (src/tools.ts): Read, Write, Edit, Bash, Glob, Grep.
+File tools (src/tools.ts): Read, Write, Edit, Bash, Glob, Grep.
 Git (src/gitTools.ts): GitStatus, GitDiff, GitLog, GitAdd, GitCommit, GitPush.
 Web (src/web.ts): WebFetch, WebSearch.
-Служебный: respond (финальный ответ пользователю, завершает задачу).
+Service: respond (final answer to the user, finishes the task).
 
-Список инструментов собирается в `createTools()` (src/tools.ts) и передаётся
-в system-prompt. Чтобы добавить инструмент — опиши его в соответствующем
-модуле и добавь в общий список.
+The tool list is assembled in `createTools()` (src/tools.ts) and passed into
+the system-prompt. To add a tool — describe it in the relevant module and add
+it to the shared list.
 
-## Формат tool-call
+## tool-call format
 
-ВАЖНО: ответ модели читается НЕ из DOM, а перехватом сети
-(`src/net-capture.ts`, `browser._installNetHook`). DeepSeek рендерит ответ
-(markdown+LaTeX) и искажает аргументы: символ доллара в формулах теряется,
-экранированные переводы строк становятся реальными, имена авто-линкуются.
-Перехват отдаёт сырой текст из SSE/JSON. Ответы пишутся в ~/.zames/net-log.
-Дополнительно перехват даёт chat id раньше, чем он появляется в URL
-(browser._netChatId используется в getCurrentChatId как fallback).
-Подробности — в комментариях src/net-capture.ts и src/browser.ts.
+IMPORTANT: the model's answer is read NOT from the DOM but by intercepting the
+network (`src/net-capture.ts`, `browser._installNetHook`). DeepSeek renders the
+answer (markdown+LaTeX) and distorts the arguments: the dollar sign in formulas
+is lost, escaped newlines become real, names are auto-linked. The interception
+returns the raw text from SSE/JSON. Answers are written to ~/.zames/net-log.
+Additionally the interception yields the chat id earlier than it appears in the
+URL (browser._netChatId is used in getCurrentChatId as a fallback).
+Details — in the comments of src/net-capture.ts and src/browser.ts.
 
-Write/Edit принимают base64-варианты аргументов (content_base64,
-old_base64/new_base64) — это обход искажений канала: base64 состоит только
-из [A-Za-z0-9+/=] и не портится. system-prompt советует модели использовать
-их для текста со спецсимволами.
+Write/Edit accept base64 variants of the arguments (content_base64,
+old_base64/new_base64) — this works around channel distortions: base64 consists
+only of [A-Za-z0-9+/=] and is not corrupted. The system-prompt advises the model
+to use them for text with special characters.
 
-Модель возвращает вызов инструмента текстом. `agent-loop.ts` парсит его
-(есть строгий и нестрогий/permissive парсер). Формат описан в system-prompt.
-Если добавляешь инструмент — синхронизируй описание в system-prompt.
+The model returns a tool call as text. `agent-loop.ts` parses it (there is a
+strict and a permissive parser). The format is described in the system-prompt.
+If you add a tool — sync its description in the system-prompt.
 
-Парсер в `parseToolCall()` пробует по очереди: JSON-объект/массив (в т.ч.
-в ```-блоке и с «починенными» бэкслешами), permissive-разбор грязного JSON,
-хвост после прозы и, в самом конце, XML/DSML-блок (`src/xml-toolcall.ts`).
-Последний нужен потому, что модель иногда отвечает не JSON-ом, а
-`<invoke name="Tool"><parameter name="x">…</parameter></invoke>` (тег может
-нести произвольный префикс) или DSML-блоком
-`<｜｜DSML｜｜invoke name="Read">…`. Без этого разбора такой ответ не считается
-tool-call, и агент молча завершает задачу — «вызвал инструмент и остановился».
-Если правишь формат ответа — обнови и `src/xml-toolcall.ts`.
+The parser in `parseToolCall()` tries in order: a JSON object/array (including
+in a ``` block and with "repaired" backslashes), permissive parsing of dirty
+JSON, a tail after prose and, at the very end, an XML/DSML block
+(`src/xml-toolcall.ts`). The latter is needed because the model sometimes
+answers not with JSON but with
+`<invoke name="Tool"><parameter name="x">…</parameter></invoke>` (the tag may
+carry an arbitrary prefix) or a DSML block
+`<｜｜DSML｜｜invoke name="Read">…`. Without this parsing such an answer is not
+considered a tool-call, and the agent silently finishes the task — "called a
+tool and stopped". If you change the answer format — update `src/xml-toolcall.ts` too.
 
-Дополнительные страховки от «остановок» (проверены на реальных транскриптах):
-- `repairRawControlChars()` экранирует сырые переводы строк/табы внутри
-  строковых значений JSON (`old_string`, `new_string`, `content`) — иначе
-  `JSON.parse` падает и многострочный вызов не распознаётся;
-- для `Edit` и для грязного JSON args разбираются из «хвоста» до конца
-  текста (`parseEditArgs`/`parseArgsPermissive`/`parseArgsGreedy`), потому что
-  балансировка скобок сбоит на сырых кавычках внутри строк (частый случай
-  для `Bash`/`Write` с кодом внутри);
-- срез XML/DSML-хвоста использует `<[^>]*>` (а не `<[^>]>`), иначе
-  многосимвольные теги (`<|DSML|invoke ...>`) не срезаются;
-- в `runAgentLoop()` срабатывает guard `looksLikeToolCall`: если ответ похож
-  на вызов (есть `"tool":`, `invoke`, `parameter`, `tool_calls`, `DSML`,
-  `function_call`), но не распознан — модель просят переотправить вызов
-  (до `MAX_MALFORMED_RETRIES`), а не завершать задачу.
+Additional safeguards against "stalls" (verified on real transcripts):
+- `repairRawControlChars()` escapes raw newlines/tabs inside JSON string
+  values (`old_string`, `new_string`, `content`) — otherwise `JSON.parse`
+  fails and a multiline call is not recognized;
+- for `Edit` and for dirty JSON, args are parsed from the "tail" to the end of
+  the text (`parseEditArgs`/`parseArgsPermissive`/`parseArgsGreedy`), because
+  bracket balancing breaks on raw quotes inside strings (a common case for
+  `Bash`/`Write` with code inside);
+- trimming the XML/DSML tail uses `<[^>]*>` (not `<[^>]>`), otherwise
+  multi-character tags (`<|DSML|invoke ...>`) are not trimmed;
+- in `runAgentLoop()` the `looksLikeToolCall` guard kicks in: if the answer
+  looks like a call (there is `"tool":`, `invoke`, `parameter`, `tool_calls`,
+  `DSML`, `function_call`) but is not recognized — the model is asked to
+  resend the call (up to `MAX_MALFORMED_RETRIES`) instead of finishing the task.
 
-## Общение с оператором
+## Talking to the operator
 
-Свободный текст модели оператор НЕ читает. Единственное, что доходит до
-оператора — поле `message` последнего вызова `respond` перед остановкой
-агента. Поэтому весь текст для оператора обязан быть в этом единственном
-финальном `respond`: либо «задача выполнена» (отчёт), либо «продолжить
-нельзя, нужно решение оператора» (вопрос). Вызывать `respond` в середине и
-дробить отчёт на несколько сообщений нельзя. Правило зашито в system-prompt
-(раздел SILENT OPERATION).
+The operator does NOT read the model's free text. The only thing that reaches
+the operator is the `message` field of the last `respond` call before the agent
+stops. Therefore all text for the operator must be in that single final
+`respond`: either "task done" (a report), or "cannot continue, need the
+operator's decision" (a question). Calling `respond` in the middle and
+splitting the report across several messages is not allowed. The rule is baked
+into the system-prompt (the SILENT OPERATION section).
 
-DeepSeek любит добавлять короткие фразы вокруг tool-call. В system-prompt
-есть явный запрет (раздел «NO PROSE AROUND TOOL CALLS»), а `runTask()` не
-показывает пред-tool текст (`onAssistantThought` по умолчанию no-op), поэтому
-в терминал попадают только tool-call'ы и финальный `respond`.
+DeepSeek likes to add short phrases around a tool-call. The system-prompt has
+an explicit prohibition (the "NO PROSE AROUND TOOL CALLS" section), and
+`runTask()` does not show pre-tool text (`onAssistantThought` is a no-op by
+default), so only tool-calls and the final `respond` reach the terminal.
 
-## Ввод в терминале
+## Terminal input
 
-Интерактивный ввод обслуживает `LineEditor` (src/input.ts) — собственный
-редактор строки, не readline. Причина: readline отправляет сообщение на
-первом переводе строки, из-за чего многострочная вставка (Shift+Insert)
-уходила сразу и только первой строкой. Текущая логика:
-- включён bracketed paste (`\x1b[?2004h`), текст вставки приходит между
-  маркерами `\x1b[200~` … `\x1b[201~`;
-- отправка — по одиночному Enter; если курсор стоит сразу после «\», то
-  Enter удаляет этот «\» и переносит строку (поведение как в Claude Code);
-  Ctrl+J, Ctrl+Enter и Shift+Enter (в терминалах с расширенным протоколом)
-  всегда вставляют перевод строки;
-- поддержаны Backspace, Ctrl+U, Ctrl+C, стрелки, Home/End, Delete;
-- строка ввода видна ВСЕГДА; статус/спиннер и ответы агента печатаются ВЫШЕ
-  неё (`printAbove`), поэтому набираемый текст не затирается выводом;
-- перерисовка учитывает перенос по ширине терминала (`layoutInput`).
+Interactive input is handled by `LineEditor` (src/input.ts) — a custom line
+editor, not readline. The reason: readline submits the message on the first
+newline, so a multiline paste (Shift+Insert) went off immediately and only as
+the first line. Current logic:
+- bracketed paste is enabled (`\x1b[?2004h`), the paste text comes between the
+  markers `\x1b[200~` … `\x1b[201~`;
+- submission is on a single Enter; if the cursor is right after a «\», then
+  Enter removes that «\» and breaks the line (behavior like in Claude Code);
+  Ctrl+J, Ctrl+Enter and Shift+Enter (in terminals with the extended protocol)
+  always insert a newline;
+- Backspace, Ctrl+U, Ctrl+C, arrows, Home/End, Delete are supported;
+- the input line is ALWAYS visible; the status/spinner and the agent's answers
+  are printed ABOVE it (`printAbove`), so the typed text is not overwritten by output;
+- redraw accounts for wrapping by terminal width (`layoutInput`).
 
-В не-TTY режиме (пайп, редирект) `LineEditor` не стартует — используется
-`promptOnce()` (src/index.ts), который читает всё до EOF.
+In non-TTY mode (pipe, redirect) `LineEditor` does not start — `promptOnce()`
+(src/index.ts) is used, which reads everything up to EOF.
 
-ВАЖНО при правке этого кода: не вставляй в строковые литералы «сырые»
-управляющие символы (CR/LF) — только escape-последовательности `\r`/`\n`
-(в src/input.ts управляющие символы собираются через `String.fromCharCode`).
+IMPORTANT when editing this code: do not put "raw" control characters (CR/LF)
+into string literals — only the escape sequences `\r`/`\n` (in src/input.ts
+control characters are assembled via `String.fromCharCode`).
 
-## Ввод во время работы агента (очередь сообщений)
+## Input while the agent works (message queue)
 
-Пока агент думает, терминал остаётся живым. В TTY этим владеет `LineEditor`:
-строка ввода остаётся на месте, и всё, что пользователь печатает, копится
-в её буфере. По Enter `LineEditor.onSubmit` кладёт текст в `pendingQueue`
+While the agent thinks, the terminal stays live. In TTY, `LineEditor` owns
+this: the input line stays in place, and everything the user types accumulates
+in its buffer. On Enter, `LineEditor.onSubmit` puts the text into `pendingQueue`
 (src/index.ts).
 
-- **Esc / Ctrl+C** — прервать текущую генерацию (`browser.stopGeneration()`);
-  `Ctrl+C` в простое — выход из агента.
-- **печать + Enter** — положить сообщение в очередь; оно уйдёт агенту сразу
-  после того, как текущая задача завершится (как «отправить во время
-  генерации» в веб-версии DeepSeek).
-- Очередь дренится в `runTask()`: после завершения текущей задачи следующее
-  сообщение уходит агенту в тот же чат (`freshChat: false`,
-  `sendSystemPrompt: false`). Очередь может пополняться прямо во время
-  дренажа, поэтому цикл `while (true)` в `runTask()` повторяется, пока
-  `queue` не опустеет.
+- **Esc / Ctrl+C** — abort the current generation (`browser.stopGeneration()`);
+  `Ctrl+C` while idle — exit the agent.
+- **type + Enter** — put a message into the queue; it goes to the agent right
+  after the current task finishes (like "send during generation" in the
+  DeepSeek web version).
+- The queue is drained in `runTask()`: after the current task finishes, the
+  next message goes to the agent in the same chat (`freshChat: false`,
+  `sendSystemPrompt: false`). The queue may be replenished right during
+  draining, so the `while (true)` loop in `runTask()` repeats until `queue`
+  is empty.
 
-Очередь (`pendingQueue`) живёт в интерактивном цикле `main()` и передаётся
-в `runTask()` через `opts.queue`. В разовом режиме (`--task`) очередь пустая.
+The queue (`pendingQueue`) lives in the interactive `main()` loop and is passed
+into `runTask()` via `opts.queue`. In one-shot mode (`--task`) the queue is empty.
 
-Fallback для не-TTY (`watchInput()` в src/index.ts) оставлен для пайпов: он
-читает stdin в raw-режиме и через `ui.setPending()` показывает набранный
-текст в строке спиннера, а по Enter кладёт его в очередь. В обычном
-интерактивном запуске не задействован.
+The non-TTY fallback (`watchInput()` in src/index.ts) is kept for pipes: it
+reads stdin in raw mode and via `ui.setPending()` shows the typed text in the
+spinner line, and on Enter puts it into the queue. It is not used in a normal
+interactive launch.
 
-## Команды (главный цикл, src/index.ts)
+## Commands (main loop, src/index.ts)
 
-- `/new`, `/clear` — новый чат (сброс контекста)
-- `/sessions` — список сохранённых сессий (папка `~/.zames/.sessions`)
-- `/resume-id <id>` — восстановить сессию по полному chat id
-- `/chats` — список последних чатов DeepSeek
-- `/resume <n>` — открыть чат №n из `/chats`
-- `/chat` — текущий chat id
-- `/cd <path>`, `/pwd` — рабочая директория
-- `/status` — состояние сессии
-- `/reload` — перечитать модули логики без перезапуска
-- `/undo`, `/undo-list` (`/history`) — откат правок
-- `/transcript` — путь к файлу транскрипта
-- `/config` — просмотр и правка настроек (см. «Конфигурация»)
-- `/config lang <ru|en>` — сменить язык интерфейса и агента
-- `/debug-dom` — сохранить HTML страницы (отладка селекторов)
-- `/help`, `help` — справка
-- `/exit`, `/quit` — выход
+- `/new`, `/clear` — new chat (reset context)
+- `/sessions` — list of saved sessions (folder `~/.zames/.sessions`)
+- `/resume-id <id>` — restore a session by full chat id
+- `/chats` — list of recent DeepSeek chats
+- `/resume <n>` — open chat #n from `/chats`
+- `/chat` — current chat id
+- `/cd <path>`, `/pwd` — working directory
+- `/status` — session state
+- `/reload` — re-read the logic modules without a restart
+- `/undo`, `/undo-list` (`/history`) — revert edits
+- `/transcript` — transcript file path
+- `/config` — view and edit settings (see "Configuration")
+- `/config lang <ru|en>` — switch the interface and agent language
+- `/debug-dom` — save the page HTML (selector debugging)
+- `/help`, `help` — help
+- `/exit`, `/quit` — exit
 
-Самообзор:
-- `/self-review [фокус]` — снапшот src/ + ревью; после этого ты В снапшоте
-- `/self-fix <name> [фокус]` — вернуться в существующий снапшот
-- `/self-done` — выйти из режима ревью
-- `/self-list` — список снапшотов
-- `/self-diff <name>` — различия между текущим src/ и снапшотом
-- `/self-apply <name>` — применить снапшот к src/ (с бэкапом)
+Self-review:
+- `/self-review [focus]` — snapshot src/ + review; after this you are IN the snapshot
+- `/self-fix <name> [focus]` — return to an existing snapshot
+- `/self-done` — leave review mode
+- `/self-list` — list snapshots
+- `/self-diff <name>` — differences between the current src/ and a snapshot
+- `/self-apply <name>` — apply a snapshot to src/ (with a backup)
 
-## Конфигурация (src/config.ts)
+## Configuration (src/config.ts)
 
-Глобальный: `~/.zames/config.json`
-Локальный: `<project>/.zamesrc.json`
-Дефолты и слияние — в DEFAULTS/deepMerge. Ключевые секции: maxIterations,
+Global: `~/.zames/config.json`
+Local: `<project>/.zamesrc.json`
+Defaults and merging — in DEFAULTS/deepMerge. Key sections: maxIterations,
 headless, debug, confirmation, undo, transcript, browser, ui.
 
-### Правка через /config
+### Editing via /config
 
-`CONFIG_SCHEMA` (src/config.ts) — список настроек, которые можно менять из
-`/config`. Каждая запись: `path` (например `confirmation.write`), `type`
-(boolean/number/string/enum), `labelKey`/`groupKey` (i18n-ключи подписи и
-группы), опционально `values`/`min`/`max`. Схема — единственный источник
-правды: по ней валидируется `set`, строится меню и текстовый список.
+`CONFIG_SCHEMA` (src/config.ts) is the list of settings that can be changed
+from `/config`. Each entry: `path` (e.g. `confirmation.write`), `type`
+(boolean/number/string/enum), `labelKey`/`groupKey` (i18n keys of the label and
+group), optionally `values`/`min`/`max`. The schema is the single source of
+truth: `set` is validated against it, and the menu and text list are built from it.
 
-**Подписи локализованы**: в схеме нет английских строк, только ключи
-(`cfg.f.*`, `cfg.group.*`) — их переводы лежат в src/i18n.ts. Так меню и
-список всегда на выбранном языке.
+**Labels are localized**: the schema has no English strings, only keys
+(`cfg.f.*`, `cfg.group.*`) — their translations live in src/i18n.ts. So the menu
+and list are always in the selected language.
 
-Интерактивное меню — `runConfigMenu()` в src/config-menu.ts. Вызывается
-`/config` (без аргументов) в TTY. Управление: ↑/↓ или j/k — выбор, Enter —
-изменить (boolean/enum переключаются на месте, number/string запрашивают
-ввод), d — сбросить к дефолту, q/Esc — выход. Меню само читает клавиши и
-рисует в stdout, поэтому на время его работы LineEditor «ставится на паузу»
-(`editor.pause()` / `editor.resume()` в index.ts), иначе вывод меню
-наложился бы на строку ввода. Ввод разбирается по токенам (буфер может
-содержать несколько клавиш: стрелки+Enter) — см. `onData`.
+The interactive menu is `runConfigMenu()` in src/config-menu.ts. It is invoked
+by `/config` (without arguments) in a TTY. Controls: ↑/↓ or j/k — select, Enter —
+edit (boolean/enum toggle in place, number/string prompt for input), d — reset to
+default, q/Esc — quit. The menu reads keys itself and draws to stdout, so while
+it runs, LineEditor is "paused" (`editor.pause()` / `editor.resume()` in
+index.ts), otherwise the menu output would overlap the input line. Input is
+parsed into tokens (the buffer may contain several keys: arrows+Enter) — see `onData`.
 
-Текстовые подкоманды (для скриптов и не-TTY): `/config [menu|list]`,
+Text subcommands (for scripts and non-TTY): `/config [menu|list]`,
 `/config get <path>`, `/config set <path> <val>`, `/config reset <path>`,
-`/config path`, `/config lang <ru|en>`. Значения пишутся в **проектный**
-`.zamesrc.json` (writeConfigValue/resetConfigValue), не замораживая дефолты
-в файле пользователя. После изменения рантайм-объект `config` обновляется —
-значение действует сразу (если применимо без перезапуска).
+`/config path`, `/config lang <ru|en>`. Values are written to the **project**
+`.zamesrc.json` (writeConfigValue/resetConfigValue), without freezing defaults
+into the user's file. After a change the runtime `config` object is updated —
+the value takes effect immediately (if it can apply without a restart).
 
-**Чтобы добавить новую настройку**: допиши поле в `DEFAULTS` и в `types.ts`
-(интерфейс секции), запись в `CONFIG_SCHEMA` (с `labelKey`/`groupKey`) и
-соответствующие ключи в `CATALOG` i18n. Не добавляй в схему секреты и
-значения, требующие перезапуска (transcript.dir, browserChannel).
+**To add a new setting**: add the field to `DEFAULTS` and to `types.ts`
+(the section interface), an entry to `CONFIG_SCHEMA` (with `labelKey`/`groupKey`)
+and the corresponding keys to the i18n `CATALOG`. Do not add secrets and values
+that require a restart (transcript.dir, browserChannel) to the schema.
 
-### Локализация (src/i18n.ts)
+### Localization (src/i18n.ts)
 
-`Locale = 'ru' | 'en'`. Строки интерфейса — в каталоге `CATALOG`
-(ключ → `{ ru, en }`), доступ через `translate(locale)(key, params)`.
-Текущий язык хранится в `config.ui.locale`, меняется `/config lang <ru|en>`
-(и `/config set ui.locale en`).
+`Locale = 'ru' | 'en'`. Interface strings are in the `CATALOG`
+(key → `{ ru, en }`), accessed via `translate(locale)(key, params)`.
+The current language is stored in `config.ui.locale`, changed by
+`/config lang <ru|en>` (and `/config set ui.locale en`).
 
-Что локализовано:
-- `printHelp()`, подсказки slash-команд (buildSlashCommands в index.ts);
-- служебные сообщения главного цикла, `/status`, `/config`;
-- фразы спиннера (`createSpinner(locale)` / `randomThinkingPhrase(locale)`);
-- **язык ответов агента** — через system-prompt: `buildSystemPrompt({ locale })`
-  добавляет раздел LANGUAGE (`prompt.answer_language`), где модели велено
-  отвечать оператору на выбранном языке. `runAgentLoop` прокидывает `locale`
-  в `buildSystemPrompt`.
+What is localized:
+- `printHelp()`, slash-command hints (buildSlashCommands in index.ts);
+- main-loop service messages, `/status`, `/config`;
+- spinner phrases (`createSpinner(locale)` / `randomThinkingPhrase(locale)`);
+- **the agent's answer language** — via the system-prompt: `buildSystemPrompt({ locale })`
+  adds the LANGUAGE section (`prompt.answer_language`), where the model is told
+  to answer the operator in the selected language. `runAgentLoop` passes `locale`
+  into `buildSystemPrompt`.
 
-При смене языка на лету: `currentLocale` в index.ts обновляется, редактор
-пересобирает подсказки (`editor.setCommands`), а `config.ui.locale` — чтобы
-следующая задача ушла с новым языком в system-prompt. Новые строки добавляй
-в `CATALOG` (оба языка) — тест `test/i18n.test.ts` проверяет наличие ru/en.
+When the language changes on the fly: `currentLocale` in index.ts is updated,
+the editor rebuilds the hints (`editor.setCommands`), and `config.ui.locale` —
+so that the next task goes with the new language in the system-prompt. Add new
+strings to `CATALOG` (both languages) — the test `test/i18n.test.ts` checks that
+ru/en are present.
 
-`browser.minSendIntervalMs` (по умолчанию 15000) — минимальная пауза между
-отправками сообщений в [chat.deepseek.com](https://chat.deepseek.com/). DeepSeek ограничивает частоту
-(«Messages too frequent. Try again later.»), поэтому `_waitForSendSlot()`
-в `browser.ts` перед каждой отправкой ждёт, пока с прошлой (`_lastSentAt`)
-не пройдёт этот интервал. Первая отправка в сессии паузы не ждёт.
+`browser.minSendIntervalMs` (15000 by default) — the minimum pause between
+sends to [chat.deepseek.com](https://chat.deepseek.com/). DeepSeek limits the rate
+("Messages too frequent. Try again later."), so `_waitForSendSlot()` in
+`browser.ts` waits before every send until this interval has passed since the
+previous one (`_lastSentAt`). The first send in a session does not wait.
 
-Данные в `~/.zames`: profile (браузер), logs (транскрипт), undo, snapshots,
-`.sessions` (сессии/чаты). Временные файлы — `<project>/tmp` (в .gitignore,
-чистится при запуске).
+Data in `~/.zames`: profile (browser), logs (transcript), undo, snapshots,
+`.sessions` (sessions/chats). Temp files — `<project>/tmp` (in .gitignore,
+cleaned on launch).
 
-## Сессии (src/sessions.ts)
+## Sessions (src/sessions.ts)
 
-Чтобы контекст не терялся после перезапуска, каждая сессия (chat id DeepSeek)
-сохраняется отдельным JSON-файлом в `~/.zames/.sessions/<id>.json`:
-`{ id, title, workdir, createdAt, updatedAt }`. Индекс `last.json` хранит
-`byWorkdir` (последняя сессия для каждой рабочей директории) и общий `last`.
+So that context is not lost after a restart, each session (a DeepSeek chat id)
+is saved as a separate JSON file in `~/.zames/.sessions/<id>.json`:
+`{ id, title, workdir, createdAt, updatedAt }`. The `last.json` index stores
+`byWorkdir` (the last session for each working directory) and a global `last`.
 
-При старте `main()` восстанавливает последнюю сессию **для текущей рабочей
-директории** (`loadLastSession(workdir)`), если не передан `--new-chat`
-или `--chat <id>`. Это заменяет прежний единственный `last-chat.json`,
-который терялся при смене проекта и не давал списка для восстановления.
+On startup `main()` restores the last session **for the current working
+directory** (`loadLastSession(workdir)`), unless `--new-chat` or `--chat <id>`
+is passed. This replaces the former single `last-chat.json`, which got lost when
+the project changed and gave no list to restore from.
 
 API: `saveSession`, `loadLastSession(workdir)`, `readSession(id)`,
-`listSessions()`, `sessionsDir()`. Сохранение вызывается из `saveLastChat()`
-в `index.ts` после каждой задачи, нового чата и `/resume`.
+`listSessions()`, `sessionsDir()`. Saving is called from `saveLastChat()` in
+`index.ts` after every task, new chat and `/resume`.
 
-## Прочие модули
+## Other modules
 
-- `theme.ts` — палитра вывода (chalk)
-- `spinner.ts` — спиннер «агент работает» (случайные фразы)
-- `markdown.ts` — рендер ответов модели
-- `confirm.ts` — подтверждения опасных операций
-- `diff.ts` — показ диффов
-- `undo.ts` — бэкапы/откат
-- `transcript.ts` — запись транскрипта
-- `self-review.ts` — снапшоты и самообзор
+- `theme.ts` — output palette (chalk)
+- `spinner.ts` — the "agent is working" spinner (random phrases)
+- `markdown.ts` — rendering the model's answers
+- `confirm.ts` — confirmations for dangerous operations
+- `diff.ts` — showing diffs
+- `undo.ts` — backups/revert
+- `transcript.ts` — transcript writing
+- `self-review.ts` — snapshots and self-review
 
-## Проверка изменений
+## Verifying changes
 
-- Синтаксис/типы: `npm run typecheck` (tsc --noEmit, включает test/)
-- Тесты: `npm test` (tsx --test test/*.test.ts); watch — `npm run test:watch`
-- Сборка: `npm run build` (tsc -p tsconfig.build.json → dist/, без sourcemap)
-- Запуск (прод): `npm start` (node dist/index.js) или `zames`
-- Запуск (dev, без сборки): `npm run dev` (tsx src/index.ts)
-- Фреймворк тестов: встроенный `node:test` + `tsx` (см. `test/*.test.ts`).
+- Syntax/types: `npm run typecheck` (tsc --noEmit, includes test/)
+- Tests: `npm test` (tsx --test test/*.test.ts); watch — `npm run test:watch`
+- Build: `npm run build` (tsc -p tsconfig.build.json → dist/, no sourcemap)
+- Run (prod): `npm start` (node dist/index.js) or `zames`
+- Run (dev, no build): `npm run dev` (tsx src/index.ts)
+- Test framework: the built-in `node:test` + `tsx` (see `test/*.test.ts`).
 
 ## TypeScript
 
-Проект на TypeScript, strict. Исходники — `src/*.ts`; сборка — `tsc` в `dist/`
-(`bin.zames` и npm-публикация указывают на `dist/index.js`, `files: ["dist", …]`).
-`prepublishOnly` собирает перед публикацией.
+The project is in TypeScript, strict. Sources — `src/*.ts`; the build is `tsc`
+into `dist/` (`bin.zames` and the npm publication point to `dist/index.js`,
+`files: ["dist", …]`). `prepublishOnly` builds before publishing.
 
-Два конфига: `tsconfig.json` (IDE + `npm run typecheck`: noEmit, включает src/ и
-тесты test/; allowImportingTsExtensions) и `tsconfig.build.json` (только src →
+Two configs: `tsconfig.json` (IDE + `npm run typecheck`: noEmit, includes src/ and
+the test/ tests; allowImportingTsExtensions) and `tsconfig.build.json` (only src →
 dist, sourceMap: false).
 
-Импорты в коде — с расширением `.js` (NodeNext), даже в `.ts`-файлах:
-`import { theme } from './theme.js'`. Так требует moduleResolution NodeNext.
+Imports in the code use the `.js` extension (NodeNext), even in `.ts` files:
+`import { theme } from './theme.js'`. That is what moduleResolution NodeNext requires.
 
-Контракты (tool-call, ToolDef, конфиг, BrowserLike) — в `src/types.ts`.
-Меняешь инструмент или формат tool-call — синхронизируй типы там.
+Contracts (tool-call, ToolDef, config, BrowserLike) — in `src/types.ts`.
+If you change a tool or the tool-call format — sync the types there.
 
-Hot-reload (`/reload`, `--dev`) динамически импортирует модули с `?t=timestamp`.
-В прод-режиме это `dist/*.js`, в dev — `src/*.ts` через tsx (tsx резолвит `.js`→`.ts`).
+Hot-reload (`/reload`, `--dev`) dynamically imports modules with `?t=timestamp`.
+In prod mode these are `dist/*.js`, in dev — `src/*.ts` via tsx (tsx resolves `.js`→`.ts`).
 
-Самообзор ищет каталог с `.ts`-исходниками: в dev это `src/`, в собранном
-`dist/` — `../src` (`resolveSrcDir()` в self-review.ts). Публикуемый пакет
-содержит только `dist/`, поэтому /self-review там работать не будет.
+Self-review looks for the directory with the `.ts` sources: in dev it is `src/`,
+in the built `dist/` — `../src` (`resolveSrcDir()` in self-review.ts). The
+published package contains only `dist/`, so /self-review will not work there.
 
-## Почему агент может «остановиться»
+## Why the agent may "stall"
 
-Точка выхода из runAgentLoop() без выполнения инструмента — ответ, который
-parseToolCall() не смог распознать (parsed === null). Такой ответ считается
-финальным текстом модели, и цикл завершается. Поэтому «остановки после
-вызова инструмента» — это почти всегда не распознанный формат tool-call
-(DSML/XML, грязный JSON, проза вокруг).
+The exit point from runAgentLoop() without running a tool is an answer that
+parseToolCall() could not recognize (parsed === null). Such an answer is taken
+as the model's final text, and the loop ends. Therefore "stalls after a tool
+call" are almost always an unrecognized tool-call format (DSML/XML, dirty JSON,
+prose around it).
 
-Защита в два слоя:
-1. `parseToolCall()` пробует JSON, permissive-разбор, XML/DSML
-   (`src/xml-toolcall.ts`) и, как последний fallback, `repairToolCallPreamble()`
-   — восстановление «поломанной головы» вызова (`<｜tool": ...`, `tool": ...`,
-   `**tool**: ...`). Fallback запускается ТОЛЬКО после обычного разбора, иначе
-   легко испортить валидный JSON (массив вызовов начинается с `[`, внутри —
+The protection has three layers:
+0. `parseToolCall()` collects EVERY recognized call, not just one: if the model
+   emits several separate `{"tool": ...}` objects (or a mix with an array) in a
+   single answer, all of them are returned and executed. Returning only the
+   first used to drop the rest, leaving the agent "stalled after a tool call"
+   with pending work.
+1. `parseToolCall()` tries JSON, permissive parsing, XML/DSML
+   (`src/xml-toolcall.ts`) and, as the last fallback, `repairToolCallPreamble()`
+   — repairing a "broken call head" (`<｜tool": ...`, `tool": ...`,
+   `**tool**: ...`). The fallback runs ONLY after regular parsing, otherwise it
+   is easy to corrupt valid JSON (an array of calls starts with `[`, containing
    `{"tool":`).
-2. Если ответ всё равно не распознан, но ПОХОЖ на вызов, `runAgentLoop()` не
-   завершает задачу, а шлёт модели корректирующее сообщение и продолжает цикл
-   (до `MAX_MALFORMED_RETRIES` раз). Детектор вынесен в экспортируемую
-   `responseLooksLikeToolCall()` (src/agent-loop.ts) и покрыт тестом
-   `test/guard-toolcall.test.ts`. Он ловит: `"tool":`, `tool":` без кавычки,
-   `**tool**:`, XML/DSML, а также **обрезанные** вызовы (начинаются с `{`/`[`,
-   есть ключ аргумента, но нет закрывающей скобки). Обычную прозу с
-   `path:`/`command:` (без ведущей скобки) детектор НЕ трогает.
+2. If the answer is still not recognized but LOOKS like a call, `runAgentLoop()`
+   does not finish the task; it sends the model a corrective message and
+   continues the loop (up to `MAX_MALFORMED_RETRIES` times). The detector is
+   extracted into the exported `responseLooksLikeToolCall()`
+   (src/agent-loop.ts) and covered by the test `test/guard-toolcall.test.ts`.
+   It catches: `"tool":`, `tool":` without a quote, `**tool**:`, XML/DSML, and
+   also **truncated** calls (start with `{`/`[`, have an argument key, but no
+   closing bracket). Ordinary prose with `path:`/`command:` (without a leading
+   bracket) is NOT touched by the detector.
 
-Реальный кейс остановки (транскрипт 2026-09-22): DeepSeek вернул
-`<｜tool": "Bash", "args": {"command": "...` — потерялась открывающая `{` и
-первая кавычка ключа, ответ оборвался на ~400 символов. Старый детектор не
-видел `tool":` без кавычки/скобки перед словом и принимал это за финал —
-агент вставал. Теперь это ловится, и вызов восстанавливается.
+A real stall case (transcript 2026-09-22): DeepSeek returned
+`<｜tool": "Bash", "args": {"command": "...` — the opening `{` and the first
+quote of the key were lost, and the answer broke off at ~400 characters. The
+old detector did not see `tool":` without a quote/bracket before the word and
+took it as final — the agent stalled. Now this is caught, and the call is
+repaired.
 
-Расширяя форматы ответа, добавляй разбор в `parseToolCall()`, а не полагайся
-на то, что модель всегда вернёт чистый JSON.
+When extending the answer formats, add parsing to `parseToolCall()` instead of
+relying on the model always returning clean JSON.
 
-## Выпуск новой версии (release)
+## Releasing a new version
 
-Релиз публикуется в npm автоматически: GitHub Actions workflow
-`.github/workflows/publish.yml` срабатывает на push тега `v*` и
-запускает `npm publish`. Отдельно `npm publish` руками делать не нужно.
+The release is published to npm automatically: the GitHub Actions workflow
+`.github/workflows/publish.yml` triggers on a `v*` tag push and runs
+`npm publish`. There is no need to run `npm publish` manually.
 
-Порядок:
-1. Поднять `version` в `package.json` (semver: багфиксы — patch,
-   новые возможности — minor, ломающие изменения — major).
-2. Закоммитить: `chore: release X.Y.Z`.
-3. Поставить тег `vX.Y.Z` и запушить ветку и тег.
-   Именно push тега запускает пайплайн и публикацию в npm.
+Order:
+1. Bump `version` in `package.json` (semver: bug fixes — patch,
+   new features — minor, breaking changes — major).
+2. Commit: `chore: release X.Y.Z`.
+3. Create the tag `vX.Y.Z` and push the branch and the tag.
+   It is the tag push that triggers the pipeline and the npm publication.
 
-Требования к пайплайну: секрет `NPM_TOKEN` в настройках репозитория.
+Pipeline requirements: the `NPM_TOKEN` secret in the repository settings.
 
-Проверить результат: вкладка Actions в GitHub и страница пакета на npm.
+To check the result: the Actions tab on GitHub and the package page on npm.

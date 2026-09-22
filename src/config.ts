@@ -92,31 +92,31 @@ function deepMerge(
   }
 }
 
-// ---------- редактирование конфига (/config) ----------
+// ---------- config editing (/config) ----------
 //
-// Настройки, которые разрешено менять из /config. Список задаёт и тип
-// значения (bool/number/string), и путь в объекте конфига. Он же служит
-// «схемой» для /config list и для валидации set.
+// Settings that are allowed to be changed from /config. The list defines both
+// the value type (bool/number/string) and the path in the config object. It
+// also serves as the "schema" for /config list and for set validation.
 //
-// Чтобы добавить новую настройку — допиши её сюда и в DEFAULTS/types.ts.
-// НЕ добавляй сюда секреты и пути, которые меняются на лету (transcript.dir,
-// browserChannel) — их правка требует перезапуска и может удивить.
+// To add a new setting — add it here and to DEFAULTS/types.ts.
+// Do NOT add secrets and paths that change on the fly (transcript.dir,
+// browserChannel) here — editing them requires a restart and may surprise.
 
 export type ConfigValueType = 'boolean' | 'number' | 'string' | 'enum'
 
 export interface ConfigField {
-  /** Путь в объекте конфига, например 'confirmation.write'. */
+  /** Path in the config object, e.g. 'confirmation.write'. */
   path: string
   type: ConfigValueType
-  /** i18n-ключ подписи (см. src/i18n.ts, секция cfg.f.*). */
+  /** i18n key of the label (see src/i18n.ts, section cfg.f.*). */
   labelKey: string
-  /** i18n-ключ группы для меню (cfg.group.*). */
+  /** i18n key of the group for the menu (cfg.group.*). */
   groupKey: string
-  /** Допустимые значения для enum. */
+  /** Allowed values for enum. */
   values?: string[]
-  /** Минимум для number. */
+  /** Minimum for number. */
   min?: number
-  /** Максимум для number. */
+  /** Maximum for number. */
   max?: number
 }
 
@@ -205,8 +205,8 @@ export function configPathFor(scope: ConfigScope): string {
 }
 
 /**
- * Прочитать только тот файл конфига, что указан (без слияния с дефолтами),
- * чтобы запись не «замораживала» все дефолты в файле пользователя.
+ * Read only the specified config file (without merging with defaults), so that
+ * writing does not "freeze" all defaults into the user's file.
  */
 export function readConfigFile(file: string): Record<string, unknown> {
   try {
@@ -224,8 +224,8 @@ export function readConfigFile(file: string): Record<string, unknown> {
 }
 
 /**
- * Записать значение настройки в файл. Возвращает итоговый объект, который
- * лёг в файл. Значение сперва валидируется по схеме.
+ * Write a setting value to the file. Returns the final object that was
+ * written. The value is first validated against the schema.
  */
 export function writeConfigValue(
   scope: ConfigScope,
@@ -243,7 +243,7 @@ export function writeConfigValue(
   return { value, file }
 }
 
-/** Сбросить настройку к дефолту (удалить ключ из файла). */
+/** Reset a setting to the default (remove the key from the file). */
 export function resetConfigValue(scope: ConfigScope, key: string): string {
   const field = getConfigField(key)
   if (!field) throw new Error(`unknown setting: ${key}`)

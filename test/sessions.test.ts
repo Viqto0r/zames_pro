@@ -4,8 +4,8 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 
-// sessions/undo/config пишут в ~/.zames. Подменяем HOME на временную папку
-// ДО импорта модулей, чтобы тесты не трогали реальные данные пользователя.
+// sessions/undo/config write to ~/.zames. We swap HOME to a temp folder
+// BEFORE importing the modules, so the tests don't touch the user's real data.
 const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-home-'))
 process.env.HOME = fakeHome
 process.env.USERPROFILE = fakeHome

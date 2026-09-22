@@ -26,7 +26,7 @@ export interface RunAgentLoopOptions {
   onToolResult?: (result: unknown) => void
   onAssistantMessage?: (msg: string) => void
   onChatReady?: (chatId: string | null) => void
-  /** Предупреждение для оператора (в терминал, не только в транскрипт). */
+  /** Warning for the operator (to the terminal, not only the transcript). */
   onWarning?: (text: string) => void
   debugLog?: boolean
   locale?: Locale
@@ -56,7 +56,7 @@ export async function runAgentLoop({
     transcript?.log('new_chat')
   }
 
-  // Сообщаем вызывающему актуальный chat id.
+  // Report the current chat id to the caller.
   let lastReportedChatId: string | null = null
   const reportChat = async (): Promise<void> => {
     let id: string | null = null
@@ -92,7 +92,7 @@ export async function runAgentLoop({
       gitContext: gitText,
     })
     onThinking()
-    // system-prompt — отправка агента: с паузой (agent: true).
+    // system-prompt is an agent send: throttled (agent: true).
     await browser.ask(systemPrompt, { timeout: 60_000, agent: true })
     await reportChat()
   }
@@ -106,25 +106,26 @@ export async function runAgentLoop({
   let stallRetries = 0
   const MAX_STALL_RETRIES = 5
 
-  // Защита от «агент встал»: DeepSeek иногда присылает финальный текст,
-  // который лишь ОПИСЫВАЕТ следующий вызов инструмента (или рвёт ответ на
-  // полуслове), и агент молча завершает задачу, хотя работа не сделана.
-  // Если финальный ответ похож на «сейчас вызову …» — переспрашиваем, а не
-  // останавливаемся. Счётчик общий, чтобы не зациклиться на болтливой модели.
+  // Guard against "the agent stalled": DeepSeek sometimes sends a final text
+  // that merely DESCRIBES the next tool call (or cuts the answer off
+  // mid-word), and the agent silently finishes the task even though the work
+  // is not done. If the final answer looks like "I'll call ... now" — we
+  // re-ask instead of stopping. The counter is shared so we don't loop on a
+  // chatty model.
   let looksDoneRetries = 0
   const MAX_LOOKSDONE_RETRIES = 3
 
   for (let i = 0; i < maxIterations; i++) {
     onThinking()
-    // Первое сообщение (task) — пользовательский ввод: без паузы.
-    // Последующие (tool-result и просьбы переотправить) — агентские:
-    // с паузой, чтобы не упираться в лимит частоты.
+    // The first message (task) is user input: no throttle.
+    // Subsequent ones (tool-result and resend requests) are agent sends:
+    // throttled so we don't hit the rate limit.
     const isFirst = i === 0
     const rawResponse = await browser.ask(message, { agent: !isFirst })
     await reportChat()
     transcript?.log('assistant_raw', { response: rawResponse })
 
-    // Пользователь прервал генерацию (Esc/Ctrl+C).
+    // The user aborted generation (Esc/Ctrl+C).
     if (/^\s*\(прервано пользователем\)\s*$/.test(rawResponse)) {
       transcript?.log('user_aborted')
       return rawResponse
@@ -145,10 +146,10 @@ export async function runAgentLoop({
     }
 
     if (!parsed) {
-      // Ответ похож на (возможно, обрезанный) вызов инструмента. Ловим не
-      // только явный JSON, но и XML/DSML-формы, «грязные» варианты и
-      // незакрытые фрагменты: если такой ответ молча принять за финальный,
-      // агент встанет, хотя модель пыталась позвать инструмент.
+      // The answer looks like a (possibly truncated) tool call. We catch not
+      // only explicit JSON but also XML/DSML forms, "dirty" variants and
+      // unclosed fragments: if such an answer is silently taken as final, the
+      // agent stalls even though the model tried to call a tool.
       const looksLikeToolCall = responseLooksLikeToolCall(rawResponse)
       if (looksLikeToolCall && malformedRetries < MAX_MALFORMED_RETRIES) {
         malformedRetries++
@@ -174,11 +175,11 @@ export async function runAgentLoop({
       }
 
       const trimmed = (rawResponse || '').trim()
-      // Служебный ответ — это КОРОТКАЯ заглушка DeepSeek («Reading…») или
-      // короткое уведомление о лимите. Слова про rate limit в ДЛИННОМ
-      // ответе — это, как правило, сам агент цитирует код/логи (в транскрипте
-      // был ровно такой случай: ответ на 1365 символов про ask() и лимиты),
-      // и принимать его за «служебный» нельзя, иначе агент зря переспрашивает.
+      // A service answer is a SHORT DeepSeek placeholder ("Reading…") or a
+      // short rate-limit notice. Words about the rate limit in a LONG answer
+      // are usually the agent itself quoting code/logs (the transcript had
+      // exactly such a case: a 1365-char answer about ask() and limits), and
+      // it must not be taken as "service", otherwise the agent re-asks in vain.
       const looksService =
         !trimmed ||
         trimmed.length < 2 ||
@@ -211,11 +212,11 @@ export async function runAgentLoop({
         continue
       }
 
-      // Ответ похож на «сейчас вызову инструмент», но вызова в нём нет.
-      // DeepSeek иногда так обрывает ход: пишет «Now update README…» или
-      // «Let me run the tests…» и замолкает. Если принять это за финал,
-      // агент встаёт, не сделав работу. Просим продолжить и на этот раз
-      // обязательно вызвать инструмент (или respond, если правда готово).
+      // The answer looks like "I'll call a tool now", but contains no call.
+      // DeepSeek sometimes cuts the turn like this: writes "Now update
+      // README…" or "Let me run the tests…" and goes silent. If this is taken
+      // as final, the agent stalls without doing the work. We ask it to
+      // continue and to actually call a tool this time (or respond if truly done).
       if (looksLikeUnfinishedWork(trimmed) && looksDoneRetries < MAX_LOOKSDONE_RETRIES) {
         looksDoneRetries++
         transcript?.log('unfinished_retry', {
@@ -240,10 +241,10 @@ export async function runAgentLoop({
         continue
       }
 
-      // Все попытки переспросить исчерпаны, а ответ всё ещё похож на вызов
-      // инструмента. Скорее всего, это молчаливая остановка: показываем
-      // оператору предупреждение в терминале (а не только в транскрипт),
-      // чтобы он видел проблему сразу, а не гадал, почему агент встал.
+      // All re-ask attempts are exhausted, yet the answer still looks like a
+      // tool call. Most likely this is a silent stall: we show the operator a
+      // warning in the terminal (not only in the transcript) so they see the
+      // problem immediately instead of wondering why the agent stalled.
       if (responseLooksLikeToolCall(rawResponse)) {
         transcript?.log('suspicious_final', { response: rawResponse })
         onWarning(translate(locale)('msg.suspicious_stop'))
@@ -261,9 +262,9 @@ export async function runAgentLoop({
         typeof respondCall.args.message === 'string'
           ? respondCall.args.message
           : String(respondCall.args.message ?? '')
-      // Пустой respond — не финал: модель позвала respond, но не написала
-      // итог. Если так завершить, оператор не увидит ничего, а задача
-      // «зависнет». Просим продолжить (в пределах stallRetries).
+      // An empty respond is not final: the model called respond but wrote no
+      // summary. Finishing like this would show the operator nothing and the
+      // task would "hang". We ask it to continue (within stallRetries).
       if (!msg.trim() && stallRetries < MAX_STALL_RETRIES) {
         stallRetries++
         transcript?.log('empty_respond', { attempt: stallRetries })
@@ -336,30 +337,30 @@ export async function runAgentLoop({
   return 'Достигнут лимит итераций.'
 }
 
-// Ответ похож на вызов инструмента, но parseToolCall() его не распознал.
-// Используется как страховка от «агент вызвал инструмент и остановился»:
-// в этом случае runAgentLoop просит модель переотправить вызов, а не
-// завершает задачу. Ловим и явные форматы, и «поломанные» головы вызова
-// (`<｜tool": ...`, `**tool**:`, `tool": ...`), и обрезанные вызовы.
+// The answer looks like a tool call, but parseToolCall() did not recognize it.
+// Used as a safeguard against "the agent called a tool and stopped": in that
+// case runAgentLoop asks the model to resend the call instead of finishing the
+// task. We catch both explicit formats and "broken" call heads
+// (`<｜tool": ...`, `**tool**:`, `tool": ...`), and truncated calls.
 export function responseLooksLikeToolCall(rawResponse: string): boolean {
   const raw = rawResponse || ''
   return (
-    // Явные маркеры форматов tool-call: JSON-ключ "tool", XML/DSML-теги,
-    // function_call и т.п.
+    // Explicit tool-call format markers: the JSON key "tool", XML/DSML tags,
+    // function_call, etc.
     /("tool"\s*:|\btool_calls?\b|\binvoke\b|\bparameter\b|DSML|function_call)/i.test(
       raw,
     ) ||
-    // «tool» без открывающей кавычки/скобки, с мусорным префиксом
-    // (`<｜tool":`, `**tool**:`, `- tool:`): ключ вызова, а не проза.
+    // "tool" without an opening quote/bracket, with a junk prefix
+    // (`<｜tool":`, `**tool**:`, `- tool:`): a call key, not prose.
     /(^|[^A-Za-z0-9_])(?:\*\*)?tool(?:\*\*)?["'`\u2018\u2019\u201c\u201d]*\s*:/.test(
       raw,
     ) ||
-    // Ключи в одинарных кавычках или без кавычек: {'tool': 'Read', ...}.
+    // Keys in single quotes or unquoted: {'tool': 'Read', ...}.
     /[\{\[]\s*['"]?(tool|name|args)['"]?\s*:/.test(raw) ||
-    // Обрезанный вызов: начинается как JSON-объект, но не закрыт, и в нём
-    // есть ключ аргумента (args/command/path/...). Требуем именно открывающую
-    // скобку в начале (после пробелов/префикса), чтобы не ловить обычную
-    // прозу с двоеточиями вроде «path: ...».
+    // Truncated call: starts like a JSON object but is not closed, and has an
+    // argument key (args/command/path/...). We require the opening bracket at
+    // the start (after spaces/prefix) so we don't catch ordinary prose with
+    // colons like "path: ...".
     /^\s*[\[\{]/.test(raw) &&
       /["']?(?:tool|args|command|path|old_string|content|content_base64)["']?\s*:/.test(
         raw,
@@ -369,18 +370,18 @@ export function responseLooksLikeToolCall(rawResponse: string): boolean {
   )
 }
 
-// Текст, который обещает вызов инструмента в будущем времени, но самого
-// вызова не содержит. DeepSeek регулярно так «зависает»: пишет
-// «Now update README to mention …», «Let me run the tests», «Сейчас проверю»
-// и останавливается. Такие ответы нельзя принимать за финальные — иначе
-// агент встаёт, не выполнив работу. Держим эвристику узкой (будущее время /
-// намерение), чтобы не ловить обычные отчёты о выполненной работе.
+// Text that promises a tool call in the future tense but contains no call
+// itself. DeepSeek regularly "hangs" like this: it writes
+// "Now update README to mention …", "Let me run the tests", "I'll check now"
+// and stops. Such answers must not be taken as final — otherwise the agent
+// stalls without doing the work. We keep the heuristic narrow (future tense /
+// intent) so we don't catch ordinary reports of completed work.
 function looksLikeUnfinishedWork(text: string): boolean {
   const t = (text || '').trim()
   if (!t) return false
-  // Длинные ответы (отчёты) не трогаем — там может быть что угодно.
+  // Long answers (reports) are left alone — anything can be in there.
   if (t.length > 600) return false
-  // Уже есть финальный маркер — считаем ответ завершённым.
+  // A final marker is already present — treat the answer as complete.
   if (/\b(done|finished|completed|готово|выполнено|завершено)\b/i.test(t)) {
     return false
   }
@@ -805,17 +806,18 @@ function findMatching(
   return -1
 }
 
-// Модель иногда отдаёт вызов инструмента с ключами/строками в одинарных
-// кавычках («{'tool': 'Read', 'args': {...}}») или с ключами без кавычек
-// («{tool: "Read", args: {...}}»). Это не валидный JSON, и без нормализации
-// такой ответ молча принимается за финальный — агент встаёт, не вызвав
-// инструмент. Приводим его к двойным кавычкам.
+// The model sometimes returns a tool call with single-quoted keys/strings
+// ("{'tool': 'Read', 'args': {...}}") or unquoted keys
+// ("{tool: \"Read\", args: {...}}"). This is not valid JSON, and without
+// normalization such an answer is silently taken as final — the agent stalls
+// without calling a tool. We normalize it to double quotes.
 function normalizePseudoJson(str: string): string {
-  // Ключи без кавычек: {tool: ...} или , args: ... → "tool": / "args":
+  // Unquoted keys: {tool: ...} or , args: ... → "tool": / "args":
   let out = str.replace(/([\{\[]\s*)([A-Za-z_][A-Za-z0-9_]*)\s*:/g, '$1"$2":')
   out = out.replace(/,\s*([A-Za-z_][A-Za-z0-9_]*)\s*:/g, ', "$1":')
-  // Одинарные кавычки → двойные. Не трогаем содержимое уже двойных строк,
-  // идущее подряд, и экранируем случайные двойные внутри одинарных.
+  // Single quotes → double quotes. We don't touch the content of already
+  // double-quoted strings in a row, and escape stray double quotes inside
+  // single quotes.
   let res = ''
   let inDouble = false
   let inSingle = false
@@ -853,25 +855,25 @@ function normalizePseudoJson(str: string): string {
   return res
 }
 
-// Модель иногда портит начало вызова: `<｜tool": "Bash", "args": {...}`,
-// `tool": "Read", ...`, `**tool**: ...`, `- tool: ...`. В таких ответах
-// нет открывающей `{`, а ключ `tool` лишился первой кавычки. Если такой
-// ответ принять за финальный, агент молча встанет (частая «остановка»).
-// Восстанавливаем: срезаем мусорный префикс до слова tool, добавляем `{` и
-// доводим кавычки ключа до парных.
+// The model sometimes corrupts the head of a call: `<｜tool": "Bash", "args": {...}`,
+// `tool": "Read", ...`, `**tool**: ...`, `- tool: ...`. Such answers have no
+// opening `{`, and the `tool` key lost its first quote. If such an answer is
+// taken as final, the agent silently stalls (a frequent "stop").
+// We repair it: trim the junk prefix up to the word tool, add `{` and
+// balance the key quotes.
 function repairToolCallPreamble(text: string): string | null {
   const t = (text || '').trim()
   const m = t.match(/(?:^|[^A-Za-z0-9_])(?:\*\*)?(tool)(?:\*\*)?["'`\u2018\u2019\u201c\u201d]*\s*:/)
   if (!m || m.index === undefined) return null
-  // Начало ищем с первой кавычки/скобки вокруг ключа, иначе — с слова tool.
+  // We look for the start from the first quote/bracket around the key, otherwise from the word tool.
   let start = m.index
   const brace = t.indexOf('{', Math.max(0, start - 1))
   if (brace !== -1 && brace < start) start = brace
   let frag = t.slice(start)
-  // Если фрагмент не начинается с `{` — добавляем его.
+  // If the fragment does not start with `{` — we add it.
   if (!frag.startsWith('{')) {
-    // Ключ мог потерять открывающую кавычку: tool": → "tool":.
-    // Срезаем ведущий мусор до слова tool и нормализуем кавычки ключа.
+    // The key may have lost its opening quote: tool": → "tool".
+    // We trim the leading junk up to the word tool and normalize the key quotes.
     frag = frag.replace(/^[^A-Za-z0-9_]*/, '')
     frag = frag.replace(
       /^(?:\*\*)?(["'`\u2018\u2019\u201c\u201d]*)(tool)(?:\*\*)?["'`\u2018\u2019\u201c\u201d]*\s*:/,
@@ -893,9 +895,22 @@ export function parseToolCall(text: string): ParsedToolCall {
 
   const candidates = extractJsonObjects(cleaned)
 
-  for (let i = candidates.length - 1; i >= 0; i--) {
+  // We collect EVERY recognized call, not just the first one found. The model
+  // often emits several separate {"tool": ...} objects in one answer instead of
+  // a single JSON array. Returning only one of them used to drop the rest and
+  // could leave the agent "stalled after a tool call" with pending work.
+  const collected: ToolCall[] = []
+  const tryCollect = (parsed: ToolCall | ToolCall[] | null): boolean => {
+    if (!parsed) return false
+    if (Array.isArray(parsed)) collected.push(...parsed)
+    else collected.push(parsed)
+    return true
+  }
+
+  for (let i = 0; i < candidates.length; i++) {
     const raw = candidates[i]
 
+    // A JSON array of calls is authoritative: if present, use all of it.
     const arrFirst = tryParseArray(raw)
     if (arrFirst) return arrFirst
 
@@ -905,21 +920,33 @@ export function parseToolCall(text: string): ParsedToolCall {
     if (arrRepaired) return arrRepaired
 
     const first = tryParse(raw)
-    if (first) return first
+    if (first) {
+      tryCollect(first)
+      continue
+    }
 
     const repaired = raw.replace(/\\(?!["\\/bfnrtu])/g, '\\\\')
     const second = tryParse(repaired)
-    if (second) return second
+    if (second) {
+      tryCollect(second)
+      continue
+    }
 
     const ctrl = repairRawControlChars(raw)
     const third = tryParse(ctrl)
-    if (third) return third
+    if (third) {
+      tryCollect(third)
+      continue
+    }
     const ctrlArr = tryParseArray(ctrl)
     if (ctrlArr) return ctrlArr
   }
 
-  // Псевдо-JSON (одинарные кавычки / ключи без кавычек) — нормализуем и
-  // пробуем распарсить как обычный вызов, прежде чем идти в permissive.
+  if (collected.length === 1) return collected[0]
+  if (collected.length > 1) return collected
+
+  // Pseudo-JSON (single quotes / unquoted keys) — normalize and try to parse
+  // as a regular call before going permissive.
   if (/['"]?tool['"]?\s*:/.test(cleaned)) {
     const norm = normalizePseudoJson(cleaned)
     if (norm !== cleaned) {
@@ -951,10 +978,10 @@ export function parseToolCall(text: string): ParsedToolCall {
   const xmlCalls = parseXmlToolCalls(cleaned)
   if (xmlCalls) return Array.isArray(xmlCalls) ? xmlCalls : [xmlCalls]
 
-  // Последняя попытка: «починить» испорченную голову вызова (`<｜tool": ...`,
-  // `tool": ...`, `**tool**: ...`, `- tool: ...`). Делаем это ТОЛЬКО как
-  // fallback, после обычного разбора — иначе легко испортить валидный JSON
-  // (например, массив вызовов начинается с `[`, внутри которого `{"tool":`).
+  // Last attempt: "fix" a corrupted call head (`<｜tool": ...`,
+  // `tool": ...`, `**tool**: ...`, `- tool: ...`). We do this ONLY as a
+  // fallback, after regular parsing — otherwise it's easy to corrupt valid
+  // JSON (e.g. an array of calls starts with `[`, containing `{"tool":`).
   const preamble = repairToolCallPreamble(cleaned)
   if (preamble && preamble !== cleaned) {
     const reps = [

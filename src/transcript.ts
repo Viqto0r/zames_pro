@@ -31,8 +31,8 @@ export class Transcript {
       const stamp = new Date().toISOString().replace(/[:.]/g, '-')
       this.file = path.join(dir, `${sessionName}-${stamp}.jsonl`)
       this.stream = fs.createWriteStream(this.file, { flags: 'a' })
-      // Ошибки записи (диск переполнен, файл удалён и т.п.) приходят
-      // событием 'error'; без слушателя это uncaught exception.
+      // Write errors (disk full, file deleted, etc.) arrive as an 'error'
+      // event; without a listener this is an uncaught exception.
       this.stream.on('error', (e: Error) => {
         console.error(`transcript: ошибка записи: ${e.message}`)
         this.enabled = false

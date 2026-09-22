@@ -2,27 +2,27 @@ import { theme } from './theme.js'
 import { renderMarkdown } from './markdown.js'
 import { randomThinkingPhrase, stripEllipsis } from './spinner.js'
 
-// Постоянная строка ввода внизу терминала + область статуса/вывода над ней.
+// A permanent input line at the bottom of the terminal + a status/output area above it.
 //
-// Зачем свой редактор:
-//   * строка ввода видна ВСЕГДА и не затирается выводом агента;
-//   * спиннер/статус и ответы печатаются ВЫШЕ строки ввода (printAbove);
-//   * перерисовка учитывает перенос по ширине терминала, поэтому нет
-//     дублирования строк при многострочном вводе;
-//   * многострочный ввод: Enter отправляет, но если курсор стоит сразу
-//     после «\», Enter удаляет «\» и переносит строку (как в Claude Code).
-//     Ctrl+J, Ctrl+Enter и Shift+Enter (в терминалах с расширенным
-//     протоколом) всегда вставляют перевод строки;
-//   * перенос длинных строк по словам (слово не рвётся посередине);
-//   * перемещение по словам: Ctrl+←/→ (и Alt+B/Alt+F), удаление слова
-//     Ctrl+W; Ctrl+K — удалить до конца строки;
-//   * история введённых сообщений: ↑/↓ на краях ввода (внутри многострочного
-//     ввода стрелки двигают по строкам, как в обычном терминале);
-//   * подсказки slash-команд: при вводе «/» под строкой показываются
-//     подходящие команды с описанием, Tab — дополнить.
+// Why a custom editor:
+//   * the input line is ALWAYS visible and is not overwritten by the agent's output;
+//   * the spinner/status and answers are printed ABOVE the input line (printAbove);
+//   * redraw accounts for wrapping by terminal width, so there is no
+//     line duplication on multiline input;
+//   * multiline input: Enter sends, but if the cursor is right after a «\»,
+//     Enter removes the «\» and breaks the line (like in Claude Code).
+//     Ctrl+J, Ctrl+Enter and Shift+Enter (in terminals with the extended
+//     protocol) always insert a newline;
+//   * long lines wrap by words (a word is not split in the middle);
+//   * word movement: Ctrl+←/→ (and Alt+B/Alt+F), word deletion
+//     Ctrl+W; Ctrl+K — delete to end of line;
+//   * input history: ↑/↓ at the edges of the input (inside multiline
+//     input the arrows move by lines, like in a normal terminal);
+//   * slash-command hints: when you type «/», matching commands with
+//     descriptions are shown below the line, Tab completes.
 //
-// Все управляющие символы собираются из кодов, чтобы в файле не было
-// «сырых» ESC/CR/LF в строковых литералах (см. AGENTS.md).
+// All control characters are assembled from codes so the file has no
+// "raw" ESC/CR/LF in string literals (see AGENTS.md).
 
 const NL = String.fromCharCode(10)
 const CR = String.fromCharCode(13)
@@ -30,8 +30,8 @@ const ESC = String.fromCharCode(27)
 const PASTE_START = ESC + '[200~'
 const PASTE_END = ESC + '[201~'
 
-// Анимация точек: старт с пустой строки (0 точек), затем рост.
-// Ширину выравниваем по максимуму (3), чтобы подсказка не смещалась.
+// Dot animation: start from an empty string (0 dots), then grow.
+// We align the width to the maximum (3) so the hint doesn't shift.
 const DOTS = ['', '.', '..', '...']
 const DOTS_PAD = '   '
 const HINT = theme.dim('  ·  Esc — стоп')
@@ -44,16 +44,16 @@ function safeJson(v: unknown): string {
   }
 }
 
-// Сколько визуальных строк занимает текст при данной ширине терминала
-// (с учётом переноса). Нужно, чтобы курсор/стирание блока не сбивались,
-// когда статус длиннее ширины терминала и переносится на 2+ строки.
+// How many visual lines the text occupies at the given terminal width
+// (accounting for wrapping). Needed so the cursor/block erase don't drift
+// when the status is longer than the terminal width and wraps onto 2+ lines.
 export function visRows(s: string, cols: number): number {
   const width = Math.max(1, Number(cols) || 80)
   const len = visLen(s)
   return Math.max(1, Math.ceil(len / width))
 }
 
-// Видимая длина строки без ANSI-последовательностей.
+// Visible length of a line without ANSI sequences.
 export function visLen(s: string): number {
   s = String(s)
   let n = 0
@@ -74,8 +74,8 @@ export function visLen(s: string): number {
   return n
 }
 
-// Раскладка ввода на визуальные строки с учётом ширины терминала.
-// Возвращает строки (с префиксом) и позицию курсора в визуальных координатах.
+// Layout of the input into visual lines accounting for terminal width.
+// Returns the lines (with prefix) and the cursor position in visual coordinates.
 export interface LayoutRow {
   prefix: string
   text: string
@@ -107,13 +107,13 @@ export function layoutInput(
     const avail = Math.max(1, width - promptW)
     const start = i
 
-    // Собираем очередную визуальную строку. Сначала набираем столько
-    // символов, сколько влезает (count < avail). Если упёрлись в ширину
-    // и следующий символ — не конец строки, откатываемся к последнему
-    // пробелу, чтобы не разрывать слово посередине (word-wrap).
+    // Build the next visual line. First we take as many
+    // characters as fit (count < avail). If we hit the width
+    // and the next character is not the end of the line, we roll back to the
+    // last space so we don't split a word in the middle (word-wrap).
     let text = ''
     let count = 0
-    let lastSpace = -1 // индекс пробела в text (по Array.from)
+    let lastSpace = -1 // index of the space in text (by Array.from)
     while (i < chars.length && chars[i] !== NL && count < avail) {
       if (chars[i] === ' ') lastSpace = count
       text += chars[i]
@@ -122,7 +122,7 @@ export function layoutInput(
     }
     const atLineEnd = i >= chars.length || chars[i] === NL
     if (!atLineEnd && count >= avail && lastSpace > 0) {
-      // Переносим «хвост» строки на следующую визуальную строку.
+      // Move the "tail" of the line to the next visual line.
       const textChars = Array.from(text)
       const tailLen = textChars.length - lastSpace
       i -= tailLen
@@ -184,11 +184,11 @@ export class LineEditor {
   _thinkBase: string
   _wasRaw: boolean
   _onData: (b: Buffer) => void
-  // История отправленных сообщений (для стрелок вверх/вниз).
+  // History of sent messages (for the up/down arrows).
   history: string[]
   _histIndex: number
   _histDraft: string
-  // Подсказки slash-команд (показываются при вводе «/»).
+  // Slash-command hints (shown when you type «/»).
   slashCommands: SlashCommand[]
   _suggestCount: number
 
@@ -217,9 +217,9 @@ export class LineEditor {
     this._suggestCount = 0
   }
 
-  // Список подсказок для текущего ввода. Показываем, только когда строка
-  // начинается с «/» и это одно слово (без пробелов/переводов строк) — как
-  // автодополнение команд в Claude Code.
+  // List of hints for the current input. We show them only when the line
+  // starts with «/» and is a single word (no spaces/newlines) — like
+  // command completion in Claude Code.
   _suggestions(): SlashCommand[] {
     const b = this.buf
     if (!b.startsWith('/')) return []
@@ -228,8 +228,8 @@ export class LineEditor {
     return this.slashCommands.filter((c) => c.name.toLowerCase().startsWith(q))
   }
 
-  // Tab: дополнить команду до общего префикса; если совпадение одно —
-  // подставить его целиком и добавить пробел.
+  // Tab: complete the command up to the common prefix; if there is a single
+  // match — insert it whole and add a space.
   _completeCommand() {
     const sugg = this._suggestions()
     if (!sugg.length) return
@@ -271,9 +271,9 @@ export class LineEditor {
     if (stdin.setRawMode) stdin.setRawMode(this._wasRaw || false)
   }
 
-  // Временно отдать терминал внешнему UI (например, меню /config):
-  // снимаем свой обработчик ввода и стираем блок ввода, чтобы чужой вывод
-  // не накладывался на строку ввода. Парно с resume().
+  // Temporarily hand the terminal to an external UI (e.g. the /config menu):
+  // we detach our input handler and erase the input block so foreign output
+  // doesn't overlap the input line. Paired with resume().
   pause() {
     const stdin = process.stdin
     this._stopDots()
@@ -299,7 +299,7 @@ export class LineEditor {
     this._render()
   }
 
-  // Обновить описания slash-команд (смена языка интерфейса).
+  // Update slash-command descriptions (interface language change).
   setCommands(commands: SlashCommand[]): void {
     this.slashCommands = commands
     this._render()
@@ -311,7 +311,7 @@ export class LineEditor {
     this._render()
   }
 
-  // ---------- отрисовка ----------
+  // ---------- rendering ----------
 
   _eraseBlock() {
     if (!this.rendered) return
@@ -328,15 +328,15 @@ export class LineEditor {
     let top = 0
     if (this.statusText) {
       out += this.statusText + NL
-      // Статус может переноситься на несколько строк — учитываем это,
-      // иначе стирание блока промахивается и статусы «стопкой» копятся.
+      // The status may wrap onto several lines — we account for this,
+      // otherwise the block erase misses and statuses pile up.
       top = visRows(this.statusText, cols)
     }
     const lay = layoutInput(this.promptStr, this.buf, this.cursor, cols)
     out += lay.rows.map((r) => r.prefix + r.text).join(NL)
 
-    // Подсказки slash-команд рисуем НИЖЕ строки ввода. Курсор потом
-    // возвращаем вверх, на строку ввода, поэтому cursorRowFromTop не меняется.
+    // We draw the slash-command hints BELOW the input line. We then move the
+    // cursor back up to the input line, so cursorRowFromTop doesn't change.
     const sugg = this._suggestions()
     const shown = sugg.slice(0, 8)
     this._suggestCount = shown.length
@@ -354,8 +354,8 @@ export class LineEditor {
 
     process.stdout.write(out)
     const lastRow = lay.rows.length - 1
-    // Курсор вверх: сначала на строку ввода внутри lay, затем ещё на
-    // строки подсказок (если они есть) — курсор должен стоять на вводе.
+    // Move the cursor up: first to the input line within lay, then further by
+    // the hint lines (if any) — the cursor must sit on the input.
     const linesBelow = shown.length ? shown.length + (sugg.length > shown.length ? 1 : 0) : 0
     const up = lastRow - lay.cursorRow + linesBelow
     if (up > 0) process.stdout.write(ESC + '[' + up + 'A')
@@ -370,14 +370,14 @@ export class LineEditor {
     this._writeBlock()
   }
 
-  // Напечатать блок ВЫШЕ строки ввода и вернуть строку ввода на место.
+  // Print a block ABOVE the input line and put the input line back.
   printAbove(text: unknown): void {
     this._eraseBlock()
     process.stdout.write(String(text) + NL)
     this._writeBlock()
   }
 
-  // ---------- интерфейс, совместимый со спиннером ----------
+  // ---------- spinner-compatible interface ----------
 
   setStatus(text: string): void {
     this.statusText = text || ''
@@ -392,8 +392,8 @@ export class LineEditor {
   }
 
   _dots(n: number): string {
-    // Точки того же цвета, что и база, и фиксированной ширины — иначе
-    // подсказка справа «прыгает» при смене фазы анимации.
+    // The dots are the same color as the base and of fixed width — otherwise
+    // the hint on the right "jumps" when the animation phase changes.
     return theme.brown(DOTS[n] + DOTS_PAD.slice(DOTS[n].length))
   }
 
@@ -451,13 +451,13 @@ export class LineEditor {
     )
   }
 
-  // Предупреждение оператору (например, агент подозрительно остановился).
-  // Печатается над строкой ввода, не затирая её.
+  // Warning to the operator (e.g. the agent stopped suspiciously).
+  // Printed above the input line without overwriting it.
   warning(msg: string): void {
     this.printAbove(NL + theme.warn('⚠ ' + msg))
   }
 
-  // ---------- ввод ----------
+  // ---------- input ----------
 
   _submit() {
     const text = this.buf
@@ -465,7 +465,7 @@ export class LineEditor {
       this._render()
       return
     }
-    // В историю — только непустые и не дублирующие прошлое сообщение.
+    // Add to history only non-empty messages that don't duplicate the previous one.
     if (text.trim() && this.history[this.history.length - 1] !== text) {
       this.history.push(text)
     }
@@ -488,9 +488,9 @@ export class LineEditor {
     this.cursor += ins.length
   }
 
-  // Вставить перевод строки. Если курсор стоит сразу после символа «\»
-  // (как в Claude Code), символ удаляется — чтобы «\» + Enter давали
-  // обычный перенос без лишней обратной косой черты в тексте.
+  // Insert a newline. If the cursor is right after a «\»
+  // (like in Claude Code), the character is removed — so «\» + Enter gives
+  // an ordinary break without a stray backslash in the text.
   _insertNewline(): void {
     const chars = Array.from(this.buf)
     if (this.cursor > 0 && chars[this.cursor - 1] === '\\') {
@@ -538,9 +538,9 @@ export class LineEditor {
     this.cursor = i
   }
 
-  // Курсор на первой/последней ВИЗУАЛЬНОЙ строке (с учётом переноса).
-  // Нужно, чтобы Up/Down работали как история на краях ввода, а внутри —
-  // как перемещение по строкам, как в обычном терминале.
+  // Is the cursor on the first/last VISUAL line (accounting for wrapping).
+  // Needed so Up/Down act as history at the edges of the input, and inside —
+  // as line movement, like in a normal terminal.
   _onFirstVisualLine(): boolean {
     const cols = process.stdout.columns || 80
     const lay = layoutInput(this.promptStr, this.buf, this.cursor, cols)
@@ -579,8 +579,8 @@ export class LineEditor {
     this.cursor = nextStart + Math.min(col, nextEnd - nextStart)
   }
 
-  // Перемещение на слово назад (Ctrl+Left / Alt+B): пропускаем пробелы
-  // слева, затем идём до начала слова.
+  // Move one word back (Ctrl+Left / Alt+B): skip spaces
+  // on the left, then go to the start of the word.
   _wordLeft() {
     const chars = Array.from(this.buf)
     let i = this.cursor
@@ -589,7 +589,7 @@ export class LineEditor {
     this.cursor = i
   }
 
-  // Перемещение на слово вперёд (Ctrl+Right / Alt+F).
+  // Move one word forward (Ctrl+Right / Alt+F).
   _wordRight() {
     const chars = Array.from(this.buf)
     let i = this.cursor
@@ -598,7 +598,7 @@ export class LineEditor {
     this.cursor = i
   }
 
-  // Удаление слова слева (Ctrl+W / Alt+Backspace).
+  // Delete the word on the left (Ctrl+W / Alt+Backspace).
   _deleteWordLeft() {
     const chars = Array.from(this.buf)
     let i = this.cursor
@@ -609,7 +609,7 @@ export class LineEditor {
     this.cursor = i
   }
 
-  // ---------- история ----------
+  // ---------- history ----------
 
   _historyUp() {
     if (!this.history.length) return
@@ -668,8 +668,8 @@ export class LineEditor {
         continue
       }
 
-      // Shift+Enter, Ctrl+Enter в терминалах с расширенным протоколом
-      // и Alt+Enter — вставка перевода строки.
+      // Shift+Enter, Ctrl+Enter in terminals with the extended protocol
+      // and Alt+Enter — insert a newline.
       if (s.startsWith(ESC + '[13;2u')) { this._insertNewline(); s = s.slice(7); this._render(); continue }
       if (s.startsWith(ESC + '[13;5u')) { this._insertNewline(); s = s.slice(7); this._render(); continue }
       if (s.startsWith(ESC + '[27;2;13~')) { this._insertNewline(); s = s.slice(10); this._render(); continue }
@@ -680,10 +680,10 @@ export class LineEditor {
       const code = s.charCodeAt(0)
       s = s.slice(1)
 
-      // Enter: если предыдущий символ — «\», Claude-Code-стиль: удаляем
-      // «\» и переносим строку; иначе отправляем сообщение.
-      // Ctrl+J (code 10) всегда вставляет перевод строки; Ctrl+Enter
-      // (ESC[13;5u) и Shift+Enter тоже.
+      // Enter: if the previous character is «\», Claude-Code style: remove
+      // the «\» and break the line; otherwise send the message.
+      // Ctrl+J (code 10) always inserts a newline; Ctrl+Enter
+      // (ESC[13;5u) and Shift+Enter too.
       if (ch === CR) {
         const before = this.cursor > 0 ? Array.from(this.buf)[this.cursor - 1] : ''
         if (before === '\\') { this._insertNewline(); this._render(); continue }
@@ -698,7 +698,7 @@ export class LineEditor {
       if (code === 21) { this.buf = ''; this.cursor = 0; this._render(); continue }
       if (code === 23) { this._deleteWordLeft(); this._render(); continue }
       if (code === 11) {
-        // Ctrl+K — удалить от курсора до конца строки.
+        // Ctrl+K — delete from the cursor to the end of the line.
         const arr = Array.from(this.buf)
         let e = this.cursor
         while (e < arr.length && arr[e] !== NL) e++
@@ -710,7 +710,7 @@ export class LineEditor {
 
       if (code === 27) {
         // Ctrl+Left / Ctrl+Right (xterm: ESC [1;5D / ESC [1;5C;
-        // некоторые терминалы: ESC [5D / ESC [5C).
+        // some terminals: ESC [5D / ESC [5C).
         if (s.startsWith('[1;5D') || s.startsWith('[5D')) {
           this._wordLeft(); s = s.slice(s.startsWith('[1;5D') ? 5 : 3); this._render(); continue
         }
@@ -720,7 +720,7 @@ export class LineEditor {
         if (s.startsWith('[D')) { this._left(); s = s.slice(2); this._render(); continue }
         if (s.startsWith('[C')) { this._right(); s = s.slice(2); this._render(); continue }
         if (s.startsWith('[A')) {
-          // Вверх: на первой визуальной строке — история, иначе — строка выше.
+          // Up: on the first visual line — history, otherwise — the line above.
           if (this._onFirstVisualLine()) this._historyUp()
           else this._up()
           s = s.slice(2); this._render(); continue
@@ -733,7 +733,7 @@ export class LineEditor {
         if (s.startsWith('[H') || s.startsWith('[1~')) { this._home(); s = s.slice(s.startsWith('[1~') ? 3 : 2); this._render(); continue }
         if (s.startsWith('[F') || s.startsWith('[4~')) { this._end(); s = s.slice(s.startsWith('[4~') ? 3 : 2); this._render(); continue }
         if (s.startsWith('[3~')) { this._delete(); s = s.slice(3); this._render(); continue }
-        // Alt+B / Alt+F — перемещение по словам.
+        // Alt+B / Alt+F — word movement.
         if (s.startsWith('b') || s.startsWith('B')) { this._wordLeft(); s = s.slice(1); this._render(); continue }
         if (s.startsWith('f') || s.startsWith('F')) { this._wordRight(); s = s.slice(1); this._render(); continue }
         let j = 0
@@ -749,7 +749,7 @@ export class LineEditor {
   }
 }
 
-// Проверка раскладки: node src/input.js --selftest
+// Layout check: node src/input.js --selftest
 export function selftest() {
   const cases = [
     { p: '> ', b: 'hello', c: 5, w: 80 },
