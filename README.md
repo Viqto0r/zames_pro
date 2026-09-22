@@ -9,14 +9,21 @@ directory, reads and edits files, runs commands, and commits to git.
 ## Requirements
 
 - Node.js >= 18
-- Google Chrome or Chromium (used through Playwright)
 - A DeepSeek account (you log in manually in the browser window that opens on first launch)
 
 ## Installation
 
 ```bash
 npm install -g zames_pro
+```
+
+Chromium for Playwright is downloaded automatically on install. On Linux/WSL
+the required system libraries are installed too when passwordless `sudo` is
+available; otherwise run once by hand:
+
+```bash
 npx playwright install chromium
+sudo npx playwright install-deps chromium
 ```
 
 ## Usage

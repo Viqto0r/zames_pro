@@ -1,6 +1,6 @@
 {
   "name": "zames_pro",
-  "version": "2.4.7",
+  "version": "2.5.0",
   "description": "Terminal coding agent over chat.deepseek.com via Playwright",
   "type": "module",
   "bin": {
@@ -8,6 +8,7 @@
   },
   "files": [
     "dist",
+    "scripts",
     "README.md",
     "LICENSE",
     "logo.png"
@@ -20,6 +21,7 @@
     "prepublishOnly": "npm run build",
     "test": "tsx --test test/*.test.ts",
     "test:watch": "tsx --test --watch test/*.test.ts",
+    "postinstall": "node scripts/postinstall.mjs",
     "prepare": "husky"
   },
   "keywords": [

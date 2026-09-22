@@ -130,7 +130,7 @@ export function createTools(
         if (undo) await undo.backup(file)
         await fs.mkdir(path.dirname(file), { recursive: true })
         await fs.writeFile(file, text, 'utf-8')
-        return `Файл записан: {p}`
+        return `Файл записан: ${p}`
       },
     },
 

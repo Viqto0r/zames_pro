@@ -130,10 +130,17 @@ export async function runAgentLoop({
     }
 
     if (!parsed) {
+      // Ответ похож на (возможно, обрезанный) вызов инструмента. Ловим не
+      // только явный JSON, но и XML/DSML-формы, «грязные» варианты и
+      // незакрытые фрагменты: если такой ответ молча принять за финальный,
+      // агент встанет, хотя модель пыталась позвать инструмент.
       const looksLikeToolCall =
         /("tool"\s*:|\btool_calls?\b|\binvoke\b|\bparameter\b|DSML|function_call)/i.test(
           rawResponse,
-        ) || /\{\s*"?(tool|name)"?\s*:/.test(rawResponse)
+        ) ||
+        /\{\s*"?(tool|name|args)"?\s*:/.test(rawResponse) ||
+        /<\s*\|?\s*(DSML|invoke|parameter)/i.test(rawResponse) ||
+        /^\s*\[?\s*\{[^}]*$/.test(rawResponse.trim())
       if (looksLikeToolCall && malformedRetries < MAX_MALFORMED_RETRIES) {
         malformedRetries++
         transcript?.log('malformed_toolcall', {
@@ -202,6 +209,27 @@ export async function runAgentLoop({
         typeof respondCall.args.message === 'string'
           ? respondCall.args.message
           : String(respondCall.args.message ?? '')
+      // Пустой respond — не финал: модель позвала respond, но не написала
+      // итог. Если так завершить, оператор не увидит ничего, а задача
+      // «зависнет». Просим продолжить (в пределах stallRetries).
+      if (!msg.trim() && stallRetries < MAX_STALL_RETRIES) {
+        stallRetries++
+        transcript?.log('empty_respond', { attempt: stallRetries })
+        if (debugLog) {
+          console.error(
+            'внимание: пустой respond, прошу продолжить (попытка ' +
+              stallRetries +
+              '/' +
+              MAX_STALL_RETRIES +
+              ')',
+          )
+        }
+        message =
+          'Ты вызвал respond с пустым message. Если задача выполнена — ' +
+          'вызови respond с итоговым сообщением оператору. Если нет — ' +
+          'продолжи работу вызовом инструмента.'
+        continue
+      }
       onAssistantMessage(msg)
       transcript?.log('assistant_final', { message: msg })
       return msg
