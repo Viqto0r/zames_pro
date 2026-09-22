@@ -173,15 +173,21 @@ export async function runAgentLoop({
       }
 
       const trimmed = (rawResponse || '').trim()
+      // Служебный ответ — это КОРОТКАЯ заглушка DeepSeek («Reading…») или
+      // короткое уведомление о лимите. Слова про rate limit в ДЛИННОМ
+      // ответе — это, как правило, сам агент цитирует код/логи (в транскрипте
+      // был ровно такой случай: ответ на 1365 символов про ask() и лимиты),
+      // и принимать его за «служебный» нельзя, иначе агент зря переспрашивает.
       const looksService =
         !trimmed ||
         trimmed.length < 2 ||
         /^(reading|thinking|searching|analyzing|generating|stop|остановить|читаю|думаю|поиск|анализ)[\s.…]*$/i.test(
           trimmed,
         ) ||
-        /(messages? too frequent|too many requests|rate limit|слишком часто|try again later)/i.test(
-          trimmed,
-        )
+        (trimmed.length <= 200 &&
+          /(messages? too frequent|too many requests|rate limit|слишком часто|try again later)/i.test(
+            trimmed,
+          ))
       if (looksService && stallRetries < MAX_STALL_RETRIES) {
         stallRetries++
         transcript?.log('stall_retry', {
@@ -339,7 +345,7 @@ function looksLikeUnfinishedWork(text: string): boolean {
   const en =
     /\b(now|next|then|let me|let's|i will|i'll|i am going to|i'm going to|going to|about to|will now|time to)\b[^.!?\n]{0,120}\b(update|write|edit|read|run|check|add|fix|create|remove|delete|apply|test|commit|push|install|open|search|look|verify|change|modify|implement|review)\b/i
   const ru =
-    /(^|[^а-яё])(сейчас|теперь|далее|затем|попробую|проверю|обновлю|исправлю|добавлю|запущу|выполню|посмотрю|прочитаю|изменю|сделаю)([^а-яё]|$)/i
+    /(^|[^а-яё])(проверю|обновлю|исправлю|добавлю|запущу|выполню|посмотрю|прочитаю|изменю|попробую|сделаю)([^а-яё]|$)/i
   return en.test(t) || ru.test(t)
 }
 

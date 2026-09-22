@@ -108,3 +108,39 @@ test('обычный финальный текст (без обещания) з�
   assert.equal(result, 'Просто ответ без вызова')
   assert.equal(asks.length, 1, 'ask calls: ' + asks.length)
 })
+
+test('длинный ответ со словами про rate limit не считается служебным', async () => {
+  // В транскрипте был ответ на 1365 символов, где агент цитирует код
+  // ask() и слова «слишком часто». Он ошибочно принимался за служебный
+  // и вызывал лишний переспрос.
+  const long =
+    'Да, именно так сейчас и сделано — повтор идёт в тот же чат.' +
+    String.fromCharCode(10, 10) +
+    'Смотри ask(), строки 499–517: при RateLimitError ждём и повторяем, ' +
+    'сообщение «слишком часто» обрабатывается отдельно. ' +
+    'x'.repeat(300)
+  const { browser, asks } = makeBrowser([long])
+  const result = await runAgentLoop({
+    browser,
+    tools: [respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+  })
+  assert.equal(result, long)
+  assert.equal(asks.length, 1, 'ask calls: ' + asks.length)
+})
+
+test('короткое уведомление о лимите по-прежнему вызывает переспрос', async () => {
+  const { browser, asks } = makeBrowser([
+    'Messages too frequent. Please try again later.',
+    jsonCall('respond', { message: 'ok' }),
+  ])
+  const result = await runAgentLoop({
+    browser,
+    tools: [respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+  })
+  assert.equal(result, 'ok')
+  assert.ok(asks.length >= 2, 'ask calls: ' + asks.length)
+})
