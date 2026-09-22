@@ -10,7 +10,12 @@ import { randomThinkingPhrase, stripEllipsis } from './spinner.js'
 //   * перерисовка учитывает перенос по ширине терминала, поэтому нет
 //     дублирования строк при многострочном вводе;
 //   * многострочный ввод: Enter отправляет, Ctrl+J (и Shift+Enter в
-//     терминалах с расширенным протоколом) вставляют перевод строки.
+//     терминалах с расширенным протоколом) вставляют перевод строки;
+//   * перенос длинных строк по словам (слово не рвётся посередине);
+//   * перемещение по словам: Ctrl+←/→ (и Alt+B/Alt+F), удаление слова
+//     Ctrl+W; Ctrl+K — удалить до конца строки;
+//   * история введённых сообщений: ↑/↓ на краях ввода (внутри многострочного
+//     ввода стрелки двигают по строкам, как в обычном терминале).
 //
 // Все управляющие символы собираются из кодов, чтобы в файле не было
 // «сырых» ESC/CR/LF в строковых литералах (см. AGENTS.md).
@@ -25,7 +30,9 @@ const PASTE_END = ESC + '[201~'
 // Ширину выравниваем по максимуму (3), чтобы подсказка не смещалась.
 const DOTS = ['', '.', '..', '...']
 const DOTS_PAD = '   '
-const HINT = theme.dim('  ·  Enter — отправить, Ctrl+J — новая строка, Esc — стоп')
+const HINT = theme.dim(
+  '  ·  Enter — отправить, ↑/↓ — история, Ctrl+←/→ — по словам, Esc — стоп',
+)
 
 function safeJson(v: unknown): string {
   try {
@@ -87,14 +94,30 @@ export function layoutInput(
     const first: boolean = rows.length === 0
     const prefix: string = first ? promptStr : pad
     const avail = Math.max(1, width - promptW)
+    const start = i
+
+    // Собираем очередную визуальную строку. Сначала набираем столько
+    // символов, сколько влезает (count < avail). Если упёрлись в ширину
+    // и следующий символ — не конец строки, откатываемся к последнему
+    // пробелу, чтобы не разрывать слово посередине (word-wrap).
     let text = ''
     let count = 0
-    const start = i
+    let lastSpace = -1 // индекс пробела в text (по Array.from)
     while (i < chars.length && chars[i] !== NL && count < avail) {
+      if (chars[i] === ' ') lastSpace = count
       text += chars[i]
       i++
       count++
     }
+    const atLineEnd = i >= chars.length || chars[i] === NL
+    if (!atLineEnd && count >= avail && lastSpace > 0) {
+      // Переносим «хвост» строки на следующую визуальную строку.
+      const textChars = Array.from(text)
+      const tailLen = textChars.length - lastSpace
+      i -= tailLen
+      text = textChars.slice(0, lastSpace).join('')
+    }
+
     if (i < chars.length && chars[i] === NL) {
       i++
       rows.push({ prefix, text, start })
@@ -144,6 +167,10 @@ export class LineEditor {
   _thinkBase: string
   _wasRaw: boolean
   _onData: (b: Buffer) => void
+  // История отправленных сообщений (для стрелок вверх/вниз).
+  history: string[]
+  _histIndex: number
+  _histDraft: string
 
   constructor({ prompt = '> ' }: LineEditorOptions = {}) {
     this.promptStr = prompt
@@ -163,6 +190,9 @@ export class LineEditor {
     this._thinkBase = ''
     this._wasRaw = false
     this._onData = (b: Buffer) => this._handle(b)
+    this.history = []
+    this._histIndex = 0
+    this._histDraft = ''
   }
 
   start() {
@@ -322,6 +352,12 @@ export class LineEditor {
       this._render()
       return
     }
+    // В историю — только непустые и не дублирующие прошлое сообщение.
+    if (text.trim() && this.history[this.history.length - 1] !== text) {
+      this.history.push(text)
+    }
+    this._histIndex = this.history.length
+    this._histDraft = ''
     this.buf = ''
     this.cursor = 0
     this.pendingText = null
@@ -376,6 +412,21 @@ export class LineEditor {
     this.cursor = i
   }
 
+  // Курсор на первой/последней ВИЗУАЛЬНОЙ строке (с учётом переноса).
+  // Нужно, чтобы Up/Down работали как история на краях ввода, а внутри —
+  // как перемещение по строкам, как в обычном терминале.
+  _onFirstVisualLine(): boolean {
+    const cols = process.stdout.columns || 80
+    const lay = layoutInput(this.promptStr, this.buf, this.cursor, cols)
+    return lay.cursorRow === 0
+  }
+
+  _onLastVisualLine(): boolean {
+    const cols = process.stdout.columns || 80
+    const lay = layoutInput(this.promptStr, this.buf, this.cursor, cols)
+    return lay.cursorRow === lay.rows.length - 1
+  }
+
   _up() {
     const chars = Array.from(this.buf)
     let start = this.cursor
@@ -400,6 +451,60 @@ export class LineEditor {
     let nextEnd = nextStart
     while (nextEnd < chars.length && chars[nextEnd] !== NL) nextEnd++
     this.cursor = nextStart + Math.min(col, nextEnd - nextStart)
+  }
+
+  // Перемещение на слово назад (Ctrl+Left / Alt+B): пропускаем пробелы
+  // слева, затем идём до начала слова.
+  _wordLeft() {
+    const chars = Array.from(this.buf)
+    let i = this.cursor
+    while (i > 0 && /\s/.test(chars[i - 1])) i--
+    while (i > 0 && !/\s/.test(chars[i - 1])) i--
+    this.cursor = i
+  }
+
+  // Перемещение на слово вперёд (Ctrl+Right / Alt+F).
+  _wordRight() {
+    const chars = Array.from(this.buf)
+    let i = this.cursor
+    while (i < chars.length && /\s/.test(chars[i])) i++
+    while (i < chars.length && !/\s/.test(chars[i])) i++
+    this.cursor = i
+  }
+
+  // Удаление слова слева (Ctrl+W / Alt+Backspace).
+  _deleteWordLeft() {
+    const chars = Array.from(this.buf)
+    let i = this.cursor
+    while (i > 0 && /\s/.test(chars[i - 1])) i--
+    while (i > 0 && !/\s/.test(chars[i - 1])) i--
+    chars.splice(i, this.cursor - i)
+    this.buf = chars.join('')
+    this.cursor = i
+  }
+
+  // ---------- история ----------
+
+  _historyUp() {
+    if (!this.history.length) return
+    if (this._histIndex === this.history.length) this._histDraft = this.buf
+    if (this._histIndex > 0) {
+      this._histIndex--
+      this.buf = this.history[this._histIndex]
+      this.cursor = Array.from(this.buf).length
+    }
+  }
+
+  _historyDown() {
+    if (!this.history.length) return
+    if (this._histIndex < this.history.length - 1) {
+      this._histIndex++
+      this.buf = this.history[this._histIndex]
+    } else {
+      this._histIndex = this.history.length
+      this.buf = this._histDraft
+    }
+    this.cursor = Array.from(this.buf).length
   }
 
   _handle(data: Buffer): void {
@@ -453,16 +558,46 @@ export class LineEditor {
       if (code === 1) { this._home(); this._render(); continue }
       if (code === 5) { this._end(); this._render(); continue }
       if (code === 21) { this.buf = ''; this.cursor = 0; this._render(); continue }
+      if (code === 23) { this._deleteWordLeft(); this._render(); continue }
+      if (code === 11) {
+        // Ctrl+K — удалить от курсора до конца строки.
+        const arr = Array.from(this.buf)
+        let e = this.cursor
+        while (e < arr.length && arr[e] !== NL) e++
+        arr.splice(this.cursor, e - this.cursor)
+        this.buf = arr.join('')
+        this._render(); continue
+      }
       if (code === 127 || code === 8) { this._backspace(); this._render(); continue }
 
       if (code === 27) {
+        // Ctrl+Left / Ctrl+Right (xterm: ESC [1;5D / ESC [1;5C;
+        // некоторые терминалы: ESC [5D / ESC [5C).
+        if (s.startsWith('[1;5D') || s.startsWith('[5D')) {
+          this._wordLeft(); s = s.slice(s.startsWith('[1;5D') ? 5 : 3); this._render(); continue
+        }
+        if (s.startsWith('[1;5C') || s.startsWith('[5C')) {
+          this._wordRight(); s = s.slice(s.startsWith('[1;5C') ? 5 : 3); this._render(); continue
+        }
         if (s.startsWith('[D')) { this._left(); s = s.slice(2); this._render(); continue }
         if (s.startsWith('[C')) { this._right(); s = s.slice(2); this._render(); continue }
-        if (s.startsWith('[A')) { this._up(); s = s.slice(2); this._render(); continue }
-        if (s.startsWith('[B')) { this._down(); s = s.slice(2); this._render(); continue }
+        if (s.startsWith('[A')) {
+          // Вверх: на первой визуальной строке — история, иначе — строка выше.
+          if (this._onFirstVisualLine()) this._historyUp()
+          else this._up()
+          s = s.slice(2); this._render(); continue
+        }
+        if (s.startsWith('[B')) {
+          if (this._onLastVisualLine()) this._historyDown()
+          else this._down()
+          s = s.slice(2); this._render(); continue
+        }
         if (s.startsWith('[H') || s.startsWith('[1~')) { this._home(); s = s.slice(s.startsWith('[1~') ? 3 : 2); this._render(); continue }
         if (s.startsWith('[F') || s.startsWith('[4~')) { this._end(); s = s.slice(s.startsWith('[4~') ? 3 : 2); this._render(); continue }
         if (s.startsWith('[3~')) { this._delete(); s = s.slice(3); this._render(); continue }
+        // Alt+B / Alt+F — перемещение по словам.
+        if (s.startsWith('b') || s.startsWith('B')) { this._wordLeft(); s = s.slice(1); this._render(); continue }
+        if (s.startsWith('f') || s.startsWith('F')) { this._wordRight(); s = s.slice(1); this._render(); continue }
         let j = 0
         while (j < s.length && !/[A-Za-z~]/.test(s[j])) j++
         s = s.slice(j + 1)

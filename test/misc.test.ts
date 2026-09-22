@@ -73,3 +73,14 @@ test('RateLimitError: имя и сообщение', () => {
   assert.equal(e.name, 'RateLimitError')
   assert.ok(e.message.includes('detail'))
 })
+
+test('layoutInput переносит по словам, не разрывая слово', () => {
+  const r = layoutInput('> ', 'hello world foo bar', 21, 20)
+  assert.equal(r.rows.length, 2)
+  // Разрыв на границе слова: слово целиком уходит на новую строку.
+  assert.equal(r.rows[0].text, 'hello world foo')
+  assert.equal(r.rows[1].text, ' bar')
+  // Слово нигде не разрезано посередине.
+  const joined = r.rows.map((x) => x.text).join('')
+  assert.equal(joined, 'hello world foo bar')
+})
