@@ -605,7 +605,7 @@ export class DeepSeekBrowser {
     const gap = this.minSendIntervalMs - (Date.now() - this._lastSentAt)
     if (gap <= 0) return
     console.error(
-      theme.warn(`⏳ пауза ${Math.ceil(gap / 1000)}с перед отправкой...`),
+      theme.warn(`⏳ пауза ${Math.ceil(gap / 1000)}с перед отправкой`),
     )
     await this.page.waitForTimeout(gap)
   }
