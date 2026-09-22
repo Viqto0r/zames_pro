@@ -120,6 +120,36 @@ test('slash-подсказки: фильтрация и Tab-дополнение
   assert.equal(e.buf, '/self-')
 })
 
+test('Enter после «\\» удаляет «\\» и переносит строку', () => {
+  const e = new LineEditor()
+  e._render = () => {}
+  e.printAbove = () => {}
+  let submitted = ''
+  e.onSubmit = (t) => { submitted = t }
+  const CRc = String.fromCharCode(13)
+
+  // Обычный Enter — отправка.
+  e.buf = 'hello'
+  e.cursor = 5
+  e._handle(Buffer.from(CRc))
+  assert.equal(submitted, 'hello')
+
+  // «\» + Enter — перенос, отправки нет, «\» исчезает.
+  submitted = ''
+  e.buf = 'line1\\'
+  e.cursor = 6
+  e._handle(Buffer.from(CRc))
+  assert.equal(submitted, '')
+  assert.equal(e.buf, 'line1' + String.fromCharCode(10))
+  assert.equal(e.cursor, 6)
+
+  // Ctrl+J всегда переносит, даже без «\».
+  e.buf = 'a'
+  e.cursor = 1
+  e._handle(Buffer.from(String.fromCharCode(10)))
+  assert.equal(e.buf, 'a' + String.fromCharCode(10))
+})
+
 import { visRows } from '../src/input.ts'
 
 test('visRows считает перенос статуса по ширине', () => {

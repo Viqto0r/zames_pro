@@ -9,8 +9,10 @@ import { randomThinkingPhrase, stripEllipsis } from './spinner.js'
 //   * спиннер/статус и ответы печатаются ВЫШЕ строки ввода (printAbove);
 //   * перерисовка учитывает перенос по ширине терминала, поэтому нет
 //     дублирования строк при многострочном вводе;
-//   * многострочный ввод: Enter отправляет, Ctrl+J (и Shift+Enter в
-//     терминалах с расширенным протоколом) вставляют перевод строки;
+//   * многострочный ввод: Enter отправляет, но если курсор стоит сразу
+//     после «\», Enter удаляет «\» и переносит строку (как в Claude Code).
+//     Ctrl+J, Ctrl+Enter и Shift+Enter (в терминалах с расширенным
+//     протоколом) всегда вставляют перевод строки;
 //   * перенос длинных строк по словам (слово не рвётся посередине);
 //   * перемещение по словам: Ctrl+←/→ (и Alt+B/Alt+F), удаление слова
 //     Ctrl+W; Ctrl+K — удалить до конца строки;
@@ -451,6 +453,19 @@ export class LineEditor {
     this.cursor += ins.length
   }
 
+  // Вставить перевод строки. Если курсор стоит сразу после символа «\»
+  // (как в Claude Code), символ удаляется — чтобы «\» + Enter давали
+  // обычный перенос без лишней обратной косой черты в тексте.
+  _insertNewline(): void {
+    const chars = Array.from(this.buf)
+    if (this.cursor > 0 && chars[this.cursor - 1] === '\\') {
+      chars.splice(this.cursor - 1, 1)
+      this.buf = chars.join('')
+      this.cursor--
+    }
+    this._insert(NL)
+  }
+
   _backspace() {
     if (this.cursor <= 0) return
     const chars = Array.from(this.buf)
@@ -618,17 +633,28 @@ export class LineEditor {
         continue
       }
 
-      // Shift+Enter в терминалах с расширенным протоколом и Alt+Enter.
-      if (s.startsWith(ESC + '[13;2u')) { this._insert(NL); s = s.slice(7); this._render(); continue }
-      if (s.startsWith(ESC + '[27;2;13~')) { this._insert(NL); s = s.slice(10); this._render(); continue }
-      if (s.startsWith(ESC + NL)) { this._insert(NL); s = s.slice(2); this._render(); continue }
+      // Shift+Enter, Ctrl+Enter в терминалах с расширенным протоколом
+      // и Alt+Enter — вставка перевода строки.
+      if (s.startsWith(ESC + '[13;2u')) { this._insertNewline(); s = s.slice(7); this._render(); continue }
+      if (s.startsWith(ESC + '[13;5u')) { this._insertNewline(); s = s.slice(7); this._render(); continue }
+      if (s.startsWith(ESC + '[27;2;13~')) { this._insertNewline(); s = s.slice(10); this._render(); continue }
+      if (s.startsWith(ESC + '[27;5;13~')) { this._insertNewline(); s = s.slice(10); this._render(); continue }
+      if (s.startsWith(ESC + NL)) { this._insertNewline(); s = s.slice(2); this._render(); continue }
 
       const ch = s[0]
       const code = s.charCodeAt(0)
       s = s.slice(1)
 
-      if (ch === CR) { this._submit(); continue }
-      if (code === 10) { this._insert(NL); this._render(); continue }
+      // Enter: если предыдущий символ — «\», Claude-Code-стиль: удаляем
+      // «\» и переносим строку; иначе отправляем сообщение.
+      // Ctrl+J (code 10) всегда вставляет перевод строки; Ctrl+Enter
+      // (ESC[13;5u) и Shift+Enter тоже.
+      if (ch === CR) {
+        const before = this.cursor > 0 ? Array.from(this.buf)[this.cursor - 1] : ''
+        if (before === '\\') { this._insertNewline(); this._render(); continue }
+        this._submit(); continue
+      }
+      if (code === 10) { this._insertNewline(); this._render(); continue }
       if (code === 3) { if (this.onCtrlC) this.onCtrlC(); continue }
       if (code === 4) { if (!this.buf && this.onCtrlC) this.onCtrlC(); continue }
       if (code === 1) { this._home(); this._render(); continue }
