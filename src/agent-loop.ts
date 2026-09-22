@@ -105,7 +105,6 @@ export async function runAgentLoop({
     const rawResponse = await browser.ask(message)
     await reportChat()
     transcript?.log('assistant_raw', { response: rawResponse })
-
     const parsed = parseToolCall(rawResponse)
 
     if (parsed) {
@@ -133,9 +132,18 @@ export async function runAgentLoop({
         ) || /\{\s*"?(tool|name)"?\s*:/.test(rawResponse)
       if (looksLikeToolCall && malformedRetries < MAX_MALFORMED_RETRIES) {
         malformedRetries++
-        transcript?.log("malformed_toolcall", { attempt: malformedRetries, response: rawResponse })
+        transcript?.log('malformed_toolcall', {
+          attempt: malformedRetries,
+          response: rawResponse,
+        })
         if (debugLog) {
-          console.error("внимание: ответ похож на tool-call, но не распознан (попытка " + malformedRetries + "/" + MAX_MALFORMED_RETRIES + ")")
+          console.error(
+            'внимание: ответ похож на tool-call, но не распознан (попытка ' +
+              malformedRetries +
+              '/' +
+              MAX_MALFORMED_RETRIES +
+              ')',
+          )
         }
         message =
           'Твой предыдущий ответ не распознан как вызов инструмента. ' +
@@ -220,15 +228,39 @@ function repairRawControlChars(str: string): string {
   let escape = false
   for (let i = 0; i < str.length; i++) {
     const c = str[i]
-    if (escape) { out += c; escape = false; continue }
-    if (c === '\\') { out += c; escape = true; continue }
-    if (c === '"') { inString = !inString; out += c; continue }
+    if (escape) {
+      out += c
+      escape = false
+      continue
+    }
+    if (c === '\\') {
+      out += c
+      escape = true
+      continue
+    }
+    if (c === '"') {
+      inString = !inString
+      out += c
+      continue
+    }
     if (inString) {
-      if (c === '\n') { out += '\\n'; continue }
-      if (c === '\r') { out += '\\r'; continue }
-      if (c === '\t') { out += '\\t'; continue }
+      if (c === '\n') {
+        out += '\\n'
+        continue
+      }
+      if (c === '\r') {
+        out += '\\r'
+        continue
+      }
+      if (c === '\t') {
+        out += '\\t'
+        continue
+      }
       const code = c.charCodeAt(0)
-      if (code < 0x20) { out += '\\u' + code.toString(16).padStart(4, '0'); continue }
+      if (code < 0x20) {
+        out += '\\u' + code.toString(16).padStart(4, '0')
+        continue
+      }
     }
     out += c
   }
@@ -300,7 +332,10 @@ function parseArgsGreedy(str: string): ToolArgs | null {
       let lastEnd = -1
       let k = i + 1
       while (k < str.length) {
-        if (str.charCodeAt(k) === 92) { k += 2; continue }
+        if (str.charCodeAt(k) === 92) {
+          k += 2
+          continue
+        }
         if (str[k] === '"') {
           let t = k + 1
           while (t < str.length && /\s/.test(str[t])) t++
@@ -319,8 +354,11 @@ function parseArgsGreedy(str: string): ToolArgs | null {
       const end = findMatching(str, i, open, close)
       if (end === -1) return null
       let parsed = null
-      try { parsed = JSON.parse(str.slice(i, end + 1)) }
-      catch { if (open === '{') parsed = parseArgsPermissive(str.slice(i, end + 1)) }
+      try {
+        parsed = JSON.parse(str.slice(i, end + 1))
+      } catch {
+        if (open === '{') parsed = parseArgsPermissive(str.slice(i, end + 1))
+      }
       if (parsed === null) return null
       result[key] = parsed
       i = end + 1
@@ -332,7 +370,10 @@ function parseArgsGreedy(str: string): ToolArgs | null {
     if (raw === 'true') result[key] = true
     else if (raw === 'false') result[key] = false
     else if (raw === 'null') result[key] = null
-    else { const n = Number(raw); result[key] = Number.isNaN(n) ? raw : n }
+    else {
+      const n = Number(raw)
+      result[key] = Number.isNaN(n) ? raw : n
+    }
     i = j
   }
   return result
@@ -476,7 +517,9 @@ function unescapeValue(s: string): string {
   return out
 }
 
-function parseToolCallPermissive(text: string): { tool: string; args: ToolArgs } | null {
+function parseToolCallPermissive(
+  text: string,
+): { tool: string; args: ToolArgs } | null {
   const toolMatch = text.match(/"tool"\s*:\s*"([A-Za-z_][A-Za-z0-9_]*)"/)
   if (!toolMatch) return null
   const tool = toolMatch[1]
@@ -573,7 +616,12 @@ function extractJsonObjects(text: string): string[] {
   return objects
 }
 
-function findMatching(text: string, openIdx: number, openCh: string, closeCh: string): number {
+function findMatching(
+  text: string,
+  openIdx: number,
+  openCh: string,
+  closeCh: string,
+): number {
   let depth = 0
   let inString = false
   let escape = false

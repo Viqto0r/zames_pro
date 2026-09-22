@@ -105,25 +105,28 @@ function loadLastChat(workdir = ''): string | null {
   return s ? s.id : null
 }
 
-
 // ---------- hot reload ----------
 // Держим ссылки на модули логики в объекте mod. Команда /reload перечитывает
 // их через динамический import с timestamp-query — Node кэширует ESM по URL,
 // поэтому такой import вернёт свежую версию модуля. Браузер, чат и текущее
 // состояние НЕ перезапускаются: обновляется только логика.
+// В dev-режиме tsx грузит .ts-исходники из src/, а в собранном dist — .js.
+// Динамический import с query ?t= идёт мимо переписывания расширений tsx,
+// поэтому расширение подбираем сами — по фактическому файлу текущего модуля.
+const SRC_EXT = /[.]ts$/.test(new URL(import.meta.url).pathname) ? '.ts' : '.js'
 const RELOADABLE = [
-  './tools.js',
-  './agent-loop.js',
-  './system-prompt.js',
-  './gitTools.js',
-  './web.js',
-  './self-review.js',
-  './diff.js',
-  './undo.js',
-  './confirm.js',
-  './transcript.js',
-  './spinner.js',
-  './config.js',
+  'tools',
+  'agent-loop',
+  'system-prompt',
+  'gitTools',
+  'web',
+  'self-review',
+  'diff',
+  'undo',
+  'confirm',
+  'transcript',
+  'spinner',
+  'config',
 ]
 
 interface ModBag {
@@ -154,28 +157,47 @@ async function reloadModules(): Promise<{ count: number; errors: string[] }> {
   const stamp = Date.now()
   const loaded = new Map<string, Record<string, unknown>>()
   const errors: string[] = []
-  for (const rel of RELOADABLE) {
+  for (const base of RELOADABLE) {
+    const rel = './' + base + SRC_EXT
     try {
       const url = new URL(rel, import.meta.url)
       url.searchParams.set('t', String(stamp))
       const m = (await import(url.href)) as Record<string, unknown>
-      loaded.set(rel, m)
+      loaded.set(base, m)
     } catch (e) {
-      errors.push(`${rel}: ${(e as Error).message}`)
+      errors.push(rel + ': ' + (e as Error).message)
     }
   }
 
-  const pick = (rel: string, name: string): unknown => loaded.get(rel)?.[name]
+  const pick = (base: string, name: string): unknown => loaded.get(base)?.[name]
 
-  if (pick('./tools.js', 'createTools')) mod.createTools = pick('./tools.js', 'createTools') as ModBag['createTools']
-  if (pick('./agent-loop.js', 'runAgentLoop')) mod.runAgentLoop = pick('./agent-loop.js', 'runAgentLoop') as ModBag['runAgentLoop']
-  if (pick('./system-prompt.js', 'buildSystemPrompt')) mod.buildSystemPrompt = pick('./system-prompt.js', 'buildSystemPrompt') as ModBag['buildSystemPrompt']
-  if (pick('./self-review.js', 'selfReview')) mod.selfReview = pick('./self-review.js', 'selfReview') as ModBag['selfReview']
-  if (pick('./self-review.js', 'selfDiff')) mod.selfDiff = pick('./self-review.js', 'selfDiff') as ModBag['selfDiff']
-  if (pick('./self-review.js', 'selfApply')) mod.selfApply = pick('./self-review.js', 'selfApply') as ModBag['selfApply']
-  if (pick('./self-review.js', 'selfList')) mod.selfList = pick('./self-review.js', 'selfList') as ModBag['selfList']
-  if (pick('./web.js', 'closeWeb')) mod.closeWeb = pick('./web.js', 'closeWeb') as ModBag['closeWeb']
-  if (pick('./spinner.js', 'createSpinner')) mod.createSpinner = pick('./spinner.js', 'createSpinner') as ModBag['createSpinner']
+  if (pick('tools', 'createTools'))
+    mod.createTools = pick('tools', 'createTools') as ModBag['createTools']
+  if (pick('agent-loop', 'runAgentLoop'))
+    mod.runAgentLoop = pick(
+      'agent-loop',
+      'runAgentLoop',
+    ) as ModBag['runAgentLoop']
+  if (pick('system-prompt', 'buildSystemPrompt'))
+    mod.buildSystemPrompt = pick(
+      'system-prompt',
+      'buildSystemPrompt',
+    ) as ModBag['buildSystemPrompt']
+  if (pick('self-review', 'selfReview'))
+    mod.selfReview = pick('self-review', 'selfReview') as ModBag['selfReview']
+  if (pick('self-review', 'selfDiff'))
+    mod.selfDiff = pick('self-review', 'selfDiff') as ModBag['selfDiff']
+  if (pick('self-review', 'selfApply'))
+    mod.selfApply = pick('self-review', 'selfApply') as ModBag['selfApply']
+  if (pick('self-review', 'selfList'))
+    mod.selfList = pick('self-review', 'selfList') as ModBag['selfList']
+  if (pick('web', 'closeWeb'))
+    mod.closeWeb = pick('web', 'closeWeb') as ModBag['closeWeb']
+  if (pick('spinner', 'createSpinner'))
+    mod.createSpinner = pick(
+      'spinner',
+      'createSpinner',
+    ) as ModBag['createSpinner']
 
   return { count: loaded.size, errors }
 }
@@ -194,12 +216,13 @@ async function autoReload(): Promise<void> {
   const { errors } = await reloadModules()
   if (errors.length) {
     console.error(
-      theme.warn('⚠ авто-reload: часть модулей не загрузилась, работаю на прежней версии:'),
+      theme.warn(
+        '⚠ авто-reload: часть модулей не загрузилась, работаю на прежней версии:',
+      ),
     )
     for (const e of errors) console.error(theme.warn('  ' + e))
   }
 }
-
 
 // ---------- helpers ----------
 
@@ -397,8 +420,9 @@ async function promptOnce(question: string): Promise<string> {
           inPaste = true
           if (before) {
             for (const ch of before) {
-              if (ch === '\r' || ch === '\n') { /* внутри вставки — пропускаем */ }
-              else insertText(ch)
+              if (ch === '\r' || ch === '\n') {
+                /* внутри вставки — пропускаем */
+              } else insertText(ch)
             }
             redraw()
           }
@@ -504,7 +528,15 @@ async function promptOnce(question: string): Promise<string> {
 // в строке спиннера через onChange -> ui.setPending(). Enter отправляет буфер
 // в onQueue, пустой Enter игнорируется. Поддержаны Backspace, Ctrl+U, Esc-
 // последовательности (стрелки/Home/End/Delete игнорируются) и bracketed paste.
-function watchInput({ onEscape, onChange, onQueue }: { onEscape?: () => void; onChange?: (text: string) => void; onQueue?: (text: string) => void } = {}): () => void {
+function watchInput({
+  onEscape,
+  onChange,
+  onQueue,
+}: {
+  onEscape?: () => void
+  onChange?: (text: string) => void
+  onQueue?: (text: string) => void
+} = {}): () => void {
   const stdin = process.stdin
   if (!stdin.isTTY || !stdin.setRawMode) return () => {}
 
@@ -534,9 +566,12 @@ function watchInput({ onEscape, onChange, onQueue }: { onEscape?: () => void; on
   // трактуем как пробелы — сообщение уходит одной строкой.
   const insert = (text: string) => {
     buf += text
-      .split(CR + LF).join(' ')
-      .split(CR).join(' ')
-      .split(LF).join(' ')
+      .split(CR + LF)
+      .join(' ')
+      .split(CR)
+      .join(' ')
+      .split(LF)
+      .join(' ')
   }
 
   function onData(data: Buffer) {
@@ -644,8 +679,21 @@ async function resolveWorkdir(): Promise<string> {
 
 // ---------- task runner ----------
 
-async function runTask(browser: DeepSeekBrowser, tools: ToolDef[], taskText: string, workdir: string, opts: RunTaskOptions): Promise<void> {
-  const { transcript, freshChat, sendSystemPrompt, queue = [], ui: editor, onChatReady } = opts
+async function runTask(
+  browser: DeepSeekBrowser,
+  tools: ToolDef[],
+  taskText: string,
+  workdir: string,
+  opts: RunTaskOptions,
+): Promise<void> {
+  const {
+    transcript,
+    freshChat,
+    sendSystemPrompt,
+    queue = [],
+    ui: editor,
+    onChatReady,
+  } = opts
 
   // В TTY-режиме UI — это LineEditor: он владеет вводом (очередь, Esc,
   // Ctrl+C) и рисует статус НАД постоянной строкой ввода. В не-TTY режиме
@@ -665,7 +713,8 @@ async function runTask(browser: DeepSeekBrowser, tools: ToolDef[], taskText: str
           ui.setPending(null)
           ui.stop()
           console.log(
-            theme.user('📨 В очередь (' + queue.length + '): ') + theme.assistant(text),
+            theme.user('📨 В очередь (' + queue.length + '): ') +
+              theme.assistant(text),
           )
           ui.thinking()
         },
@@ -697,10 +746,12 @@ async function runTask(browser: DeepSeekBrowser, tools: ToolDef[], taskText: str
 
       if (!queue.length) break
 
-      const queued = queue.shift() ?? ""
+      const queued = queue.shift() ?? ''
       ui.stop()
       if (editor) {
-        editor.printAbove(theme.user('▶ Из очереди: ') + theme.assistant(queued))
+        editor.printAbove(
+          theme.user('▶ Из очереди: ') + theme.assistant(queued),
+        )
       } else {
         console.log(theme.user('▶ Из очереди: ') + theme.assistant(queued))
       }
@@ -709,7 +760,10 @@ async function runTask(browser: DeepSeekBrowser, tools: ToolDef[], taskText: str
     }
   } catch (e) {
     ui.stop()
-    console.error(theme.error(String.fromCharCode(10) + '✖ Ошибка агента:'), (e as Error).message)
+    console.error(
+      theme.error(String.fromCharCode(10) + '✖ Ошибка агента:'),
+      (e as Error).message,
+    )
     if (debug) console.error((e as Error).stack)
     transcript?.log('agent_error', { error: (e as Error).message })
   } finally {
@@ -783,7 +837,10 @@ async function main(): Promise<void> {
     await browser.waitForLogin()
   } catch (e) {
     bootSpinner.stop()
-    console.error(theme.error('Не удалось запустить браузер:'), (e as Error).message)
+    console.error(
+      theme.error('Не удалось запустить браузер:'),
+      (e as Error).message,
+    )
     if (debug) console.error((e as Error).stack)
     await browser.close().catch(() => {})
     transcript.close()
@@ -816,7 +873,9 @@ async function main(): Promise<void> {
         sendSystemPrompt = resendPrompt
         saveLastChat(resumeId, currentWorkdir)
       } catch (e) {
-        console.error(theme.error(`Не удалось открыть чат: ${(e as Error).message}`))
+        console.error(
+          theme.error(`Не удалось открыть чат: ${(e as Error).message}`),
+        )
       }
     }
 
@@ -903,7 +962,9 @@ async function main(): Promise<void> {
       saveLastChat(resumeId, currentWorkdir)
       console.log(theme.system(`Чат открыт: ${resumeId}\n`))
     } catch (e) {
-      console.error(theme.error(`Не удалось открыть чат: ${(e as Error).message}`))
+      console.error(
+        theme.error(`Не удалось открыть чат: ${(e as Error).message}`),
+      )
     }
   }
 
@@ -915,7 +976,8 @@ async function main(): Promise<void> {
   let editor: LineEditor | null = null
   let waiter: ((v: string | null) => void) | null = null
   const takeInput = (): Promise<string | null> => {
-    if (pendingQueue.length) return Promise.resolve(pendingQueue.shift() ?? null)
+    if (pendingQueue.length)
+      return Promise.resolve(pendingQueue.shift() ?? null)
     return new Promise<string | null>((resolve) => {
       waiter = resolve
     })
@@ -924,7 +986,8 @@ async function main(): Promise<void> {
   const buildPrompt = () => {
     let tail
     if (reviewMode) {
-      tail = theme.warn('REVIEW') + theme.dim(':') + theme.dir(reviewMode.snapName)
+      tail =
+        theme.warn('REVIEW') + theme.dim(':') + theme.dir(reviewMode.snapName)
     } else {
       tail = theme.dir(dirLabel(currentWorkdir))
     }
@@ -970,13 +1033,15 @@ async function main(): Promise<void> {
     const origLog = console.log.bind(console)
     const origErr = console.error.bind(console)
     const fmt = (a: unknown): string =>
-      typeof a === 'string' ? a : (() => {
-        try {
-          return JSON.stringify(a)
-        } catch {
-          return String(a)
-        }
-      })()
+      typeof a === 'string'
+        ? a
+        : (() => {
+            try {
+              return JSON.stringify(a)
+            } catch {
+              return String(a)
+            }
+          })()
     console.log = (...a) => ed.printAbove(a.map(fmt).join(' '))
     console.error = (...a) => ed.printAbove(a.map(fmt).join(' '))
     // Сохраняем на случай отладки.
@@ -995,7 +1060,9 @@ async function main(): Promise<void> {
         let tail
         if (reviewMode) {
           tail =
-            theme.warn('REVIEW') + theme.dim(':') + theme.dir(reviewMode.snapName)
+            theme.warn('REVIEW') +
+            theme.dim(':') +
+            theme.dir(reviewMode.snapName)
         } else {
           tail = theme.dir(dirLabel(currentWorkdir))
         }
@@ -1005,7 +1072,7 @@ async function main(): Promise<void> {
       break
     }
 
-    const trimmed = (input || "").trim()
+    const trimmed = (input || '').trim()
     if (!trimmed) continue
 
     const lower = trimmed.toLowerCase()
@@ -1028,7 +1095,10 @@ async function main(): Promise<void> {
         transcript.log('new_chat')
         console.log(theme.system('Новый чат.\n'))
       } catch (e) {
-        console.error(theme.error('Не удалось создать новый чат:'), (e as Error).message)
+        console.error(
+          theme.error('Не удалось создать новый чат:'),
+          (e as Error).message,
+        )
       }
       continue
     }
@@ -1078,7 +1148,10 @@ async function main(): Promise<void> {
           ),
         )
       } catch (e) {
-        console.error(theme.error('Самообзор провалился:'), (e as Error).message)
+        console.error(
+          theme.error('Самообзор провалился:'),
+          (e as Error).message,
+        )
         if (debug) console.error((e as Error).stack)
       }
       continue
@@ -1157,7 +1230,10 @@ async function main(): Promise<void> {
           ),
         )
       } catch (e) {
-        console.error(theme.error('Не удалось войти в снапшот:'), (e as Error).message)
+        console.error(
+          theme.error('Не удалось войти в снапшот:'),
+          (e as Error).message,
+        )
       }
       continue
     }
@@ -1174,7 +1250,9 @@ async function main(): Promise<void> {
       freshChatNext = true
       sendSystemPromptNext = true
       console.log(
-        theme.system(`Вернулся в ${back}. Следующая задача начнёт новый чат.\n`),
+        theme.system(
+          `Вернулся в ${back}. Следующая задача начнёт новый чат.\n`,
+        ),
       )
       continue
     }
@@ -1238,11 +1316,16 @@ async function main(): Promise<void> {
               `  ${theme.user(n)}. ${c.title}  ${theme.system('(' + c.id.slice(0, 8) + '…)')}`,
             )
           })
-          console.log(theme.system('\nИспользуй /resume <n> для продолжения.\n'))
+          console.log(
+            theme.system('\nИспользуй /resume <n> для продолжения.\n'),
+          )
         }
       } catch (e) {
         spin.stop()
-        console.error(theme.error('Не удалось получить список:'), (e as Error).message)
+        console.error(
+          theme.error('Не удалось получить список:'),
+          (e as Error).message,
+        )
       }
       continue
     }
@@ -1266,7 +1349,9 @@ async function main(): Promise<void> {
       }
       const pick = lastChats[n - 1]
       if (!pick) {
-        console.error(theme.error(`Нет чата №${n}. Всего: ${lastChats.length}.`))
+        console.error(
+          theme.error(`Нет чата №${n}. Всего: ${lastChats.length}.`),
+        )
         continue
       }
 
@@ -1281,11 +1366,16 @@ async function main(): Promise<void> {
         console.log(
           theme.assistant(`Чат открыт.`) +
             theme.system(
-              resendPrompt ? ' Системный промпт будет переслан на следующей задаче.\n' : ' Контекст чата сохранён. Системный промпт не пересылается (--resend-prompt чтобы дослать).\n',
+              resendPrompt
+                ? ' Системный промпт будет переслан на следующей задаче.\n'
+                : ' Контекст чата сохранён. Системный промпт не пересылается (--resend-prompt чтобы дослать).\n',
             ),
         )
       } catch (e) {
-        console.error(theme.error('Не удалось открыть чат:'), (e as Error).message)
+        console.error(
+          theme.error('Не удалось открыть чат:'),
+          (e as Error).message,
+        )
       }
       continue
     }
@@ -1322,10 +1412,14 @@ async function main(): Promise<void> {
           const mark = s.id === currentChatId ? theme.user(' *') : ''
           const title = s.title ? `  ${s.title}` : ''
           const wd = s.workdir ? theme.dim(`  [${dirLabel(s.workdir)}]`) : ''
-          console.log(`  ${theme.user(n)}. ${s.id.slice(0, 8)}…${title}${wd}${mark}`)
+          console.log(
+            `  ${theme.user(n)}. ${s.id.slice(0, 8)}…${title}${wd}${mark}`,
+          )
         })
         console.log(
-          theme.system('Восстановить: /resume-id <id>  (полный id) или /resume <n> после /chats.'),
+          theme.system(
+            'Восстановить: /resume-id <id>  (полный id) или /resume <n> после /chats.',
+          ),
         )
       }
       continue
@@ -1345,9 +1439,15 @@ async function main(): Promise<void> {
         sendSystemPromptNext = resendPrompt
         saveLastChat(id, currentWorkdir)
         transcript.log('resume_chat', { id })
-        console.log(theme.assistant('Чат открыт.') + theme.system(String.fromCharCode(10)))
+        console.log(
+          theme.assistant('Чат открыт.') +
+            theme.system(String.fromCharCode(10)),
+        )
       } catch (e) {
-        console.error(theme.error('Не удалось открыть чат:'), (e as Error).message)
+        console.error(
+          theme.error('Не удалось открыть чат:'),
+          (e as Error).message,
+        )
       }
       continue
     }
@@ -1380,7 +1480,9 @@ async function main(): Promise<void> {
     if (lower === '/status') {
       console.log(theme.system(`Рабочая директория: ${currentWorkdir}`))
       console.log(
-        theme.system(`Режим ревью: ${reviewMode ? reviewMode.snapName : 'нет'}`),
+        theme.system(
+          `Режим ревью: ${reviewMode ? reviewMode.snapName : 'нет'}`,
+        ),
       )
       if (reviewMode) {
         console.log(
@@ -1399,7 +1501,9 @@ async function main(): Promise<void> {
         ),
       )
       console.log(
-        theme.system(`Resend prompt (--resend-prompt): ${resendPrompt ? 'да' : 'нет'}`),
+        theme.system(
+          `Resend prompt (--resend-prompt): ${resendPrompt ? 'да' : 'нет'}`,
+        ),
       )
       console.log(
         theme.system(`Last chat: ${loadLastChat(currentWorkdir) || 'нет'}`),
@@ -1465,7 +1569,10 @@ async function main(): Promise<void> {
         console.log(theme.system('Селекторы:'))
         console.log(JSON.stringify(result.selectors, null, 2))
       } catch (e) {
-        console.error(theme.error('Не удалось сохранить DOM:'), (e as Error).message)
+        console.error(
+          theme.error('Не удалось сохранить DOM:'),
+          (e as Error).message,
+        )
       }
       continue
     }
@@ -1499,13 +1606,17 @@ async function main(): Promise<void> {
         sendSystemPromptNext = true
         console.log(theme.system('Рабочая директория: ' + newDir))
       } catch (e) {
-        console.error(theme.error('Не удалось перейти: ' + (e as Error).message))
+        console.error(
+          theme.error('Не удалось перейти: ' + (e as Error).message),
+        )
       }
       continue
     }
 
     if (lower.startsWith('/')) {
-      console.error(theme.error(`Неизвестная команда: ${trimmed}. Набери /help.`))
+      console.error(
+        theme.error(`Неизвестная команда: ${trimmed}. Набери /help.`),
+      )
       continue
     }
 
