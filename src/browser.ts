@@ -683,12 +683,23 @@ export class DeepSeekBrowser {
 
     // Ждём, пока ответ перестанет меняться. Условие "не генерируется"
     // проверяем через рост текста, а НЕ через _isGenerating().
+    // Параллельно ловим тост лимита частоты, если он всплывёт во время
+    // генерации (читаем только тосты, ложных срабатываний нет).
     const deadline = Date.now() + timeout
     let last = ''
     let stable = 0
+    let tick = 0
     while (Date.now() < deadline) {
       if (this._abort) {
         return last || '(прервано пользователем)'
+      }
+      // Тост лимита проверяем не каждый тик, а раз в ~5 тиков, чтобы не
+      // дёргать DOM лишний раз.
+      if (tick++ % 5 === 0) {
+        const pageText = await this._readPageText()
+        if (isRateLimitText(pageText)) {
+          throw new RateLimitError(pageText.slice(0, 300))
+        }
       }
       const cur = await this._readLastAnswerTextClean().catch(() => '')
       if (cur && cur === last) {
