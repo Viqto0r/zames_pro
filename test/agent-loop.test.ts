@@ -167,3 +167,27 @@ test('пустой/служебный ответ не завершает зад�
   // запросу, а не к остановке. Значит ask вызван минимум 3 раза.
   assert.ok(asks.length >= 3, 'ask calls: ' + asks.length)
 })
+
+test('маркер прерывания не считается ответом и завершает задачу', async () => {
+  const { browser } = makeBrowser(['(прервано пользователем)'])
+  let toolCalls = 0
+  const tools: ToolDef[] = [
+    {
+      name: 'Bash',
+      description: 'bash',
+      parameters: { command: 'string' },
+      fn: async () => {
+        toolCalls++
+        return 'ok'
+      },
+    },
+  ]
+  const result = await runAgentLoop({
+    browser,
+    tools,
+    task: 'x',
+    workdir: process.cwd(),
+  })
+  assert.equal(result, '(прервано пользователем)')
+  assert.equal(toolCalls, 0)
+})

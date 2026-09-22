@@ -112,6 +112,13 @@ export async function runAgentLoop({
     const rawResponse = await browser.ask(message)
     await reportChat()
     transcript?.log('assistant_raw', { response: rawResponse })
+
+    // Пользователь прервал генерацию (Esc/Ctrl+C): не считаем это ответом
+    // модели и не запускаем инструменты — корректно завершаем задачу.
+    if (/^\s*\(прервано пользователем\)\s*$/.test(rawResponse)) {
+      transcript?.log('user_aborted')
+      return rawResponse
+    }
     const parsed = parseToolCall(rawResponse)
 
     if (parsed) {

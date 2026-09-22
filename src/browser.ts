@@ -466,7 +466,6 @@ export class DeepSeekBrowser {
     let rateLimitRetries = 0
 
     while (attempt < this.askRetries) {
-      if (this._abort) return '(прервано пользователем)'
       attempt++
       try {
         return await this._askOnce(prompt, { timeout })
