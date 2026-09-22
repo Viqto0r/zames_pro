@@ -142,6 +142,10 @@ export class DeepSeekBrowser {
   maxRateLimitRetries: number
   _lastSentAt: number
   _abort: boolean
+  // Пользователь нажал Esc/Ctrl+C — «стоп» для ВСЕЙ текущей пачки задач
+  // (включая очередь). В отличие от _abort (сбрасывается на каждую
+  // отправку), этот флаг живёт до явного запуска новой задачи с промпта.
+  _stopped: boolean
   context!: BrowserContext
   page!: Page
   _netCapture: string
@@ -159,7 +163,7 @@ export class DeepSeekBrowser {
     askRetries = 3,
     stabilityChecks = 3,
     stabilityDelayMs = 1000,
-    minSendIntervalMs = 15000,
+    minSendIntervalMs = 2000,
     rateLimitWaitMs = 300000,
     maxRateLimitRetries = 6,
   }: DeepSeekBrowserOptions = {}) {
@@ -175,6 +179,7 @@ export class DeepSeekBrowser {
     this.maxRateLimitRetries = maxRateLimitRetries
     this._lastSentAt = 0
     this._abort = false
+    this._stopped = false
     this._netCapture = ''
     this._netCaptureAt = 0
     this._netChatId = null
@@ -422,6 +427,7 @@ export class DeepSeekBrowser {
 
   async stopGeneration(): Promise<boolean> {
     this._abort = true
+    this._stopped = true
     // 1) Пробуем явные селекторы Stop.
     const btn = await this._findVisible(STOP_SELECTORS, 500)
     if (btn) {
@@ -575,15 +581,15 @@ export class DeepSeekBrowser {
     }
   }
 
+  // Небольшая пауза между отправками, чтобы случайно не отправить два
+  // сообщения подряд. Основная защита от лимита частоты — обработка
+  // RateLimitError в ask() (ждём rateLimitWaitMs и повторяем), поэтому
+  // здесь интервал маленький и не мешает живому вводу.
   async _waitForSendSlot(): Promise<void> {
     if (!this._lastSentAt) return
     const gap = this.minSendIntervalMs - (Date.now() - this._lastSentAt)
     if (gap <= 0) return
-    console.error(
-      theme.warn(
-        `⏳ пауза ${Math.ceil(gap / 1000)}с перед отправкой (лимит частоты DeepSeek)...`,
-      ),
-    )
+    console.error(theme.warn(`⏳ пауза ${Math.ceil(gap / 1000)}с перед отправкой...`))
     await this.page.waitForTimeout(gap)
   }
 

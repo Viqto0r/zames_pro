@@ -15,7 +15,7 @@ test('loadConfig без файлов возвращает дефолты', async
   const { loadConfig, DEFAULTS } = await freshConfig()
   const cfg = loadConfig()
   assert.equal(cfg.maxIterations, DEFAULTS.maxIterations)
-  assert.equal(cfg.browser.minSendIntervalMs, 15000)
+  assert.equal(cfg.browser.minSendIntervalMs, DEFAULTS.browser.minSendIntervalMs)
   assert.equal(cfg.undo.enabled, true)
 })
 

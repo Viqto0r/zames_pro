@@ -731,6 +731,10 @@ async function runTask(
   // В TTY-режиме UI — это LineEditor: он владеет вводом (очередь, Esc,
   // Ctrl+C) и рисует статус НАД постоянной строкой ввода. В не-TTY режиме
   // (пайпы) — обычный спиннер + watchInput.
+  // Новая задача с промпта — сбрасываем «стоп» от прошлого прерывания.
+  browser._stopped = false
+  browser._abort = false
+
   const ui = editor || mod.createSpinner()
   const stopWatching = editor
     ? () => {}
@@ -777,6 +781,12 @@ async function runTask(
         debugLog: debug,
       })
 
+      // Прервали (Esc/Ctrl+C) — не запускаем следующие задачи из очереди
+      // и очищаем её, чтобы «стоп» действительно останавливал всё.
+      if (browser._stopped) {
+        queue.length = 0
+        break
+      }
       if (!queue.length) break
 
       const queued = queue.shift() ?? ''

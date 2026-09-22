@@ -44,7 +44,7 @@ export const DEFAULTS: ZamesConfig = {
     askRetries: 3,
     stabilityChecks: 3,
     stabilityDelayMs: 1000,
-    minSendIntervalMs: 15000,
+    minSendIntervalMs: 2000,
     rateLimitWaitMs: 300000,
     maxRateLimitRetries: 6,
   },
