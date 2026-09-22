@@ -146,7 +146,9 @@ export async function runAgentLoop({
         /("tool"\s*:|\btool_calls?\b|\binvoke\b|\bparameter\b|DSML|function_call)/i.test(
           rawResponse,
         ) ||
-        /\{\s*"?(tool|name|args)"?\s*:/.test(rawResponse) ||
+        // Ключи могут быть в одинарных кавычках или без кавычек — модель
+        // регулярно отдаёт «{'tool': 'Read', ...}» или {tool: Read,...}.
+        /[\{\[]\s*['"]?(tool|name|args)['"]?\s*:/.test(rawResponse) ||
         /<\s*\|?\s*(DSML|invoke|parameter)/i.test(rawResponse) ||
         /^\s*\[?\s*\{[^}]*$/.test(rawResponse.trim())
       if (looksLikeToolCall && malformedRetries < MAX_MALFORMED_RETRIES) {
@@ -763,6 +765,54 @@ function findMatching(
   return -1
 }
 
+// Модель иногда отдаёт вызов инструмента с ключами/строками в одинарных
+// кавычках («{'tool': 'Read', 'args': {...}}») или с ключами без кавычек
+// («{tool: "Read", args: {...}}»). Это не валидный JSON, и без нормализации
+// такой ответ молча принимается за финальный — агент встаёт, не вызвав
+// инструмент. Приводим его к двойным кавычкам.
+function normalizePseudoJson(str: string): string {
+  // Ключи без кавычек: {tool: ...} или , args: ... → "tool": / "args":
+  let out = str.replace(/([\{\[]\s*)([A-Za-z_][A-Za-z0-9_]*)\s*:/g, '$1"$2":')
+  out = out.replace(/,\s*([A-Za-z_][A-Za-z0-9_]*)\s*:/g, ', "$1":')
+  // Одинарные кавычки → двойные. Не трогаем содержимое уже двойных строк,
+  // идущее подряд, и экранируем случайные двойные внутри одинарных.
+  let res = ''
+  let inDouble = false
+  let inSingle = false
+  for (let i = 0; i < out.length; i++) {
+    const c = out[i]
+    if (c === '\\' && (inDouble || inSingle)) {
+      res += c
+      if (i + 1 < out.length) {
+        res += out[i + 1]
+        i++
+      }
+      continue
+    }
+    if (c === '"' && !inSingle) {
+      inDouble = !inDouble
+      res += c
+      continue
+    }
+    if (c === "'" && !inDouble) {
+      if (!inSingle) {
+        inSingle = true
+        res += '"'
+      } else {
+        inSingle = false
+        res += '"'
+      }
+      continue
+    }
+    if (inSingle && c === '"') {
+      res += '\\"'
+      continue
+    }
+    res += c
+  }
+  return res
+}
+
 export function parseToolCall(text: string): ParsedToolCall {
   if (!text || typeof text !== 'string') return null
 
@@ -799,9 +849,24 @@ export function parseToolCall(text: string): ParsedToolCall {
     if (ctrlArr) return ctrlArr
   }
 
+  // Псевдо-JSON (одинарные кавычки / ключи без кавычек) — нормализуем и
+  // пробуем распарсить как обычный вызов, прежде чем идти в permissive.
+  if (/['"]?tool['"]?\s*:/.test(cleaned)) {
+    const norm = normalizePseudoJson(cleaned)
+    if (norm !== cleaned) {
+      for (const raw of extractJsonObjects(norm)) {
+        const a = tryParseArray(raw)
+        if (a) return a
+        const o = tryParse(raw)
+        if (o) return o
+      }
+    }
+  }
+
   const permissive =
     parseToolCallPermissive(cleaned) ||
-    parseToolCallPermissive(repairRawControlChars(cleaned))
+    parseToolCallPermissive(repairRawControlChars(cleaned)) ||
+    parseToolCallPermissive(normalizePseudoJson(cleaned))
   if (permissive) return { ...permissive, _permissive: true }
 
   const toolIdx = cleaned.search(/["']?tool["']?\s:/)

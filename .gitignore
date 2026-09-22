@@ -3,10 +3,6 @@ dist
 .zames
 projects
 *.log
-*.bak
-*.bak2
-*.bak3
-bad.txt
 tmp/
 .husky/_
 

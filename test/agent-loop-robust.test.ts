@@ -49,6 +49,38 @@ test('обрезанный JSON-вызов не завершает задачу 
   assert.ok(asks.length >= 2, 'ask calls: ' + asks.length)
 })
 
+test('вызов инструмента в одинарных кавычках выполняется, а не принимается за финал', async () => {
+  // Ровно тот случай, из-за которого агент вставал: модель отдала
+  // {'tool': 'Read', ...} (одинарные кавычки) — не валидный JSON.
+  const SQ = String.fromCharCode(39)
+  const pseudo =
+    '{' + SQ + 'tool' + SQ + ': ' + SQ + 'Read' + SQ + ', ' +
+    SQ + 'args' + SQ + ': {' + SQ + 'path' + SQ + ': ' + SQ + 'src/undo.ts' + SQ + '}}'
+  let readCalled = 0
+  const readTool: ToolDef = {
+    name: 'Read',
+    description: 'Read',
+    parameters: { path: 'string' },
+    fn: async (a) => {
+      readCalled++
+      return 'file contents of ' + String(a['path'])
+    },
+  }
+  const { browser, asks } = makeBrowser([
+    pseudo,
+    jsonCall('respond', { message: 'done' }),
+  ])
+  const result = await runAgentLoop({
+    browser,
+    tools: [readTool, respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+  })
+  assert.equal(result, 'done')
+  assert.equal(readCalled, 1, 'Read должен выполниться, а не «потеряться»')
+  assert.ok(asks.length >= 2, 'ask calls: ' + asks.length)
+})
+
 test('обрезанный DSML-вызов не завершает задачу как финальный ответ', async () => {
   const { browser, asks } = makeBrowser([
     '<|DSML|invoke name="Bash"><|DSML|parameter name="comm',

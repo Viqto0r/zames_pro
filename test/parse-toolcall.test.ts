@@ -81,6 +81,25 @@ test('Edit с сырым переводом строки в new_string расп�
   assert.equal(first(res).args['old_string'], 'foo')
 })
 
+test('одинарные кавычки в псевдо-JSON распознаются', () => {
+  const SQ = String.fromCharCode(39)
+  const text =
+    '{' + SQ + 'tool' + SQ + ': ' + SQ + 'Read' + SQ + ', ' +
+    SQ + 'args' + SQ + ': {' + SQ + 'path' + SQ + ': ' + SQ + 'src/undo.ts' + SQ + '}}'
+  const res = parseToolCall(text)
+  assert.ok(res, 'должен распознаться вызов, а не финальный текст')
+  assert.equal(first(res).tool, 'Read')
+  assert.equal(first(res).args['path'], 'src/undo.ts')
+})
+
+test('ключи без кавычек в псевдо-JSON распознаются', () => {
+  const text = '{tool: ' + Q + 'Read' + Q + ', args: {' + Q + 'path' + Q + ': ' + Q + 'a.ts' + Q + '}}'
+  const res = parseToolCall(text)
+  assert.ok(res)
+  assert.equal(first(res).tool, 'Read')
+  assert.equal(first(res).args['path'], 'a.ts')
+})
+
 test('XML/DSML-вызов распознаётся', () => {
   const text =
     '<|DSML|invoke name=' + Q + 'Read' + Q + '>' +
