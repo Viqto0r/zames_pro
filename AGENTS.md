@@ -77,6 +77,13 @@ Additional safeguards against "stalls" (verified on real transcripts):
   `Bash`/`Write` with code inside);
 - trimming the XML/DSML tail uses `<[^>]*>` (not `<[^>]>`), otherwise
   multi-character tags (`<|DSML|invoke ...>`) are not trimmed;
+- `parseInlineJsonArgs()` in `src/xml-toolcall.ts` handles the "hybrid" form:
+  the tool name is an attribute AND the args are inline JSON in the SAME
+  opening tag, without any `<parameter>` children. A real case from the
+  transcript: `<|DSML|invoke name="GitAdd", "args" {"paths": "AGENTS.md"}>`.
+  The `<parameter>` parser missed it, and the call was silently lost (the
+  agent stalled). Now the first balanced `{...}` inside the tag is parsed as
+  args;
 - in `runAgentLoop()` the `looksLikeToolCall` guard kicks in: if the answer
   looks like a call (there is `"tool":`, `invoke`, `parameter`, `tool_calls`,
   `DSML`, `function_call`) but is not recognized — the model is asked to
@@ -112,7 +119,13 @@ the first line. Current logic:
 - Backspace, Ctrl+U, Ctrl+C, arrows, Home/End, Delete are supported;
 - the input line is ALWAYS visible; the status/spinner and the agent's answers
   are printed ABOVE it (`printAbove`), so the typed text is not overwritten by output;
-- redraw accounts for wrapping by terminal width (`layoutInput`).
+- redraw accounts for wrapping by terminal width (`layoutInput`);
+- large pastes (3+ lines) are collapsed in the input line into a compact
+  marker `[Pasted lines#N]` (`pasteReplacement`/`formatPasteMarker` in
+  src/input.ts) so a pasted log/code block doesn't flood the line. The
+  original text is kept in `LineEditor.pastes` and expanded back on submit
+  (`expandPastes`). Pastes of 1–2 lines are inserted as-is. The same logic is
+  mirrored in `watchInput()` (src/index.ts, the non-TTY fallback).
 
 In non-TTY mode (pipe, redirect) `LineEditor` does not start — `promptOnce()`
 (src/index.ts) is used, which reads everything up to EOF.

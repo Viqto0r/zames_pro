@@ -17,6 +17,54 @@ function readAttr(attrs: string, name: string): string | null {
   return m ? m[2] : null
 }
 
+// The model sometimes produces a "hybrid" call: the tool name is an attribute
+// AND the arguments are inline JSON in the SAME opening tag, without any
+// <parameter> children. A real case from the transcript:
+//   <|DSML|invoke name="GitAdd", "args" {"paths": "AGENTS.md src/index.ts"}>
+// The standard <parameter> parser misses it, and the call is silently lost
+// (the agent then stalls). Here we look for the first JSON object inside the
+// attributes/body and parse it as args.
+function parseInlineJsonArgs(s: string): ToolArgs | null {
+  const Q = String.fromCharCode(34)
+  // Find a plausible start of a JSON object: `{` or `"args" {`/`'args' {`.
+  const startRe = /\{|["']args["']\s*[:=]?\s*\{/i
+  const m = startRe.exec(s)
+  if (!m) return null
+  const from = m.index
+  // Scan for a balanced {...} block (string-aware) and try to parse it.
+  let depth = 0
+  let inStr = false
+  let esc = false
+  let end = -1
+  for (let i = from; i < s.length; i++) {
+    const c = s[i]
+    if (esc) { esc = false; continue }
+    if (c === '\\') { esc = true; continue }
+    if (c === Q) { inStr = !inStr; continue }
+    if (inStr) continue
+    if (c === '{') depth++
+    else if (c === '}') {
+      depth--
+      if (depth === 0) { end = i + 1; break }
+    }
+  }
+  if (end === -1) return null
+  let frag = s.slice(from, end).trim()
+  // Drop a leading `"args" {` / `'args' {` / `args = {` prefix so only the
+  // object itself is left.
+  const lead = /^["']?args["']?\s*[:=]?\s*/.exec(frag)
+  if (lead) frag = frag.slice(lead[0].length)
+  for (const candidate of [frag, frag.replace(/'/g, Q)]) {
+    try {
+      const parsed = JSON.parse(candidate)
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as ToolArgs
+      }
+    } catch {}
+  }
+  return null
+}
+
 // Extracts parameters from an <invoke> body. The opening and closing tags may
 // carry an arbitrary prefix (DSML, etc.), and some models confuse tag pairs
 // (<parameter …> … </|DSML| parameter>). The regex below matches any pair
@@ -60,6 +108,17 @@ export function parseXmlToolCalls(text: string): ParsedToolCall {
     const body = closeMatch ? rest.slice(0, closeMatch.index) : rest
 
     const args = parseParameters(body)
+
+    // Hybrid form: the arguments are inline JSON in the SAME invoke tag
+    // (e.g. `<|DSML|invoke name="GitAdd", "args" {"paths": "..."}>`), with no
+    // <parameter> children. Fall back to the raw invoke head + body.
+    if (Object.keys(args).length === 0) {
+      const inline = parseInlineJsonArgs(m[0] + body)
+      if (inline) {
+        calls.push({ tool: name, args: inline })
+        continue
+      }
+    }
 
     // Some models put the whole JSON arguments object into a single
     // parameter named args. We unwrap it so there's no

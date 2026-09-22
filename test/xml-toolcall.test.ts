@@ -54,3 +54,25 @@ test('единственный parameter args разворачивается в 
   assert.equal(call.args['path'], 'x.js')
   assert.equal(call.args['args'], undefined)
 })
+
+test('гибридная форма: inline JSON args в самом теге invoke', () => {
+  // Real case from the transcript.
+  const text =
+    '<|DSML|invoke name=' + Q + 'GitAdd' + Q + ', ' + Q + 'args' + Q +
+    ' {' + Q + 'paths' + Q + ': ' + Q + 'AGENTS.md src/index.ts' + Q + '}>'
+  const res = parseXmlToolCalls(text)
+  assert.ok(res, 'гибридная форма должна распознаваться')
+  const call = Array.isArray(res) ? res[0] : res
+  assert.equal(call.tool, 'GitAdd')
+  assert.equal(call.args['paths'], 'AGENTS.md src/index.ts')
+})
+
+test('гибридная форма с вложенными значениями', () => {
+  const text = '<invoke name="Edit" args={"path":"a.ts","new_string":"x"}>'
+  const res = parseXmlToolCalls(text)
+  assert.ok(res)
+  const call = Array.isArray(res) ? res[0] : res
+  assert.equal(call.tool, 'Edit')
+  assert.equal(call.args['path'], 'a.ts')
+  assert.equal(call.args['new_string'], 'x')
+})

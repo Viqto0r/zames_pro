@@ -8,7 +8,7 @@ import { DeepSeekBrowser } from './browser.js'
 import { createTools } from './tools.js'
 import { runAgentLoop } from './agent-loop.js'
 import { createSpinner } from './spinner.js'
-import { LineEditor } from './input.js'
+import { LineEditor, expandPastes, pasteReplacement, type PasteBlock } from './input.js'
 import {
   loadConfig,
   DEFAULTS,
@@ -620,6 +620,8 @@ function watchInput({
 
   let buf = ''
   let inPaste = false
+  let pasteBuf = ''
+  const pastes: PasteBlock[] = []
   const PASTE_START = ESC + '[200~'
   const PASTE_END = ESC + '[201~'
   const CSI_RE = new RegExp('^' + CSI + '[0-9;]*[A-Za-z~]')
@@ -628,8 +630,9 @@ function watchInput({
     if (onChange) onChange(buf)
   }
 
-  // Pasted text: newlines inside a multiline paste are treated as spaces —
-  // the message goes as a single line.
+  // Pasted text: small pastes (1–2 lines) are flattened into one line;
+  // large ones (3+ lines) are collapsed into "[Pasted lines#N]" (the original
+  // text is expanded back when the message is queued).
   const insert = (text: string) => {
     buf += text
       .split(CR + LF)
@@ -638,6 +641,16 @@ function watchInput({
       .join(' ')
       .split(LF)
       .join(' ')
+  }
+
+  const insertPaste = (raw: string) => {
+    const rep = pasteReplacement(raw)
+    if (!rep) {
+      insert(raw)
+      return
+    }
+    pastes.push(rep)
+    buf += rep.marker
   }
 
   function onData(data: Buffer) {
@@ -654,12 +667,14 @@ function watchInput({
       if (inPaste) {
         const end = s.indexOf(PASTE_END)
         if (end === -1) {
-          insert(s)
+          pasteBuf += s
           s = ''
         } else {
-          insert(s.slice(0, end))
+          pasteBuf += s.slice(0, end)
           s = s.slice(end + PASTE_END.length)
           inPaste = false
+          insertPaste(pasteBuf)
+          pasteBuf = ''
         }
         emitChange()
         continue
@@ -670,6 +685,7 @@ function watchInput({
         const before = s.slice(0, start)
         s = s.slice(start + PASTE_START.length)
         inPaste = true
+        pasteBuf = ''
         if (before) {
           insert(before)
           emitChange()
@@ -682,8 +698,9 @@ function watchInput({
       s = s.slice(1)
 
       if (ch === CR || ch === LF) {
-        const text = buf.trim()
+        const text = expandPastes(pastes, buf).trim()
         buf = ''
+        pastes.length = 0
         emitChange()
         if (text && onQueue) onQueue(text)
         continue
@@ -696,6 +713,7 @@ function watchInput({
       if (code === 21) {
         // Ctrl+U — clear what was typed.
         buf = ''
+        pastes.length = 0
         emitChange()
         continue
       }

@@ -30,6 +30,52 @@ const ESC = String.fromCharCode(27)
 const PASTE_START = ESC + '[200~'
 const PASTE_END = ESC + '[201~'
 
+// A large paste (3+ lines) is collapsed in the input line into a short
+// marker "[Pasted lines#N]" so the line stays readable; the original text is
+// kept aside and expanded back on submit. Pastes of 1–2 lines are inserted
+// as-is (small pastes are usually short and don't clutter the line).
+export const PASTE_MIN_LINES = 3
+
+export interface PasteBlock {
+  marker: string
+  text: string
+}
+
+// Number of lines in a pasted block (the trailing newline doesn't add a line).
+export function countPasteLines(raw: string): number {
+  const normalized = String(raw).split(CR + NL).join(NL).split(CR).join(NL)
+  const trimmed = normalized.replace(/\n+$/, '')
+  if (trimmed === '') return 1
+  return trimmed.split(NL).length
+}
+
+export function formatPasteMarker(lines: number): string {
+  return '[Pasted lines#' + lines + ']'
+}
+
+// Decide how to represent a pasted block: null — insert as-is (small paste),
+// otherwise { marker, text }: the marker goes into the input line, and the
+// original text is expanded back on submit.
+export function pasteReplacement(raw: string): PasteBlock | null {
+  const text = String(raw).split(CR + NL).join(NL).split(CR).join(NL)
+  const lines = countPasteLines(text)
+  if (lines < PASTE_MIN_LINES) return null
+  return { marker: formatPasteMarker(lines), text }
+}
+
+// Replace "[Pasted lines#N]" markers with the original pasted text (the first
+// occurrence in order — matches the order in which the pastes were inserted).
+export function expandPastes(pastes: PasteBlock[], text: string): string {
+  let out = text
+  for (const p of pastes) {
+    const idx = out.indexOf(p.marker)
+    if (idx !== -1) {
+      out = out.slice(0, idx) + p.text + out.slice(idx + p.marker.length)
+    }
+  }
+  return out
+}
+
 // Dot animation: start from an empty string (0 dots), then grow.
 // We align the width to the maximum (3) so the hint doesn't shift.
 const DOTS = ['', '.', '..', '...']
@@ -191,6 +237,9 @@ export class LineEditor {
   // Slash-command hints (shown when you type «/»).
   slashCommands: SlashCommand[]
   _suggestCount: number
+  // Pasted blocks collapsed into markers (expanded back on submit).
+  pastes: PasteBlock[]
+  _pasteBuf: string
 
   constructor({ prompt = '> ', commands = [] }: LineEditorOptions = {}) {
     this.promptStr = prompt
@@ -215,6 +264,8 @@ export class LineEditor {
     this._histDraft = ''
     this.slashCommands = commands
     this._suggestCount = 0
+    this.pastes = []
+    this._pasteBuf = ''
   }
 
   // List of hints for the current input. We show them only when the line
@@ -308,6 +359,7 @@ export class LineEditor {
   clear() {
     this.buf = ''
     this.cursor = 0
+    this.pastes = []
     this._render()
   }
 
@@ -460,11 +512,14 @@ export class LineEditor {
   // ---------- input ----------
 
   _submit() {
-    const text = this.buf
-    if (!text.trim()) {
+    const display = this.buf
+    if (!display.trim()) {
       this._render()
       return
     }
+    // The input line shows compact markers "[Pasted lines#N]" instead of large
+    // pastes — expand them back into the original text before sending.
+    const text = expandPastes(this.pastes, display)
     // Add to history only non-empty messages that don't duplicate the previous one.
     if (text.trim() && this.history[this.history.length - 1] !== text) {
       this.history.push(text)
@@ -476,7 +531,8 @@ export class LineEditor {
     this.pendingText = null
     this._stopDots()
     this.statusText = ''
-    this.printAbove(theme.user('❯ ') + text)
+    this.printAbove(theme.user('❯ ') + display)
+    this.pastes = []
     if (this.onSubmit) this.onSubmit(text)
   }
 
@@ -486,6 +542,20 @@ export class LineEditor {
     const next = chars.slice(0, this.cursor).concat(ins, chars.slice(this.cursor))
     this.buf = next.join('')
     this.cursor += ins.length
+  }
+
+  // Insert a pasted block. Small pastes (1–2 lines) go in as-is; large ones
+  // (3+ lines) are collapsed into "[Pasted lines#N]" so the input line stays
+  // readable — the original text is expanded back on submit.
+  _insertPaste(raw: string): void {
+    const rep = pasteReplacement(raw)
+    if (!rep) {
+      const text = String(raw).split(CR + NL).join(NL).split(CR).join(NL)
+      this._insert(text)
+      return
+    }
+    this.pastes.push(rep)
+    this._insert(rep.marker)
   }
 
   // Insert a newline. If the cursor is right after a «\»
@@ -645,12 +715,15 @@ export class LineEditor {
       if (this._inPaste) {
         const end = s.indexOf(PASTE_END)
         if (end === -1) {
-          this._insert(s)
+          // The paste arrived in several chunks — accumulate until the end marker.
+          this._pasteBuf += s
           s = ''
         } else {
-          this._insert(s.slice(0, end))
+          this._pasteBuf += s.slice(0, end)
           s = s.slice(end + PASTE_END.length)
           this._inPaste = false
+          this._insertPaste(this._pasteBuf)
+          this._pasteBuf = ''
         }
         this._render()
         continue
@@ -661,6 +734,7 @@ export class LineEditor {
         const before = s.slice(0, pasteAt)
         s = s.slice(pasteAt + PASTE_START.length)
         this._inPaste = true
+        this._pasteBuf = ''
         if (before) {
           this._insert(before)
           this._render()
@@ -695,7 +769,7 @@ export class LineEditor {
       if (code === 1) { this._home(); this._render(); continue }
       if (code === 5) { this._end(); this._render(); continue }
       if (code === 9) { this._completeCommand(); this._render(); continue }
-      if (code === 21) { this.buf = ''; this.cursor = 0; this._render(); continue }
+      if (code === 21) { this.buf = ''; this.cursor = 0; this.pastes = []; this._render(); continue }
       if (code === 23) { this._deleteWordLeft(); this._render(); continue }
       if (code === 11) {
         // Ctrl+K — delete from the cursor to the end of the line.
