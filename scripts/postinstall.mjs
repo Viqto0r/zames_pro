@@ -1,11 +1,12 @@
 import { spawnSync } from 'node:child_process'
 
+const NL = String.fromCharCode(10)
 const isWin = process.platform === 'win32'
 const isMac = process.platform === 'darwin'
 const isLinux = process.platform === 'linux'
 
-function run(cmd, args, opts = {}) {
- return spawnSync(cmd, args, { stdio: 'inherit', shell: isWin, ...opts })
+function run(cmd, args, opts) {
+ return spawnSync(cmd, args, Object.assign({ stdio: 'inherit', shell: isWin }, opts || {}))
 }
 
 function has(cmd) {
@@ -27,7 +28,6 @@ function canSudo() {
  return !r.error && r.status === 0
 }
 
-// package manager -> how to install a single package
 const MANAGERS = [
  { bin: 'apt-get', args: (p) => ['install', '-y', p], update: ['update'] },
  { bin: 'dnf', args: (p) => ['install', '-y', p] },
@@ -39,7 +39,7 @@ const MANAGERS = [
 
 function asRoot(cmd, args) {
  if (isRoot()) return run(cmd, args)
- return run('sudo', [cmd, ...args])
+ return run('sudo', [cmd].concat(args))
 }
 
 function installPackages(pkgs) {
@@ -54,74 +54,41 @@ function installPackages(pkgs) {
  return any
 }
 
-// 1) Browser binary for this Playwright version.
 const browser = run('playwright', ['install', 'chromium'])
 if (browser.error || browser.status !== 0) {
- console.warn(
- '
-zames: could not install Chromium for Playwright automatically.
-' +
- ' Run it manually: npx playwright install chromium
-',
- )
+ console.warn(NL + 'zames: could not install Chromium for Playwright automatically.' + NL +
+ ' Run it manually: npx playwright install chromium' + NL)
  process.exit(0)
 }
 
-// 2) System libraries (Linux / WSL only).
 if (isLinux) {
  if (canSudo()) {
  const deps = run('playwright', ['install-deps', 'chromium'])
  if (deps.error || deps.status !== 0) {
- console.warn(
- '
-zames: could not install Chromium system dependencies automatically.
-' +
- ' Run it manually: sudo npx playwright install-deps chromium
-',
- )
+ console.warn(NL + 'zames: could not install Chromium system dependencies automatically.' + NL +
+ ' Run it manually: sudo npx playwright install-deps chromium' + NL)
  }
  } else {
- console.warn(
- '
-zames: on Linux/WSL Chromium needs system libraries (sudo required).
-' +
- ' Run it once manually: sudo npx playwright install-deps chromium
-',
- )
+ console.warn(NL + 'zames: on Linux/WSL Chromium needs system libraries (sudo required).' + NL +
+ ' Run it once manually: sudo npx playwright install-deps chromium' + NL)
  }
 }
 
-// 3) Clipboard tool (Linux only). Windows uses PowerShell, macOS uses pngpaste
-// — both are already present, nothing to install.
 if (isLinux) {
  const haveXclip = has('xclip') || has('xsel')
  const haveWayland = has('wl-paste')
  if (!haveXclip || !haveWayland) {
  if (!canSudo()) {
- console.warn(
- '
-zames: pasting images from the clipboard needs a clipboard tool.
-' +
- ' Install one (root required), e.g.:
-' +
- ' sudo apt install xclip # X11 (Debian/Ubuntu)
-' +
- ' sudo apt install wl-clipboard # Wayland
-' +
- ' Without it, paste a file path or use the attach button in the browser.
-',
- )
+ console.warn(NL + 'zames: pasting images from the clipboard needs a clipboard tool.' + NL +
+ ' Install one (root required), e.g.:' + NL +
+ ' sudo apt install xclip # X11 (Debian/Ubuntu)' + NL +
+ ' sudo apt install wl-clipboard # Wayland' + NL +
+ ' Without it, paste a file path or use the attach button in the browser.' + NL)
  } else if (!installPackages(['xclip', 'wl-clipboard'])) {
- console.warn(
- '
-zames: could not install a clipboard tool automatically.
-' +
- ' Install xclip (X11) or wl-clipboard (Wayland) manually.
-',
- )
+ console.warn(NL + 'zames: could not install a clipboard tool automatically.' + NL +
+ ' Install xclip (X11) or wl-clipboard (Wayland) manually.' + NL)
  }
  }
 }
 
-// Never fail the package install because of a browser/clipboard download.
 process.exit(0)
