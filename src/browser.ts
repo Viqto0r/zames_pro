@@ -382,20 +382,78 @@ export class DeepSeekBrowser {
     return raw
   }
 
+  // Найти кнопку Stop в интерфейсе DeepSeek. Полагаться только на класс
+  // нельзя: во время генерации кнопка отправки (та же circle-кнопка)
+  // меняет иконку на «квадрат» (stop), сохраняя классы. Поэтому:
+  //   1) проверяем явные селекторы (aria-label/текст Stop);
+  //   2) ищем primary circle-кнопку и смотрим на её иконку: rect/квадрат =
+  //      stop, path/стрелка = send.
+  async _stopButtonVisible(): Promise<boolean> {
+    const explicit = await this._findVisible(STOP_SELECTORS, 250)
+    if (explicit) return true
+    return await this.page
+      .evaluate(() => {
+        const btns = Array.from(
+          document.querySelectorAll('div[role="button"], button'),
+        ) as HTMLElement[]
+        for (const b of btns) {
+          const cls = (b.className || '').toString()
+          if (!/ds-button--(circle|primary|filled)/i.test(cls)) continue
+          const label = (
+            (b.getAttribute('aria-label') || '') +
+            ' ' +
+            (b.getAttribute('title') || '') +
+            ' ' +
+            (b.textContent || '')
+          ).toLowerCase()
+          if (/stop|останов/.test(label)) return true
+          // Иконка-квадрат = кнопка Stop; стрелка (path без rect) = отправка.
+          const svg = b.querySelector('svg')
+          if (svg && svg.querySelector('rect')) return true
+        }
+        return false
+      })
+      .catch(() => false)
+  }
+
   async _isGenerating(): Promise<boolean> {
-    const stop = await this._findVisible(STOP_SELECTORS, 300)
-    return !!stop
+    return await this._stopButtonVisible()
   }
 
   async stopGeneration(): Promise<boolean> {
     this._abort = true
+    // 1) Пробуем явные селекторы Stop.
     const btn = await this._findVisible(STOP_SELECTORS, 500)
     if (btn) {
       try {
-        await btn.click({ timeout: 1000 })
+        await btn.click({ timeout: 1500 })
         return true
       } catch {}
     }
+    // 2) Кликаем по primary circle-кнопке, если у неё иконка-квадрат.
+    const clicked = await this.page
+      .evaluate(() => {
+        const btns = Array.from(
+          document.querySelectorAll('div[role="button"], button'),
+        ) as HTMLElement[]
+        for (const b of btns) {
+          const cls = (b.className || '').toString()
+          if (!/ds-button--(circle|primary|filled)/i.test(cls)) continue
+          const svg = b.querySelector('svg')
+          if (svg && svg.querySelector('rect')) {
+            b.click()
+            return true
+          }
+        }
+        return false
+      })
+      .catch(() => false)
+    if (clicked) return true
+    // 3) Крайний случай — нажать Esc в поле ввода (иногда останавливает).
+    try {
+      await this.page.keyboard.press('Escape')
+      return true
+    } catch {}
     return false
   }
 
@@ -408,6 +466,7 @@ export class DeepSeekBrowser {
     let rateLimitRetries = 0
 
     while (attempt < this.askRetries) {
+      if (this._abort) return '(прервано пользователем)'
       attempt++
       try {
         return await this._askOnce(prompt, { timeout })
@@ -533,6 +592,10 @@ export class DeepSeekBrowser {
     prompt: string,
     { timeout }: { timeout: number },
   ): Promise<string> {
+    // Сбрасываем флаг прерывания ТОЛЬКО в самом начале отправки. Раньше он
+    // сбрасывался перед циклом ожидания — и Esc/Ctrl+C, нажатые во время
+    // старта генерации, терялись, запрос не останавливался.
+    this._abort = false
     const input = await this._findVisible(INPUT_SELECTORS, 10_000)
     if (!input) {
       throw new Error(
@@ -574,6 +637,8 @@ export class DeepSeekBrowser {
       .catch(() => 0)
     let started = false
     while (Date.now() < startDeadline) {
+      // Прервали (Esc/Ctrl+C) ещё до старта генерации — выходим сразу.
+      if (this._abort) return '(прервано пользователем)'
       const pageText = await this._readPageText()
       if (isRateLimitText(pageText)) {
         throw new RateLimitError(pageText.slice(0, 300))
@@ -608,7 +673,6 @@ export class DeepSeekBrowser {
     const deadline = Date.now() + timeout
     let last = ''
     let stable = 0
-    this._abort = false
     while (Date.now() < deadline) {
       if (this._abort) {
         return last || '(прервано пользователем)'

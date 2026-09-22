@@ -32,9 +32,7 @@ const PASTE_END = ESC + '[201~'
 // Ширину выравниваем по максимуму (3), чтобы подсказка не смещалась.
 const DOTS = ['', '.', '..', '...']
 const DOTS_PAD = '   '
-const HINT = theme.dim(
-  '  ·  Enter — отправить, ↑/↓ — история, Ctrl+←/→ — по словам, Esc — стоп',
-)
+const HINT = theme.dim('  ·  Esc — стоп')
 
 function safeJson(v: unknown): string {
   try {
