@@ -99,6 +99,14 @@ export async function runAgentLoop({
   let stallRetries = 0
   const MAX_STALL_RETRIES = 5
 
+  // Защита от «агент встал»: DeepSeek иногда присылает финальный текст,
+  // который лишь ОПИСЫВАЕТ следующий вызов инструмента (или рвёт ответ на
+  // полуслове), и агент молча завершает задачу, хотя работа не сделана.
+  // Если финальный ответ похож на «сейчас вызову …» — переспрашиваем, а не
+  // останавливаемся. Счётчик общий, чтобы не зациклиться на болтливой модели.
+  let looksDoneRetries = 0
+  const MAX_LOOKSDONE_RETRIES = 3
+
   for (let i = 0; i < maxIterations; i++) {
     onThinking()
     // Первое сообщение (task) — пользовательский ввод: без паузы.
@@ -196,6 +204,35 @@ export async function runAgentLoop({
         continue
       }
 
+      // Ответ похож на «сейчас вызову инструмент», но вызова в нём нет.
+      // DeepSeek иногда так обрывает ход: пишет «Now update README…» или
+      // «Let me run the tests…» и замолкает. Если принять это за финал,
+      // агент встаёт, не сделав работу. Просим продолжить и на этот раз
+      // обязательно вызвать инструмент (или respond, если правда готово).
+      if (looksLikeUnfinishedWork(trimmed) && looksDoneRetries < MAX_LOOKSDONE_RETRIES) {
+        looksDoneRetries++
+        transcript?.log('unfinished_retry', {
+          attempt: looksDoneRetries,
+          response: rawResponse,
+        })
+        if (debugLog) {
+          console.error(
+            'внимание: ответ похож на незавершённую работу, прошу продолжить (попытка ' +
+              looksDoneRetries +
+              '/' +
+              MAX_LOOKSDONE_RETRIES +
+              ')',
+          )
+        }
+        message =
+          'Похоже, ты собирался вызвать инструмент, но не вызвал. ' +
+          'Если задача ещё не выполнена — ответь РОВНО одним JSON-объектом ' +
+          'вызова инструмента, без текста до и после. ' +
+          'Если задача действительно выполнена — вызови respond с итоговым ' +
+          'сообщением оператору.'
+        continue
+      }
+
       onAssistantMessage(rawResponse)
       transcript?.log('assistant_final', { message: rawResponse })
       return rawResponse
@@ -282,6 +319,28 @@ export async function runAgentLoop({
   }
 
   return 'Достигнут лимит итераций.'
+}
+
+// Текст, который обещает вызов инструмента в будущем времени, но самого
+// вызова не содержит. DeepSeek регулярно так «зависает»: пишет
+// «Now update README to mention …», «Let me run the tests», «Сейчас проверю»
+// и останавливается. Такие ответы нельзя принимать за финальные — иначе
+// агент встаёт, не выполнив работу. Держим эвристику узкой (будущее время /
+// намерение), чтобы не ловить обычные отчёты о выполненной работе.
+function looksLikeUnfinishedWork(text: string): boolean {
+  const t = (text || '').trim()
+  if (!t) return false
+  // Длинные ответы (отчёты) не трогаем — там может быть что угодно.
+  if (t.length > 600) return false
+  // Уже есть финальный маркер — считаем ответ завершённым.
+  if (/\b(done|finished|completed|готово|выполнено|завершено)\b/i.test(t)) {
+    return false
+  }
+  const en =
+    /\b(now|next|then|let me|let's|i will|i'll|i am going to|i'm going to|going to|about to|will now|time to)\b[^.!?\n]{0,120}\b(update|write|edit|read|run|check|add|fix|create|remove|delete|apply|test|commit|push|install|open|search|look|verify|change|modify|implement|review)\b/i
+  const ru =
+    /(^|[^а-яё])(сейчас|теперь|далее|затем|попробую|проверю|обновлю|исправлю|добавлю|запущу|выполню|посмотрю|прочитаю|изменю|сделаю)([^а-яё]|$)/i
+  return en.test(t) || ru.test(t)
 }
 
 // ============ JSON parsing ============

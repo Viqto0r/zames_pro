@@ -66,3 +66,45 @@ test('пустой respond исчерпывает stallRetries и всё рав�
   const result = await runAgentLoop({ browser, tools: [respondTool], task: 'x', workdir: process.cwd() })
   assert.equal(result, '')
 })
+
+test('ответ-обещание без вызова инструмента не завершает задачу', async () => {
+  const { browser, asks } = makeBrowser([
+    'Now update README to mention system deps on Linux/WSL:',
+    jsonCall('respond', { message: 'done' }),
+  ])
+  const result = await runAgentLoop({
+    browser,
+    tools: [respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+  })
+  assert.equal(result, 'done')
+  assert.ok(asks.length >= 2, 'ask calls: ' + asks.length)
+})
+
+test('русское «сейчас проверю» без вызова не завершает задачу', async () => {
+  const { browser, asks } = makeBrowser([
+    'Сейчас проверю тесты.',
+    jsonCall('respond', { message: 'ok' }),
+  ])
+  const result = await runAgentLoop({
+    browser,
+    tools: [respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+  })
+  assert.equal(result, 'ok')
+  assert.ok(asks.length >= 2, 'ask calls: ' + asks.length)
+})
+
+test('обычный финальный текст (без обещания) завершает задачу сразу', async () => {
+  const { browser, asks } = makeBrowser(['Просто ответ без вызова'])
+  const result = await runAgentLoop({
+    browser,
+    tools: [respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+  })
+  assert.equal(result, 'Просто ответ без вызова')
+  assert.equal(asks.length, 1, 'ask calls: ' + asks.length)
+})
