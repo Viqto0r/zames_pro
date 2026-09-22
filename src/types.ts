@@ -109,7 +109,10 @@ export interface TranscriptLike {
 
 /** Минимальный интерфейс браузера, который нужен agent-loop и self-review. */
 export interface BrowserLike {
-  ask: (text: string, opts?: { timeout?: number }) => Promise<string>
+  ask(
+    prompt: string,
+    opts?: { timeout?: number; agent?: boolean },
+  ): Promise<string>
   newChat: () => Promise<void>
   stopGeneration: () => Promise<boolean>
   getCurrentChatId: () => Promise<string | null>

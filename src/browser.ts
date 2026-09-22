@@ -52,8 +52,7 @@ const STOP_SELECTORS = [
 const STATUS_RE =
   /^(reading|thinking|searching|analyzing|generating|stop|остановить|читаю|думаю|поиск|анализ)[\s.…]*$/i
 
-// Ответ DeepSeek при превышении лимита частоты. В этом случае сообщение НЕ
-// отправлено — нужно подождать и повторить, а не считать это ответом модели.
+// Ответ DeepSeek при превышении лимита частоты.
 const RATE_LIMIT_RE =
   /(messages? too frequent|too many requests|rate limit|слишком часто|повторите позже|try again later)/i
 
@@ -163,7 +162,7 @@ export class DeepSeekBrowser {
     askRetries = 3,
     stabilityChecks = 3,
     stabilityDelayMs = 1000,
-    minSendIntervalMs = 2000,
+    minSendIntervalMs = 15000,
     rateLimitWaitMs = 300000,
     maxRateLimitRetries = 6,
   }: DeepSeekBrowserOptions = {}) {
@@ -276,7 +275,9 @@ export class DeepSeekBrowser {
       const extracted = extractAnswer(body)
       if (extracted) {
         this._netCapture = extracted
-        const cid = url.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/)
+        const cid = url.match(
+          /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/,
+        )
         if (cid) this._netChatId = cid[0]
         this._netCaptureAt = Date.now()
       }
@@ -371,11 +372,30 @@ export class DeepSeekBrowser {
     }, ANSWER_SELECTORS)
   }
 
-  // Полный видимый текст страницы — по нему ловим тосты/ошибки интерфейса
-  // DeepSeek (в частности «Messages too frequent. Try again later.»).
+  // Читаем ТОЛЬКО видимые тосты/уведомления/ошибки, а не весь текст
+  // страницы. Иначе ловим «try again later» из служебных/скрытых блоков
+  // и уходим в ложное ожидание лимита на 5 минут.
   async _readPageText(): Promise<string> {
     return await this.page
-      .evaluate(() => document.body.innerText || '')
+      .evaluate(() => {
+        const sels = [
+          '[role="alert"]',
+          '[class*="toast" i]',
+          '[class*="notification" i]',
+          '[class*="alert" i]',
+          '[class*="error" i]',
+        ]
+        let out = ''
+        for (const s of sels) {
+          for (const el of Array.from(document.querySelectorAll(s))) {
+            const e = el as HTMLElement
+            const st = getComputedStyle(e)
+            if (st.display === 'none' || st.visibility === 'hidden') continue
+            out += ' ' + (e.innerText || '')
+          }
+        }
+        return out
+      })
       .catch(() => '')
   }
 
@@ -389,10 +409,7 @@ export class DeepSeekBrowser {
 
   // Найти кнопку Stop в интерфейсе DeepSeek. Полагаться только на класс
   // нельзя: во время генерации кнопка отправки (та же circle-кнопка)
-  // меняет иконку на «квадрат» (stop), сохраняя классы. Поэтому:
-  //   1) проверяем явные селекторы (aria-label/текст Stop);
-  //   2) ищем primary circle-кнопку и смотрим на её иконку: rect/квадрат =
-  //      stop, path/стрелка = send.
+  // меняет иконку на «квадрат» (stop), сохраняя классы.
   async _stopButtonVisible(): Promise<boolean> {
     const explicit = await this._findVisible(STOP_SELECTORS, 250)
     if (explicit) return true
@@ -428,7 +445,6 @@ export class DeepSeekBrowser {
   async stopGeneration(): Promise<boolean> {
     this._abort = true
     this._stopped = true
-    // 1) Пробуем явные селекторы Stop.
     const btn = await this._findVisible(STOP_SELECTORS, 500)
     if (btn) {
       try {
@@ -436,7 +452,6 @@ export class DeepSeekBrowser {
         return true
       } catch {}
     }
-    // 2) Кликаем по primary circle-кнопке, если у неё иконка-квадрат.
     const clicked = await this.page
       .evaluate(() => {
         const btns = Array.from(
@@ -455,7 +470,6 @@ export class DeepSeekBrowser {
       })
       .catch(() => false)
     if (clicked) return true
-    // 3) Крайний случай — нажать Esc в поле ввода (иногда останавливает).
     try {
       await this.page.keyboard.press('Escape')
       return true
@@ -465,7 +479,10 @@ export class DeepSeekBrowser {
 
   async ask(
     prompt: string,
-    { timeout = this.answerTimeoutMs }: { timeout?: number } = {},
+    {
+      timeout = this.answerTimeoutMs,
+      agent = false,
+    }: { timeout?: number; agent?: boolean } = {},
   ): Promise<string> {
     let lastErr: Error | null = null
     let attempt = 0
@@ -474,15 +491,14 @@ export class DeepSeekBrowser {
     while (attempt < this.askRetries) {
       attempt++
       try {
-        return await this._askOnce(prompt, { timeout })
+        return await this._askOnce(prompt, { timeout, agent })
       } catch (e) {
         lastErr = e as Error
 
-        // Лимит частоты: DeepSeek не принял сообщение. Ждём долго —
-        // лимиты сбрасываются за минуты, — и повторяем отправку сами.
-        // Эти паузы НЕ расходуют обычные попытки ask().
+        // Лимит частоты: DeepSeek не принял сообщение. Ждём долго и
+        // повторяем отправку в ТОТ ЖЕ чат (без newChat — иначе теряется
+        // контекст). Паузы не расходуют обычные попытки ask().
         if (e instanceof RateLimitError) {
-          attempt--
           rateLimitRetries++
           if (rateLimitRetries > this.maxRateLimitRetries) {
             console.error(
@@ -498,7 +514,6 @@ export class DeepSeekBrowser {
             ),
           )
           await this.page.waitForTimeout(this.rateLimitWaitMs)
-          await this.newChat().catch(() => {})
           continue
         }
 
@@ -581,25 +596,25 @@ export class DeepSeekBrowser {
     }
   }
 
-  // Небольшая пауза между отправками, чтобы случайно не отправить два
-  // сообщения подряд. Основная защита от лимита частоты — обработка
-  // RateLimitError в ask() (ждём rateLimitWaitMs и повторяем), поэтому
-  // здесь интервал маленький и не мешает живому вводу.
-  async _waitForSendSlot(): Promise<void> {
+  // Пауза между отправками. Применяется ТОЛЬКО к сообщениям агента
+  // (tool-result, system-prompt), чтобы не упираться в лимит частоты.
+  // Пользовательский ввод отправляется без задержки.
+  async _waitForSendSlot(agent: boolean): Promise<void> {
+    if (!agent) return
     if (!this._lastSentAt) return
     const gap = this.minSendIntervalMs - (Date.now() - this._lastSentAt)
     if (gap <= 0) return
-    console.error(theme.warn(`⏳ пауза ${Math.ceil(gap / 1000)}с перед отправкой...`))
+    console.error(
+      theme.warn(`⏳ пауза ${Math.ceil(gap / 1000)}с перед отправкой...`),
+    )
     await this.page.waitForTimeout(gap)
   }
 
   async _askOnce(
     prompt: string,
-    { timeout }: { timeout: number },
+    { timeout, agent }: { timeout: number; agent: boolean },
   ): Promise<string> {
-    // Сбрасываем флаг прерывания ТОЛЬКО в самом начале отправки. Раньше он
-    // сбрасывался перед циклом ожидания — и Esc/Ctrl+C, нажатые во время
-    // старта генерации, терялись, запрос не останавливался.
+    // Сбрасываем флаг прерывания ТОЛЬКО в самом начале отправки.
     this._abort = false
     const input = await this._findVisible(INPUT_SELECTORS, 10_000)
     if (!input) {
@@ -610,7 +625,7 @@ export class DeepSeekBrowser {
 
     const beforeText = await this._readLastAnswerTextClean().catch(() => '')
 
-    await this._waitForSendSlot()
+    await this._waitForSendSlot(agent)
     this._netCapture = ''
     this._netCaptureAt = 0
     await this._setInputText(input, prompt)
@@ -634,15 +649,13 @@ export class DeepSeekBrowser {
 
     // Ждём старта: либо появился Stop, либо изменился текст ответа,
     // либо вырос общий объём текста на странице. Параллельно ловим
-    // тост о превышении лимита частоты — это НЕ ответ модели, а отказ
-    // приёма сообщения, и его надо обработать паузой и повтором.
+    // тост о превышении лимита частоты (только тосты, не весь body).
     const startDeadline = Date.now() + 15_000
     const startBodyLen = await this.page
       .evaluate(() => document.body.innerText.length)
       .catch(() => 0)
     let started = false
     while (Date.now() < startDeadline) {
-      // Прервали (Esc/Ctrl+C) ещё до старта генерации — выходим сразу.
       if (this._abort) return '(прервано пользователем)'
       const pageText = await this._readPageText()
       if (isRateLimitText(pageText)) {
@@ -660,21 +673,16 @@ export class DeepSeekBrowser {
       await this.page.waitForTimeout(300)
     }
     if (!started) {
-      // Перед ошибкой ещё раз проверим на лимит частоты: иногда тост
-      // появляется с задержкой и не успевает попасть в ранние проверки.
-      const pageText = await this._readPageText()
-      if (isRateLimitText(pageText)) {
-        throw new RateLimitError(pageText.slice(0, 300))
-      }
+      // Больше НЕ проверяем лимит по всему тексту страницы — это давало
+      // ложные срабатывания и 5-минутные паузы. Просто сообщаем, что
+      // генерация не началась.
       throw new Error(
         'Ответ не начал генерироваться за 15с. Возможно, сообщение не отправилось.',
       )
     }
 
     // Ждём, пока ответ перестанет меняться. Условие "не генерируется"
-    // проверяем через рост текста, а НЕ через _isGenerating(): кнопка Stop
-    // у DeepSeek ненадёжна, и если она не находится, ответ бы никогда не
-    // вернулся.
+    // проверяем через рост текста, а НЕ через _isGenerating().
     const deadline = Date.now() + timeout
     let last = ''
     let stable = 0

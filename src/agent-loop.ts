@@ -50,9 +50,7 @@ export async function runAgentLoop({
     transcript?.log('new_chat')
   }
 
-  // Сообщаем вызывающему актуальный chat id. После newChat() URL ещё без id
-  // (он появляется только после первой отправки), поэтому зовём колбэк и
-  // здесь, и после первой реальной отправки ниже.
+  // Сообщаем вызывающему актуальный chat id.
   let lastReportedChatId: string | null = null
   const reportChat = async (): Promise<void> => {
     let id: string | null = null
@@ -87,34 +85,31 @@ export async function runAgentLoop({
       gitContext: gitText,
     })
     onThinking()
-    await browser.ask(systemPrompt, { timeout: 60_000 })
+    // system-prompt — отправка агента: с паузой (agent: true).
+    await browser.ask(systemPrompt, { timeout: 60_000, agent: true })
     await reportChat()
   }
 
   let message = task
   transcript?.log('task', { task })
 
-  // Счётчик «ответ похож на tool-call, но не распознан». Чтобы модель,
-  // написавшая битый JSON/XML, не останавливала агента молча, мы просим
-  // её переотправить вызов. Ограничиваем число таких попыток.
   let malformedRetries = 0
   const MAX_MALFORMED_RETRIES = 3
 
-  // Счётчик «пустой/служебный ответ без вызова инструмента». Модель иногда
-  // отвечает статусом интерфейса (Reading…), тостом лимита или пустой
-  // строкой. Это НЕ финальный ответ — просим её продолжить, а не молча
-  // останавливаемся (раньше агент на этом вставал).
   let stallRetries = 0
   const MAX_STALL_RETRIES = 5
 
   for (let i = 0; i < maxIterations; i++) {
     onThinking()
-    const rawResponse = await browser.ask(message)
+    // Первое сообщение (task) — пользовательский ввод: без паузы.
+    // Последующие (tool-result и просьбы переотправить) — агентские:
+    // с паузой, чтобы не упираться в лимит частоты.
+    const isFirst = i === 0
+    const rawResponse = await browser.ask(message, { agent: !isFirst })
     await reportChat()
     transcript?.log('assistant_raw', { response: rawResponse })
 
-    // Пользователь прервал генерацию (Esc/Ctrl+C): не считаем это ответом
-    // модели и не запускаем инструменты — корректно завершаем задачу.
+    // Пользователь прервал генерацию (Esc/Ctrl+C).
     if (/^\s*\(прервано пользователем\)\s*$/.test(rawResponse)) {
       transcript?.log('user_aborted')
       return rawResponse
@@ -128,7 +123,6 @@ export async function runAgentLoop({
 
     const parsedCalls = Array.isArray(parsed) ? parsed : parsed ? [parsed] : []
     if (parsedCalls.some((p) => p && p._permissive)) {
-      // Пишем в транскрипт (для отладки), но не сыпем в консоль.
       transcript?.log('permissive_parse', { response: rawResponse })
       if (debugLog) {
         console.error('внимание: tool-call распознан нестрогим парсером')
@@ -136,10 +130,6 @@ export async function runAgentLoop({
     }
 
     if (!parsed) {
-      // Ответ не распознан как tool-call. Если он ПОХОЖ на попытку вызова
-      // (есть tool/invoke/parameter, но JSON/XML битый) — это почти всегда
-      // ошибка формата. Не считаем её финальным ответом (иначе агент молча
-      // остановится), а просим модель переотправить вызов корректно.
       const looksLikeToolCall =
         /("tool"\s*:|\btool_calls?\b|\binvoke\b|\bparameter\b|DSML|function_call)/i.test(
           rawResponse,
@@ -167,9 +157,6 @@ export async function runAgentLoop({
         continue
       }
 
-      // Пустой или служебный ответ (статус интерфейса, тост лимита, пробелы)
-      // не считаем финальным: просим модель продолжить. Иначе агент
-      // останавливается, хотя должен был вызвать инструмент.
       const trimmed = (rawResponse || '').trim()
       const looksService =
         !trimmed ||
@@ -357,7 +344,6 @@ function tryParseArray(str: string): ToolCall[] | null {
   }
 }
 
-// Жадный разбор args для грязного JSON (незаэкранированные кавычки в строке).
 function parseArgsGreedy(str: string): ToolArgs | null {
   const result: ToolArgs = {}
   let i = str.indexOf('{') + 1
@@ -478,8 +464,6 @@ function parseArgsPermissive(str: string): ToolArgs | null {
       result[key] = unescapeValue(value)
       i = j + 1
     } else if (str[i] === '{' || str[i] === '[') {
-      // Вложенный объект/массив: находим сбалансированный фрагмент и
-      // пытаемся распарсить его как JSON (или как вложенный permissive).
       const open = str[i]
       const close = open === '{' ? '}' : ']'
       const end = findMatching(str, i, open, close)
@@ -578,16 +562,9 @@ function parseToolCallPermissive(
   const openIdx = text.indexOf('{', argsIdx)
   if (openIdx === -1) return null
 
-  // Берём сбалансированный по скобкам фрагмент args (с учётом строк),
-  // а не первый попавшийся '}'. Иначе вложенные объекты/массивы или
-  // фигурные скобки внутри строк ломают разбор.
   const endIdx = findMatching(text, openIdx, '{', '}')
 
   if (tool === 'Edit') {
-    // Edit-аргументы часто содержат сырые кавычки и переводы строк, из-за
-    // чего балансировка скобок сбоит. parseEditArgs рассчитан ровно на
-    // такой случай, поэтому пробуем его и на «хвосте» до конца текста,
-    // а не только на сбалансированном фрагменте.
     const balanced = endIdx === -1 ? null : text.slice(openIdx, endIdx + 1)
     const tailToEnd = text.slice(openIdx)
     for (const frag of [balanced, tailToEnd]) {
@@ -597,9 +574,6 @@ function parseToolCallPermissive(
     }
   }
 
-  // Балансировка скобок сбоит, если в строковых значениях есть сырые
-  // кавычки/скобки (частый случай для Bash/Write с кодом внутри). Тогда
-  // пробуем разобрать args из «хвоста» до конца текста и жадным парсером.
   const frags = []
   if (endIdx !== -1) frags.push(text.slice(openIdx, endIdx + 1))
   frags.push(text.slice(openIdx))
@@ -613,8 +587,6 @@ function parseToolCallPermissive(
   return null
 }
 
-// Специализированный разбор args для Edit: ровно три поля path/old_string/
-// new_string, значения могут содержать сырые кавычки и переводы строк.
 function parseEditArgs(str: string): ToolArgs | null {
   const keyRe = (name: string): RegExp => new RegExp('"' + name + '"\\s*:\\s*"')
   const readValue = (name: string, nextNames: string[]): string | null => {
@@ -727,9 +699,6 @@ export function parseToolCall(text: string): ParsedToolCall {
     const second = tryParse(repaired)
     if (second) return second
 
-    // Сырые переводы строк/табы внутри строковых значений (old_string,
-    // new_string, content) делают JSON невалидным. Экранируем их и
-    // пробуем снова, иначе многострочный вызов не распознаётся.
     const ctrl = repairRawControlChars(raw)
     const third = tryParse(ctrl)
     if (third) return third
@@ -742,15 +711,9 @@ export function parseToolCall(text: string): ParsedToolCall {
     parseToolCallPermissive(repairRawControlChars(cleaned))
   if (permissive) return { ...permissive, _permissive: true }
 
-  // Fallback: модель могла обернуть JSON в прозу и/или добавить мусорные
-  // теги после него. Отрезаем всё до первого '"tool"' и всё, что похоже
-  // на XML/DSML-хвост, затем пробуем permissive-разбор ещё раз.
   const toolIdx = cleaned.search(/["']?tool["']?\s:/)
   if (toolIdx > 0) {
     let tail = cleaned.slice(toolIdx)
-    // Регексп обязан матчить многосимвольные теги (<|DSML|invoke ...>),
-    // поэтому <[^>]*>, а не <[^>]> — иначе DSML-хвост не срезается,
-    // permissive-разбор падает и агент молча останавливается.
     tail = tail.replace(/<[^>]*>.*$/s, '').trim()
     const tailPermissive =
       parseToolCallPermissive('{"' + tail) ||
@@ -758,7 +721,6 @@ export function parseToolCall(text: string): ParsedToolCall {
     if (tailPermissive) return { ...tailPermissive, _permissive: true }
   }
 
-  // Последний fallback: модель ответила XML/DSML-блоком вместо JSON.
   const xmlCalls = parseXmlToolCalls(cleaned)
   if (xmlCalls) return Array.isArray(xmlCalls) ? xmlCalls : [xmlCalls]
 
