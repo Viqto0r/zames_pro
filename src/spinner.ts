@@ -62,7 +62,10 @@ export function createSpinner(): SpinnerUI {
   let dotPhase = 0
   let pending: string | null = null
 
-  const DOTS = ['.', '..', '...']
+  // Анимация точек: старт с пустой строки (0 точек), затем рост.
+  // Ширину выравниваем по максимуму (3), чтобы подсказка не смещалась.
+  const DOTS = ['', '.', '..', '...']
+  const DOTS_PAD = '   '
 
   const start = (text: string) => {
     if (!spinner) spinner = ora(text).start()
@@ -84,13 +87,17 @@ export function createSpinner(): SpinnerUI {
   // Запуск анимированного статуса: коричневый текст + «бегущие» точки.
   const startThinking = () => {
     const base = theme.brown(stripEllipsis(randomThinkingPhrase()))
-    start(base + DOTS[0] + HINT)
+    // Точки того же цвета, что и база, и фиксированной ширины — иначе
+    // подсказка справа «прыгает» при смене фазы анимации.
+    const dots = (n: number) =>
+      theme.brown(DOTS[n] + DOTS_PAD.slice(DOTS[n].length))
+    start(base + dots(0) + HINT)
     dotPhase = 0
     if (dotTimer) clearInterval(dotTimer)
     dotTimer = setInterval(() => {
       if (!spinner) return
       dotPhase = (dotPhase + 1) % DOTS.length
-      spinner.text = base + DOTS[dotPhase] + HINT
+      spinner.text = base + dots(dotPhase) + HINT
     }, 400)
     if (dotTimer.unref) dotTimer.unref()
   }

@@ -21,7 +21,10 @@ const ESC = String.fromCharCode(27)
 const PASTE_START = ESC + '[200~'
 const PASTE_END = ESC + '[201~'
 
-const DOTS = ['.', '..', '...']
+// Анимация точек: старт с пустой строки (0 точек), затем рост.
+// Ширину выравниваем по максимуму (3), чтобы подсказка не смещалась.
+const DOTS = ['', '.', '..', '...']
+const DOTS_PAD = '   '
 const HINT = theme.dim('  ·  Enter — отправить, Ctrl+J — новая строка, Esc — стоп')
 
 function safeJson(v: unknown): string {
@@ -251,6 +254,12 @@ export class LineEditor {
     }
   }
 
+  _dots(n: number): string {
+    // Точки того же цвета, что и база, и фиксированной ширины — иначе
+    // подсказка справа «прыгает» при смене фазы анимации.
+    return theme.brown(DOTS[n] + DOTS_PAD.slice(DOTS[n].length))
+  }
+
   _startThinking() {
     if (this.pendingText) {
       this.setStatus(theme.prompt('✎ ') + this.pendingText + HINT)
@@ -258,11 +267,11 @@ export class LineEditor {
     }
     this._thinkBase = theme.brown(stripEllipsis(randomThinkingPhrase()))
     this._dotPhase = 0
-    this.setStatus(this._thinkBase + DOTS[0] + HINT)
+    this.setStatus(this._thinkBase + this._dots(0) + HINT)
     this._stopDots()
     this._dotTimer = setInterval(() => {
       this._dotPhase = (this._dotPhase + 1) % DOTS.length
-      this.setStatus(this._thinkBase + DOTS[this._dotPhase] + HINT)
+      this.setStatus(this._thinkBase + this._dots(this._dotPhase) + HINT)
     }, 400)
     if (this._dotTimer.unref) this._dotTimer.unref()
   }
