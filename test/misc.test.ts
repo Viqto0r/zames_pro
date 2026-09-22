@@ -159,3 +159,20 @@ test('visRows считает перенос статуса по ширине', (
   // ANSI-последовательности не влияют на видимую длину.
   assert.equal(visRows('\u001b[31m' + 'x'.repeat(80), 80), 1)
 })
+
+test('buildSystemPrompt содержит требования к формату tool-call', () => {
+  const sp = buildSystemPrompt({ workdir: '/w', tools: [] })
+  assert.ok(sp.includes('TOOL CALL FORMAT'))
+  // Должны быть явные запреты на реальные ошибки формата.
+  assert.ok(/DOUBLE quotes/.test(sp))
+  assert.ok(/single quotes/.test(sp))
+  assert.ok(/XML\/DSML/.test(sp))
+  assert.ok(/truncate/i.test(sp))
+})
+
+test('buildSystemPrompt локализует инструкцию о языке ответа', () => {
+  const ru = buildSystemPrompt({ workdir: '/w', tools: [], locale: 'ru' })
+  const en = buildSystemPrompt({ workdir: '/w', tools: [], locale: 'en' })
+  assert.ok(/русск/i.test(ru))
+  assert.ok(/English/i.test(en))
+})

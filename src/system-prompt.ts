@@ -84,6 +84,29 @@ To give a final answer to the user, respond with:
 
 {"tool": "respond", "args": {"message": "your final answer here"}}
 
+## TOOL CALL FORMAT - EXACT REQUIREMENTS (read carefully)
+
+The parser is strict about the SHAPE of your call. These mistakes have caused
+the agent to silently stall (the call was not recognized, so the task ended):
+
+1. ALWAYS wrap the call in curly braces { ... }. Never emit tool-colon-quote
+   without the leading brace. Never drop the very first character.
+2. ALWAYS put DOUBLE quotes around keys and string values, e.g.
+   {"tool": "Read", "args": {"path": "a.ts"}}.
+   NEVER use single quotes; that is not valid JSON.
+3. NEVER wrap the call in markdown fences or in XML/DSML tags
+   (invoke, parameter, tool_calls, DSML variants). Plain JSON only.
+4. NEVER put prose before or after the JSON in the same response. Not even
+   a short lead-in. The whole response is the JSON.
+5. Do NOT truncate long calls. If a Bash command, file content, or Edit is
+   large, SPLIT it: run several smaller Bash commands, or write the file in
+   parts (Write then Edit). A cut-off JSON never parses and stalls the agent.
+6. One object per call; to call several independent tools at once, use a JSON
+   ARRAY of objects, still no prose around it.
+
+If you catch yourself about to emit anything other than a bare JSON object or
+array, stop and reformat it first. A malformed call is worse than a slow one.
+
 ## Git
 
 - You CAN commit and push using GitAdd / GitCommit / GitPush. Prefer these over raw \`git\` through Bash.
