@@ -59,6 +59,15 @@ export function isRateLimitText(text: string): boolean {
   return RATE_LIMIT_RE.test(String(text || ''))
 }
 
+// Normalize text for comparison: collapse whitespace so that tiny DOM
+// differences (nbsp, trailing spaces) don't count as "a new answer".
+export function normText(s: string): string {
+  return String(s || '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 // The "too frequent" error: distinct from others so ask() waits a long time
 // (DeepSeek limits reset over minutes) and retries the send itself.
 export class RateLimitError extends Error {
@@ -481,7 +490,12 @@ export class DeepSeekBrowser {
     {
       timeout = this.answerTimeoutMs,
       agent = false,
-    }: { timeout?: number; agent?: boolean } = {},
+      attachments = [],
+    }: {
+      timeout?: number
+      agent?: boolean
+      attachments?: Array<{ path: string; name: string; mime: string }>
+    } = {},
   ): Promise<string> {
     let lastErr: Error | null = null
     let attempt = 0
@@ -490,7 +504,7 @@ export class DeepSeekBrowser {
     while (attempt < this.askRetries) {
       attempt++
       try {
-        return await this._askOnce(prompt, { timeout, agent })
+        return await this._askOnce(prompt, { timeout, agent, attachments })
       } catch (e) {
         lastErr = e as Error
 
@@ -595,6 +609,78 @@ export class DeepSeekBrowser {
     }
   }
 
+  // Attach files/images to the chat via the hidden <input type=file> of the
+  // DeepSeek upload widget. The element is not visible, so we set the files
+  // programmatically (Playwright setInputFiles works on hidden inputs too).
+  async _attachFiles(
+    files: Array<{ path: string; name: string; mime: string }>,
+  ): Promise<void> {
+    const bufPayload = []
+    for (const f of files) {
+      try {
+        const buffer = await fs.readFile(f.path)
+        bufPayload.push({ name: f.name, mimeType: f.mime, buffer })
+      } catch (e) {
+        console.error(
+          theme.warn(
+            '⚠ не удалось прочитать вложение ' +
+              f.name +
+              ': ' +
+              (e as Error).message,
+          ),
+        )
+      }
+    }
+    if (!bufPayload.length) return
+
+    // Preferred path: click the attach button and let the file chooser event
+    // carry the files. This is how a real user attaches a file and it reliably
+    // triggers DeepSeek's upload handler.
+    const ATTACH_SELECTORS = [
+      'div[role="button"][aria-label*="attach" i]',
+      'div[role="button"][aria-label*="влож" i]',
+      'button[aria-label*="attach" i]',
+      'button[aria-label*="влож" i]',
+      '[class*="upload"]',
+      '[class*="attach"]',
+    ]
+    for (const sel of ATTACH_SELECTORS) {
+      const btn = this.page.locator(sel).last()
+      try {
+        if ((await btn.count()) === 0) continue
+        if (!(await btn.isVisible().catch(() => false))) continue
+        const [chooser] = await Promise.all([
+          this.page.waitForEvent('filechooser', { timeout: 3000 }),
+          btn.click({ timeout: 1500 }),
+        ])
+        await chooser.setFiles(bufPayload)
+        await this.page.waitForTimeout(2500)
+        return
+      } catch {}
+    }
+
+    // Fallback: set the files directly on the hidden <input type=file>.
+    const input = this.page.locator('input[type="file"]').first()
+    if ((await input.count()) === 0) {
+      console.error(
+        theme.warn(
+          '⚠ не найдено поле загрузки файлов на странице — вложения не прикреплены',
+        ),
+      )
+      return
+    }
+    try {
+      await input.setInputFiles(bufPayload, { timeout: 15_000 })
+    } catch (e) {
+      console.error(
+        theme.warn('⚠ не удалось прикрепить файлы: ' + (e as Error).message),
+      )
+      return
+    }
+    // Wait for the upload to finish (the attach preview to appear).
+    await this.page.waitForTimeout(2000)
+  }
+
   // Pause between sends. Applied ONLY to agent messages
   // (tool-result, system-prompt) so we don't hit the rate limit.
   // User input is sent without delay.
@@ -611,7 +697,15 @@ export class DeepSeekBrowser {
 
   async _askOnce(
     prompt: string,
-    { timeout, agent }: { timeout: number; agent: boolean },
+    {
+      timeout,
+      agent,
+      attachments = [],
+    }: {
+      timeout: number
+      agent: boolean
+      attachments?: Array<{ path: string; name: string; mime: string }>
+    },
   ): Promise<string> {
     // We reset the abort flag ONLY at the very start of the send.
     this._abort = false
@@ -627,6 +721,13 @@ export class DeepSeekBrowser {
     await this._waitForSendSlot(agent)
     this._netCapture = ''
     this._netCaptureAt = 0
+
+    // Attach files/images FIRST (before the text): the DeepSeek upload widget
+    // shows them above the input, and only then the message can be sent.
+    if (attachments.length) {
+      await this._attachFiles(attachments)
+    }
+
     await this._setInputText(input, prompt)
     await this.page.waitForTimeout(200)
 
@@ -660,12 +761,19 @@ export class DeepSeekBrowser {
       if (isRateLimitText(pageText)) {
         throw new RateLimitError(pageText.slice(0, 300))
       }
-      const gen = await this._isGenerating()
       const cur = await this._readLastAnswerTextClean().catch(() => '')
       const bodyLen = await this.page
         .evaluate(() => document.body.innerText.length)
         .catch(() => 0)
-      if (gen || (cur && cur !== beforeText) || bodyLen > startBodyLen) {
+      // A NEW answer is the only reliable sign that the message was actually
+      // sent: the text on the page must differ from what was there before the
+      // send, OR the page must have grown. The Stop-button heuristic
+      // (_isGenerating) is NOT used here: right after a tool result the stop
+      // button may briefly linger from the previous generation, which used to
+      // make us think the new answer had started when in fact nothing was sent
+      // — and then the agent silently "stopped".
+      const changed = cur && normText(cur) !== normText(beforeText)
+      if (changed || bodyLen > startBodyLen) {
         started = true
         break
       }
@@ -701,18 +809,26 @@ export class DeepSeekBrowser {
         }
       }
       const cur = await this._readLastAnswerTextClean().catch(() => '')
-      if (cur && cur === last) {
+      // Ignore an "answer" that is identical to what was on the page BEFORE we
+      // sent the message: that is the previous answer, not a new one. Returning
+      // it would make the agent re-process the old tool call (or silently
+      // stop). We keep waiting instead.
+      const isNew = cur && normText(cur) !== normText(beforeText)
+      if (isNew && cur === last) {
         stable++
         if (stable >= 2) return cur
       } else {
         stable = 0
       }
-      last = cur
+      if (isNew) last = cur
       await this.page.waitForTimeout(800)
     }
 
-    if (last) return last
-    throw new Error('Таймаут ожидания ответа. Попробуйте /debug-dom.')
+    if (last && normText(last) !== normText(beforeText)) return last
+    throw new Error(
+      'Новый ответ не получен (на странице остался прежний текст). ' +
+        'Возможно, сообщение не отправилось.',
+    )
   }
 
   async dumpDom(

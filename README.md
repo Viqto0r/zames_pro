@@ -41,6 +41,27 @@ While the agent is working you can keep typing: press Enter to queue a message
 abort the current generation. This mirrors typing during generation on the
 DeepSeek website.
 
+### Images and files
+
+You can paste an image or a file into the input line (Ctrl+Shift+V / Shift+Insert
+or the terminal's own paste). zames saves it under `<project>/tmp` and shows a
+marker in the line - `[image#1]` for images, `[file#1]` for other files - then
+uploads the real file to the chat together with your message. These are the
+same formats the DeepSeek web chat accepts (PNG, JPEG, GIF, WEBP, BMP, SVG and
+the usual document types).
+
+Pasting an image works when the terminal sends it as a `data:` URL or as a
+base64 blob with a recognizable image signature. You can also paste a path to a
+local file (drag a file into the terminal or copy its path); if the file exists
+it is attached, otherwise the text is inserted as usual.
+
+Press Ctrl+V (or use an empty paste) and zames reads the image straight from
+the clipboard: Linux via wl-paste (Wayland) or xclip/xsel (X11), macOS
+via pngpaste, Windows via PowerShell. The needed Linux tools are installed
+automatically on npm install (best-effort, through the detected package
+manager). If no image is found, zames says so and reports which tool it tried,
+instead of staying silent.
+
 ### Options
 
 ```

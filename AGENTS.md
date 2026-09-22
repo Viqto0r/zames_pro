@@ -130,6 +130,55 @@ the first line. Current logic:
 In non-TTY mode (pipe, redirect) `LineEditor` does not start — `promptOnce()`
 (src/index.ts) is used, which reads everything up to EOF.
 
+### Attachments (images/files)
+
+The user can paste an image or a file into the input line; it is saved under
+`<project>/tmp` and shown in the line as a marker `[image#N]` (for images) or
+`[file#N]` (for other files). The markers become part of the message text, so
+the model sees them and the browser uploads the real files to the chat.
+
+How it works:
+- `src/attachments.ts` — pure helpers: `parseImagePaste()` detects image data
+  in a paste (a `data:` URL or a bare base64 blob with a PNG/JPEG/GIF/WEBP/BMP
+  magic signature), `looksLikeFilePath()`/`resolveAttachPath()` (src/index.ts)
+  detect a pasted path to a local file, `saveToTemp()` writes the bytes to
+  `<project>/tmp` (sanitizes the name, never overwrites — adds `-1`, `-2`),
+  `AttachmentStore` numbers images and files separately and produces the
+  markers. `readClipboardImageDetailed()` reads the OS clipboard and
+  returns `{ data, via }`: Linux — wl-paste (Wayland) / xclip / xsel (X11),
+  macOS — pngpaste, Windows — PowerShell (System.Windows.Forms.Clipboard).
+  `via` names the tool used or the reason nothing was found, so a failed
+  paste is never silent.
+
+- Clipboard paste (the terminal usually delivers NO data for an image):
+  `LineEditor` calls `onClipboard` on Ctrl+V (code 22) and on an EMPTY
+  bracketed paste; `onClipboard` (src/index.ts) calls
+  `readClipboardImageDetailed()`, saves to tmp and inserts the marker. The
+  "no image" hint is shown once per session (`clipboardWarned`).
+- `scripts/postinstall.mjs` installs the clipboard tool on Linux
+  (xclip + wl-clipboard) through the detected package manager (apt/dnf/yum/
+  pacman/zypper/apk), best-effort. Windows/macOS need no extra tool.
+- `LineEditor` (src/input.ts) calls `onAttach` when a paste looks like an image
+  or a file path; `onAttach` (wired in src/index.ts) saves the bytes to tmp and
+  returns the `Attachment`, whose `marker` is inserted into the input line. On
+  submit, `onSubmit(text, attachments)` hands the list to the queue
+  (`PendingMessage`), and `runTask()` passes it into `runAgentLoop`.
+- `DeepSeekBrowser._attachFiles()` (src/browser.ts) finds the hidden
+  `input[type=file]` of the upload widget and calls `setInputFiles()` with the
+  file buffers BEFORE the text is typed; `ask()`/`_askOnce()` accept an
+  `attachments` option.
+- `buildSystemPrompt()` gets an `attachments` list and adds an `## Attachments`
+  section; additionally `runAgentLoop` appends a short note about the markers
+  to the task message, because on a resumed chat the system-prompt is not
+  resent.
+- The marker numbering in `runAgentLoop`'s note is positional (image/file by
+  extension) and may differ from `AttachmentStore`'s numbering; the markers in
+  the task text itself are the source of truth.
+
+If you change the marker format, update `AttachmentStore` (src/attachments.ts),
+the `## Attachments` section in src/system-prompt.ts and the note in
+`runAgentLoop`.
+
 IMPORTANT when editing this code: do not put "raw" control characters (CR/LF)
 into string literals — only the escape sequences `\r`/`\n` (in src/input.ts
 control characters are assembled via `String.fromCharCode`).

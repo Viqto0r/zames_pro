@@ -10,6 +10,17 @@ import { runAgentLoop } from './agent-loop.js'
 import { createSpinner } from './spinner.js'
 import { LineEditor, expandPastes, pasteReplacement, type PasteBlock } from './input.js'
 import {
+  parseImagePaste,
+  extForMime,
+  saveToTemp,
+  guessMime,
+  isImageName,
+  formatSize,
+  looksLikeFilePath,
+  readClipboardImageDetailed,
+  sniffMime,
+} from './attachments.js'
+import {
   loadConfig,
   DEFAULTS,
   CONFIG_PATHS,
@@ -42,11 +53,16 @@ import {
 import type { ToolDef } from './types.js'
 import type { ChatInfo } from './browser.js'
 
+interface PendingMessage {
+  text: string
+  attachments?: Array<{ path: string; name: string; mime: string }>
+}
+
 interface RunTaskOptions {
   transcript: Transcript
   freshChat: boolean
   sendSystemPrompt: boolean
-  queue?: string[]
+  queue?: PendingMessage[]
   ui?: LineEditor | null
   onChatReady?: (chatId: string | null) => void
 }
@@ -276,6 +292,7 @@ ${theme.bold(t('help.while_working'))}
   ${t('help.key.slash')}
   ${t('help.key.newline')}
   ${t('help.key.backslash')}
+  ${t('help.key.attach')}
   ${t('help.key.esc')}
 
 ${theme.bold(t('help.commands'))}
@@ -364,6 +381,25 @@ function buildSlashCommands(): Array<{ name: string; description: string }> {
 // We put the agent's temporary files (one-off scripts, etc.) in
 // <project>/tmp — this folder is in .gitignore and is cleaned on every launch.
 const TMP_DIR = path.join(__dirname, '..', 'tmp')
+
+// Resolve a pasted string into a path to an existing file. Handles quoted
+// paths (drag&drop from some file managers adds quotes) and paths relative to
+// the working directory.
+async function resolveAttachPath(workdir: string, raw: string): Promise<string | null> {
+  let s = String(raw || '').trim()
+  if (!s) return null
+  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+    s = s.slice(1, -1)
+  }
+  s = s.replace(/\\ /g, ' ')
+  if (!looksLikeFilePath(s) && !isImageName(s)) return null
+  const candidates = path.isAbsolute(s) ? [s] : [path.resolve(workdir, s)]
+  for (const c of candidates) {
+    const st = await fs.stat(c).catch(() => null)
+    if (st && st.isFile()) return c
+  }
+  return null
+}
 
 async function cleanTmpDir(): Promise<void> {
   try {
@@ -769,6 +805,7 @@ async function runTask(
   taskText: string,
   workdir: string,
   opts: RunTaskOptions,
+  attachments: Array<{ path: string; name: string; mime: string }> = [],
 ): Promise<void> {
   const {
     transcript,
@@ -797,7 +834,7 @@ async function runTask(
         },
         onChange: (text) => ui.setPending(text),
         onQueue: (text) => {
-          queue.push(text)
+          queue.push({ text })
           ui.setPending(null)
           ui.stop()
           console.log(
@@ -809,7 +846,12 @@ async function runTask(
       })
 
   try {
-    let next = { task: taskText, freshChat, sendSystemPrompt }
+    let next: PendingMessage & { freshChat: boolean; sendSystemPrompt: boolean } = {
+      text: taskText,
+      attachments,
+      freshChat,
+      sendSystemPrompt,
+    }
 
     // Execute the task, then everything the user managed to type while it
     // ran. The queue may be replenished right during draining.
@@ -818,11 +860,12 @@ async function runTask(
       await mod.runAgentLoop({
         browser,
         tools,
-        task: next.task,
+        task: next.text,
         workdir,
         maxIterations: maxIter,
         freshChat: next.freshChat,
         sendSystemPrompt: next.sendSystemPrompt,
+        attachments: next.attachments || [],
         transcript,
         onThinking: () => ui.thinking(),
         onToolCall: (name, toolArgs) => ui.toolCall(name, toolArgs),
@@ -842,17 +885,24 @@ async function runTask(
       }
       if (!queue.length) break
 
-      const queued = queue.shift() ?? ''
+      const queued = queue.shift() ?? { text: '' }
       ui.stop()
       if (editor) {
         editor.printAbove(
-          theme.user(t('msg.from_queue')) + theme.assistant(queued),
+          theme.user(t('msg.from_queue')) + theme.assistant(queued.text),
         )
       } else {
-        console.log(theme.user(t('msg.from_queue')) + theme.assistant(queued))
+        console.log(
+          theme.user(t('msg.from_queue')) + theme.assistant(queued.text),
+        )
       }
-      transcript?.log('queued_task', { task: queued })
-      next = { task: queued, freshChat: false, sendSystemPrompt: false }
+      transcript?.log('queued_task', { task: queued.text })
+      next = {
+        text: queued.text,
+        attachments: queued.attachments,
+        freshChat: false,
+        sendSystemPrompt: false,
+      }
     }
   } catch (e) {
     ui.stop()
@@ -1002,7 +1052,11 @@ async function main(): Promise<void> {
 
   // Messages the user typed while the agent worked. runTask takes them one
   // by one after the current task finishes.
-  const pendingQueue: string[] = []
+  const pendingQueue: PendingMessage[] = []
+  // Attachments for the next submit (filled by the editor's onAttachments).
+  let pendingAttachments: Array<{ path: string; name: string; mime: string }> = []
+  // Show the "no clipboard image" hint only once per session.
+  let clipboardWarned = false
 
   // ---------- review mode state ----------
   // null — normal mode.
@@ -1062,11 +1116,10 @@ async function main(): Promise<void> {
   // the typed text is never overwritten by output. In non-TTY (pipe) —
   // the old promptOnce.
   let editor: LineEditor | null = null
-  let waiter: ((v: string | null) => void) | null = null
-  const takeInput = (): Promise<string | null> => {
-    if (pendingQueue.length)
-      return Promise.resolve(pendingQueue.shift() ?? null)
-    return new Promise<string | null>((resolve) => {
+  let waiter: ((v: PendingMessage | null) => void) | null = null
+  const takeInput = (): Promise<PendingMessage | null> => {
+    if (pendingQueue.length) return Promise.resolve(pendingQueue.shift() ?? null)
+    return new Promise<PendingMessage | null>((resolve) => {
       waiter = resolve
     })
   }
@@ -1088,8 +1141,88 @@ async function main(): Promise<void> {
       commands: buildSlashCommands(),
     })
     editor = ed
-    ed.onSubmit = (text: string) => {
-      pendingQueue.push(text)
+    ed.setTmpDir(TMP_DIR)
+    ed.onAttach = async (raw: string) => {
+      // Case 1: the paste is the image data itself (data URL / base64 blob).
+      const image = parseImagePaste(raw)
+      if (image) {
+        const name = 'paste' + extForMime(image.mime)
+        const p = await saveToTemp(TMP_DIR, name, image.data)
+        const att = ed.attachments.add({
+          path: p,
+          name,
+          mime: image.mime,
+          size: image.data.length,
+        })
+        ed.printAbove(
+          theme.system(
+            t('msg.attached_image', { marker: att.marker, size: formatSize(image.data.length) }),
+          ),
+        )
+        return att
+      }
+      // Case 2: the paste is a path to a local file (drag&drop or copy path).
+      const filePath = await resolveAttachPath(currentWorkdir, raw)
+      if (!filePath) return null
+      const data = await fs.readFile(filePath).catch(() => null)
+      if (!data) return null
+      const name = path.basename(filePath)
+      const mime = guessMime(name)
+      const att = ed.attachments.add({
+        path: filePath,
+        name,
+        mime,
+        size: data.length,
+      })
+      ed.printAbove(
+        theme.system(
+          t('msg.attached_file', { marker: att.marker, name, size: formatSize(data.length) }),
+        ),
+      )
+      return att
+    }
+    ed.onClipboard = async () => {
+      const res = readClipboardImageDetailed()
+      if (!res.data || !res.data.length) {
+        if (!clipboardWarned) {
+          clipboardWarned = true
+          ed.printAbove(
+            theme.warn(
+              t('msg.clip_empty', { via: res.via }) +
+                String.fromCharCode(10) +
+                t('msg.clip_hint'),
+            ),
+          )
+        }
+        return null
+      }
+      const mime = sniffMime(res.data) || 'image/png'
+      const name = 'clipboard-' + Date.now() + (extForMime(mime) || '.png')
+      const p = await saveToTemp(TMP_DIR, name, res.data)
+      const att = ed.attachments.add({
+        path: p,
+        name,
+        mime,
+        size: res.data.length,
+      })
+      ed.printAbove(
+        theme.system(
+          t('msg.attached_image', {
+            marker: att.marker,
+            size: formatSize(res.data.length),
+          }) + theme.dim('  (' + res.via + ')'),
+        ),
+      )
+      return att
+    }
+    ed.onSubmit = (text: string, items) => {
+      const attachments = (items || []).map((a) => ({
+        path: a.path,
+        name: a.name,
+        mime: a.mime,
+      }))
+      const msg: PendingMessage = { text, attachments }
+      pendingQueue.push(msg)
       if (waiter) {
         const r = waiter
         waiter = null
@@ -1381,10 +1514,13 @@ async function main(): Promise<void> {
 
   while (running) {
     let input: string | null
+    let inputAttachments: Array<{ path: string; name: string; mime: string }> = []
     try {
       if (editor) {
         editor.setPrompt(buildPrompt())
-        input = await takeInput()
+        const msg = await takeInput()
+        input = msg ? msg.text : null
+        inputAttachments = msg?.attachments || []
       } else {
         let tail
         if (reviewMode) {
@@ -2003,7 +2139,7 @@ t('self.done_hint', { v: back }),
             saveLastChat(chatId, currentWorkdir)
           }
         },
-      })
+      }, inputAttachments)
     } finally {
       if (editor) editor.busy = false
     }

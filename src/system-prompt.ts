@@ -6,6 +6,8 @@ export interface BuildSystemPromptOptions {
   tools: ToolDef[]
   gitContext?: string | null
   locale?: Locale
+  /** Markers of attachments in the current task, e.g. ['[image#1]']. */
+  attachments?: string[]
 }
 
 export function buildSystemPrompt({
@@ -13,6 +15,7 @@ export function buildSystemPrompt({
   tools,
   gitContext = null,
   locale = 'ru',
+  attachments = [],
 }: BuildSystemPromptOptions): string {
   const t = translate(locale)
   const toolDescriptions = tools
@@ -25,6 +28,11 @@ export function buildSystemPrompt({
   const gitSection = gitContext
     ? `\n## Git context\n\n${gitContext}\n`
     : '\n## Git context\n\nNot a git repository (or git is not installed).\n'
+
+  const attachSection = attachments.length
+    ? `\n## Attachments\n\nThe user attached files to this task: ${attachments.join(', ')}.\n` +
+      `Each [image#N] / [file#N] marker corresponds to a file the user pasted into the terminal; the file was uploaded to the chat and also saved under <project>/tmp. Look at the images in the chat; for files, read the copy in tmp if you need the contents.\n`
+    : ''
 
   return `You are a coding agent running in a terminal. You help the user with software engineering tasks by reading files, writing code, running commands, and iterating until the task is done.
 
@@ -65,7 +73,7 @@ operator will not read it, so never use plain text.\n\nNO PROSE AROUND TOOL CALL
 You have access to the following tools:
 
 ${toolDescriptions}
-${gitSection}
+${gitSection}${attachSection}
 ## How to use tools
 
 To call ONE tool, respond with ONLY a JSON object (no markdown fences, no extra text):

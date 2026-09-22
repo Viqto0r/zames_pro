@@ -30,6 +30,8 @@ export interface RunAgentLoopOptions {
   onWarning?: (text: string) => void
   debugLog?: boolean
   locale?: Locale
+  /** Files/images to attach to the FIRST message (the task). */
+  attachments?: Array<{ path: string; name: string; mime: string }>
 }
 
 export async function runAgentLoop({
@@ -41,6 +43,7 @@ export async function runAgentLoop({
   freshChat = false,
   sendSystemPrompt = false,
   transcript = null,
+  attachments = [],
   onThinking = () => {},
   onAssistantThought = () => {},
   onToolCall = () => {},
@@ -98,6 +101,25 @@ export async function runAgentLoop({
   }
 
   let message = task
+  if (attachments.length) {
+    // Tell the model what the markers mean even when the system-prompt is not
+    // (re)sent (resumed chat). The files are uploaded to the chat by the
+    // browser; this note just explains the [image#N] / [file#N] markers.
+    const markers = attachments.map((a, i) => {
+      const ext = String(a.name || '')
+      const isImg = /\.(png|jpe?g|gif|webp|bmp|svg|ico)$/i.test(ext)
+      return (isImg ? '[image#' : '[file#') + (i + 1) + ']'
+    })
+    message =
+      task +
+      String.fromCharCode(10) +
+      String.fromCharCode(10) +
+      '(The user attached ' +
+      attachments.length +
+      ' file(s) to this message: ' +
+      markers.join(', ') +
+      '. Look at the uploaded images in the chat; file copies are in <project>/tmp.)'
+  }
   transcript?.log('task', { task })
 
   let malformedRetries = 0
@@ -121,7 +143,10 @@ export async function runAgentLoop({
     // Subsequent ones (tool-result and resend requests) are agent sends:
     // throttled so we don't hit the rate limit.
     const isFirst = i === 0
-    const rawResponse = await browser.ask(message, { agent: !isFirst })
+    const rawResponse = await browser.ask(message, {
+      agent: !isFirst,
+      attachments: isFirst ? attachments : [],
+    })
     await reportChat()
     transcript?.log('assistant_raw', { response: rawResponse })
 
@@ -130,6 +155,8 @@ export async function runAgentLoop({
       transcript?.log('user_aborted')
       return rawResponse
     }
+
+
     const parsed = parseToolCall(rawResponse)
 
     if (parsed) {

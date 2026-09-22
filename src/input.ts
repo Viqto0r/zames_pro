@@ -1,6 +1,12 @@
 import { theme } from './theme.js'
 import { renderMarkdown } from './markdown.js'
 import { randomThinkingPhrase, stripEllipsis } from './spinner.js'
+import {
+  AttachmentStore,
+  parseImagePaste,
+  looksLikeFilePath,
+  type Attachment,
+} from './attachments.js'
 
 // A permanent input line at the bottom of the terminal + a status/output area above it.
 //
@@ -221,7 +227,7 @@ export class LineEditor {
   rendered: boolean
   cursorRowFromTop: number
   busy: boolean
-  onSubmit: ((text: string) => void) | null
+  onSubmit: ((text: string, attachments: Attachment[]) => void) | null
   onEscape: (() => void) | null
   onCtrlC: (() => void) | null
   _inPaste: boolean
@@ -240,6 +246,15 @@ export class LineEditor {
   // Pasted blocks collapsed into markers (expanded back on submit).
   pastes: PasteBlock[]
   _pasteBuf: string
+  // Attached images/files (saved to <project>/tmp and sent to the chat).
+  attachments: AttachmentStore
+  _tmpDir: string
+  // Insert callback: receives a pasted image/file from the terminal. Returns
+  // the attachment if it was saved, so the editor can show a marker.
+  onAttach: ((raw: string) => Attachment | null | Promise<Attachment | null>) | null
+  // Clipboard callback: tries to read an image from the OS clipboard when the
+  // terminal itself sends no usable data (Ctrl+V, right-click, empty paste).
+  onClipboard: (() => Promise<Attachment | null>) | null
 
   constructor({ prompt = '> ', commands = [] }: LineEditorOptions = {}) {
     this.promptStr = prompt
@@ -266,6 +281,27 @@ export class LineEditor {
     this._suggestCount = 0
     this.pastes = []
     this._pasteBuf = ''
+    this.attachments = new AttachmentStore()
+    this._tmpDir = ''
+    this.onAttach = null
+    this.onClipboard = null
+  }
+
+  // Read the OS clipboard for an image and insert its marker. Used when the
+  // terminal sends no usable paste data (Ctrl+V / right-click / empty paste).
+  async _tryClipboard(): Promise<void> {
+    if (!this.onClipboard) return
+    try {
+      const att = await this.onClipboard()
+      if (att) {
+        this._insert(att.marker)
+        this._render()
+      }
+    } catch {}
+  }
+
+  setTmpDir(dir: string): void {
+    this._tmpDir = dir
   }
 
   // List of hints for the current input. We show them only when the line
@@ -531,9 +567,13 @@ export class LineEditor {
     this.pendingText = null
     this._stopDots()
     this.statusText = ''
+    // Attachments collected for this message (images/files). They are handed
+    // to the browser layer to be attached to the chat.
+    const attached = this.attachments.items.slice()
     this.printAbove(theme.user('❯ ') + display)
     this.pastes = []
-    if (this.onSubmit) this.onSubmit(text)
+    this.attachments.reset()
+    if (this.onSubmit) this.onSubmit(text, attached)
   }
 
   _insert(text: string): void {
@@ -548,6 +588,40 @@ export class LineEditor {
   // (3+ lines) are collapsed into "[Pasted lines#N]" so the input line stays
   // readable — the original text is expanded back on submit.
   _insertPaste(raw: string): void {
+    // A pasted image (a data URL / base64 blob) or a file path is saved to
+    // tmp and shown as [image#N] / [file#N] — the marker is attached to the
+    // message on submit.
+    if (this.onAttach) {
+      const asImage = parseImagePaste(raw)
+      const trimmed = String(raw).trim()
+      const isPath = !asImage && looksLikeFilePath(trimmed)
+      if (asImage || isPath) {
+        void this._attachAsync(raw)
+        return
+      }
+    }
+    this._insertFallback(raw)
+  }
+
+  // Save a pasted image/file to tmp and put the [image#N]/[file#N] marker
+  // into the input line.
+  async _attachAsync(raw: string): Promise<void> {
+    if (!this.onAttach) return
+    try {
+      const att = await this.onAttach(raw)
+      if (att) {
+        this._insert(att.marker)
+        this._render()
+        return
+      }
+    } catch {}
+    // Attachment failed (e.g. the path does not exist) — insert the text as-is
+    // so nothing is lost.
+    this._insertFallback(raw)
+    this._render()
+  }
+
+  _insertFallback(raw: string): void {
     const rep = pasteReplacement(raw)
     if (!rep) {
       const text = String(raw).split(CR + NL).join(NL).split(CR).join(NL)
@@ -722,7 +796,13 @@ export class LineEditor {
           this._pasteBuf += s.slice(0, end)
           s = s.slice(end + PASTE_END.length)
           this._inPaste = false
-          this._insertPaste(this._pasteBuf)
+          if (this._pasteBuf === '') {
+            // Empty bracketed paste: many terminals send this for an image on
+            // the clipboard (there is no text to deliver). Try the OS clipboard.
+            void this._tryClipboard()
+          } else {
+            this._insertPaste(this._pasteBuf)
+          }
           this._pasteBuf = ''
         }
         this._render()
@@ -770,6 +850,13 @@ export class LineEditor {
       if (code === 5) { this._end(); this._render(); continue }
       if (code === 9) { this._completeCommand(); this._render(); continue }
       if (code === 21) { this.buf = ''; this.cursor = 0; this.pastes = []; this._render(); continue }
+      if (code === 22) {
+        // Ctrl+V: terminals rarely deliver an image as text here, so we try the
+        // OS clipboard first; if there is no image we fall back to reading the
+        // text clipboard via the terminal's own paste (nothing to do).
+        void this._tryClipboard()
+        continue
+      }
       if (code === 23) { this._deleteWordLeft(); this._render(); continue }
       if (code === 11) {
         // Ctrl+K — delete from the cursor to the end of the line.

@@ -72,6 +72,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   'help.key.slash': { ru: '/ + Tab                  подсказка и автодополнение slash-команд', en: '/ + Tab                   slash-command hints and completion' },
   'help.key.newline': { ru: 'Ctrl+J / Ctrl+Enter      новая строка (Shift+Enter в терминалах с поддержкой)', en: 'Ctrl+J / Ctrl+Enter       new line (Shift+Enter in capable terminals)' },
   'help.key.backslash': { ru: '\\ + Enter                тоже новая строка', en: '\\ + Enter                also a new line' },
+  'help.key.attach': {
+    ru: 'Ctrl+Shift+V картинки      вставить изображение/файл (сохранится в tmp)',
+    en: 'Ctrl+Shift+V image         paste an image/file (saved to tmp)',
+  },
   'help.key.esc': { ru: 'Esc, Ctrl+C              прервать текущую генерацию', en: 'Esc, Ctrl+C               abort current generation' },
   'help.commands': { ru: 'Обычные команды:', en: 'Commands:' },
   'help.cmd.new': { ru: '/new, /clear             новый чат (сброс контекста)', en: '/new, /clear             new chat (reset context)' },
@@ -149,6 +153,22 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   'msg.abort_gen': { ru: '⏹ Esc — прерываю генерацию...', en: '⏹ Esc — aborting generation...' },
   'msg.abort_ctrlc': { ru: '⏹ Ctrl+C — прерываю генерацию...', en: '⏹ Ctrl+C — aborting generation...' },
   'msg.queued': { ru: '📨 В очередь ({n}): ', en: '📨 Queued ({n}): ' },
+  'msg.attached_image': {
+    ru: '🖼 Вложено изображение {marker} ({size}) — сохранено в tmp',
+    en: '🖼 Attached image {marker} ({size}) — saved to tmp',
+  },
+  'msg.attached_file': {
+    ru: '📎 Вложен файл {marker} {name} ({size}) — сохранён в tmp',
+    en: '📎 Attached file {marker} {name} ({size}) — saved to tmp',
+  },
+  'msg.clip_empty': {
+    ru: '⚠ В буфере обмена нет картинки (проверено: {via}).',
+    en: '⚠ No image found in the clipboard (tried: {via}).',
+  },
+  'msg.clip_hint': {
+    ru: '   Установите утилиту клипборда: Linux/X11 — xclip или xsel, Wayland — wl-clipboard; Windows/macOS — работает из коробки. Либо вставьте путь к файлу.',
+    en: '   Install a clipboard tool: Linux/X11 — xclip or xsel, Wayland — wl-clipboard; Windows/macOS — works out of the box. Or paste a file path.',
+  },
   'msg.from_queue': { ru: '▶ Из очереди: ', en: '▶ From queue: ' },
   'msg.agent_error': { ru: '✖ Ошибка агента:', en: '✖ Agent error:' },
   'msg.suspicious_stop': {

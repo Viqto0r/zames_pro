@@ -119,7 +119,11 @@ export interface TranscriptLike {
 export interface BrowserLike {
   ask(
     prompt: string,
-    opts?: { timeout?: number; agent?: boolean },
+    opts?: {
+      timeout?: number
+      agent?: boolean
+      attachments?: Array<{ path: string; name: string; mime: string }>
+    },
   ): Promise<string>
   newChat: () => Promise<void>
   stopGeneration: () => Promise<boolean>
