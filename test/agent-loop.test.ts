@@ -149,3 +149,21 @@ test('неизвестный инструмент возвращает ошиб�
   assert.equal(result, 'done')
   assert.ok(asks[1].includes('Неизвестный инструмент'), asks[1])
 })
+
+test('пустой/служебный ответ не завершает задачу, агент просит продолжить', async () => {
+  const { browser, asks } = makeBrowser([
+    'Reading',
+    '',
+    jsonCall('respond', { message: 'готово' }),
+  ])
+  const result = await runAgentLoop({
+    browser,
+    tools: [],
+    task: 'x',
+    workdir: process.cwd(),
+  })
+  assert.equal(result, 'готово')
+  // Первый ответ (Reading) и пустой — оба должны были привести к повторному
+  // запросу, а не к остановке. Значит ask вызван минимум 3 раза.
+  assert.ok(asks.length >= 3, 'ask calls: ' + asks.length)
+})
