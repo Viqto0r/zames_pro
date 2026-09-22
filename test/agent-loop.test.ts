@@ -191,3 +191,56 @@ test('маркер прерывания не считается ответом �
   assert.equal(result, '(прервано пользователем)')
   assert.equal(toolCalls, 0)
 })
+
+test('первое сообщение идёт без agent, последующие (tool-result) — с agent', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-loop-'))
+  await fs.writeFile(path.join(dir, 'a.txt'), 'x', 'utf-8')
+  const calls: Array<{ prompt: string; opts?: { agent?: boolean } }> = []
+  let i = 0
+  const script = [
+    jsonCall('Read', { path: 'a.txt' }),
+    jsonCall('respond', { message: 'ok' }),
+  ]
+  const browser: BrowserLike = {
+    async ask(text: string, opts?: { agent?: boolean }) {
+      calls.push({ prompt: text, opts })
+      const r = script[i]
+      i++
+      if (r === undefined) throw new Error('script exhausted')
+      return r
+    },
+    async newChat() {},
+    async getCurrentChatId() {
+      return 'chat-xyz'
+    },
+    async stopGeneration() {
+      return true
+    },
+    async listChats() {
+      return []
+    },
+    async openChat() {
+      return true
+    },
+    async close() {},
+  }
+  const tools: ToolDef[] = [
+    {
+      name: 'Read',
+      description: 'read',
+      parameters: { path: 'string' },
+      fn: async () => 'content',
+    },
+    {
+      name: 'respond',
+      description: 'respond',
+      parameters: { message: 'string' },
+      fn: async () => 'ok',
+    },
+  ]
+  await runAgentLoop({ browser, tools, task: 'задача', workdir: dir })
+  // Первый ask — задача пользователя: agent не выставлен (falsy).
+  assert.ok(!calls[0].opts || calls[0].opts.agent !== true, 'первое сообщение не должно быть agent')
+  // Второй ask — tool-result агента: agent: true.
+  assert.equal(calls[1].opts?.agent, true)
+})
