@@ -44,6 +44,15 @@ function safeJson(v: unknown): string {
   }
 }
 
+// Сколько визуальных строк занимает текст при данной ширине терминала
+// (с учётом переноса). Нужно, чтобы курсор/стирание блока не сбивались,
+// когда статус длиннее ширины терминала и переносится на 2+ строки.
+export function visRows(s: string, cols: number): number {
+  const width = Math.max(1, Number(cols) || 80)
+  const len = visLen(s)
+  return Math.max(1, Math.ceil(len / width))
+}
+
 // Видимая длина строки без ANSI-последовательностей.
 export function visLen(s: string): number {
   s = String(s)
@@ -290,7 +299,9 @@ export class LineEditor {
     let top = 0
     if (this.statusText) {
       out += this.statusText + NL
-      top = 1
+      // Статус может переноситься на несколько строк — учитываем это,
+      // иначе стирание блока промахивается и статусы «стопкой» копятся.
+      top = visRows(this.statusText, cols)
     }
     const lay = layoutInput(this.promptStr, this.buf, this.cursor, cols)
     out += lay.rows.map((r) => r.prefix + r.text).join(NL)

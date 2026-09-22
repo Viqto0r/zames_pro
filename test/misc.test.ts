@@ -119,3 +119,13 @@ test('slash-подсказки: фильтрация и Tab-дополнение
   e._completeCommand()
   assert.equal(e.buf, '/self-')
 })
+
+import { visRows } from '../src/input.ts'
+
+test('visRows считает перенос статуса по ширине', () => {
+  assert.equal(visRows('short', 80), 1)
+  assert.equal(visRows('x'.repeat(120), 80), 2)
+  assert.equal(visRows('x'.repeat(200), 80), 3)
+  // ANSI-последовательности не влияют на видимую длину.
+  assert.equal(visRows('\u001b[31m' + 'x'.repeat(80), 80), 1)
+})
