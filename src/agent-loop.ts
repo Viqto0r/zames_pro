@@ -100,6 +100,13 @@ export async function runAgentLoop({
   let malformedRetries = 0
   const MAX_MALFORMED_RETRIES = 3
 
+  // Счётчик «пустой/служебный ответ без вызова инструмента». Модель иногда
+  // отвечает статусом интерфейса (Reading…), тостом лимита или пустой
+  // строкой. Это НЕ финальный ответ — просим её продолжить, а не молча
+  // останавливаемся (раньше агент на этом вставал).
+  let stallRetries = 0
+  const MAX_STALL_RETRIES = 5
+
   for (let i = 0; i < maxIterations; i++) {
     onThinking()
     const rawResponse = await browser.ask(message)
@@ -150,6 +157,41 @@ export async function runAgentLoop({
           'Ответь РОВНО одним JSON-объектом вызова инструмента, без текста до и после. ' +
           'НЕ используй XML/DSML-теги — только JSON. ' +
           'Например: {"tool": "Read", "args": {"path": "src/index.js"}}'
+        continue
+      }
+
+      // Пустой или служебный ответ (статус интерфейса, тост лимита, пробелы)
+      // не считаем финальным: просим модель продолжить. Иначе агент
+      // останавливается, хотя должен был вызвать инструмент.
+      const trimmed = (rawResponse || '').trim()
+      const looksService =
+        !trimmed ||
+        trimmed.length < 2 ||
+        /^(reading|thinking|searching|analyzing|generating|stop|остановить|читаю|думаю|поиск|анализ)[\s.…]*$/i.test(
+          trimmed,
+        ) ||
+        /(messages? too frequent|too many requests|rate limit|слишком часто|try again later)/i.test(
+          trimmed,
+        )
+      if (looksService && stallRetries < MAX_STALL_RETRIES) {
+        stallRetries++
+        transcript?.log('stall_retry', {
+          attempt: stallRetries,
+          response: rawResponse,
+        })
+        if (debugLog) {
+          console.error(
+            'внимание: пустой/служебный ответ, прошу продолжить (попытка ' +
+              stallRetries +
+              '/' +
+              MAX_STALL_RETRIES +
+              ')',
+          )
+        }
+        message =
+          'Продолжи выполнение задачи. Если нужен инструмент — ответь РОВНО ' +
+          'одним JSON-объектом вызова: {"tool": "...", "args": {...}}. ' +
+          'Если задача выполнена — вызови инструмент respond с итоговым сообщением.'
         continue
       }
 

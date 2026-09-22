@@ -53,6 +53,8 @@ export interface BrowserConfig {
   stabilityChecks: number
   stabilityDelayMs: number
   minSendIntervalMs: number
+  rateLimitWaitMs: number
+  maxRateLimitRetries: number
 }
 
 export interface ZamesConfig {

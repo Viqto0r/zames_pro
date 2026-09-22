@@ -56,3 +56,20 @@ test('buildSystemPrompt добавляет git-контекст, если он �
   const sp = buildSystemPrompt({ workdir: '/w', tools: [], gitContext: 'BRANCH-INFO' })
   assert.ok(sp.includes('BRANCH-INFO'), sp)
 })
+
+
+import { isRateLimitText, RateLimitError } from '../src/browser.ts'
+
+test('isRateLimitText: ловит сообщение лимита частоты', () => {
+  assert.ok(isRateLimitText('Messages too frequent. Try again later.'))
+  assert.ok(isRateLimitText('Too many requests'))
+  assert.ok(isRateLimitText('Слишком часто запросы'))
+  assert.ok(!isRateLimitText('обычный ответ модели'))
+})
+
+test('RateLimitError: имя и сообщение', () => {
+  const e = new RateLimitError('detail')
+  assert.ok(e instanceof Error)
+  assert.equal(e.name, 'RateLimitError')
+  assert.ok(e.message.includes('detail'))
+})

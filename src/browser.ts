@@ -52,6 +52,24 @@ const STOP_SELECTORS = [
 const STATUS_RE =
   /^(reading|thinking|searching|analyzing|generating|stop|остановить|читаю|думаю|поиск|анализ)[\s.…]*$/i
 
+// Ответ DeepSeek при превышении лимита частоты. В этом случае сообщение НЕ
+// отправлено — нужно подождать и повторить, а не считать это ответом модели.
+const RATE_LIMIT_RE =
+  /(messages? too frequent|too many requests|rate limit|слишком часто|повторите позже|try again later)/i
+
+export function isRateLimitText(text: string): boolean {
+  return RATE_LIMIT_RE.test(String(text || ''))
+}
+
+// Ошибка «слишком часто»: отличается от прочих, чтобы ask() ждал долго
+// (лимиты DeepSeek сбрасываются за минуты) и повторял отправку сам.
+export class RateLimitError extends Error {
+  constructor(detail: string) {
+    super('Messages too frequent. Try again later. ' + detail)
+    this.name = 'RateLimitError'
+  }
+}
+
 // ---------- profile cleanup ----------
 
 async function killStaleChrome() {
@@ -101,6 +119,8 @@ export interface DeepSeekBrowserOptions {
   stabilityChecks?: number
   stabilityDelayMs?: number
   minSendIntervalMs?: number
+  rateLimitWaitMs?: number
+  maxRateLimitRetries?: number
 }
 
 export interface ChatInfo {
@@ -118,6 +138,8 @@ export class DeepSeekBrowser {
   stabilityChecks: number
   stabilityDelayMs: number
   minSendIntervalMs: number
+  rateLimitWaitMs: number
+  maxRateLimitRetries: number
   _lastSentAt: number
   _abort: boolean
   context!: BrowserContext
@@ -138,6 +160,8 @@ export class DeepSeekBrowser {
     stabilityChecks = 3,
     stabilityDelayMs = 1000,
     minSendIntervalMs = 15000,
+    rateLimitWaitMs = 300000,
+    maxRateLimitRetries = 6,
   }: DeepSeekBrowserOptions = {}) {
     this.headless = headless
     this.debug = debug
@@ -147,6 +171,8 @@ export class DeepSeekBrowser {
     this.stabilityChecks = stabilityChecks
     this.stabilityDelayMs = stabilityDelayMs
     this.minSendIntervalMs = minSendIntervalMs
+    this.rateLimitWaitMs = rateLimitWaitMs
+    this.maxRateLimitRetries = maxRateLimitRetries
     this._lastSentAt = 0
     this._abort = false
     this._netCapture = ''
@@ -340,6 +366,14 @@ export class DeepSeekBrowser {
     }, ANSWER_SELECTORS)
   }
 
+  // Полный видимый текст страницы — по нему ловим тосты/ошибки интерфейса
+  // DeepSeek (в частности «Messages too frequent. Try again later.»).
+  async _readPageText(): Promise<string> {
+    return await this.page
+      .evaluate(() => document.body.innerText || '')
+      .catch(() => '')
+  }
+
   async _readLastAnswerTextClean(): Promise<string> {
     const raw = await this._readLastAnswerText().catch(() => '')
     const t = (raw || '').trim()
@@ -369,13 +403,41 @@ export class DeepSeekBrowser {
     prompt: string,
     { timeout = this.answerTimeoutMs }: { timeout?: number } = {},
   ): Promise<string> {
-    let lastErr = null
+    let lastErr: Error | null = null
+    let attempt = 0
+    let rateLimitRetries = 0
 
-    for (let attempt = 1; attempt <= this.askRetries; attempt++) {
+    while (attempt < this.askRetries) {
+      attempt++
       try {
         return await this._askOnce(prompt, { timeout })
       } catch (e) {
-        lastErr = e
+        lastErr = e as Error
+
+        // Лимит частоты: DeepSeek не принял сообщение. Ждём долго —
+        // лимиты сбрасываются за минуты, — и повторяем отправку сами.
+        // Эти паузы НЕ расходуют обычные попытки ask().
+        if (e instanceof RateLimitError) {
+          attempt--
+          rateLimitRetries++
+          if (rateLimitRetries > this.maxRateLimitRetries) {
+            console.error(
+              theme.error(
+                `✖ DeepSeek не принял сообщение после ${rateLimitRetries} пауз по ${Math.ceil(this.rateLimitWaitMs / 60000)} мин.`,
+              ),
+            )
+            throw e
+          }
+          console.error(
+            theme.warn(
+              `⏳ DeepSeek: «слишком часто». Жду ${Math.ceil(this.rateLimitWaitMs / 60000)} мин (${rateLimitRetries}/${this.maxRateLimitRetries}) и повторю...`,
+            ),
+          )
+          await this.page.waitForTimeout(this.rateLimitWaitMs)
+          await this.newChat().catch(() => {})
+          continue
+        }
+
         console.error(
           `\n⚠ ask() попытка ${attempt}/${this.askRetries} провалилась: ${(e as Error).message}`,
         )
@@ -399,7 +461,7 @@ export class DeepSeekBrowser {
     }
 
     throw new Error(
-      `ask() провалился после ${this.askRetries} попыток: ${(lastErr as Error | null)?.message}`,
+      `ask() провалился после ${this.askRetries} попыток: ${lastErr?.message}`,
     )
   }
 
@@ -503,13 +565,19 @@ export class DeepSeekBrowser {
     this._lastSentAt = Date.now()
 
     // Ждём старта: либо появился Stop, либо изменился текст ответа,
-    // либо вырос общий объём текста на странице.
+    // либо вырос общий объём текста на странице. Параллельно ловим
+    // тост о превышении лимита частоты — это НЕ ответ модели, а отказ
+    // приёма сообщения, и его надо обработать паузой и повтором.
     const startDeadline = Date.now() + 15_000
     const startBodyLen = await this.page
       .evaluate(() => document.body.innerText.length)
       .catch(() => 0)
     let started = false
     while (Date.now() < startDeadline) {
+      const pageText = await this._readPageText()
+      if (isRateLimitText(pageText)) {
+        throw new RateLimitError(pageText.slice(0, 300))
+      }
       const gen = await this._isGenerating()
       const cur = await this._readLastAnswerTextClean().catch(() => '')
       const bodyLen = await this.page
@@ -522,6 +590,12 @@ export class DeepSeekBrowser {
       await this.page.waitForTimeout(300)
     }
     if (!started) {
+      // Перед ошибкой ещё раз проверим на лимит частоты: иногда тост
+      // появляется с задержкой и не успевает попасть в ранние проверки.
+      const pageText = await this._readPageText()
+      if (isRateLimitText(pageText)) {
+        throw new RateLimitError(pageText.slice(0, 300))
+      }
       throw new Error(
         'Ответ не начал генерироваться за 15с. Возможно, сообщение не отправилось.',
       )
