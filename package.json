@@ -1,6 +1,6 @@
 {
   "name": "zames_pro",
-  "version": "2.4.1",
+  "version": "2.4.2",
   "description": "Terminal coding agent over chat.deepseek.com via Playwright",
   "type": "module",
   "bin": {
