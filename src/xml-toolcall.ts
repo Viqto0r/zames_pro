@@ -17,9 +17,34 @@ function readAttr(attrs: string, name: string): string | null {
   return m ? m[2] : null
 }
 
+// Достаёт параметры из тела <invoke>. Тег открытия и закрытия может нести
+// произвольный префикс (DSML и т.п.), а некоторые модели путают пары тегов
+// (<parameter …> … </|DSML| parameter>). Регулярка ниже матчит любую пару
+// <…parameter…> … </…parameter…>, поэтому такие «смешанные» теги тоже
+// разбираются. Значения дедуплицируются: если модель повторила parameter
+// несколько раз, берём ПЕРВОЕ значение, а не последнее (повторы обычно
+// дублируют корректный параметр).
+function parseParameters(body: string): ToolArgs {
+  const args: ToolArgs = {}
+  const paramRe = /<[^>]*?parameter([^>]*)>([\s\S]*?)<\/[^>]*?parameter[^>]*>/gi
+  let p: RegExpExecArray | null
+  while ((p = paramRe.exec(body)) !== null) {
+    const pname = readAttr(p[1] || '', 'name')
+    if (!pname) continue
+    const isString = /string[ ]*=[ ]*"?true"?/i.test(p[1] || '')
+    let value: unknown = unescapeXml(p[2])
+    if (!isString) {
+      try {
+        value = JSON.parse(value as string)
+      } catch {}
+    }
+    if (!(pname in args)) args[pname] = value
+  }
+  return args
+}
+
 export function parseXmlToolCalls(text: string): ParsedToolCall {
   if (!text || typeof text !== 'string') return null
-  if (!/<[^>]*invoke/i.test(text)) return null
 
   const invokeRe = /<[^>]*?invoke([^>]*)>/gi
   const calls: Array<{ tool: string; args: ToolArgs }> = []
@@ -34,21 +59,7 @@ export function parseXmlToolCalls(text: string): ParsedToolCall {
     const closeMatch = closeRe.exec(rest)
     const body = closeMatch ? rest.slice(0, closeMatch.index) : rest
 
-    const args: ToolArgs = {}
-    const paramRe = /<[^>]*?parameter([^>]*)>([\s\S]*?)<\/[^>]*?parameter[^>]*>/gi
-    let p: RegExpExecArray | null
-    while ((p = paramRe.exec(body)) !== null) {
-      const pname = readAttr(p[1] || '', 'name')
-      if (!pname) continue
-      const isString = /string[ ]*=[ ]*"?true"?/i.test(p[1] || '')
-      let value: unknown = unescapeXml(p[2])
-      if (!isString) {
-        try {
-          value = JSON.parse(value as string)
-        } catch {}
-      }
-      args[pname] = value
-    }
+    const args = parseParameters(body)
 
     // Некоторые модели кладут весь JSON-объект аргументов в один
     // parameter с именем args. Разворачиваем, чтобы не было
@@ -68,6 +79,12 @@ export function parseXmlToolCalls(text: string): ParsedToolCall {
     calls.push({ tool: name, args: finalArgs })
   }
 
-  if (!calls.length) return null
-  return calls.length === 1 ? calls[0] : calls
+  if (calls.length) return calls.length === 1 ? calls[0] : calls
+
+  // Модель иногда опускает тег <invoke> и оставляет только DSML-обёртку
+  // (<|DSML| calls> … <|DSML| parameter name=…>…). Имя инструмента в таком
+  // ответе отсутствует, поэтому восстановить вызов нельзя — но и молча
+  // принимать его за финальный ответ нельзя: agent-loop попросит повторить
+  // (looksLikeToolCall срабатывает по слову parameter/DSML).
+  return null
 }
