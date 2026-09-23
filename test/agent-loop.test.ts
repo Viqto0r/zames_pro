@@ -110,15 +110,21 @@ test('битый tool-call, похожий на вызов, не останав�
   assert.ok(/не распознан|JSON/i.test(asks[1]) || asks[1].includes('respond'), asks[1])
 })
 
-test('обычный текст модели (не tool-call) завершает задачу как финальный ответ', async () => {
-  const { browser } = makeBrowser(['Просто ответ без вызова'])
-  const result = await runAgentLoop({
-    browser,
-    tools: [],
-    task: 'x',
-    workdir: process.cwd(),
-  })
-  assert.equal(result, 'Просто ответ без вызова')
+test('обычный текст без вызова переспрашивается, завершает только respond', async () => {
+ // STRICT MODE: plain text is not a final answer. The agent re-asks for a
+ // tool call; only respond finishes the task.
+ const { browser, asks } = makeBrowser([
+ 'Просто ответ без вызова',
+ jsonCall('respond', { message: 'ok' }),
+ ])
+ const result = await runAgentLoop({
+ browser,
+ tools: [],
+ task: 'x',
+ workdir: process.cwd(),
+ })
+ assert.equal(result, 'ok')
+ assert.ok(asks.length >= 2, 'должен быть переспрос после обычного текста')
 })
 
 test('onChatReady получает реальный chat id сразу после первой отправки', async () => {

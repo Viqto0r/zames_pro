@@ -136,6 +136,8 @@ export async function runAgentLoop({
   // chatty model.
   let looksDoneRetries = 0
   const MAX_LOOKSDONE_RETRIES = 3
+ let plainTextRetries = 0
+ const MAX_PLAINTEXT_RETRIES = 5
 
  // Watchdog against the agent emitting a tool call and then going silent.
  // After a tool result the expected next answer is a fresh tool call; if we
@@ -294,17 +296,26 @@ export async function runAgentLoop({
         continue
       }
 
-      // All re-ask attempts are exhausted, yet the answer still looks like a
-      // tool call. Most likely this is a silent stall: we show the operator a
-      // warning in the terminal (not only in the transcript) so they see the
-      // problem immediately instead of wondering why the agent stalled.
-      if (responseLooksLikeToolCall(rawResponse)) {
-        transcript?.log('suspicious_final', { response: rawResponse })
-        onWarning(translate(locale)('msg.suspicious_stop'))
-      }
-      onAssistantMessage(rawResponse)
-      transcript?.log('assistant_final', { message: rawResponse })
-      return rawResponse
+ // STRICT: only tool calls and respond reach the operator. Plain text is
+ // a protocol violation: re-ask for a tool call instead of printing it.
+ if (plainTextRetries < MAX_PLAINTEXT_RETRIES) {
+ plainTextRetries++
+ transcript?.log('plaintext_retry', {
+ attempt: plainTextRetries,
+ response: rawResponse.slice(0, 500),
+ })
+ message =
+ 'Only call tools. Do not write plain text. ' +
+ 'If the task is done - call respond with the final message. ' +
+ 'Otherwise reply with EXACTLY one JSON tool-call object, no text around it.'
+ continue
+ }
+ if (responseLooksLikeToolCall(rawResponse)) {
+ transcript?.log('suspicious_final', { response: rawResponse })
+ }
+ transcript?.log('plaintext_final', { message: rawResponse })
+ onWarning(translate(locale)('msg.suspicious_stop'))
+ return rawResponse
     }
 
     const calls = Array.isArray(parsed) ? parsed : [parsed]

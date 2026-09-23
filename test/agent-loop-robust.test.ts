@@ -129,39 +129,41 @@ test('русское «сейчас проверю» без вызова не з
   assert.ok(asks.length >= 2, 'ask calls: ' + asks.length)
 })
 
-test('обычный финальный текст (без обещания) завершает задачу сразу', async () => {
-  const { browser, asks } = makeBrowser(['Просто ответ без вызова'])
-  const result = await runAgentLoop({
-    browser,
-    tools: [respondTool],
-    task: 'x',
-    workdir: process.cwd(),
-  })
-  assert.equal(result, 'Просто ответ без вызова')
-  assert.equal(asks.length, 1, 'ask calls: ' + asks.length)
+test('обычный текст без вызова переспрашивается; завершает только respond', async () => {
+ const { browser, asks } = makeBrowser([
+ 'Просто ответ без вызова',
+ jsonCall('respond', { message: 'итог' }),
+ ])
+ const result = await runAgentLoop({
+ browser,
+ tools: [respondTool],
+ task: 'x',
+ workdir: process.cwd(),
+ })
+ assert.equal(result, 'итог')
+ assert.ok(asks.length >= 2, 'ask calls: ' + asks.length)
 })
-
 test('длинный ответ со словами про rate limit не считается служебным', async () => {
-  // The transcript had a 1365-char answer where the agent quotes the ask()
-  // code and the words "too frequent". It was mistakenly taken as a service
-  // answer and caused an extra re-ask.
-  const long =
-    'Да, именно так сейчас и сделано — повтор идёт в тот же чат.' +
-    String.fromCharCode(10, 10) +
-    'Смотри ask(), строки 499–517: при RateLimitError ждём и повторяем, ' +
-    'сообщение «слишком часто» обрабатывается отдельно. ' +
-    'x'.repeat(300)
-  const { browser, asks } = makeBrowser([long])
-  const result = await runAgentLoop({
-    browser,
-    tools: [respondTool],
-    task: 'x',
-    workdir: process.cwd(),
-  })
-  assert.equal(result, long)
-  assert.equal(asks.length, 1, 'ask calls: ' + asks.length)
+ // The transcript had a 1365-char answer where the agent quotes the ask()
+ // code and the words "too frequent". It must NOT be taken as a service
+ // answer (that caused a long re-ask loop). In strict mode it is still
+ // plain text, so the agent re-asks once, then finishes on respond.
+ const long =
+ 'Да, именно так сейчас и сделано — повтор идёт в тот же чат.' +
+ String.fromCharCode(10, 10) +
+ 'Смотри ask(), строки 499–517: при RateLimitError ждём и повторяем, ' +
+ 'сообщение «слишком часто» обрабатывается отдельно. ' +
+ 'x'.repeat(300)
+ const { browser, asks } = makeBrowser([long, jsonCall('respond', { message: 'ok' })])
+ const result = await runAgentLoop({
+ browser,
+ tools: [respondTool],
+ task: 'x',
+ workdir: process.cwd(),
+ })
+ assert.equal(result, 'ok')
+ assert.equal(asks.length, 2, 'ask calls: ' + asks.length)
 })
-
 test('короткое уведомление о лимите по-прежнему вызывает переспрос', async () => {
   const { browser, asks } = makeBrowser([
     'Messages too frequent. Please try again later.',
@@ -178,17 +180,18 @@ test('короткое уведомление о лимите по-прежне�
 })
 
 test('подозрительный финал (похож на вызов) вызывает onWarning оператору', async () => {
-  // The agent returns a "broken" call 3 times, then a final answer anyway.
-  // Each time the guard asks to resend; after exhausting attempts — onWarning.
+  // The model keeps returning a broken tool call. Each guard (malformed,
+  // then strict plain-text) asks to resend; after exhausting them - onWarning.
   const broken = '{"tool": "Bash", "args": {"command": "ls'
-  const { browser } = makeBrowser([broken, broken, broken, broken])
+  const script = new Array(10).fill(broken)
+  const { browser } = makeBrowser(script)
   const warnings: string[] = []
   await runAgentLoop({
     browser,
     tools: [respondTool],
     task: 'test',
     workdir: process.cwd(),
-    maxIterations: 10,
+    maxIterations: 20,
     onWarning: (m) => warnings.push(m),
   })
   assert.equal(warnings.length, 1)
