@@ -70,6 +70,11 @@ export async function runAgentLoop({
     }
   }
   const safeThinking = safe(onThinking)
+  // Start the "working" indicator ONLY when a message is really sent (after
+  // the send-pause), not while the loop is still preparing the request.
+  // Previously safeThinking() fired before browser.ask(), so the spinner ran
+  // through the whole throttle pause / chat-open phase with nothing in flight.
+  browser.onSendStart = safeThinking
   const safeAssistantThought = safe(onAssistantThought)
   const safeToolCall = safe(onToolCall)
   const safeToolResult = safe(onToolResult)
@@ -194,7 +199,9 @@ export async function runAgentLoop({
  const MAX_AFTER_TOOL_RETRIES = 6
 
   for (let i = 0; i < maxIterations; i++) {
-    safeThinking()
+    // NOTE: the spinner is NOT started here. browser.onSendStart fires it
+    // right when the message is actually typed/sent (after the send-pause),
+    // so no spinner runs during the pre-send phase.
     // The first message (task) is user input: no throttle.
     // Subsequent ones (tool-result and resend requests) are agent sends:
     // throttled so we don't hit the rate limit.

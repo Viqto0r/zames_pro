@@ -125,6 +125,9 @@ export interface BrowserLike {
       attachments?: Array<{ path: string; name: string; mime: string }>
     },
   ): Promise<string>
+  // Optional hook: called right when a message is actually sent (after the
+  // send-pause). Lets the UI start the working spinner only on a real send.
+  onSendStart?: (() => void) | null
   newChat: () => Promise<void>
   stopGeneration: () => Promise<boolean>
   getCurrentChatId: () => Promise<string | null>

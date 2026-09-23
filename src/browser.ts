@@ -185,6 +185,11 @@ export class DeepSeekBrowser {
   _netSniff: Array<{ url: string; contentType: string; body: string }>
   _netSniffLimit: number
   _netHookInstalled: boolean
+  // Fired right when a message is actually typed/sent (AFTER the send-pause
+  // and attachments). Used to start the "agent is working" spinner only when
+  // a generation really begins, not during the pre-send phase (chat open,
+  // throttle wait), which used to show a spinner with no work in flight.
+  onSendStart: (() => void) | null
 
   constructor({
     headless = false,
@@ -221,6 +226,7 @@ export class DeepSeekBrowser {
     this._netSniff = []
     this._netSniffLimit = 5
     this._netHookInstalled = false
+    this.onSendStart = null
   }
 
   async launch(): Promise<void> {
@@ -804,6 +810,15 @@ export class DeepSeekBrowser {
     await this._waitForSendSlot(agent)
     // Esc/Ctrl+C pressed during the pause — do not send anything.
     if (this._abort) return '(прервано пользователем)'
+    // The pause is over and we are really about to type/send: only NOW start
+    // the "working" indicator. The spinner used to be started by the caller
+    // BEFORE ask(), so it ran for the whole throttle pause and chat-opening
+    // phase with no generation in flight.
+    if (this.onSendStart) {
+      try {
+        this.onSendStart()
+      } catch {}
+    }
     this._netCapture = ''
     this._netCaptureAt = 0
 

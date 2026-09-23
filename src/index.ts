@@ -857,9 +857,15 @@ async function runTask(
 
     // Execute the task, then everything the user managed to type while it
     // ran. The queue may be replenished right during draining.
+    //
+    // NOTE: we do NOT call ui.thinking() here. runAgentLoop() fires
+    // onThinking() right before the actual browser send (after the send
+    // pause, system-prompt, etc.), so the spinner only appears when a
+    // generation really starts. Calling it here made the spinner run for
+    // the whole pre-send phase (chat creation, throttle wait) with no
+    // generation in flight.
     while (true) {
-      ui.thinking()
-      await mod.runAgentLoop({
+      const outcome = await mod.runAgentLoop({
         browser,
         tools,
         task: next.text,
@@ -878,6 +884,19 @@ async function runTask(
         debugLog: debug,
         locale: currentLocale,
       })
+
+      // The loop may end WITHOUT a model answer: an exhausted iteration
+      // limit or an ask() watchdog (the model stopped responding). In that
+      // case no assistant message was shown, and the operator saw the run
+      // just "stop" after a tool call with no explanation. Surface it.
+      if (
+        outcome &&
+        (outcome.startsWith('Достигнут лимит итераций') ||
+          outcome.startsWith('ask() watchdog'))
+      ) {
+        ui.warning(outcome)
+        transcript?.log('agent_no_answer', { outcome })
+      }
 
       // Aborted (Esc/Ctrl+C) — we don't start the next tasks from the queue
       // and clear it, so "stop" really stops everything.
@@ -917,6 +936,9 @@ async function runTask(
   } finally {
     stopWatching()
     ui.stop()
+    // Detach the send hook so a later browser.ask() outside this task cannot
+    // start a stale spinner.
+    browser.onSendStart = null
   }
 }
 

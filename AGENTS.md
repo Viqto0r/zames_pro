@@ -152,6 +152,34 @@ clearly SETTLED — the Stop button is gone and the text has been stable for two
 ticks — even if the text equals `beforeText`. The network-capture check stays
 as the strongest signal of a fresh answer.
 
+### The spinner must start only on a real send
+
+The "agent is working" spinner used to be started by the CALLER
+(`runTask()` called `ui.thinking()` before `runAgentLoop()`, and
+`runAgentLoop()` fired `onThinking()` at the top of each iteration and before
+the system-prompt). That meant the spinner ran through the whole pre-send
+phase — chat creation, the 15s `minSendIntervalMs` throttle pause, DOM
+lookups — with no generation in flight. To the operator it looked like "a
+spinner is spinning but nothing is being generated".
+
+Fix: `DeepSeekBrowser` now exposes an `onSendStart` hook, fired in `_askOnce()`
+right AFTER `_waitForSendSlot()` and the abort check (i.e. exactly when the
+message is about to be typed/sent). `runAgentLoop()` wires `browser.onSendStart
+= safeThinking` at the start and the caller (`runTask()` in src/index.ts)
+clears it in its `finally`. The early `safeThinking()` calls were removed. The
+spinner now appears only when a generation really begins, and the spinner in
+all other cases (tool calls, `/chats`, browser launch) is untouched.
+
+### A run that ends without a model answer is surfaced
+
+`runAgentLoop()` can end without any model answer: the iteration limit
+(`Достигнут лимит итераций.`) or the `ask()` watchdog (`ask() watchdog: ответ
+модели не получен`). `runTask()` used to IGNORE the return value, so in those
+cases no `respond` arrived, no assistant message was printed, and the operator
+saw the run just "stop" after a tool call with no explanation. Now `runTask()`
+checks the outcome and, when it is one of those two non-answers, prints it via
+`ui.warning()` and logs `agent_no_answer`.
+
 ## Stale-echo heuristic must not drop a call that never ran
 
 The chain of "stops after a tool call" has a SECOND root cause, in
