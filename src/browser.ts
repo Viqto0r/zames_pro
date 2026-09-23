@@ -632,9 +632,24 @@ export class DeepSeekBrowser {
         .replace(/\r\n/g, '\n')
         .replace(/\u00a0/g, ' ')
         .trim()
-    if (!norm(got)) {
+    // Verify the WHOLE text landed in the input, not just that it is non-empty.
+    // A partial paste (DeepSeek input limits, lost chars) used to pass the
+    // old "not empty" check, so a TRUNCATED message was sent, the model
+    // replied to the wrong thing (or nothing), and the loop looked stalled.
+    if (norm(got) !== norm(text)) {
       await input.click()
+      await this.page.keyboard.press("Control+A")
+      await this.page.keyboard.press("Delete")
       await this.page.keyboard.insertText(text)
+      const got2 = await input.evaluate((el: any) => {
+        if (el.tagName.toLowerCase() === "textarea" || el.tagName.toLowerCase() === "input") return el.value
+        return el.innerText || el.textContent || ""
+      })
+      if (norm(got2) !== norm(text)) {
+        throw new Error(
+          "Не удалось вставить текст в поле ввода DeepSeek целиком (вставлено " + norm(got2).length + " из " + norm(text).length + " символов). Сообщение не отправлено, чтобы не отправить обрезанный текст.",
+        )
+      }
     }
   }
 
@@ -724,6 +739,17 @@ export class DeepSeekBrowser {
     await this.page.waitForTimeout(gap)
   }
 
+  // DEBUG: append ask() phases to ~/.zames/ask-debug.log so a stall can be
+  // diagnosed from the field (what the DOM/network looked like at each step).
+  _askDebug(msg: string): void {
+    if (!process.env.ZAMES_ASK_DEBUG) return
+    try {
+      const line = new Date().toISOString() + ' ' + msg + String.fromCharCode(10)
+      const dir = path.join(os.homedir(), '.zames')
+      void fs.appendFile(path.join(dir, 'ask-debug.log'), line).catch(() => {})
+    } catch {}
+  }
+
   async _askOnce(
     prompt: string,
     {
@@ -746,6 +772,7 @@ export class DeepSeekBrowser {
     }
 
     const beforeText = await this._readLastAnswerTextClean().catch(() => '')
+    this._askDebug('SEND agent=' + agent + ' len=' + prompt.length + ' beforeLen=' + beforeText.length + ' beforeHead=' + JSON.stringify(beforeText.slice(0, 60)))
 
     await this._waitForSendSlot(agent)
     this._netCapture = ''
@@ -775,6 +802,7 @@ export class DeepSeekBrowser {
       await this.page.keyboard.press('Enter')
     }
     this._lastSentAt = Date.now()
+    this._askDebug('SENT at=' + this._lastSentAt)
 
     // Wait for the start: either Stop appeared, or the answer text changed,
     // or the total amount of text on the page grew. In parallel we catch
@@ -822,31 +850,42 @@ export class DeepSeekBrowser {
         !!this._netCapture && this._netCaptureAt >= this._lastSentAt
       if (changed || netStarted || bodyLen > startBodyLen) {
         started = true
+        this._askDebug('STARTED changed=' + changed + ' netStarted=' + netStarted + ' bodyGrew=' + (bodyLen > startBodyLen))
         break
       }
-      // Fallback for an echo/stale answer: the send happened (lastSentAt was
-      // just updated), the Stop button is gone and the text stopped changing.
-      // Two stable ticks in a row mean the turn is over even if it equals the
-      // previous text — return it instead of hanging/throwing.
+      // Fallback for an echo: the text equals beforeText, so it is the OLD
+      // answer still on screen, NOT a new one. We must NOT return it (that
+      // made the loop re-run the previous tool call). We only return when the
+      // text DIFFERS from beforeText and has settled, or when a fresh network
+      // capture proves a new answer exists. If it stays equal, keep waiting.
       const notGenerating = !(await this._isGenerating())
-      if (cur && cur === lastStartCur && notGenerating && cur.trim()) {
+      const differs = !!cur && normText(cur) !== normText(beforeText)
+      if (differs && cur === lastStartCur && notGenerating) {
         settledTicks++
         if (settledTicks >= 2) {
+          this._askDebug('SETTLED-differs return len=' + cur.length)
           return cur
         }
       } else {
         settledTicks = 0
       }
       lastStartCur = cur
+      this._askDebug('START-loop curLen=' + cur.length + ' changed=' + changed + ' netStarted=' + netStarted + ' bodyLen=' + bodyLen + ' settled=' + settledTicks + ' generating=' + notGenerating)
       await this.page.waitForTimeout(300)
     }
     if (!started) {
-      // Last chance: the answer may have arrived and settled exactly at the
-      // deadline. Return the current text instead of a hard error.
-      const cur = await this._readLastAnswerTextClean().catch(() => '')
-      if (cur && cur.trim() && !(await this._isGenerating())) {
-        return cur
-      }
+// Last chance: accept the text only when it DIFFERS from beforeText
+// (otherwise it is the old answer on screen) or a fresh network capture
+// proves a new answer. Returning an equal text made the loop re-run the
+// previous tool call.
+const cur = await this._readLastAnswerTextClean().catch(() => '')
+const fresh = !!this._netCapture && this._netCaptureAt >= this._lastSentAt
+if (cur && cur.trim() && normText(cur) !== normText(beforeText) && !(await this._isGenerating())) {
+return cur
+}
+if (fresh) {
+return this._netCapture
+}
       // We NO LONGER check the limit over the whole page text — that caused
       // false positives and 5-minute waits. We just report that
       // generation did not start.
@@ -896,16 +935,21 @@ export class DeepSeekBrowser {
       if ((isNew || sameAsBefore) && cur === last) {
         stable++
         if (stable >= 2) {
-          if (isNew || !(await this._isGenerating())) return cur
+          if (isNew || !(await this._isGenerating())) {
+            this._askDebug('RETURN stable curLen=' + cur.length)
+            return cur
+          }
         }
       } else {
         stable = 0
       }
       if (isNew || sameAsBefore) last = cur
+      this._askDebug('FIN-loop isNew=' + isNew + ' sameAsBefore=' + sameAsBefore + ' stable=' + stable + ' curLen=' + cur.length + ' lastLen=' + last.length + ' netFresh=' + netFresh)
       await this.page.waitForTimeout(800)
     }
 
     if (last && (normText(last) !== normText(beforeText) || this._netCapture)) {
+      this._askDebug('RETURN last len=' + last.length)
       return last
     }
     // Fallback: the turn settled on a text identical to the previous answer.
@@ -915,6 +959,7 @@ export class DeepSeekBrowser {
     if (this._netCapture && this._netCaptureAt >= this._lastSentAt) {
       return this._netCapture
     }
+    this._askDebug('THROW no-new-answer lastLen=' + last.length + ' beforeLen=' + beforeText.length)
     throw new Error(
       'Новый ответ не получен (на странице остался прежний текст). ' +
         'Возможно, сообщение не отправилось.',
