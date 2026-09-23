@@ -19,6 +19,7 @@ import {
   looksLikeFilePath,
   readClipboardImageDetailed,
   sniffMime,
+ readWindowsClipboardFiles,
 } from './attachments.js'
 import {
   loadConfig,
@@ -1184,7 +1185,30 @@ async function main(): Promise<void> {
     ed.onClipboard = async () => {
       const res = readClipboardImageDetailed()
       if (!res.data || !res.data.length) {
-        if (!clipboardWarned) {
+        // On WSL the user may have copied a FILE in Windows (not an image):
+ // the Windows clipboard holds its path - attach it directly.
+ for (const fp of readWindowsClipboardFiles()) {
+ const data = await fs.readFile(fp).catch(() => null)
+ if (!data) continue
+ const nm = path.basename(fp)
+ const att = ed.attachments.add({
+ path: fp,
+ name: nm,
+ mime: guessMime(nm),
+ size: data.length,
+ })
+ ed.printAbove(
+ theme.system(
+ t('msg.attached_file', {
+ marker: att.marker,
+ name: nm,
+ size: formatSize(data.length),
+ }) + theme.dim(' (windows-clipboard)'),
+ ),
+ )
+ return att
+ }
+ if (!clipboardWarned) {
           clipboardWarned = true
           ed.printAbove(
             theme.warn(

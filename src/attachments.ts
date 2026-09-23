@@ -191,11 +191,43 @@ export interface ClipboardResult {
 // the current platform. Returns the raw bytes plus a short note about which
 // tool was used (or the reason nothing was found) — the caller shows that note
 // to the user so a failed paste is never silent.
+// True when running inside WSL. There the X11 clipboard is a SEPARATE
+// clipboard from the Windows one: the user copies an image in Windows, so we
+// must read it through powershell.exe, not xclip.
+export function isWsl(): boolean {
+  if (process.platform !== 'linux') return false
+  if (process.env.WSL_DISTRO_NAME || process.env.WSL_INTEROP) return true
+  try {
+    const rel = os.release().toLowerCase()
+    if (rel.includes('microsoft') || rel.includes('wsl')) return true
+  } catch {}
+  return false
+}
+
+// PowerShell one-liner: write the clipboard image as raw PNG bytes to stdout.
+const PS_GET_IMAGE =
+  'Add-Type -AssemblyName System.Windows.Forms,System.Drawing; ' +
+  '$img=[System.Windows.Forms.Clipboard]::GetImage(); ' +
+  'if($img){$ms=New-Object System.IO.MemoryStream; ' +
+  '$img.Save($ms,[System.Drawing.Imaging.ImageFormat]::Png); ' +
+  '[Console]::OpenStandardOutput().Write($ms.ToArray(),0,$ms.Length)}'
+
+// PowerShell one-liner: write the clipboard file paths (CF_HDROP) to stdout.
+const PS_GET_FILE_DROP =
+  'Add-Type -AssemblyName System.Windows.Forms; ' +
+  '$d=[System.Windows.Forms.Clipboard]::GetDataObject(); ' +
+  'if($d -and $d.GetDataPresent([System.Windows.Forms.DataFormats]::FileDrop)){' +
+  '$f=$d.GetData([System.Windows.Forms.DataFormats]::FileDrop); $f -join [Environment]::NewLine}'
+
 export function readClipboardImageDetailed(): ClipboardResult {
   if (process.platform === 'linux' || process.platform === 'freebsd' || process.platform === 'openbsd') {
     const wayland = process.env.WAYLAND_DISPLAY
     const x11 = process.env.DISPLAY
     const attempts: Array<{ bin: string; args: string[]; via: string }> = []
+    // On WSL the Windows clipboard is what the user copies into — read it first.
+    if (isWsl()) {
+      attempts.push({ bin: 'powershell.exe', args: ['-NoProfile', '-NonInteractive', '-Command', PS_GET_IMAGE], via: 'powershell.exe' })
+    }
     if (wayland || !x11) attempts.push({ bin: 'wl-paste', args: ['--type', 'image/png', '--no-newline'], via: 'wl-paste' })
     if (x11 || !wayland) {
       attempts.push({ bin: 'xclip', args: ['-selection', 'clipboard', '-t', 'image/png', '-o'], via: 'xclip' })
@@ -265,4 +297,35 @@ export async function findFileByName(workdir: string, name: string): Promise<str
     }
   } catch {}
   return null
+}
+
+
+
+// Read file paths from the Windows clipboard (copied files, CF_HDROP) and
+// translate them to WSL paths. On WSL the user often copies a FILE, not an
+// image. Returns [] on non-WSL / when nothing is there.
+export function readWindowsClipboardFiles(): string[] {
+ if (!isWsl()) return []
+ const out = tryCommand('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', PS_GET_FILE_DROP])
+ if (!out) return []
+ const text = out.toString('utf-8')
+ return text
+ .split(/\r?\n/)
+ .map((s) => s.trim())
+ .filter(Boolean)
+ .map(winPathToWsl)
+ .filter((p): p is string => !!p)
+}
+
+// Convert a Windows path (C:\\Users\\me\\a.png) into a WSL path
+// (/mnt/c/Users/me/a.png). Leaves already-POSIX paths untouched.
+export function winPathToWsl(winPath: string): string | null {
+ let p = String(winPath || '').trim()
+ if (p.startsWith('"') && p.endsWith('"')) p = p.slice(1, -1)
+ if (!p) return null
+ if (p.startsWith('/')) return p
+ if (p.charAt(1) !== ':' || (p.charAt(2) !== '/' && p.charAt(2) !== '\\')) return null
+ const drive = p.charAt(0).toLowerCase()
+ const rest = p.slice(3).split('\\').join('/')
+ return '/mnt/' + drive + '/' + rest
 }

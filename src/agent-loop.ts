@@ -137,6 +137,15 @@ export async function runAgentLoop({
   let looksDoneRetries = 0
   const MAX_LOOKSDONE_RETRIES = 3
 
+ // Watchdog against the agent emitting a tool call and then going silent.
+ // After a tool result the expected next answer is a fresh tool call; if we
+ // instead get an EMPTY answer or the EXACT same answer as the previous turn
+ // (a sign the new message was not sent), we nudge instead of stopping.
+ let lastRaw = ''
+ let justRanTool = false
+ let watchdogRetries = 0
+ const MAX_WATCHDOG_RETRIES = 3
+
   for (let i = 0; i < maxIterations; i++) {
     onThinking()
     // The first message (task) is user input: no throttle.
@@ -157,7 +166,24 @@ export async function runAgentLoop({
     }
 
 
-    const parsed = parseToolCall(rawResponse)
+    // Watchdog: after a tool result we expect a FRESH tool call. If the answer
+ // is empty or identical to the previous turn (the new message was not
+ // sent), nudge instead of stopping.
+ const wdEmpty = !String(rawResponse || '').trim()
+ const wdStale = justRanTool && lastRaw.trim() !== '' && rawResponse.trim() === lastRaw.trim()
+ if (!isFirst && (wdEmpty || wdStale) && watchdogRetries < MAX_WATCHDOG_RETRIES) {
+ watchdogRetries++
+ transcript?.log('watchdog_nudge', {
+ attempt: watchdogRetries,
+ empty: wdEmpty,
+ stale: wdStale,
+ response: String(rawResponse || '').slice(0, 200),
+ })
+ await new Promise((r) => setTimeout(r, 1500))
+ continue
+ }
+ lastRaw = rawResponse
+ const parsed = parseToolCall(rawResponse)
 
     if (parsed) {
       const thought = extractPreToolText(rawResponse)
@@ -345,7 +371,12 @@ export async function runAgentLoop({
       results.push({ tool: call.tool, result })
     }
 
-    if (results.length === 1) {
+    // A tool just ran — the next answer is expected to be a fresh tool call.
+ // Reset the watchdog so the next empty/repeated answer is nudged.
+ justRanTool = true
+ watchdogRetries = 0
+
+ if (results.length === 1) {
       const r = results[0]
       const resultStr =
         typeof r.result === 'string' ? r.result : JSON.stringify(r.result)
