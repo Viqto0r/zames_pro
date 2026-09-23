@@ -148,16 +148,69 @@ export async function runAgentLoop({
  let watchdogRetries = 0
  const MAX_WATCHDOG_RETRIES = 3
 
+ // After a tool_result the model MUST produce a fresh tool call (or respond).
+ // DeepSeek regularly "hangs" right here: the answer comes back empty, or a
+ // stale copy of the previous turn, or a fragment that does not parse. This
+ // counter collects all such turns so that a single bad turn never becomes a
+ // silent finish: at the limit we warn the operator and log the event.
+ let afterToolRetries = 0
+ const MAX_AFTER_TOOL_RETRIES = 6
+
   for (let i = 0; i < maxIterations; i++) {
     onThinking()
     // The first message (task) is user input: no throttle.
     // Subsequent ones (tool-result and resend requests) are agent sends:
     // throttled so we don't hit the rate limit.
     const isFirst = i === 0
-    const rawResponse = await browser.ask(message, {
-      agent: !isFirst,
-      attachments: isFirst ? attachments : [],
-    })
+    // Safety net: browser.ask() has its own timeout, but a stuck send used to
+    // block the whole loop and look like a silent stop. We race it against a
+    // hard deadline and treat a timeout as a nudge (re-ask), never as a
+    // final answer. The deadline is generous enough for real long answers.
+    const askDeadlineMs = 240_000
+    let rawResponse: string
+    let askTimer: ReturnType<typeof setTimeout> | null = null
+    try {
+      rawResponse = await Promise.race([
+        browser.ask(message, {
+          agent: !isFirst,
+          attachments: isFirst ? attachments : [],
+        }),
+        new Promise<string>((_, reject) => {
+          askTimer = setTimeout(
+            () => reject(new Error('ask() watchdog timeout')),
+            askDeadlineMs,
+          )
+          if (askTimer && typeof askTimer.unref === 'function') {
+            askTimer.unref()
+          }
+        }),
+      ])
+      if (askTimer) clearTimeout(askTimer)
+    } catch (e) {
+      if (askTimer) clearTimeout(askTimer)
+      transcript?.log('ask_timeout', {
+        attempt: afterToolRetries,
+        error: (e as Error).message,
+      })
+      onWarning(
+        'browser.ask() не вернул ответ за ' +
+          Math.round(askDeadlineMs / 1000) +
+          'с — повторяю запрос.',
+      )
+      if (afterToolRetries < MAX_AFTER_TOOL_RETRIES) {
+        afterToolRetries++
+        await new Promise((r) => setTimeout(r, 1500))
+        continue
+      }
+      transcript?.log('ask_timeout_exhausted', {
+        message: 'ask() не вернул ответ и лимит повторов исчерпан',
+      })
+      onWarning(
+        'browser.ask() перестал отвечать; лимит повторов исчерпан, ' +
+          'останавливаюсь. Ответа модели нет — проверьте чат DeepSeek вручную.',
+      )
+      return 'ask() watchdog: ответ модели не получен'
+    }
     await reportChat()
     transcript?.log('assistant_raw', { response: rawResponse })
 
@@ -168,24 +221,42 @@ export async function runAgentLoop({
     }
 
 
-    // Watchdog: after a tool result we expect a FRESH tool call. If the answer
- // is empty or identical to the previous turn (the new message was not
- // sent), nudge instead of stopping.
- const wdEmpty = !String(rawResponse || '').trim()
- const wdStale = justRanTool && lastRaw.trim() !== '' && rawResponse.trim() === lastRaw.trim()
- if (!isFirst && (wdEmpty || wdStale) && watchdogRetries < MAX_WATCHDOG_RETRIES) {
- watchdogRetries++
- transcript?.log('watchdog_nudge', {
- attempt: watchdogRetries,
- empty: wdEmpty,
- stale: wdStale,
- response: String(rawResponse || '').slice(0, 200),
- })
- await new Promise((r) => setTimeout(r, 1500))
- continue
- }
- lastRaw = rawResponse
- const parsed = parseToolCall(rawResponse)
+    // Watchdog: after a tool result we expect a FRESH tool call. DeepSeek
+    // regularly stops right here; the answer may be (a) empty, (b) an exact
+    // copy of the previous turn (the new message was not sent), or (c) a
+    // non-empty fragment that parses to nothing and is not a tool call (a
+    // cut-off "Stale. Let me ..." or a truncated JSON). All three mean the
+    // turn is unfinished: nudge instead of stopping.
+    const wdEmpty = !String(rawResponse || '').trim()
+    const wdStale =
+      justRanTool &&
+      lastRaw.trim() !== '' &&
+      rawResponse.trim() === lastRaw.trim()
+    const wdNoCall =
+      justRanTool &&
+      !wdEmpty &&
+      !wdStale &&
+      parseToolCall(rawResponse) === null &&
+      !responseLooksLikeToolCall(rawResponse)
+    if (!isFirst && (wdEmpty || wdStale || wdNoCall) && watchdogRetries < MAX_WATCHDOG_RETRIES) {
+      watchdogRetries++
+      transcript?.log('watchdog_nudge', {
+        attempt: watchdogRetries,
+        empty: wdEmpty,
+        stale: wdStale,
+        no_call: wdNoCall,
+        response: String(rawResponse || '').slice(0, 200),
+      })
+      message =
+        'Ты остановился после результата инструмента. Продолжи работу: ' +
+        'ответь РОВНО одним JSON-объектом вызова инструмента, без текста до и после, ' +
+        'например: {"tool": "Bash", "args": {"command": "..."}}. ' +
+        'Если задача действительно выполнена — вызови respond с итоговым сообщением.'
+      await new Promise((r) => setTimeout(r, 1500))
+      continue
+    }
+    lastRaw = rawResponse
+    const parsed = parseToolCall(rawResponse)
 
     if (parsed) {
       const thought = extractPreToolText(rawResponse)
@@ -310,6 +381,24 @@ export async function runAgentLoop({
  'Otherwise reply with EXACTLY one JSON tool-call object, no text around it.'
  continue
  }
+ // NO SILENT FINISH: we just ran a tool, so the work is NOT done —
+ // the model must call another tool or respond. Plain text here is a
+ // protocol violation, not a final answer. Re-ask ROWNO one tool-call
+ // request (within afterToolRetries) instead of returning to the operator.
+ if (justRanTool && afterToolRetries < MAX_AFTER_TOOL_RETRIES) {
+ afterToolRetries++
+ transcript?.log('after_tool_retry', {
+ attempt: afterToolRetries,
+ response: rawResponse.slice(0, 500),
+ })
+ message =
+ 'Ты остановился после вызова инструмента и написал обычный текст. ' +
+ 'Задача ещё не завершена. Ответь РОВНО одним JSON-объектом вызова ' +
+ 'инструмента, без текста до и после, например: ' +
+ '{\"tool\": \"Bash\", \"args\": {\"command\": \"...\"}}. ' +
+ 'Если задача действительно выполнена — вызови respond с итоговым сообщением.'
+ continue
+ }
  if (responseLooksLikeToolCall(rawResponse)) {
  transcript?.log('suspicious_final', { response: rawResponse })
  }
@@ -386,6 +475,9 @@ export async function runAgentLoop({
  // Reset the watchdog so the next empty/repeated answer is nudged.
  justRanTool = true
  watchdogRetries = 0
+ // A fresh tool call just ran: reset the per-tool-result nudge budget so
+ // a long chain of tools is not cut off by an earlier bad turn.
+ afterToolRetries = 0
 
  if (results.length === 1) {
       const r = results[0]

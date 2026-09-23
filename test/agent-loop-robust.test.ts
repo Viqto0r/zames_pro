@@ -197,3 +197,134 @@ test('подозрительный финал (похож на вызов) вы�
   assert.equal(warnings.length, 1)
   assert.ok(warnings[0].length > 0)
 })
+
+// ---------------------------------------------------------------------------
+// Regression: "the agent called a tool and stopped". The transcript showed
+// turns where, right after tool_result, the model returned an empty / stale /
+// unparseable fragment and the loop went silent (no assistant_raw, no error).
+// These tests pin the guards that must re-ask instead of finishing.
+// ---------------------------------------------------------------------------
+
+const echoTool: ToolDef = {
+  name: 'Echo',
+  description: 'echo',
+  parameters: { v: 'string' },
+  fn: async () => 'echo-ok',
+}
+
+test('после инструмента «Stale. Let me ...» без вызова переспрашивается, а не завершает', async () => {
+  const { browser, asks } = makeBrowser([
+    jsonCall('Echo', { v: '1' }),
+    'Stale. Let me verify the tarball.',
+    jsonCall('respond', { message: 'done' }),
+  ])
+  const result = await runAgentLoop({
+    browser,
+    tools: [echoTool, respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+  })
+  assert.equal(result, 'done')
+  assert.ok(asks.length >= 3, 'ask calls: ' + asks.length)
+})
+
+test('после инструмента обрезанный JSON не завершает задачу (watchdog no-call)', async () => {
+  const { browser, asks } = makeBrowser([
+    jsonCall('Echo', { v: '1' }),
+    '{"tool": "Echo", "args": {"v": "2"',
+    jsonCall('respond', { message: 'done' }),
+  ])
+  const result = await runAgentLoop({
+    browser,
+    tools: [echoTool, respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+  })
+  assert.equal(result, 'done')
+  assert.ok(asks.length >= 3, 'ask calls: ' + asks.length)
+})
+
+test('после инструмента фрагмент-«обещание» без вызова переспрашивается', async () => {
+  const { browser, asks } = makeBrowser([
+    jsonCall('Echo', { v: '1' }),
+    'Now let me run the tests.',
+    jsonCall('respond', { message: 'ok' }),
+  ])
+  const result = await runAgentLoop({
+    browser,
+    tools: [echoTool, respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+  })
+  assert.equal(result, 'ok')
+  assert.ok(asks.length >= 3, 'ask calls: ' + asks.length)
+})
+
+test('после инструмента пустой ответ переспрашивается несколько раз, потом respond', async () => {
+  const { browser, asks } = makeBrowser([
+    jsonCall('Echo', { v: '1' }),
+    '   ',
+    '   ',
+    jsonCall('respond', { message: 'done' }),
+  ])
+  const result = await runAgentLoop({
+    browser,
+    tools: [echoTool, respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+    maxIterations: 20,
+  })
+  assert.equal(result, 'done')
+  assert.ok(asks.length >= 4, 'ask calls: ' + asks.length)
+})
+
+test('no silent finish: после инструмента лимит сторожей исчерпан — оператор предупреждён', async () => {
+  // The model calls a tool, then returns empty forever. The loop must NOT
+  // return silently: at the limit it warns the operator (onWarning) and logs
+  // the event. The tool call itself is valid, so the respond tool never runs.
+  const script: string[] = [jsonCall('Echo', { v: '1' })]
+  for (let i = 0; i < 30; i++) script.push('')
+  const { browser } = makeBrowser(script)
+  const warnings: string[] = []
+  const events: string[] = []
+  const transcript = {
+    log: (event: string) => {
+      events.push(event)
+    },
+  }
+  await runAgentLoop({
+    browser,
+    tools: [echoTool, respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+    maxIterations: 40,
+    onWarning: (m) => warnings.push(m),
+    transcript,
+  })
+  assert.ok(warnings.length >= 1, 'оператор должен получить предупреждение')
+  assert.ok(
+    events.includes('watchdog_nudge') ||
+      events.includes('plaintext_final') ||
+      events.includes('ask_timeout'),
+    'события: ' + JSON.stringify(events.slice(-6)),
+  )
+})
+
+test('обычный текст после инструмента не печатается оператору как финал', async () => {
+  // Strict mode + no-silent-finish: after a tool, plain text must lead to a
+  // re-ask; only respond finishes. Here the model returns plain text many
+  // times and only then calls respond.
+  const script: string[] = [jsonCall('Echo', { v: '1' })]
+  for (let i = 0; i < 12; i++) script.push('Вот что я сделал: всё готово.')
+  script.push(jsonCall('respond', { message: 'final' }))
+  const { browser, asks } = makeBrowser(script)
+  const result = await runAgentLoop({
+    browser,
+    tools: [echoTool, respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+    maxIterations: 30,
+  })
+  assert.equal(result, 'final')
+  assert.ok(asks.length >= 2, 'ask calls: ' + asks.length)
+})

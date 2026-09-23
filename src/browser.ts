@@ -803,7 +803,14 @@ export class DeepSeekBrowser {
       // make us think the new answer had started when in fact nothing was sent
       // — and then the agent silently "stopped".
       const changed = cur && normText(cur) !== normText(beforeText)
-      if (changed || bodyLen > startBodyLen) {
+      // Network capture with a fresh timestamp is the STRONGEST proof that a
+      // new answer started: it is the raw SSE body for the CURRENT send. Right
+      // after a tool result the DOM may still show the previous answer, so
+      // 'changed' can stay false for a while — without this check ask() used
+      // to hang until the full timeout and the agent appeared to "stop".
+      const netStarted =
+        !!this._netCapture && this._netCaptureAt >= this._lastSentAt
+      if (changed || netStarted || bodyLen > startBodyLen) {
         started = true
         break
       }
@@ -839,12 +846,17 @@ export class DeepSeekBrowser {
  if (isServerBusyText(pageText)) { throw new ServerBusyError(pageText.slice(0, 300)) }
         }
       }
+      const netFresh =
+        !!this._netCapture && this._netCaptureAt >= this._lastSentAt
       const cur = await this._readLastAnswerTextClean().catch(() => '')
       // Ignore an "answer" that is identical to what was on the page BEFORE we
       // sent the message: that is the previous answer, not a new one. Returning
       // it would make the agent re-process the old tool call (or silently
-      // stop). We keep waiting instead.
-      const isNew = cur && normText(cur) !== normText(beforeText)
+      // stop). We keep waiting instead. A fresh network capture is exempt: it
+      // belongs to the CURRENT send even if the DOM still shows the old text.
+      const isNew =
+        !!cur &&
+        (netFresh || normText(cur) !== normText(beforeText))
       if (isNew && cur === last) {
         stable++
         if (stable >= 2) return cur
@@ -855,7 +867,12 @@ export class DeepSeekBrowser {
       await this.page.waitForTimeout(800)
     }
 
-    if (last && normText(last) !== normText(beforeText)) return last
+    if (last && (normText(last) !== normText(beforeText) || this._netCapture)) {
+      return last
+    }
+    if (this._netCapture && this._netCaptureAt >= this._lastSentAt) {
+      return this._netCapture
+    }
     throw new Error(
       'Новый ответ не получен (на странице остался прежний текст). ' +
         'Возможно, сообщение не отправилось.',
