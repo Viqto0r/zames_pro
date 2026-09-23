@@ -555,7 +555,10 @@ export class DeepSeekBrowser {
               `⏳ DeepSeek: «слишком часто». Жду ${Math.ceil(this.rateLimitWaitMs / 60000)} мин (${rateLimitRetries}/${this.maxRateLimitRetries}) и повторю...`,
             ),
           )
-          await this.page.waitForTimeout(this.rateLimitWaitMs)
+          // Interruptible: Esc/Ctrl+C must cancel this long wait too,
+          // otherwise "stop" stays frozen for up to 5 minutes.
+          const aborted = await this._sleepInterruptible(this.rateLimitWaitMs)
+          if (aborted) return '(прервано пользователем)'
           continue
         }
 
@@ -728,6 +731,12 @@ export class DeepSeekBrowser {
   // Pause between sends. Applied ONLY to agent messages
   // (tool-result, system-prompt) so we don't hit the rate limit.
   // User input is sent without delay.
+  //
+  // The wait is INTERRUPTIBLE: Esc/Ctrl+C sets _abort, and we check it every
+  // 100ms instead of one long page.waitForTimeout(gap). Before, Esc pressed
+  // during this pause did nothing to the pause itself — the send was still
+  // delayed by the remaining seconds, and the stop request only took effect
+  // after the pause. This is the main "Esc does not cancel the pause" bug.
   async _waitForSendSlot(agent: boolean): Promise<void> {
     if (!agent) return
     if (!this._lastSentAt) return
@@ -736,7 +745,21 @@ export class DeepSeekBrowser {
     console.error(
       theme.warn(`⏳ пауза ${Math.ceil(gap / 1000)}с перед отправкой`),
     )
-    await this.page.waitForTimeout(gap)
+    await this._sleepInterruptible(gap)
+  }
+
+  // Sleep in small slices so Esc/Ctrl+C can cancel the wait promptly.
+  // Returns true if the sleep was cut short by _abort.
+  async _sleepInterruptible(ms: number): Promise<boolean> {
+    const step = 100
+    let left = ms
+    while (left > 0) {
+      if (this._abort) return true
+      const chunk = Math.min(step, left)
+      await this.page.waitForTimeout(chunk)
+      left -= chunk
+    }
+    return this._abort
   }
 
   // DEBUG: append ask() phases to ~/.zames/ask-debug.log so a stall can be
@@ -763,7 +786,11 @@ export class DeepSeekBrowser {
     },
   ): Promise<string> {
     // We reset the abort flag ONLY at the very start of the send.
+    // _stopped (Esc for the WHOLE batch) is NOT reset here: it may have been
+    // set while a previous send was waiting in the pause. If it is set, the
+    // user asked to stop and we must not start a new generation at all.
     this._abort = false
+    if (this._stopped) return '(прервано пользователем)'
     const input = await this._findVisible(INPUT_SELECTORS, 10_000)
     if (!input) {
       throw new Error(
@@ -775,6 +802,8 @@ export class DeepSeekBrowser {
     this._askDebug('SEND agent=' + agent + ' len=' + prompt.length + ' beforeLen=' + beforeText.length + ' beforeHead=' + JSON.stringify(beforeText.slice(0, 60)))
 
     await this._waitForSendSlot(agent)
+    // Esc/Ctrl+C pressed during the pause — do not send anything.
+    if (this._abort) return '(прервано пользователем)'
     this._netCapture = ''
     this._netCaptureAt = 0
 
