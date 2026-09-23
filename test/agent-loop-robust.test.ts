@@ -376,3 +376,24 @@ test('respond в одном ответе с инструментом не тер
   assert.equal(result, 'final-ok')
   assert.ok(asks.length >= 2, 'ask calls: ' + asks.length)
 })
+
+test('повторяющийся текст-обещание в финале даёт предупреждение оператору', async () => {
+  // The model keeps repeating "Stale. Let me verify the tarball." and never
+  // calls a tool. At the end its own text used to be printed SILENTLY, so the
+  // operator saw the agent "stop" on a promise. Now it must warn.
+  const same = 'Stale. Let me verify the tarball.'
+  const script: string[] = [jsonCall('Echo', { v: '1' })]
+  for (let i = 0; i < 10; i++) script.push(same)
+  const { browser } = makeBrowser(script)
+  const warnings: string[] = []
+  const result = await runAgentLoop({
+    browser,
+    tools: [echoTool, respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+    maxIterations: 25,
+    onWarning: (m) => warnings.push(m),
+  })
+  assert.ok(warnings.length >= 1, 'оператор должен получить предупреждение')
+  assert.ok(result.length > 0)
+})

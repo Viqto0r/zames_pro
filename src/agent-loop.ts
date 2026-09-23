@@ -422,10 +422,12 @@ export async function runAgentLoop({
 
       const suspiciousFinal =
         responseLooksLikeToolCall(rawResponse) ||
+        looksLikeUnfinishedWork((rawResponse || '').trim()) ||
         !(rawResponse || '').trim()
       if (suspiciousFinal) {
-        // The answer LOOKS like a call (or is empty) but could not be parsed
-        // even after all retries: warn the operator.
+        // The answer LOOKS like a call / promises work / is empty, but could
+        // not be turned into a tool call even after all retries: warn the
+        // operator instead of silently printing e.g. "Stale. Let me verify".
         transcript?.log('suspicious_final', { response: rawResponse })
         onWarning(translate(locale)('msg.suspicious_stop'))
       }
