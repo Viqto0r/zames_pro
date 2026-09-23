@@ -784,12 +784,22 @@ export class DeepSeekBrowser {
       .evaluate(() => document.body.innerText.length)
       .catch(() => 0)
     let started = false
+    // A stale/echo answer (the model repeats the previous text, or the answer
+    // legitimately equals it) does NOT change `cur`. In that case the old loop
+    // either threw "did not start" after 15s or hung until the full timeout —
+    // the operator saw the agent "stop after a tool call". We now also accept
+    // the answer when the generation has clearly SETTLED: no Stop button and
+    // the text has been stable for a couple of ticks.
+    let settledTicks = 0
+    let lastStartCur = ''
     while (Date.now() < startDeadline) {
       if (this._abort) return '(прервано пользователем)'
       const pageText = await this._readPageText()
       if (isRateLimitText(pageText)) {
         throw new RateLimitError(pageText.slice(0, 300))
- if (isServerBusyText(pageText)) { throw new ServerBusyError(pageText.slice(0, 300)) }
+      }
+      if (isServerBusyText(pageText)) {
+        throw new ServerBusyError(pageText.slice(0, 300))
       }
       const cur = await this._readLastAnswerTextClean().catch(() => '')
       const bodyLen = await this.page
@@ -814,9 +824,29 @@ export class DeepSeekBrowser {
         started = true
         break
       }
+      // Fallback for an echo/stale answer: the send happened (lastSentAt was
+      // just updated), the Stop button is gone and the text stopped changing.
+      // Two stable ticks in a row mean the turn is over even if it equals the
+      // previous text — return it instead of hanging/throwing.
+      const notGenerating = !(await this._isGenerating())
+      if (cur && cur === lastStartCur && notGenerating && cur.trim()) {
+        settledTicks++
+        if (settledTicks >= 2) {
+          return cur
+        }
+      } else {
+        settledTicks = 0
+      }
+      lastStartCur = cur
       await this.page.waitForTimeout(300)
     }
     if (!started) {
+      // Last chance: the answer may have arrived and settled exactly at the
+      // deadline. Return the current text instead of a hard error.
+      const cur = await this._readLastAnswerTextClean().catch(() => '')
+      if (cur && cur.trim() && !(await this._isGenerating())) {
+        return cur
+      }
       // We NO LONGER check the limit over the whole page text — that caused
       // false positives and 5-minute waits. We just report that
       // generation did not start.
@@ -857,17 +887,29 @@ export class DeepSeekBrowser {
       const isNew =
         !!cur &&
         (netFresh || normText(cur) !== normText(beforeText))
-      if (isNew && cur === last) {
+      // An echo/stale answer equals beforeText, so isNew stays false and the
+      // old loop waited until the full timeout — the "agent stopped after a
+      // tool call" hang. If generation has clearly ENDED (no Stop button) and
+      // the text is stable, accept it (even when it repeats the previous one).
+      const sameAsBefore =
+        !!cur && !isNew && normText(cur) === normText(beforeText)
+      if ((isNew || sameAsBefore) && cur === last) {
         stable++
-        if (stable >= 2) return cur
+        if (stable >= 2) {
+          if (isNew || !(await this._isGenerating())) return cur
+        }
       } else {
         stable = 0
       }
-      if (isNew) last = cur
+      if (isNew || sameAsBefore) last = cur
       await this.page.waitForTimeout(800)
     }
 
     if (last && (normText(last) !== normText(beforeText) || this._netCapture)) {
+      return last
+    }
+    // Fallback: the turn settled on a text identical to the previous answer.
+    if (last && !(await this._isGenerating())) {
       return last
     }
     if (this._netCapture && this._netCaptureAt >= this._lastSentAt) {

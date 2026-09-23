@@ -138,6 +138,20 @@ each successful tool call. After it is exhausted the loop asks for `respond`
 exactly once (`finalRespondAsked`) and then surfaces the model's own text
 with one warning — never a stub, never a 20-iteration hang.
 
+### browser.ask(): accepting an echo/stale answer
+
+`_askOnce()` (src/browser.ts) decides that a new answer has started and
+finished by comparing the page text with `beforeText` (the answer that was on
+screen before the send). A legitimate answer that happens to EQUAL the
+previous text (DeepSeek frequently echoes the same line, or repeats a short
+acknowledgement) made both checks fail: the start-wait threw "did not start
+in 15s" (then `ask()` retried for minutes) and the finish-wait spun until the
+full timeout. To the operator this looked like "the agent stopped after a tool
+call". Fix: both loops now also accept the answer when the generation has
+clearly SETTLED — the Stop button is gone and the text has been stable for two
+ticks — even if the text equals `beforeText`. The network-capture check stays
+as the strongest signal of a fresh answer.
+
 ## Terminal input
 
 Interactive input is handled by `LineEditor` (src/input.ts) — a custom line
