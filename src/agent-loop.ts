@@ -10,6 +10,7 @@ import type {
   TranscriptLike,
 } from './types.js'
 import { translate, type Locale } from './i18n.js'
+import { normText } from './browser.js'
 
 export interface RunAgentLoopOptions {
   browser: BrowserLike
@@ -256,16 +257,24 @@ export async function runAgentLoop({
     // cut-off "Stale. Let me ..." or a truncated JSON). All three mean the
     // turn is unfinished: nudge instead of stopping.
     const wdEmpty = !String(rawResponse || '').trim()
+    // STALE is compared on NORMALIZED text: DeepSeek often echoes the
+    // previous answer with different markdown emphasis (`**done**` vs `done`),
+    // which defeated an exact match and made the loop run the SAME tool again —
+    // the "stopped after a tool call" signature with a duplicate call.
     const wdStale =
       justRanTool &&
       lastRaw.trim() !== '' &&
-      rawResponse.trim() === lastRaw.trim()
+      (rawResponse.trim() === lastRaw.trim() ||
+        normForStale(rawResponse) === normForStale(lastRaw))
     const wdNoCall =
       justRanTool &&
       !wdEmpty &&
       !wdStale &&
       parseToolCall(rawResponse) === null &&
       !responseLooksLikeToolCall(rawResponse)
+    // A stale answer is discarded even when it parses to a valid call: it is a
+    // duplicate of the previous turn, and re-running the tool would repeat
+    // side effects and stall the loop.
     if (!isFirst && (wdEmpty || wdStale || wdNoCall) && watchdogRetries < MAX_WATCHDOG_RETRIES) {
       watchdogRetries++
       transcript?.log('watchdog_nudge', {
@@ -630,6 +639,17 @@ function isMeaningfulRespond(msg: string): boolean {
   // answer for a small task, and dropping it re-opened the loop.
   if (/^(na|null|undefined)[.!]*$/i.test(t)) return false
   return true
+}
+
+// Normalize an answer for STALE comparison: collapse whitespace AND strip
+// markdown emphasis/code markers. DeepSeek echoes the previous turn with a
+// different emphasis (`**done**` vs `done`), which defeated an exact match and
+// made the loop re-run the same tool ("stopped after a tool call").
+function normForStale(s: string): string {
+  return normText(s)
+    .replace(/[*_`#>]+/g, '')
+    .replace(/[ \t]+/g, ' ')
+    .trim()
 }
 
 // Text that promises a tool call in the future tense but contains no call
