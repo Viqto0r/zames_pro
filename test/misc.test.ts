@@ -176,3 +176,23 @@ test('buildSystemPrompt локализует инструкцию о языке 
   assert.ok(/русск/i.test(ru))
   assert.ok(/English/i.test(en))
 })
+
+test('buildSystemPrompt содержит жёсткий блок ONLY TOOL CALLS', () => {
+  const sp = buildSystemPrompt({ workdir: '/w', tools: [] })
+  // Default locale is ru; the English heading appears with locale: 'en'.
+  assert.ok(sp.includes('ТОЛЬКО ВЫЗОВЫ ИНСТРУМЕНТОВ'), 'блок должен присутствовать')
+  // The block must explicitly forbid plain prose between calls.
+  assert.ok(/ТОЛЬКО через вызовы инструментов/.test(sp))
+  assert.ok(/respond/.test(sp))
+  // The SILENT OPERATION / NO PROSE sections must remain.
+  assert.ok(sp.includes('NO PROSE AROUND TOOL CALLS'))
+})
+
+test('блок ONLY TOOL CALLS локализован (ru/en)', () => {
+  const ru = buildSystemPrompt({ workdir: '/w', tools: [], locale: 'ru' })
+  const en = buildSystemPrompt({ workdir: '/w', tools: [], locale: 'en' })
+  assert.ok(ru.includes('ТОЛЬКО ВЫЗОВЫ ИНСТРУМЕНТОВ'))
+  assert.ok(en.includes('ONLY TOOL CALLS'))
+  // And each locale gets its own text, not the other's.
+  assert.ok(!en.includes('ТОЛЬКО ВЫЗОВЫ ИНСТРУМЕНТОВ'))
+})

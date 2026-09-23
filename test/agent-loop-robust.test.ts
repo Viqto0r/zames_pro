@@ -91,12 +91,24 @@ test('обрезанный DSML-вызов не завершает задачу 
   assert.ok(asks.length >= 2, 'ask calls: ' + asks.length)
 })
 
-test('пустой respond исчерпывает stallRetries и всё равно завершает задачу', async () => {
+test('пустой respond исчерпывает stallRetries и не завершается пустотой молча', async () => {
   const script = [] as string[]
   for (let i = 0; i < 10; i++) script.push(jsonCall('respond', { message: '' }))
   const { browser } = makeBrowser(script)
-  const result = await runAgentLoop({ browser, tools: [respondTool], task: 'x', workdir: process.cwd() })
-  assert.equal(result, '')
+  const warnings: string[] = []
+  const result = await runAgentLoop({
+    browser,
+    tools: [respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+    maxIterations: 12,
+    onWarning: (m) => warnings.push(m),
+  })
+  // An empty respond must never be a silent final: instead of returning an
+  // empty string, the loop warns the operator (no "stopped after a tool" effect).
+  assert.notEqual(result, '')
+  assert.ok(result.length > 0, 'результат не должен быть пустым: ' + JSON.stringify(result))
+  assert.ok(warnings.length >= 1, 'оператор должен получить предупреждение')
 })
 
 test('ответ-обещание без вызова инструмента не завершает задачу', async () => {
@@ -311,11 +323,11 @@ test('no silent finish: после инструмента лимит сторо�
 })
 
 test('обычный текст после инструмента не печатается оператору как финал', async () => {
-  // Strict mode + no-silent-finish: after a tool, plain text must lead to a
-  // re-ask; only respond finishes. Here the model returns plain text many
-  // times and only then calls respond.
+  // Strict mode + bounded retries: after a tool, plain text is re-asked a few
+  // times (the SINGLE unparsedRetries budget), then respond finishes. The
+  // budget is small on purpose: the old 11+ re-asks caused the "agent hang".
   const script: string[] = [jsonCall('Echo', { v: '1' })]
-  for (let i = 0; i < 12; i++) script.push('Вот что я сделал: всё готово.')
+  for (let i = 0; i < 3; i++) script.push('Вот что я сделал: всё готово.')
   script.push(jsonCall('respond', { message: 'final' }))
   const { browser, asks } = makeBrowser(script)
   const result = await runAgentLoop({
@@ -326,5 +338,41 @@ test('обычный текст после инструмента не печа�
     maxIterations: 30,
   })
   assert.equal(result, 'final')
+  assert.ok(asks.length >= 2, 'ask calls: ' + asks.length)
+})
+
+// ---------------------------------------------------------------------------
+// Regression: respond mixed with a real tool call in ONE answer.
+// DeepSeek returns [{"tool":"Edit",...},{"tool":"respond",...}]. Handling
+// respond first DROPPED the tool call and the agent looked "stopped after a
+// tool call". The tool must run; respond only finishes when it is alone.
+// ---------------------------------------------------------------------------
+test('respond в одном ответе с инструментом не теряет инструмент', async () => {
+  let echoRuns = 0
+  const countingEcho: ToolDef = {
+    name: 'Echo',
+    description: 'echo',
+    parameters: { v: 'string' },
+    fn: async () => {
+      echoRuns++
+      return 'ok'
+    },
+  }
+  const { browser, asks } = makeBrowser([
+    JSON.stringify([
+      { tool: 'Echo', args: { v: '1' } },
+      { tool: 'respond', args: { message: 'premature' } },
+    ]),
+    jsonCall('respond', { message: 'final-ok' }),
+  ])
+  const result = await runAgentLoop({
+    browser,
+    tools: [countingEcho, respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+    maxIterations: 10,
+  })
+  assert.equal(echoRuns, 1, 'инструмент должен выполниться, а не потеряться')
+  assert.equal(result, 'final-ok')
   assert.ok(asks.length >= 2, 'ask calls: ' + asks.length)
 })

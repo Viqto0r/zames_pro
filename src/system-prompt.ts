@@ -68,7 +68,20 @@ stop. If you are still working, emit a tool call instead.
 
 So the pattern is: tool call, tool call, tool call, ..., then a single final
 respond. A bare text message without a tool call ends the task and the
-operator will not read it, so never use plain text.\n\nNO PROSE AROUND TOOL CALLS. Each turn must contain ONLY the JSON of the tool\ncall(s) — not a single word before or after, not even a short lead-in like\n"Let me check..." or "Now I'll fix it.". The JSON must be the entire response.\n\nWRONG: "Let me read the file first." then a Read call.\nWRONG: a Read call then "I'll analyze the result next."\nRIGHT: only the JSON of the tool call, nothing else.\n\nIf you feel the urge to explain, do not: put it in the final respond when the\ntask is done (or when you must ask the operator), not between tool calls.
+operator will not read it, so never use plain text.
+
+${t('prompt.only_tool_calls')}
+
+NO PROSE AROUND TOOL CALLS. Each turn must contain ONLY the JSON of the tool
+call(s) — not a single word before or after, not even a short lead-in like
+"Let me check..." or "Now I'll fix it.". The JSON must be the entire response.
+
+WRONG: "Let me read the file first." then a Read call.
+WRONG: a Read call then "I'll analyze the result next."
+RIGHT: only the JSON of the tool call, nothing else.
+
+If you feel the urge to explain, do not: put it in the final respond when the
+task is done (or when you must ask the operator), not between tool calls.
 
 You have access to the following tools:
 
