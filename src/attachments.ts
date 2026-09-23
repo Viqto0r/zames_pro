@@ -2,6 +2,9 @@ import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
 import { execFileSync } from 'child_process'
+import { extractPathToken } from './path-token.js'
+
+export { extractPathToken }
 
 export const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg', '.ico']
 
@@ -187,6 +190,15 @@ export interface ClipboardResult {
   via: string
 }
 
+// True if any OS clipboard tool is available on this machine.
+export function hasClipboardTool(): boolean {
+ if (process.platform === 'win32' || process.platform === 'darwin') return true
+ if (process.platform === 'linux') {
+ return Boolean(tryCommand('xclip', ['-version']) || tryCommand('xsel', ['--version']) || tryCommand('wl-paste', ['--version']))
+ }
+ return false
+}
+
 // Read an image from the OS clipboard. Tries, in order, every known tool for
 // the current platform. Returns the raw bytes plus a short note about which
 // tool was used (or the reason nothing was found) — the caller shows that note
@@ -194,14 +206,27 @@ export interface ClipboardResult {
 // True when running inside WSL. There the X11 clipboard is a SEPARATE
 // clipboard from the Windows one: the user copies an image in Windows, so we
 // must read it through powershell.exe, not xclip.
+export function windowsReachable(): boolean {
+ if (process.platform === 'win32') return true
+ if (process.platform !== 'linux') return false
+ try {
+ return require('fs').existsSync('/mnt/c/Windows')
+ } catch {
+ return false
+ }
+}
+
 export function isWsl(): boolean {
-  if (process.platform !== 'linux') return false
-  if (process.env.WSL_DISTRO_NAME || process.env.WSL_INTEROP) return true
-  try {
-    const rel = os.release().toLowerCase()
-    if (rel.includes('microsoft') || rel.includes('wsl')) return true
-  } catch {}
-  return false
+ if (process.platform !== 'linux') return false
+ let kernelWsl = false
+ if (process.env.WSL_DISTRO_NAME || process.env.WSL_INTEROP) kernelWsl = true
+ if (!kernelWsl) {
+ try {
+ const rel = os.release().toLowerCase()
+ if (rel.includes('microsoft') || rel.includes('wsl')) kernelWsl = true
+ } catch {}
+ }
+ return kernelWsl && windowsReachable()
 }
 
 // PowerShell image grabber, embedded as a UTF-16LE base64 script and run

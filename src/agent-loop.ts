@@ -240,7 +240,7 @@ export async function runAgentLoop({
           trimmed,
         ) ||
         (trimmed.length <= 200 &&
-          /(messages? too frequent|too many requests|rate limit|слишком часто|try again later)/i.test(
+ /(messages? too frequent|too many requests|rate limit|server (is )?busy|service (is )?unavailable|слишком часто|try again later)/i.test(
             trimmed,
           ))
       if (looksService && stallRetries < MAX_STALL_RETRIES) {

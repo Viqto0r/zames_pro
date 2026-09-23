@@ -5,7 +5,8 @@ import {
   AttachmentStore,
   parseImagePaste,
   looksLikeFilePath,
-  type Attachment,
+ extractPathToken,
+ type Attachment,
 } from './attachments.js'
 
 // A permanent input line at the bottom of the terminal + a status/output area above it.

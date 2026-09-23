@@ -55,8 +55,21 @@ const STATUS_RE =
 const RATE_LIMIT_RE =
   /(messages? too frequent|too many requests|rate limit|слишком часто|повторите позже|try again later)/i
 
+// Transient server-side hiccups (DeepSeek overloaded / hiccup). Unlike the
+// rate limit, these usually clear in seconds, so we retry quickly instead of
+// waiting minutes. "Server busy", 503, "temporarily unavailable", etc.
+const SERVER_BUSY_RE =
+  /(server (is )?busy|server error|service (is )?unavailable|temporarily unavailable|internal server error|502|503|504|server overloaded|сервер занят|сервер перегружен|сервис недоступен|внутренняя ошибка|попробуйте позже)/i
+
 export function isRateLimitText(text: string): boolean {
   return RATE_LIMIT_RE.test(String(text || ''))
+}
+
+export function isServerBusyText(text: string): boolean {
+  const t = String(text || '')
+  // Rate limit takes priority (it needs the long wait).
+  if (RATE_LIMIT_RE.test(t)) return false
+  return SERVER_BUSY_RE.test(t)
 }
 
 // Normalize text for comparison: collapse whitespace so that tiny DOM
@@ -75,6 +88,13 @@ export class RateLimitError extends Error {
     super('Messages too frequent. Try again later. ' + detail)
     this.name = 'RateLimitError'
   }
+}
+// DeepSeek transient server error (Server busy).
+export class ServerBusyError extends Error {
+ constructor(detail: string) {
+ super('Server busy. Try again later. ' + detail)
+ this.name = 'ServerBusyError'
+ }
 }
 
 // ---------- profile cleanup ----------
@@ -128,6 +148,8 @@ export interface DeepSeekBrowserOptions {
   minSendIntervalMs?: number
   rateLimitWaitMs?: number
   maxRateLimitRetries?: number
+ maxServerBusyRetries?: number
+ serverBusyWaitMs?: number
 }
 
 export interface ChatInfo {
@@ -147,6 +169,8 @@ export class DeepSeekBrowser {
   minSendIntervalMs: number
   rateLimitWaitMs: number
   maxRateLimitRetries: number
+ maxServerBusyRetries: number
+ serverBusyWaitMs: number
   _lastSentAt: number
   _abort: boolean
   // The user pressed Esc/Ctrl+C — a "stop" for the WHOLE current batch of
@@ -173,6 +197,8 @@ export class DeepSeekBrowser {
     minSendIntervalMs = 15000,
     rateLimitWaitMs = 300000,
     maxRateLimitRetries = 6,
+ maxServerBusyRetries = 5,
+ serverBusyWaitMs = 3000,
   }: DeepSeekBrowserOptions = {}) {
     this.headless = headless
     this.debug = debug
@@ -184,6 +210,8 @@ export class DeepSeekBrowser {
     this.minSendIntervalMs = minSendIntervalMs
     this.rateLimitWaitMs = rateLimitWaitMs
     this.maxRateLimitRetries = maxRateLimitRetries
+ this.maxServerBusyRetries = maxServerBusyRetries
+ this.serverBusyWaitMs = serverBusyWaitMs
     this._lastSentAt = 0
     this._abort = false
     this._stopped = false
@@ -500,6 +528,7 @@ export class DeepSeekBrowser {
     let lastErr: Error | null = null
     let attempt = 0
     let rateLimitRetries = 0
+ let serverBusyRetries = 0
 
     while (attempt < this.askRetries) {
       attempt++
@@ -760,6 +789,7 @@ export class DeepSeekBrowser {
       const pageText = await this._readPageText()
       if (isRateLimitText(pageText)) {
         throw new RateLimitError(pageText.slice(0, 300))
+ if (isServerBusyText(pageText)) { throw new ServerBusyError(pageText.slice(0, 300)) }
       }
       const cur = await this._readLastAnswerTextClean().catch(() => '')
       const bodyLen = await this.page
@@ -806,6 +836,7 @@ export class DeepSeekBrowser {
         const pageText = await this._readPageText()
         if (isRateLimitText(pageText)) {
           throw new RateLimitError(pageText.slice(0, 300))
+ if (isServerBusyText(pageText)) { throw new ServerBusyError(pageText.slice(0, 300)) }
         }
       }
       const cur = await this._readLastAnswerTextClean().catch(() => '')

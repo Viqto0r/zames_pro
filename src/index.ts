@@ -20,6 +20,7 @@ import {
   readClipboardImageDetailed,
   sniffMime,
  readWindowsClipboardFiles,
+ hasClipboardTool,
 } from './attachments.js'
 import {
   loadConfig,
@@ -1214,7 +1215,9 @@ async function main(): Promise<void> {
             theme.warn(
               t('msg.clip_empty', { via: res.via }) +
                 String.fromCharCode(10) +
-                t('msg.clip_hint'),
+                (process.platform === 'linux' && !hasClipboardTool()
+ ? t('msg.clip_container')
+ : t('msg.clip_hint')),
             ),
           )
         }
