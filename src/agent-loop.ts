@@ -54,6 +54,27 @@ export async function runAgentLoop({
   debugLog = false,
   locale = 'ru',
 }: RunAgentLoopOptions): Promise<string> {
+  // UI callbacks must NEVER break the agent loop. A rendering error (a huge
+  // tool result, a broken markdown frame, a closed terminal) used to throw
+  // out of the loop right after a tool call — the session looked "stopped
+  // after a tool call", with a tool_call but no tool_result in the log. We
+  // wrap every callback so a UI failure is swallowed and the loop continues.
+  const safe = <A extends unknown[]>(fn: (...a: A) => void) => {
+    return (...a: A): void => {
+      try {
+        fn(...a)
+      } catch {
+        // Intentionally ignored: the loop must survive UI failures.
+      }
+    }
+  }
+  const safeThinking = safe(onThinking)
+  const safeAssistantThought = safe(onAssistantThought)
+  const safeToolCall = safe(onToolCall)
+  const safeToolResult = safe(onToolResult)
+  const safeAssistantMessage = safe(onAssistantMessage)
+  const safeWarning = safe(onWarning)
+
   if (freshChat) {
     await browser.newChat()
     transcript?.log('new_chat')
@@ -94,7 +115,7 @@ export async function runAgentLoop({
       length: systemPrompt.length,
       gitContext: gitText,
     })
-    onThinking()
+    safeThinking()
     // system-prompt is an agent send: throttled (agent: true).
     await browser.ask(systemPrompt, { timeout: 60_000, agent: true })
     await reportChat()
@@ -164,7 +185,7 @@ export async function runAgentLoop({
  const MAX_AFTER_TOOL_RETRIES = 6
 
   for (let i = 0; i < maxIterations; i++) {
-    onThinking()
+    safeThinking()
     // The first message (task) is user input: no throttle.
     // Subsequent ones (tool-result and resend requests) are agent sends:
     // throttled so we don't hit the rate limit.
@@ -199,7 +220,7 @@ export async function runAgentLoop({
         attempt: afterToolRetries,
         error: (e as Error).message,
       })
-      onWarning(
+      safeWarning(
         'browser.ask() не вернул ответ за ' +
           Math.round(askDeadlineMs / 1000) +
           'с — повторяю запрос.',
@@ -212,7 +233,7 @@ export async function runAgentLoop({
       transcript?.log('ask_timeout_exhausted', {
         message: 'ask() не вернул ответ и лимит повторов исчерпан',
       })
-      onWarning(
+      safeWarning(
         'browser.ask() перестал отвечать; лимит повторов исчерпан, ' +
           'останавливаюсь. Ответа модели нет — проверьте чат DeepSeek вручную.',
       )
@@ -274,7 +295,7 @@ export async function runAgentLoop({
     // system-prompt ("ONLY TOOL CALLS") and (b) not print it here.
     if (parsed) {
       const thought = extractPreToolText(rawResponse)
-      if (thought) onAssistantThought(thought)
+      if (thought) safeAssistantThought(thought)
     }
 
     const parsedCalls = Array.isArray(parsed) ? parsed : parsed ? [parsed] : []
@@ -429,7 +450,7 @@ export async function runAgentLoop({
         // not be turned into a tool call even after all retries: warn the
         // operator instead of silently printing e.g. "Stale. Let me verify".
         transcript?.log('suspicious_final', { response: rawResponse })
-        onWarning(translate(locale)('msg.suspicious_stop'))
+        safeWarning(translate(locale)('msg.suspicious_stop'))
       }
       // A meaningful plain-text answer (e.g. a final report the model forgot to
       // wrap in respond) is surfaced as-is WITHOUT a warning: after the bounded
@@ -486,13 +507,13 @@ export async function runAgentLoop({
       // the task normally.
       if (!isMeaningfulRespond(msg)) {
         transcript?.log('empty_respond_exhausted', { response: rawResponse })
-        onWarning(
+        safeWarning(
           'Модель вызвала respond без текста, и лимит повторов исчерпан. ' +
             'Проверьте чат DeepSeek вручную.',
         )
         return 'Модель не сформировала итоговое сообщение (пустой respond).'
       }
-      onAssistantMessage(msg)
+      safeAssistantMessage(msg)
       transcript?.log('assistant_final', { message: msg })
       return msg
     }
@@ -507,13 +528,13 @@ export async function runAgentLoop({
 
       if (!tool) {
         const err = `Неизвестный инструмент: ${call.tool}`
-        onToolResult(err)
+        safeToolResult(err)
         transcript?.log('tool_error', { tool: call.tool, error: err })
         results.push({ tool: call.tool, result: err })
         continue
       }
 
-      onToolCall(call.tool, call.args)
+      safeToolCall(call.tool, call.args)
       transcript?.log('tool_call', { tool: call.tool, args: call.args })
 
       let result
@@ -523,7 +544,7 @@ export async function runAgentLoop({
         result = `Ошибка: ${(e as Error).message}`
       }
 
-      onToolResult(result)
+      safeToolResult(result)
       transcript?.log('tool_result', {
         tool: call.tool,
         result: String(result),

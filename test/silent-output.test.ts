@@ -110,3 +110,52 @@ test('чистый текст без вызова не уходит операт
   assert.equal(result, 'итог')
   assert.deepEqual(messages, ['итог'])
 })
+
+// The session looked "stopped after a tool call" with a tool_call but no
+// tool_result in the log. One cause: a UI callback (rendering a huge result)
+// threw right after the tool ran and killed the loop. Callbacks must never
+// break the run.
+test('исключение в onToolResult/onToolCall не роняет цикл', async () => {
+  const { browser, asks } = makeBrowser([
+    jsonCall('Echo', { v: '1' }),
+    jsonCall('respond', { message: 'still-alive' }),
+  ])
+  const result = await runAgentLoop({
+    browser,
+    tools: [echoTool, respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+    maxIterations: 10,
+    onToolCall: () => {
+      throw new Error('ui toolCall boom')
+    },
+    onToolResult: () => {
+      throw new Error('ui toolResult boom')
+    },
+    onAssistantMessage: () => {
+      throw new Error('ui assistant boom')
+    },
+  })
+  assert.equal(result, 'still-alive')
+  assert.ok(asks.length >= 2, 'ask calls: ' + asks.length)
+})
+
+test('исключение в onWarning не роняет цикл', async () => {
+  const { browser } = makeBrowser([
+    '{"tool": "Bash", "args": {"command": "ls',
+    '{"tool": "Bash", "args": {"command": "ls',
+    '{"tool": "Bash", "args": {"command": "ls',
+    jsonCall('respond', { message: 'ok' }),
+  ])
+  const result = await runAgentLoop({
+    browser,
+    tools: [respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+    maxIterations: 15,
+    onWarning: () => {
+      throw new Error('ui warning boom')
+    },
+  })
+  assert.ok(result.length > 0)
+})
