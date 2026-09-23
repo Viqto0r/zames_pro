@@ -256,6 +256,11 @@ export class LineEditor {
   // Clipboard callback: tries to read an image from the OS clipboard when the
   // terminal itself sends no usable data (Ctrl+V, right-click, empty paste).
   onClipboard: (() => Promise<Attachment | null>) | null
+  // When locked, the editor ignores text input and Enter (submit). Used while
+  // a long operation runs (chat resume/open, /new, self-review): otherwise the
+  // user could type and send a message mid-operation, and it would be queued
+  // and sent right after the operation, breaking the restored session.
+  locked: boolean
 
   constructor({ prompt = '> ', commands = [] }: LineEditorOptions = {}) {
     this.promptStr = prompt
@@ -286,6 +291,7 @@ export class LineEditor {
     this._tmpDir = ''
     this.onAttach = null
     this.onClipboard = null
+    this.locked = false
   }
 
   // Read the OS clipboard for an image and insert its marker. Used when the
@@ -380,6 +386,20 @@ export class LineEditor {
     stdin.on('data', this._onData)
     this._writeBlock()
     this._render()
+  }
+
+  // Lock input while a long operation runs (chat resume/open, /new,
+  // self-review). The line stays visible but text input and Enter are ignored,
+  // so a message typed mid-operation is not queued and sent afterwards,
+  // breaking the restored session. Ctrl+C/Ctrl+D still work so the user can
+  // abort.
+  lock(status?: string): void {
+    this.locked = true
+    if (status) this.setStatus(theme.dim(status))
+  }
+
+  unlock(): void {
+    this.locked = false
   }
 
   setPrompt(str: string): void {
@@ -549,6 +569,10 @@ export class LineEditor {
   // ---------- input ----------
 
   _submit() {
+    if (this.locked) {
+      this._render()
+      return
+    }
     const display = this.buf
     if (!display.trim()) {
       this._render()
@@ -780,6 +804,18 @@ export class LineEditor {
 
   _handle(data: Buffer): void {
     let s = data.toString('utf-8')
+
+    // While locked (a long operation is running), swallow all input except
+    // Ctrl+C / Ctrl+D — so the user can still abort, but cannot type a message
+    // that would be queued and sent after the operation.
+    if (this.locked) {
+      if (s.length === 1) {
+        const c = s.charCodeAt(0)
+        if (c === 3) { if (this.onCtrlC) this.onCtrlC(); return }
+        if (c === 4) { if (this.onCtrlC) this.onCtrlC(); return }
+      }
+      return
+    }
 
     if (!this._inPaste && s === ESC) {
       if (this.onEscape) this.onEscape()

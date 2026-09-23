@@ -144,6 +144,7 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   'msg.new_chat': { ru: 'Создаю новый чат...', en: 'Creating a new chat...' },
   'msg.new_chat_ok': { ru: 'Новый чат.', en: 'New chat.' },
   'msg.resuming': { ru: 'Восстанавливаю сессию {id}...', en: 'Restoring session {id}...' },
+  'msg.input_locked': { ru: 'Идёт операция, ввод временно заблокирован…', en: 'Operation in progress, input is temporarily locked…' },
   'msg.opening_chat': { ru: 'Открываю чат {id}...', en: 'Opening chat {id}...' },
   'msg.chat_opened': { ru: 'Чат открыт.', en: 'Chat opened.' },
   'msg.interactive': { ru: 'Интерактивный режим. Введите задачу. Команды — /help. Выход — /exit.', en: 'Interactive mode. Enter a task. Commands — /help. Exit — /exit.' },

@@ -187,6 +187,13 @@ the first line. Current logic:
 - the input line is ALWAYS visible; the status/spinner and the agent's answers
   are printed ABOVE it (`printAbove`), so the typed text is not overwritten by output;
 - redraw accounts for wrapping by terminal width (`layoutInput`);
+- while a long operation runs (chat resume/open `/resume` `/resume-id` `/new`
+  `/chats` fetch, `/self-review`) the editor is LOCKED (`editor.lock()` /
+  `editor.unlock()`): text input and Enter are swallowed, so a message typed
+  mid-operation is not queued and sent right after it (which used to break the
+  restored session). The lock shows a status hint; Ctrl+C/Ctrl+D still pass
+  through so the user can abort. The lock is released in a `finally` in
+  src/index.ts around each operation;
 - large pastes (3+ lines) are collapsed in the input line into a compact
   marker `[Pasted lines#N]` (`pasteReplacement`/`formatPasteMarker` in
   src/input.ts) so a pasted log/code block doesn't flood the line. The

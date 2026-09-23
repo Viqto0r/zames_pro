@@ -1578,6 +1578,7 @@ async function main(): Promise<void> {
 
     if (['/new', '/clear', 'new'].includes(lower)) {
       console.log(theme.system(t('msg.new_chat')))
+      if (editor) editor.lock(t('msg.input_locked'))
       try {
         await browser.newChat()
         freshChatNext = false
@@ -1591,6 +1592,8 @@ async function main(): Promise<void> {
           theme.error(t('msg.new_chat_error', { v: (e as Error).message })),
           (e as Error).message,
         )
+      } finally {
+        if (editor) editor.unlock()
       }
       continue
     }
@@ -1605,6 +1608,7 @@ async function main(): Promise<void> {
         ? reviewMode.originalWorkdir
         : currentWorkdir
 
+      if (editor) editor.lock(t('msg.input_locked'))
       try {
         const result = await mod.selfReview({
           browser,
@@ -1639,6 +1643,8 @@ async function main(): Promise<void> {
           (e as Error).message,
         )
         if (debug) console.error((e as Error).stack)
+      } finally {
+        if (editor) editor.unlock()
       }
       continue
     }
@@ -1786,6 +1792,7 @@ t('self.done_hint', { v: back }),
 
     if (lower === '/chats') {
       const spin = editor || mod.createSpinner(currentLocale)
+      if (editor) editor.lock(t('msg.input_locked'))
       spin.thinking()
       try {
         lastChats = await browser.listChats(30)
@@ -1814,6 +1821,8 @@ t('self.done_hint', { v: back }),
           theme.error(t('chats.fetch_error')),
           (e as Error).message,
         )
+      } finally {
+        if (editor) editor.unlock()
       }
       continue
     }
@@ -1844,6 +1853,7 @@ t('self.done_hint', { v: back }),
       }
 
       console.log(theme.system(t('chats.opening', { v: pick.title })))
+      if (editor) editor.lock(t('msg.input_locked'))
       try {
         await browser.openChat(pick.id)
         currentChatId = pick.id
@@ -1864,6 +1874,8 @@ t('self.done_hint', { v: back }),
           theme.error(t('msg.open_chat_error', { v: '' })),
           (e as Error).message,
         )
+      } finally {
+        if (editor) editor.unlock()
       }
       continue
     }
@@ -1919,6 +1931,7 @@ t('self.done_hint', { v: back }),
         console.error(theme.error(t('sessions.resume_id_usage')))
         continue
       }
+      if (editor) editor.lock(t('msg.input_locked'))
       try {
         console.log(theme.system(t('msg.opening_chat', { id })))
         await browser.openChat(id)
@@ -1936,6 +1949,8 @@ t('self.done_hint', { v: back }),
           theme.error(t('msg.open_chat_error', { v: '' })),
           (e as Error).message,
         )
+      } finally {
+        if (editor) editor.unlock()
       }
       continue
     }

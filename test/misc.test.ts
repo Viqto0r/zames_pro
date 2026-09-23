@@ -120,6 +120,42 @@ test('slash-подсказки: фильтрация и Tab-дополнение
   assert.equal(e.buf, '/self-')
 })
 
+test('lock блокирует ввод и submit, Ctrl+C проходит', () => {
+  const e = new LineEditor()
+  e._render = () => {}
+  e.printAbove = () => {}
+  e.setStatus = () => {}
+  let submitted = ''
+  let aborted = 0
+  e.onSubmit = (t) => { submitted = t }
+  e.onCtrlC = () => { aborted++ }
+  const CRc = String.fromCharCode(13)
+  const CTRL_C = String.fromCharCode(3)
+
+  e.lock('wait')
+  assert.equal(e.locked, true)
+
+  // Text input is swallowed: the buffer stays empty.
+  e._handle(Buffer.from('hello'))
+  assert.equal(e.buf, '')
+
+  // Enter does not submit anything (nothing is queued).
+  e._handle(Buffer.from(CRc))
+  assert.equal(submitted, '')
+
+  // Ctrl+C still reaches the handler so the user can abort.
+  e._handle(Buffer.from(CTRL_C))
+  assert.equal(aborted, 1)
+
+  // After unlock, input works again.
+  e.unlock()
+  assert.equal(e.locked, false)
+  e.buf = 'hi'
+  e.cursor = 2
+  e._handle(Buffer.from(CRc))
+  assert.equal(submitted, 'hi')
+})
+
 test('Enter после «\\» удаляет «\\» и переносит строку', () => {
   const e = new LineEditor()
   e._render = () => {}
