@@ -1,4 +1,5 @@
 import { buildSystemPrompt } from './system-prompt.js'
+import { loadProjectContext } from './context.js'
 import { getGitContext, formatGitContext } from './gitTools.js'
 import { parseXmlToolCalls } from './xml-toolcall.js'
 import type {
@@ -40,7 +41,7 @@ export async function runAgentLoop({
   tools,
   task,
   workdir,
-  maxIterations = 40,
+  maxIterations = 200,
   freshChat = false,
   sendSystemPrompt = false,
   transcript = null,
@@ -111,15 +112,27 @@ export async function runAgentLoop({
       gitText = `(git context error: ${(e as Error).message})`
     }
 
+    let context = null
+    try {
+      context = await loadProjectContext(workdir)
+    } catch {
+      context = null
+    }
+
     const systemPrompt = buildSystemPrompt({
       workdir,
       tools,
       gitContext: gitText,
       locale,
+      context,
     })
     transcript?.log('system_prompt', {
       length: systemPrompt.length,
       gitContext: gitText,
+      agents: context?.agents.map((f) => f.path) ?? [],
+      memory: context?.memory.map((f) => f.path) ?? [],
+      skills: context?.skills.map((s) => s.name) ?? [],
+      commands: context?.commands.map((c) => c.name) ?? [],
     })
     safeThinking()
     // system-prompt is an agent send: throttled (agent: true).

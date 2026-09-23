@@ -324,6 +324,7 @@ ${theme.bold(t('help.self_review'))}
   ${t('help.self.list')}
   ${t('help.self.diff')}
   ${t('help.self.apply')}
+${dynamicCommands.length ? '\n' + theme.bold(t('help.skills')) + '\n' + dynamicCommands.map((d) => '  ' + d.name.padEnd(24) + ' ' + d.description).join('\n') : ''}
 
 ${theme.bold(t('help.files'))}
   ${t('help.files.logs')}        ${config.transcript.dir}
@@ -361,6 +362,9 @@ const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
   { name: '/undo-list', key: 'help.cmd.undo_list' },
   { name: '/transcript', key: 'help.cmd.transcript' },
   { name: '/config', key: 'help.cmd.config' },
+  { name: '/skills', key: 'help.cmd.skills' },
+  { name: '/memory', key: 'help.cmd.memory' },
+  { name: '/init', key: 'help.cmd.init' },
   { name: '/debug-dom', key: 'help.cmd.debug_dom' },
   { name: '/self-review', key: 'help.self.review' },
   { name: '/self-fix', key: 'help.self.fix' },
@@ -372,12 +376,86 @@ const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
   { name: '/quit', key: 'help.cmd.exit' },
 ]
 
+// Dynamically discovered skills and custom commands for the current workdir.
+// Filled in by refreshDynamicCommands() and shown in the «/» hint list and
+// help. Skills are surfaced as /skill-name entries (user-invokable only).
+let dynamicCommands: Array<{ name: string; description: string }> = []
+
+async function refreshDynamicCommands(workdir: string): Promise<void> {
+  const out: Array<{ name: string; description: string }> = []
+  try {
+    const { loadSkills, loadCommands } = await import('./context.js')
+    const skills = await loadSkills(workdir)
+    for (const s of skills) {
+      if (!s.userInvokable) continue
+      out.push({
+        name: '/' + s.name,
+        description: s.description || t('help.cmd.skill'),
+      })
+    }
+    const cmds = await loadCommands(workdir)
+    for (const c of cmds) {
+      out.push({
+        name: '/' + c.name,
+        description: c.description || t('help.cmd.custom'),
+      })
+    }
+  } catch {
+    // best-effort: a broken skill/command must not break the CLI
+  }
+  dynamicCommands = out
+}
+
+// Expand a slash target (skill or custom command) into a task string.
+// Returns null when the name is neither a skill nor a custom command.
+async function expandSlashTarget(
+  workdir: string,
+  name: string,
+  rest: string,
+): Promise<string | null> {
+  try {
+    const { loadSkills, loadCommands, skillBody } = await import('./context.js')
+    const commands = await loadCommands(workdir)
+    const cmd = commands.find((c) => c.name.toLowerCase() === name.toLowerCase())
+    if (cmd) {
+      let body = cmd.body.replace(/\{\{args\}\}/g, rest)
+      body = body.replace(/\$ARGUMENTS/g, rest)
+      return body.trim() || rest
+    }
+    const skills = await loadSkills(workdir)
+    const skill = skills.find(
+      (s) => s.name.toLowerCase() === name.toLowerCase() && s.userInvokable,
+    )
+    if (skill) {
+      let body = ''
+      try {
+        const raw = await fs.readFile(skill.path, 'utf-8')
+        body = skillBody(raw)
+      } catch {
+        body = ''
+      }
+      const header = 'Follow the skill "' + skill.name + '" (from ' + skill.path + ').'
+      const extra = rest ? '\n\nAdditional instructions from the operator: ' + rest : ''
+      return header + '\n\n' + body + extra
+    }
+  } catch {
+    // fall through: treated as an unknown command
+  }
+  return null
+}
+
 // Slash-command descriptions in the current language (for LineEditor hints).
 function buildSlashCommands(): Array<{ name: string; description: string }> {
-  return SLASH_COMMANDS.map((c) => ({
+  const base = SLASH_COMMANDS.map((c) => ({
     name: c.name,
     description: t(c.key),
   }))
+  const known = new Set(base.map((c) => c.name.toLowerCase()))
+  for (const d of dynamicCommands) {
+    if (known.has(d.name.toLowerCase())) continue
+    base.push(d)
+  }
+  return base
 }
 
 // We put the agent's temporary files (one-off scripts, etc.) in
@@ -1158,6 +1236,8 @@ async function main(): Promise<void> {
     }
     return theme.prompt('❯ ') + tail + theme.dim(' › ')
   }
+
+  await refreshDynamicCommands(currentWorkdir)
 
   if (process.stdin.isTTY && process.stdout.isTTY) {
     const ed = new LineEditor({
@@ -1982,6 +2062,64 @@ t('self.done_hint', { v: back }),
       continue
     }
 
+    if (lower === '/skills') {
+      const { loadSkills } = await import('./context.js')
+      const skills = await loadSkills(currentWorkdir)
+      if (!skills.length) {
+        console.log(theme.dim(t('skills.none')))
+      } else {
+        console.log(theme.system(t('skills.title', { n: String(skills.length) })))
+        for (const s of skills) {
+          console.log(
+            '  ' +
+              theme.user('/' + s.name) +
+              theme.dim(' [' + s.source + '] ') +
+              (s.description || theme.dim(t('common.none'))),
+          )
+          console.log(theme.dim('      ' + s.path))
+        }
+      }
+      continue
+    }
+
+    if (lower === '/memory') {
+      const { loadProjectContext } = await import('./context.js')
+      const ctx = await loadProjectContext(currentWorkdir)
+      const show = (title: string, files: Array<{ path: string }>): void => {
+        console.log(theme.system(title))
+        if (!files.length) {
+          console.log(theme.dim('  ' + t('common.none')))
+          return
+        }
+        for (const f of files) console.log('  ' + f.path)
+      }
+      show(t('memory.agents'), ctx.agents)
+      show(t('memory.memory'), ctx.memory)
+      continue
+    }
+
+    if (lower === '/init') {
+      const target = path.join(currentWorkdir, 'AGENTS.md')
+      const exists = await fs.stat(target).catch(() => null)
+      if (exists) {
+        console.log(theme.warn(t('init.exists', { v: target })))
+        continue
+      }
+      const stub =
+        '# AGENTS.md\n\n' +
+        'Project instructions for the coding agent. Describe the build/test commands, ' +
+        'conventions, and any rules the agent must follow in this repository.\n\n' +
+        '## Commands\n\n' +
+        '- build: `...`\n' +
+        '- test: `...`\n' +
+        '- lint: `...`\n\n' +
+        '## Conventions\n\n' +
+        '- ...\n'
+      await fs.writeFile(target, stub, 'utf-8')
+      console.log(theme.assistant(t('init.created', { v: target })))
+      continue
+    }
+
     if (lower === '/reload') {
       console.log(theme.system(t('msg.reload_start')))
       try {
@@ -1999,6 +2137,9 @@ t('self.done_hint', { v: back }),
       } catch (e) {
         console.error(theme.error(t('msg.reload_error')), (e as Error).message)
       }
+      await autoReload()
+      await refreshDynamicCommands(currentWorkdir)
+      if (editor) editor.setCommands(buildSlashCommands())
       continue
     }
 
@@ -2162,6 +2303,8 @@ t('self.done_hint', { v: back }),
         currentWorkdir = newDir
         freshChatNext = true
         sendSystemPromptNext = true
+        await refreshDynamicCommands(currentWorkdir)
+        if (editor) editor.setCommands(buildSlashCommands())
         console.log(theme.system(t('cd.changed', { v: newDir })))
       } catch (e) {
         console.error(
@@ -2171,7 +2314,17 @@ t('self.done_hint', { v: back }),
       continue
     }
 
+    // Custom command or skill invoked as a slash command? Expand it into a
+    // task. Skills are instructions the agent follows; custom commands are
+    // prompt templates with $ARGUMENTS / {{args}} placeholders.
+    let expandedTask: string | null = null
     if (lower.startsWith('/')) {
+      const name = trimmed.slice(1).split(/\s+/)[0]
+      const rest = trimmed.slice(1 + name.length).trim()
+      expandedTask = await expandSlashTarget(currentWorkdir, name, rest)
+    }
+
+    if (lower.startsWith('/') && expandedTask === null) {
       console.error(
         theme.error(t('msg.unknown_cmd', { v: trimmed })),
       )
@@ -2180,15 +2333,17 @@ t('self.done_hint', { v: back }),
 
     // ---- Regular task (including in review mode) ----
 
+    const taskText = expandedTask !== null ? expandedTask : trimmed
+
     // Dev mode: pick up fresh logic modules before the task.
     await autoReload()
 
-    transcript.log('user_task', { task: trimmed, workdir: currentWorkdir })
+    transcript.log('user_task', { task: taskText, workdir: currentWorkdir })
 
     const tools = mod.createTools(currentWorkdir, { undo })
     if (editor) editor.busy = true
     try {
-      await runTask(browser, tools, trimmed, currentWorkdir, {
+      await runTask(browser, tools, taskText, currentWorkdir, {
         transcript,
         freshChat: freshChatNext,
         sendSystemPrompt: sendSystemPromptNext,

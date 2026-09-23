@@ -327,8 +327,14 @@ interactive launch.
 - `/config` — view and edit settings (see "Configuration")
 - `/config lang <ru|en>` — switch the interface and agent language
 - `/debug-dom` — save the page HTML (selector debugging)
+- `/skills` — list discovered skills (SKILL.md)
+- `/memory` — show AGENTS.md / MEMORY.md files in effect
+- `/init` — create a starter AGENTS.md for the project
 - `/help`, `help` — help
 - `/exit`, `/quit` — exit
+
+Custom commands and skills appear in the «/» hint list and in `/help`
+(dynamic entries from refreshDynamicCommands).
 
 Self-review:
 - `/self-review [focus]` — snapshot src/ + review; after this you are IN the snapshot
@@ -337,6 +343,37 @@ Self-review:
 - `/self-list` — list snapshots
 - `/self-diff <name>` — differences between the current src/ and a snapshot
 - `/self-apply <name>` — apply a snapshot to src/ (with a backup)
+
+## Project context: AGENTS.md / MEMORY / skills / commands (src/context.ts)
+
+Borrowed from Codex (AGENTS.md) and Claude Code (CLAUDE.md + skills). Loaded
+by `loadProjectContext(workdir)` and injected into the system prompt by
+`renderContextSection()` (src/system-prompt.ts). All reads are best-effort —
+a missing/broken file never breaks the loop.
+
+What is loaded, in priority order:
+
+- **AGENTS.md** — project instructions. Global: `~/.zames/AGENTS.md` and
+  `~/.claude/CLAUDE.md`. Project: every `AGENTS.md` on the path from the
+  filesystem root down to `workdir` (the deepest wins). File names are
+  matched case-insensitively (`AGENTS.md` / `agents.md`).
+- **MEMORY.md** — durable notes that survive sessions. Global:
+  `~/.zames/MEMORY.md`, `~/.claude/MEMORY.md`; project: up the chain like
+  AGENTS.md. The prompt tells the agent to append durable facts via Edit/Write.
+- **skills** — `SKILL.md` files, discovered up to 3 levels deep under
+  `<workdir>/.zames/skills`, `.claude/skills`, `.agents/skills`, `skills`,
+  plus `~/.zames/skills` and `~/.claude/skills`. Only the YAML frontmatter
+  (`name`, `description`, optional `allowed-tools`, `user-invokable`) goes
+  into the prompt — the body is read on demand (progressive disclosure).
+  Project skills override global ones with the same name.
+- **custom commands** — `.md` files under `.zames/commands`, `.claude/commands`,
+  `.agents/commands`, `~/.zames/commands`, `~/.claude/commands`. The body
+  supports `$ARGUMENTS` and `{{args}}` placeholders.
+
+When the operator types `/<name>`, `expandSlashTarget()` (src/index.ts) looks
+it up among commands (prompt template) and skills (instruction body) and turns
+it into the task text. Skills and commands also show up in the «/» completion
+list and in `/help`.
 
 ## Configuration (src/config.ts)
 

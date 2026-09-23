@@ -1,5 +1,6 @@
 import type { ToolDef } from './types.js'
 import { translate, type Locale } from './i18n.js'
+import type { LoadedContext } from './context.js'
 
 export interface BuildSystemPromptOptions {
   workdir: string
@@ -8,6 +9,63 @@ export interface BuildSystemPromptOptions {
   locale?: Locale
   /** Markers of attachments in the current task, e.g. ['[image#1]']. */
   attachments?: string[]
+  /** Project context: AGENTS.md, MEMORY, skills, custom commands. */
+  context?: LoadedContext | null
+}
+
+/** Render the AGENTS.md / MEMORY / skills / commands blocks of the prompt. */
+export function renderContextSection(context: LoadedContext | null | undefined): string {
+  if (!context) return ''
+  let out = ''
+
+  for (const f of context.agents) {
+    out +=
+      '\n## Project instructions (' + f.path + ')\n\n' +
+      'The following come from ' + f.path + '. Follow them for this project unless the operator explicitly overrides them.\n\n' +
+      f.content +
+      '\n'
+  }
+
+  for (const f of context.memory) {
+    out +=
+      '\n## Memory (' + f.path + ')\n\n' +
+      'Durable notes accumulated across sessions. Treat as background knowledge; update this file when you learn something worth remembering.\n\n' +
+      f.content +
+      '\n'
+  }
+  if (context.memory.length) {
+    out +=
+      '\nWhen you learn a durable fact about this project or the operator preferences (build quirks, ' +
+      'conventions, gotchas), append a short bullet to ' + context.memory[0].path + ' via Edit/Write so it survives ' +
+      'into future sessions. Keep entries concise.\n'
+  }
+
+  if (context.skills.length) {
+    const lines = context.skills.map((s) => {
+      const tools = s.allowedTools && s.allowedTools.length
+        ? ' [tools: ' + s.allowedTools.join(', ') + ']'
+        : ''
+      return '- ' + s.name + tools + ': ' + (s.description || '(no description)') + '\n  file: ' + s.path
+    })
+    out +=
+      '\n## Skills\n\n' +
+      'Specialized workflows available as SKILL.md files. When a task matches a skill description, read its file and follow its instructions. Skills are progressive disclosure: only read the body when the skill applies.\n\n' +
+      lines.join('\n') +
+      '\n'
+  }
+
+  if (context.commands.length) {
+    const lines = context.commands.map(
+      (c) => '- /' + c.name + ': ' + (c.description || '(no description)'),
+    )
+    out +=
+      '\n## Custom commands\n\n' +
+      'Reusable prompts the operator can invoke with a slash command. If the operator runs one, its body arrives as the task text.\n\n' +
+      lines.join('\n') +
+      '\n'
+  }
+
+  return out
 }
 
 export function buildSystemPrompt({
@@ -16,6 +74,7 @@ export function buildSystemPrompt({
   gitContext = null,
   locale = 'ru',
   attachments = [],
+  context = null,
 }: BuildSystemPromptOptions): string {
   const t = translate(locale)
   const toolDescriptions = tools
@@ -33,6 +92,8 @@ export function buildSystemPrompt({
     ? `\n## Attachments\n\nThe user attached files to this task: ${attachments.join(', ')}.\n` +
       `Each [image#N] / [file#N] marker corresponds to a file the user pasted into the terminal; the file was uploaded to the chat and also saved under <project>/tmp. Look at the images in the chat; for files, read the copy in tmp if you need the contents.\n`
     : ''
+
+  const contextSection = renderContextSection(context)
 
   return `You are a coding agent running in a terminal. You help the user with software engineering tasks by reading files, writing code, running commands, and iterating until the task is done.
 
@@ -86,7 +147,7 @@ task is done (or when you must ask the operator), not between tool calls.
 You have access to the following tools:
 
 ${toolDescriptions}
-${gitSection}${attachSection}
+${gitSection}${attachSection}${contextSection}
 ## How to use tools
 
 To call ONE tool, respond with ONLY a JSON object (no markdown fences, no extra text):

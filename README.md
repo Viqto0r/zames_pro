@@ -76,6 +76,35 @@ zames --version
 zames --help
 ```
 
+## Project context, skills and memory
+
+Like Codex / Claude Code, zames reads project instructions and reusable
+workflows from your repository and from `~/.zames`.
+
+- **AGENTS.md** — project instructions. Put one in the repo root (or in any
+  parent folder of the working directory). Global instructions live in
+  `~/.zames/AGENTS.md` (and `~/.claude/CLAUDE.md`). Create a starter file with
+  `/init`.
+- **MEMORY.md** — durable notes that persist between sessions. The agent
+  appends useful facts here; you can edit it by hand.
+- **Skills** — a folder with a `SKILL.md` file (YAML frontmatter: `name`,
+  `description`, optional `allowed-tools`, `user-invokable`) plus any helper
+  files. Discovered under `.zames/skills/`, `.claude/skills/`,
+  `.agents/skills/`, `skills/`, and `~/.zames/skills/`. The agent reads the
+  body only when a task matches the description. List them with `/skills`;
+  invoke one with `/<skill-name>`.
+- **Custom commands** — `.md` files under `.zames/commands/` (or
+  `.claude/commands/`). They support `$ARGUMENTS` / `{{args}}` placeholders and
+  are invoked with `/<command-name>`.
+
+Skills and custom commands show up in the «/» completion list and in `/help`.
+
+```
+/skills                       list discovered skills
+/memory                       show AGENTS.md / MEMORY.md in effect
+/init                         create a starter AGENTS.md
+```
+
 ## Configuration
 
 Global config: `~/.zames/config.json`

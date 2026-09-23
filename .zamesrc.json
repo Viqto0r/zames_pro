@@ -1,5 +1,5 @@
 {
-  "maxIterations": 40,
+  "maxIterations": 200,
   "undo": {
     "enabled": true
   },
