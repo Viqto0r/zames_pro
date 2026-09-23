@@ -204,13 +204,10 @@ export function isWsl(): boolean {
   return false
 }
 
-// PowerShell one-liner: write the clipboard image as raw PNG bytes to stdout.
-const PS_GET_IMAGE =
-  'Add-Type -AssemblyName System.Windows.Forms,System.Drawing; ' +
-  '$img=[System.Windows.Forms.Clipboard]::GetImage(); ' +
-  'if($img){$ms=New-Object System.IO.MemoryStream; ' +
-  '$img.Save($ms,[System.Drawing.Imaging.ImageFormat]::Png); ' +
-  '[Console]::OpenStandardOutput().Write($ms.ToArray(),0,$ms.Length)}'
+// PowerShell image grabber, embedded as a UTF-16LE base64 script and run
+// via powershell.exe -EncodedCommand: it saves the clipboard image to a
+// Windows temp .png and prints the Windows path; we read it from WSL.
+const PS_IMAGE_ENCODED = 'QQBkAGQALQBUAHkAcABlACAALQBBAHMAcwBlAG0AYgBsAHkATgBhAG0AZQAgAFMAeQBzAHQAZQBtAC4AVwBpAG4AZABvAHcAcwAuAEYAbwByAG0AcwAsAFMAeQBzAHQAZQBtAC4ARAByAGEAdwBpAG4AZwAKACQAaQBtAGcAPQBbAFMAeQBzAHQAZQBtAC4AVwBpAG4AZABvAHcAcwAuAEYAbwByAG0AcwAuAEMAbABpAHAAYgBvAGEAcgBkAF0AOgA6AEcAZQB0AEkAbQBhAGcAZQAoACkACgBpAGYAKAAkAGkAbQBnACkAewAkAHAAPQBKAG8AaQBuAC0AUABhAHQAaAAgACQAZQBuAHYAOgBUAEUATQBQACAAKAAiAHoAYQBtAGUAcwAtAGMAbABpAHAALQAiACsAWwBHAHUAaQBkAF0AOgA6AE4AZQB3AEcAdQBpAGQAKAApAC4AVABvAFMAdAByAGkAbgBnACgAKQArACIALgBwAG4AZwAiACkAOwAkAGkAbQBnAC4AUwBhAHYAZQAoACQAcAAsAFsAUwB5AHMAdABlAG0ALgBEAHIAYQB3AGkAbgBnAC4ASQBtAGEAZwBpAG4AZwAuAEkAbQBhAGcAZQBGAG8AcgBtAGEAdABdADoAOgBQAG4AZwApADsAVwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAkAHAAfQAKAA=='
 
 // PowerShell one-liner: write the clipboard file paths (CF_HDROP) to stdout.
 const PS_GET_FILE_DROP =
@@ -219,14 +216,15 @@ const PS_GET_FILE_DROP =
   'if($d -and $d.GetDataPresent([System.Windows.Forms.DataFormats]::FileDrop)){' +
   '$f=$d.GetData([System.Windows.Forms.DataFormats]::FileDrop); $f -join [Environment]::NewLine}'
 
-export function readClipboardImageDetailed(): ClipboardResult {
+export async function readClipboardImageDetailed(): Promise<ClipboardResult> {
   if (process.platform === 'linux' || process.platform === 'freebsd' || process.platform === 'openbsd') {
     const wayland = process.env.WAYLAND_DISPLAY
     const x11 = process.env.DISPLAY
     const attempts: Array<{ bin: string; args: string[]; via: string }> = []
     // On WSL the Windows clipboard is what the user copies into — read it first.
     if (isWsl()) {
-      attempts.push({ bin: 'powershell.exe', args: ['-NoProfile', '-NonInteractive', '-Command', PS_GET_IMAGE], via: 'powershell.exe' })
+      const win = await readWindowsClipboardImage()
+ if (win) return { data: win, via: 'powershell.exe' }
     }
     if (wayland || !x11) attempts.push({ bin: 'wl-paste', args: ['--type', 'image/png', '--no-newline'], via: 'wl-paste' })
     if (x11 || !wayland) {
@@ -265,8 +263,8 @@ export function readClipboardImageDetailed(): ClipboardResult {
 }
 
 // Backwards-compatible wrapper used elsewhere.
-export function readClipboardImage(): Buffer | null {
-  return readClipboardImageDetailed().data
+export async function readClipboardImage(): Promise<Buffer | null> {
+  return (await readClipboardImageDetailed()).data
 }
 
 function tryCommand(bin: string, args: string[]): Buffer | null {
@@ -306,7 +304,7 @@ export async function findFileByName(workdir: string, name: string): Promise<str
 // image. Returns [] on non-WSL / when nothing is there.
 export function readWindowsClipboardFiles(): string[] {
  if (!isWsl()) return []
- const out = tryCommand('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', PS_GET_FILE_DROP])
+ const out = tryCommand('powershell.exe', ['-STA', '-NoProfile', '-NonInteractive', '-Command', PS_GET_FILE_DROP])
  if (!out) return []
  const text = out.toString('utf-8')
  return text
@@ -328,4 +326,20 @@ export function winPathToWsl(winPath: string): string | null {
  const drive = p.charAt(0).toLowerCase()
  const rest = p.slice(3).split('\\').join('/')
  return '/mnt/' + drive + '/' + rest
+}
+
+// Run the embedded PowerShell script and return the clipboard image bytes.
+export async function readWindowsClipboardImage(): Promise<Buffer | null> {
+ if (!isWsl()) return null
+ const out = tryCommand('powershell.exe', ['-STA', '-NoProfile', '-NonInteractive', '-EncodedCommand', PS_IMAGE_ENCODED])
+ if (!out) return null
+ const first = out.toString('utf-8').trim().split(String.fromCharCode(10))[0].trim()
+ if (!first) return null
+ const wslPath = winPathToWsl(first)
+ if (!wslPath) return null
+ try {
+ return await fs.readFile(wslPath)
+ } catch {
+ return null
+ }
 }

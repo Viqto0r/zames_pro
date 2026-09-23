@@ -1183,7 +1183,7 @@ async function main(): Promise<void> {
       return att
     }
     ed.onClipboard = async () => {
-      const res = readClipboardImageDetailed()
+      const res = await readClipboardImageDetailed()
       if (!res.data || !res.data.length) {
         // On WSL the user may have copied a FILE in Windows (not an image):
  // the Windows clipboard holds its path - attach it directly.
