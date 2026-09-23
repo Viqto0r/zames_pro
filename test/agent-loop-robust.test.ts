@@ -463,3 +463,47 @@ maxIterations: 12,
 assert.equal(result, 'FIN')
 assert.equal(echoRuns, 1, 'инструмент не должен выполняться повторно на stale-эхе')
 })
+
+test('эхо нераспознанного DSML-вызова выполняется, а не отбрасывается как stale', async () => {
+  // Real stall signature: the model answers with a DSML/XML call that the
+  // STRICT JSON parser does not recognize, so the tool NEVER ran. DeepSeek
+  // then echoes that same answer. The old loop treated the repeat as
+  // "stale" and nudged instead of running it — the call was lost and the
+  // agent stalled. Now a repeat is stale only when the PREVIOUS turn
+  // actually executed a tool, so this echo must be executed.
+  let runs = 0
+  const counting: ToolDef = {
+    name: 'Echo',
+    description: 'echo',
+    parameters: { v: 'string' },
+    fn: async () => {
+      runs++
+      return 'ok'
+    },
+  }
+  const Q = String.fromCharCode(34)
+  const L = String.fromCharCode(60)
+  const R = String.fromCharCode(62)
+  const B = String.fromCharCode(124)
+  const p = B + B + 'DSML' + B + B
+  const dsml =
+    L + p + ' invoke name=' + Q + 'Echo' + Q + R +
+    L + p + ' parameter name=' + Q + 'args' + Q + ' string=' + Q + 'false' + Q + R +
+    '{' + Q + 'v' + Q + ': ' + Q + '1' + Q + '}' +
+    L + '/' + p + ' parameter' + R +
+    L + '/' + p + ' invoke' + R
+  const { browser } = makeBrowser([
+    dsml,
+    dsml,
+    jsonCall('respond', { message: 'FIN' }),
+  ])
+  const result = await runAgentLoop({
+    browser,
+    tools: [counting, respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+    maxIterations: 12,
+  })
+  assert.equal(result, 'FIN')
+  assert.ok(runs >= 1, 'нераспознанный DSML-вызов должен выполниться хотя бы раз')
+})

@@ -152,6 +152,25 @@ clearly SETTLED — the Stop button is gone and the text has been stable for two
 ticks — even if the text equals `beforeText`. The network-capture check stays
 as the strongest signal of a fresh answer.
 
+## Stale-echo heuristic must not drop a call that never ran
+
+The chain of "stops after a tool call" has a SECOND root cause, in
+`agent-loop.ts`. DeepSeek often echoes the previous answer verbatim, and the
+loop treated ANY repeat as "stale" and nudged instead of running it. But when
+the previous answer was a DSML/XML call that the STRICT parser missed (a real
+case from the transcript: `<||DSML|| calls> ... <||DSML|| invoke name="Read">
+<||DSML|| parameter name="args">{...}</||DSML|| parameter> ...`, where the
+strict JSON parser returns null and the call never executed), the echo is the
+ONLY copy of the call we can get. Discarding it as "stale" burned the watchdog
+budget and produced the "agent stopped after a tool call" symptom.
+
+The stale check now keys off `lastTurnRanTool` — did the PREVIOUS turn ACTUALLY
+execute a tool? If yes, a repeat is a stale echo (do not re-run, it would
+duplicate side effects). If no (we only saw text that looked like a call but
+nothing ran), the repeat is the only copy of the call and is run normally.
+`ranToolPrevTurn` is a snapshot taken at the top of each iteration and cleared
+immediately; `lastTurnRanTool` is set true again only when a tool really runs.
+
 ## Terminal input
 
 Interactive input is handled by `LineEditor` (src/input.ts) — a custom line

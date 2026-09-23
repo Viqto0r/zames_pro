@@ -175,6 +175,14 @@ export async function runAgentLoop({
  // instead get an EMPTY answer or the EXACT same answer as the previous turn
  // (a sign the new message was not sent), we nudge instead of stopping.
  let lastRaw = ''
+ // True when the PREVIOUS turn actually executed a tool. This is what
+ // makes a repeated answer "stale": the tool already ran, so running it
+ // again would duplicate side effects. If the previous answer looked like a
+ // call but was not recognized (e.g. a DSML/XML form the strict parser
+ // missed), the tool did NOT run and the echo is the only copy of the
+ // call — it must be executed, not discarded as stale.
+ // const ranToolLastTurn follows the previous turn's actual effect.
+ let lastTurnRanTool = false
  let justRanTool = false
  let watchdogRetries = 0
  const MAX_WATCHDOG_RETRIES = 3
@@ -191,6 +199,11 @@ export async function runAgentLoop({
     // Subsequent ones (tool-result and resend requests) are agent sends:
     // throttled so we don't hit the rate limit.
     const isFirst = i === 0
+    // Did the PREVIOUS turn actually execute a tool? Used by the stale
+    // check below. We take a snapshot and immediately clear it: it will be
+    // set again at the end of this iteration only if a tool really runs.
+    const ranToolPrevTurn = lastTurnRanTool
+    lastTurnRanTool = false
     // Safety net: browser.ask() has its own timeout, but a stuck send used to
     // block the whole loop and look like a silent stop. We race it against a
     // hard deadline and treat a timeout as a nudge (re-ask), never as a
@@ -261,20 +274,33 @@ export async function runAgentLoop({
     // previous answer with different markdown emphasis (`**done**` vs `done`),
     // which defeated an exact match and made the loop run the SAME tool again —
     // the "stopped after a tool call" signature with a duplicate call.
-    const wdStale =
-      justRanTool &&
+    //
+    // AN ECHO IS NOT ALWAYS STALE: the previous answer may have been a
+    // DSML/XML call that the strict parser missed and the loop never actually
+    // ran. In that case the echo is the ONLY copy of the call we can get,
+    // and discarding it as "stale" burns the watchdog budget and stalls the
+    // agent. So we first check whether the echo itself parses as a tool
+    // call (including the XML/DSML form); if it does, we do NOT treat it
+    // as stale — the call gets run below like any other.
+    // Stale means: the PREVIOUS turn actually ran a tool (lastTurnRanTool)
+    // and this answer is a repeat of the previous one. If the previous
+    // answer never ran a tool (unrecognized DSML call), the repeat is NOT
+    // stale — it is the only copy of the call and must be executed.
+    const staleCandidate =
+      ranToolPrevTurn &&
       lastRaw.trim() !== '' &&
       (rawResponse.trim() === lastRaw.trim() ||
         normForStale(rawResponse) === normForStale(lastRaw))
+    const wdStale = staleCandidate
     const wdNoCall =
       justRanTool &&
       !wdEmpty &&
       !wdStale &&
       parseToolCall(rawResponse) === null &&
       !responseLooksLikeToolCall(rawResponse)
-    // A stale answer is discarded even when it parses to a valid call: it is a
-    // duplicate of the previous turn, and re-running the tool would repeat
-    // side effects and stall the loop.
+    // A stale answer is discarded only when it does NOT parse as a tool
+    // call (see wdStale above); an echo of a call that never ran is a real
+    // call and must be executed, not dropped.
     if (!isFirst && (wdEmpty || wdStale || wdNoCall) && watchdogRetries < MAX_WATCHDOG_RETRIES) {
       watchdogRetries++
       transcript?.log('watchdog_nudge', {
@@ -564,6 +590,10 @@ export async function runAgentLoop({
     // A tool just ran — the next answer is expected to be a fresh tool call.
  // Reset the watchdog so the next empty/repeated answer is nudged.
  justRanTool = true
+ // The tool really executed on this turn. The NEXT iteration will treat
+ // a repeat of this answer as stale only because of this flag (see NEXT,
+ // not the current, justRanTool check).
+ lastTurnRanTool = true
  watchdogRetries = 0
  // A fresh tool call just ran: reset the per-tool-result nudge budget so
  // a long chain of tools is not cut off by an earlier bad turn.
