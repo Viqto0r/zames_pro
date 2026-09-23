@@ -807,7 +807,7 @@ export class DeepSeekBrowser {
     // Wait for the start: either Stop appeared, or the answer text changed,
     // or the total amount of text on the page grew. In parallel we catch
     // the rate-limit toast (only toasts, not the whole body).
-    const startDeadline = Date.now() + 15_000
+    const startDeadline = Date.now() + 30_000
     const startBodyLen = await this.page
       .evaluate(() => document.body.innerText.length)
       .catch(() => 0)
@@ -886,11 +886,40 @@ return cur
 if (fresh) {
 return this._netCapture
 }
-      // We NO LONGER check the limit over the whole page text — that caused
-      // false positives and 5-minute waits. We just report that
-      // generation did not start.
+      // The send did not start generation within 15s. The most common cause is
+      // that the message did not actually go out (Enter lost, button not
+      // clicked). Instead of throwing (which made ask() retry for minutes and
+      // looked like a stall), press Enter once more and give it another
+      // window. Only if that also fails do we throw.
+      this._askDebug('START-failed, resending')
+      await this.page.keyboard.press('Enter')
+      this._lastSentAt = Date.now()
+      const retryDeadline = Date.now() + 20_000
+      while (Date.now() < retryDeadline) {
+        if (this._abort) return '(прервано пользователем)'
+        const cur2 = await this._readLastAnswerTextClean().catch(() => '')
+        const net2 =
+          !!this._netCapture && this._netCaptureAt >= this._lastSentAt
+        const grew2 =
+          (await this.page
+            .evaluate(() => document.body.innerText.length)
+            .catch(() => 0)) > startBodyLen
+        if (
+          net2 ||
+          grew2 ||
+          (!!cur2 && normText(cur2) !== normText(beforeText))
+        ) {
+          started = true
+          this._askDebug('STARTED-after-resend')
+          break
+        }
+        await this.page.waitForTimeout(300)
+      }
+    }
+    if (!started) {
       throw new Error(
-        'Ответ не начал генерироваться за 15с. Возможно, сообщение не отправилось.',
+        'Ответ не начал генерироваться за 35с даже после повторной отправки. ' +
+          'Проверьте чат DeepSeek вручную.',
       )
     }
 
@@ -932,7 +961,7 @@ return this._netCapture
       // the text is stable, accept it (even when it repeats the previous one).
       const sameAsBefore =
         !!cur && !isNew && normText(cur) === normText(beforeText)
-      if ((isNew || sameAsBefore) && cur === last) {
+      if (isNew && cur === last) {
         stable++
         if (stable >= 2) {
           if (isNew || !(await this._isGenerating())) {
@@ -943,7 +972,7 @@ return this._netCapture
       } else {
         stable = 0
       }
-      if (isNew || sameAsBefore) last = cur
+      if (isNew) last = cur
       this._askDebug('FIN-loop isNew=' + isNew + ' sameAsBefore=' + sameAsBefore + ' stable=' + stable + ' curLen=' + cur.length + ' lastLen=' + last.length + ' netFresh=' + netFresh)
       await this.page.waitForTimeout(800)
     }
@@ -952,10 +981,8 @@ return this._netCapture
       this._askDebug('RETURN last len=' + last.length)
       return last
     }
-    // Fallback: the turn settled on a text identical to the previous answer.
-    if (last && !(await this._isGenerating())) {
-      return last
-    }
+    // No fallback on a text equal to beforeText: returning it would re-run
+    // the previous tool call. Only a fresh network capture is accepted below.
     if (this._netCapture && this._netCaptureAt >= this._lastSentAt) {
       return this._netCapture
     }
