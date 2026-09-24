@@ -197,8 +197,8 @@ export class DeepSeekBrowser {
     channel = 'chrome',
     answerTimeoutMs = 180000,
     askRetries = 3,
-    stabilityChecks = 3,
-    stabilityDelayMs = 1000,
+    stabilityChecks = 2,
+    stabilityDelayMs = 400,
     minSendIntervalMs = 15000,
     rateLimitWaitMs = 300000,
     maxRateLimitRetries = 6,
@@ -241,7 +241,10 @@ export class DeepSeekBrowser {
   async _launchOnce(): Promise<void> {
     const options: Parameters<typeof chromium.launchPersistentContext>[1] = {
       headless: this.headless,
-      slowMo: 30,
+      // 30ms slowMo per Playwright action added up over thousands of DOM
+      // actions per run. The waits we need are explicit; keep a small value
+      // for stability of clicks/typing.
+      slowMo: 10,
       args: ['--disable-blink-features=AutomationControlled'],
     }
     if (this.channel) options.channel = this.channel
@@ -829,7 +832,7 @@ export class DeepSeekBrowser {
     }
 
     await this._setInputText(input, prompt)
-    await this.page.waitForTimeout(200)
+    await this.page.waitForTimeout(50)
 
     let sent = false
     for (const sel of SEND_SELECTORS) {
@@ -1007,7 +1010,11 @@ return this._netCapture
         !!cur && !isNew && normText(cur) === normText(beforeText)
       if (isNew && cur === last) {
         stable++
-        if (stable >= 2) {
+        // `stabilityChecks` / `stabilityDelayMs` are the real knobs here.
+        // They used to be dead config (hardcoded 2 checks with an 800ms tick),
+        // so the FIN-loop always cost ~1.6s per answer. Defaults are now
+        // 2 checks x 400ms (~0.8s saved per turn) and the values are honored.
+        if (stable >= Math.max(1, this.stabilityChecks - 1)) {
           if (isNew || !(await this._isGenerating())) {
             this._askDebug('RETURN stable curLen=' + cur.length)
             return cur
@@ -1018,7 +1025,7 @@ return this._netCapture
       }
       if (isNew) last = cur
       this._askDebug('FIN-loop isNew=' + isNew + ' sameAsBefore=' + sameAsBefore + ' stable=' + stable + ' curLen=' + cur.length + ' lastLen=' + last.length + ' netFresh=' + netFresh)
-      await this.page.waitForTimeout(800)
+      await this.page.waitForTimeout(Math.max(0, this.stabilityDelayMs))
     }
 
     if (last && (normText(last) !== normText(beforeText) || this._netCapture)) {

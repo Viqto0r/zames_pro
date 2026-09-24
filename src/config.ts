@@ -43,8 +43,8 @@ export const DEFAULTS: ZamesConfig = {
   browser: {
     answerTimeoutMs: 180000,
     askRetries: 3,
-    stabilityChecks: 3,
-    stabilityDelayMs: 1000,
+    stabilityChecks: 2,
+    stabilityDelayMs: 400,
     minSendIntervalMs: 15000,
     rateLimitWaitMs: 300000,
     maxRateLimitRetries: 6,

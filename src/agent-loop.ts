@@ -135,8 +135,11 @@ export async function runAgentLoop({
       commands: context?.commands.map((c) => c.name) ?? [],
     })
     safeThinking()
-    // system-prompt is an agent send: throttled (agent: true).
-    await browser.ask(systemPrompt, { timeout: 60_000, agent: true })
+    // system-prompt is the FIRST message of a fresh chat: the rate limit only
+    // applies to a rapid back-and-forth, so this send is not throttled
+    // (agent: false). Throttling it used to add a useless 15s pause at the
+    // start of every new session.
+    await browser.ask(systemPrompt, { timeout: 60_000, agent: false })
     await reportChat()
   }
 

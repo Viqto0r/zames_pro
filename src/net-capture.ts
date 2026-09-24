@@ -137,7 +137,11 @@ export function extractAnswer(body: string): string {
 
 // Saves the DeepSeek network response body to disk for post-mortem analysis.
 // The files live in ~/.zames/net-log — from them the real answer format is visible.
+// DEBUG ONLY: disabled unless ZAMES_NET_DEBUG=1. It writes a file per network
+// response (thousands of files / tens of MB) and is not needed for the agent
+// to work — the answer is taken from extractAnswer() in memory.
 export async function dumpNetBody(url: string, body: string): Promise<void> {
+  if (!process.env.ZAMES_NET_DEBUG) return
   try {
     const dir = path.join(os.homedir(), '.zames', 'net-log')
     await fs.mkdir(dir, { recursive: true })

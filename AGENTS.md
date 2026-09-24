@@ -125,7 +125,9 @@ IMPORTANT: the model's answer is read NOT from the DOM but by intercepting the
 network (`src/net-capture.ts`, `browser._installNetHook`). DeepSeek renders the
 answer (markdown+LaTeX) and distorts the arguments: the dollar sign in formulas
 is lost, escaped newlines become real, names are auto-linked. The interception
-returns the raw text from SSE/JSON. Answers are written to ~/.zames/net-log.
+returns the raw text from SSE/JSON. Answers are written to ~/.zames/net-log
+ONLY when the debug env flag `ZAMES_NET_DEBUG=1` is set (`dumpNetBody`); by
+default nothing is dumped (thousands of files / tens of MB otherwise).
 Additionally the interception yields the chat id earlier than it appears in the
 URL (browser._netChatId is used in getCurrentChatId as a fallback).
 Details — in the comments of src/net-capture.ts and src/browser.ts.
@@ -544,7 +546,14 @@ ru/en are present.
 sends to [chat.deepseek.com](https://chat.deepseek.com/). DeepSeek limits the rate
 ("Messages too frequent. Try again later."), so `_waitForSendSlot()` in
 `browser.ts` waits before every send until this interval has passed since the
-previous one (`_lastSentAt`). The first send in a session does not wait.
+previous one (`_lastSentAt`). The first send in a session does not wait, and
+the system-prompt send is `agent: false` (it opens a fresh chat, so throttling
+it only added a useless 15s pause at the start).
+
+`browser.stabilityChecks` / `browser.stabilityDelayMs` (2 x 400ms by default)
+— the final "the answer has settled" loop in `_askOnce()`: the answer is
+returned after `stabilityChecks - 1` stable ticks spaced by `stabilityDelayMs`.
+Both are honored (they used to be dead config with a hardcoded 800ms tick).
 
 Data in `~/.zames`: profile (browser), logs (transcript), undo, snapshots,
 `.sessions` (sessions/chats). Temp files — `<project>/tmp` (in .gitignore,
