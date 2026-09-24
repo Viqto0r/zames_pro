@@ -72,7 +72,7 @@ model copies `old_string` from the Read output). Optional `numbered=true`
 prepends `cat -n`-style line numbers — purely for reference, the model must
 NOT copy the prefix into Edit. Very long lines (>2000 chars) are truncated in
 both modes so one minified line can't flood the context; an empty file returns
-a `(файл пустой)` note instead of an empty string. When changing this format,
+a `(file is empty)` note instead of an empty string. When changing this format,
 keep the raw default: `Edit`/`MultiEdit` string matching would break otherwise.
 
 The tool list is assembled in `createTools()` (src/tools.ts) and passed into
@@ -80,6 +80,20 @@ the system-prompt. Extra tools (LS, MultiEdit, TodoWrite, ApplyPatch) live in
 `createExtraTools()` (src/extraTools.ts) and are merged in by `createTools()`.
 To add a tool — describe it in the relevant module and add
 it to the shared list.
+
+### Required-argument guard (the `undefined` file bug)
+
+Every tool that takes a required string arg (`path`, `command`, `pattern`) must
+pass it through the `req(v, name)` helper (in `src/tools.ts` and
+`src/extraTools.ts`) before use. Reason: the model sometimes emits a call that
+OMITS the required key (e.g. `{"tool":"Write","args":{"content":"..."}}`).
+`String(undefined)` is the literal `"undefined"`, so the old `safe(String(p))`
+happily created a file literally named `undefined` in the working directory.
+This really happened, repeatedly. `req()` throws
+`Missing required argument: <name>` for undefined/null/empty/`"undefined"`/
+`"null"`. Safety nets: `.gitignore` ignores `undefined`, and
+`test/undefined-guard.test.ts` covers it. When you add a tool with a required
+arg — use `req()`.
 
 ## Language policy (agent-facing vs user-facing)
 
