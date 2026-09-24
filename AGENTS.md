@@ -418,6 +418,15 @@ interactive launch.
 - `/reload` — re-read the logic modules without a restart
 - `/undo`, `/undo-list` (`/history`) — revert edits
 - `/transcript` — transcript file path
+- `/diff [--staged]` — show the working-tree git diff
+- `/cost` (alias `/usage`) — session stats from the transcript
+- `/export [file]` — write the session transcript to a Markdown file
+- `/doctor` — diagnose node, git, config, browser, clipboard, MCP
+- `/permissions` — show the confirmation settings
+- commands.ts - pure helpers for /diff, /cost, /export, /doctor,
+ /permissions, /add-dir, /review (tested in test/commands.test.ts)
+- `/add-dir <path>` — validate an extra directory
+- `/review [focus] [--staged]` — the agent reviews uncommitted changes
 - `/config` — view and edit settings (see "Configuration")
 - `/config lang <ru|en>` — switch the interface and agent language
 - `/debug-dom` — save the page HTML (selector debugging)
@@ -563,6 +572,8 @@ API: `saveSession`, `loadLastSession(workdir)`, `readSession(id)`,
 - `spinner.ts` — the "agent is working" spinner (random phrases)
 - `markdown.ts` — rendering the model's answers
 - `confirm.ts` — confirmations for dangerous operations
+- commands.ts - pure helpers for /diff, /cost, /export, /doctor,
+ /permissions, /add-dir, /review (tested in test/commands.test.ts)
 - `diff.ts` — showing diffs
 - `undo.ts` — backups/revert
 - `transcript.ts` — transcript writing

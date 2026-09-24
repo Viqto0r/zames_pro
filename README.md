@@ -93,6 +93,28 @@ The agent has the same style of tools as Claude Code / Codex CLI:
 All file tools stay inside the working directory (sandbox). `Write`/`Edit` and
 `MultiEdit`/`ApplyPatch` make a backup (undo) before touching a file.
 
+## Slash commands
+
+Type / in the prompt for hints (Tab completes). Besides the session and
+config commands (/new, /chats, /resume, /cd, /status, /config,
+/undo, /transcript, /mcp, /skills, /memory, /init, /reload,
+/debug-dom, /help, /exit) there are a few that mirror Claude Code /
+Codex CLI:
+
+- /diff [--staged] — show the working-tree git diff (--staged for the index).
+- /cost (alias /usage) — session stats: tasks, tool calls, duration
+ (DeepSeek web does not expose token counts).
+- /export [file] — write the session transcript to a Markdown file
+ (zames-export-<stamp>.md by default).
+- /doctor — diagnose node, git, config, browser, clipboard and MCP.
+- /permissions — show the confirmation settings (Write/Edit/Bash + the
+ alwaysConfirm regex list).
+- /add-dir <path> — validate an extra directory (the sandbox is fixed at
+ startup; relaunch with --dir to write there).
+- /review [focus] [--staged] — ask the agent to review uncommitted changes
+ and report findings (no code changes).
+
+
 ## Project context, skills and memory
 
 Like Codex / Claude Code, zames reads project instructions and reusable

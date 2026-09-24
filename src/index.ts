@@ -45,6 +45,19 @@ import {
 import { Transcript } from './transcript.js'
 import { UndoStore } from './undo.js'
 import { selfReview, selfDiff, selfApply, selfList } from './self-review.js'
+import {
+ formatDiff,
+ diffGitArgs,
+ parseTranscript,
+ summarizeTranscript,
+ renderCost,
+ formatExport,
+ defaultExportPath,
+ renderDoctor,
+ renderPermissions,
+ resolveExtraDir,
+ buildReviewPrompt,
+} from './commands.js'
 import { closeWeb } from './web.js'
 import {
   saveSession,
@@ -322,6 +335,13 @@ ${theme.bold(t('help.commands'))}
   ${t('help.cmd.undo')}
   ${t('help.cmd.undo_list')}
   ${t('help.cmd.transcript')}
+ ${t('help.cmd.diff')}
+ ${t('help.cmd.cost')}
+ ${t('help.cmd.export')}
+ ${t('help.cmd.doctor')}
+ ${t('help.cmd.permissions')}
+ ${t('help.cmd.add_dir')}
+ ${t('help.cmd.review')}
   ${t('help.cmd.config')}
   ${t('help.cmd.lang')}
   ${t('help.cmd.debug_dom')}
@@ -372,6 +392,13 @@ const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
   { name: '/undo', key: 'help.cmd.undo' },
   { name: '/undo-list', key: 'help.cmd.undo_list' },
   { name: '/transcript', key: 'help.cmd.transcript' },
+ { name: '/diff', key: 'help.cmd.diff' },
+ { name: '/cost', key: 'help.cmd.cost' },
+ { name: '/export', key: 'help.cmd.export' },
+ { name: '/doctor', key: 'help.cmd.doctor' },
+ { name: '/permissions', key: 'help.cmd.permissions' },
+ { name: '/add-dir', key: 'help.cmd.add_dir' },
+ { name: '/review', key: 'help.cmd.review' },
   { name: '/config', key: 'help.cmd.config' },
   { name: '/skills', key: 'help.cmd.skills' },
   { name: '/memory', key: 'help.cmd.memory' },
@@ -2343,6 +2370,158 @@ t('self.done_hint', { v: back }),
       console.log(theme.system(transcript.file || t('common.off')))
       continue
     }
+
+ if (lower === '/diff' || lower.startsWith('/diff ')) {
+ const staged = lower.indexOf("--staged") !== -1
+ const { runGit } = await import('./gitTools.js')
+ const probe = await runGit('git rev-parse --is-inside-work-tree', currentWorkdir, 5000)
+ if (probe.trim() !== 'true') {
+ console.error(theme.error(t('diff.not_repo')))
+ continue
+ }
+ const out = await runGit(diffGitArgs(staged), currentWorkdir, 20_000)
+ console.log(theme.system(formatDiff(out, { maxLines: 400 })))
+ continue
+ }
+
+ if (lower === '/cost' || lower === '/usage') {
+ let stats = summarizeTranscript([])
+ if (transcript.file) {
+ try {
+ const body = await fs.readFile(transcript.file, 'utf-8')
+ stats = summarizeTranscript(parseTranscript(body))
+ } catch {
+ // best-effort
+ }
+ }
+ console.log(theme.system(renderCost(stats, transcript.file)))
+ continue
+ }
+
+ if (lower === '/export' || lower.startsWith('/export ')) {
+ const arg = trimmed.slice('/export'.length).trim()
+ const target = arg
+ ? path.resolve(currentWorkdir, arg)
+ : defaultExportPath(currentWorkdir)
+ const rel = path.relative(sandboxRoot, target)
+ if (rel.startsWith('..') || path.isAbsolute(rel)) {
+ console.error(theme.error(t('export.outside')))
+ continue
+ }
+ let entries: ReturnType<typeof parseTranscript> = []
+ if (transcript.file) {
+ try {
+ entries = parseTranscript(await fs.readFile(transcript.file, 'utf-8'))
+ } catch {
+ entries = []
+ }
+ }
+ const md = formatExport(entries, {
+ chatId: currentChatId,
+ workdir: currentWorkdir,
+ })
+ await fs.writeFile(target, md, 'utf-8')
+ console.log(theme.assistant(t('export.done', { v: target })))
+ continue
+ }
+
+ if (lower === '/doctor') {
+ const { runGit } = await import('./gitTools.js')
+ let gitOk = false
+ let gitBranch: string | null = null
+ try {
+ const probe = await runGit('git rev-parse --is-inside-work-tree', currentWorkdir, 5000)
+ gitOk = probe.trim() === 'true'
+ if (gitOk) {
+ gitBranch = (await runGit('git branch --show-current', currentWorkdir, 5000)).trim()
+ }
+ } catch {
+ gitOk = false
+ }
+ let clipboardTool: string | null = null
+ try {
+ clipboardTool = hasClipboardTool() ? 'available' : null
+ } catch {
+ clipboardTool = null
+ }
+ const mcpStatus = mcpPool
+ ? mcpPool.status()
+ : { servers: [], toolCount: 0 }
+ console.log(
+ theme.system(
+ renderDoctor({
+ nodeVersion: process.version,
+ platform: process.platform,
+ workdir: currentWorkdir,
+ gitOk,
+ gitBranch,
+ configOk: true,
+ browserChannel: config.browserChannel,
+ clipboardTool,
+ mcpServers: mcpStatus.servers.length,
+ mcpTools: mcpStatus.toolCount,
+ transcriptOk: !!transcript.file,
+ }),
+ ),
+ )
+ continue
+ }
+
+ if (lower === '/permissions' || lower === '/allowed-tools') {
+ console.log(
+ theme.system(
+ renderPermissions({
+ write: config.confirmation.write,
+ edit: config.confirmation.edit,
+ bash: config.confirmation.bash,
+ alwaysConfirm: config.confirmation.alwaysConfirm,
+ }),
+ ),
+ )
+ continue
+ }
+
+ if (lower === '/add-dir' || lower.startsWith('/add-dir ')) {
+ const arg = trimmed.slice('/add-dir'.length).trim()
+ const res = resolveExtraDir(arg, currentWorkdir)
+ if ('error' in res) {
+ console.error(theme.warn(res.error))
+ continue
+ }
+ const stat = await fs.stat(res.path).catch(() => null)
+ if (!stat || !stat.isDirectory()) {
+ console.error(theme.error(t('adddir.not_dir', { v: res.path })))
+ continue
+ }
+ console.log(theme.system(t('adddir.note', { v: res.path })))
+ continue
+ }
+
+ if (lower === '/review' || lower.startsWith('/review ')) {
+ const rest = trimmed.slice('/review'.length).trim()
+ const staged = rest.indexOf("--staged") !== -1
+ const focus = rest.replace(/--staged/g, '').trim()
+ const reviewTask = buildReviewPrompt(focus, staged)
+ const reviewTools = mod.createTools(currentWorkdir, { undo })
+ if (editor) editor.busy = true
+ try {
+ await runTask(browser, reviewTools, reviewTask, currentWorkdir, {
+ transcript,
+ freshChat: false,
+ sendSystemPrompt: false,
+ ui: editor || null,
+ onChatReady: (chatId) => {
+ if (chatId) {
+ currentChatId = chatId
+ saveLastChat(chatId, currentWorkdir)
+ }
+ },
+ })
+ } finally {
+ if (editor) editor.busy = false
+ }
+ continue
+ }
 
     if (lower === '/undo') {
       const result = await undo.undoLast()
