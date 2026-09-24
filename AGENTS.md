@@ -508,12 +508,12 @@ parsed into tokens (the buffer may contain several keys: arrows+Enter) — see `
 
 Text subcommands (for scripts and non-TTY): `/config [menu|list]`,
 `/config get <path>`, `/config set <path> <val>`, `/config reset <path>`,
-`/config path`, `/config lang <ru|en>`. Values are written to the **project**
-`.zamesrc.json` (writeConfigValue/resetConfigValue), without freezing defaults
-into the user's file. After a change the runtime `config` object is updated —
-the value takes effect immediately (if it can apply without a restart).
-
-**To add a new setting**: add the field to `DEFAULTS` and to `types.ts`
+/config path, /config lang <ru|en>. Values are written to the home
+config ~/.zames/config.json, NOT the project .zamesrc.json (personal
+toggles such as confirmation.* must not leak into git and change defaults
+for other users; .zamesrc.json is ignored by git for the same reason).
+Writing does not freeze defaults into the file. After a change the runtime
+config object is updated - the value takes effect immediately.
 (the section interface), an entry to `CONFIG_SCHEMA` (with `labelKey`/`groupKey`)
 and the corresponding keys to the i18n `CATALOG`. Do not add secrets and values
 that require a restart (transcript.dir, browserChannel) to the schema.

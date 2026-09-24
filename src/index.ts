@@ -1490,12 +1490,12 @@ async function main(): Promise<void> {
 
   function configSetRaw(field: ConfigField, raw: string): void {
     const value = validateConfigValue(field, raw)
-    writeConfigValue('project', field.path, raw)
+    writeConfigValue('home', field.path, raw)
     setConfigRuntime(field.path, value)
   }
 
   function configResetField(field: ConfigField): void {
-    resetConfigValue('project', field.path)
+    resetConfigValue('home', field.path)
     // Reset the runtime value to the default.
     const def = getByPath(DEFAULTS, field.path)
     setConfigRuntime(field.path, def)
@@ -1669,6 +1669,7 @@ async function main(): Promise<void> {
           t('cfg.saved', {
             v: key,
             value: JSON.stringify(getByPath(config, key)),
+ file: CONFIG_PATHS.HOME_CONFIG,
           }),
         ),
       )

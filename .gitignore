@@ -9,3 +9,7 @@ tmp/
 # A tool call that omitted its path used to create this file by accident.
 # Kept as a safety net so it never reaches a commit.
 undefined
+
+# Per-project local settings. Kept out of git so personal toggles
+# (e.g. confirmation.*) never ship with the package.
+.zamesrc.json

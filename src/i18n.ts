@@ -331,7 +331,7 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: 'Использование: /config [menu | list | get <путь> | set <путь> <значение> | reset <путь> | path | lang <ru|en>]',
     en: 'Usage: /config [menu | list | get <path> | set <path> <value> | reset <path> | path | lang <ru|en>]',
   },
-  'cfg.saved': { ru: 'Сохранено: {v} = {value}', en: 'Saved: {v} = {value}' },
+  'cfg.saved': { ru: 'Сохранено: {v} = {value} ({file})', en: 'Saved: {v} = {value} ({file})' },
   'cfg.reset': { ru: 'Сброшено к дефолту: {v}', en: 'Reset to default: {v}' },
   'cfg.value': { ru: '{v} = {value}', en: '{v} = {value}' },
   'cfg.unknown_key': { ru: 'Неизвестный параметр: {v}', en: 'Unknown setting: {v}' },
@@ -341,6 +341,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   'cfg.keys': { ru: 'Доступные параметры:', en: 'Available settings:' },
   'cfg.lang_set': { ru: 'Язык переключён на {v}.', en: 'Language switched to {v}.' },
   'cfg.lang_usage': { ru: 'Использование: /config lang <ru|en>', en: 'Usage: /config lang <ru|en>' },
+ 'cfg.scope_current': { ru: 'Запись конфига: {v} ({file})', en: 'Config write scope: {v} ({file})' },
+ 'cfg.scope_usage': { ru: 'Использование: /config scope <project|home>. project = .zamesrc.json (в git), home = ~/.zames/. Для личных настроек (confirmations) выбери home, чтобы не коммитить их.', en: 'Usage: /config scope <project|home>. project = .zamesrc.json (committed), home = ~/.zames/. Use home for personal settings (confirmations) so they are not committed.' },
+ 'cfg.scope_set': { ru: 'Запись конфига: {v} ({file})', en: 'Config write scope: {v} ({file})' },
+ 'cfg.scope_bad': { ru: 'Неизвестный scope: {v}. Используй project или home.', en: 'Unknown scope: {v}. Use project or home.' },
 
   // ---------- system prompt ----------
   'prompt.answer_language': {
