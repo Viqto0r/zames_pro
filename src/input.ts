@@ -427,16 +427,19 @@ export class LineEditor {
 
   // ---------- rendering ----------
 
-  _eraseBlock() {
-    if (!this.rendered) return
-    if (this.cursorRowFromTop > 0) {
-      process.stdout.write(ESC + '[' + this.cursorRowFromTop + 'A')
-    }
-    process.stdout.write(CR + ESC + '[J')
-    this.rendered = false
-  }
 
-  _writeBlock() {
+ _eraseBlock() {
+ if (!this.rendered) return
+ const rows = process.stdout.rows || 24
+ const up = Math.min(this.cursorRowFromTop, Math.max(0, rows - 1))
+ if (up > 0) {
+ process.stdout.write(ESC + '[' + up + 'A')
+ }
+ process.stdout.write(CR + ESC + '[J')
+ this.rendered = false
+ }
+
+ _writeBlock() {
     const cols = process.stdout.columns || 80
     let out = ''
     let top = 0
@@ -486,6 +489,7 @@ export class LineEditor {
 
   // Print a block ABOVE the input line and put the input line back.
   printAbove(text: unknown): void {
+ this._stopDots()
     this._eraseBlock()
     process.stdout.write(String(text) + NL)
     this._writeBlock()
