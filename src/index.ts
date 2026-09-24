@@ -54,6 +54,7 @@ import {
 } from './sessions.js'
 import type { ToolDef } from './types.js'
 import type { ChatInfo } from './browser.js'
+import type { McpPool } from './mcp.js'
 
 interface PendingMessage {
   text: string
@@ -161,6 +162,7 @@ function loadLastChat(workdir = ''): string | null {
 // so we pick the extension ourselves — from the actual file of the current module.
 const SRC_EXT = /[.]ts$/.test(new URL(import.meta.url).pathname) ? '.ts' : '.js'
 const RELOADABLE = [
+  'mcp',
   'tools',
   'agent-loop',
   'system-prompt',
@@ -185,6 +187,7 @@ interface ModBag {
   selfList: typeof selfList
   closeWeb: typeof closeWeb
   createSpinner: typeof createSpinner
+  createMcpPool: typeof import('./mcp.js').createMcpPool
 }
 
 const mod: ModBag = {
@@ -197,6 +200,7 @@ const mod: ModBag = {
   selfList,
   closeWeb,
   createSpinner,
+  createMcpPool: null as unknown as ModBag['createMcpPool'],
 }
 
 async function reloadModules(): Promise<{ count: number; errors: string[] }> {
@@ -244,6 +248,12 @@ async function reloadModules(): Promise<{ count: number; errors: string[] }> {
       'spinner',
       'createSpinner',
     ) as ModBag['createSpinner']
+
+  if (pick('mcp', 'createMcpPool'))
+    mod.createMcpPool = pick(
+      'mcp',
+      'createMcpPool',
+    ) as ModBag['createMcpPool']
 
   return { count: loaded.size, errors }
 }
@@ -365,6 +375,7 @@ const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
   { name: '/skills', key: 'help.cmd.skills' },
   { name: '/memory', key: 'help.cmd.memory' },
   { name: '/init', key: 'help.cmd.init' },
+  { name: '/mcp', key: 'help.cmd.mcp' },
   { name: '/debug-dom', key: 'help.cmd.debug_dom' },
   { name: '/self-review', key: 'help.self.review' },
   { name: '/self-fix', key: 'help.self.fix' },
@@ -1069,6 +1080,22 @@ async function main(): Promise<void> {
 
   const undo = new UndoStore(config.undo)
 
+  // MCP servers: optional external tool providers (e.g. @playwright/mcp).
+  let mcpPool: McpPool | null = null
+  try {
+    mcpPool = await mod.createMcpPool({ workdir: currentWorkdir })
+    const st = mcpPool.status()
+    if (st.toolCount > 0) {
+      const names = st.servers.filter((x) => !x.error).map((x) => x.name).join(', ')
+      console.log(theme.system(t('mcp.loaded', { n: String(st.toolCount), servers: names })))
+    }
+    for (const srv of st.servers) {
+      if (srv.error) console.error(theme.warn(t('mcp.server_error', { name: srv.name, error: srv.error })))
+    }
+  } catch (e) {
+    console.error(theme.warn(t('mcp.load_failed', { v: (e as Error).message })))
+  }
+
   const browser = new DeepSeekBrowser({
     headless,
     debug,
@@ -1098,6 +1125,7 @@ async function main(): Promise<void> {
   // One-shot mode
   if (task) {
     const tools = mod.createTools(currentWorkdir, { undo })
+    if (mcpPool) tools.push(...mcpPool.tools)
 
     let freshChat = true
     let sendSystemPrompt = true
@@ -1139,6 +1167,7 @@ async function main(): Promise<void> {
     })
     await browser.close()
     await mod.closeWeb().catch(() => {})
+    if (mcpPool) await mcpPool.close().catch(() => {})
     transcript.close()
     return
   }
@@ -1172,6 +1201,7 @@ async function main(): Promise<void> {
     // Close the lazy headless browser from web.js, otherwise it would stay
     // as a separate process after the agent exits.
     await mod.closeWeb().catch(() => {})
+    if (mcpPool) await mcpPool.close().catch(() => {})
     transcript.close()
     console.log(theme.system(String.fromCharCode(10) + t('msg.bye')))
     process.exit(0)
@@ -2062,6 +2092,23 @@ t('self.done_hint', { v: back }),
       continue
     }
 
+    if (lower === '/mcp') {
+      if (!mcpPool) {
+        console.log(theme.dim(t('mcp.none')))
+        console.log(theme.dim(t('mcp.hint')))
+        continue
+      }
+      const st = mcpPool.status()
+      console.log(theme.system(t('mcp.title', { n: String(st.toolCount) })))
+      for (const srv of st.servers) {
+        if (srv.error) {
+          console.log('  ' + theme.user(srv.name) + ' ' + theme.dim(t('mcp.status_error', { v: srv.error })))
+        } else {
+          console.log('  ' + theme.user(srv.name) + ' ' + theme.dim('(' + String(srv.tools.length) + ')'))
+        }
+      }
+      continue
+    }
     if (lower === '/skills') {
       const { loadSkills } = await import('./context.js')
       const skills = await loadSkills(currentWorkdir)
@@ -2276,6 +2323,13 @@ t('self.done_hint', { v: back }),
           t('status.locale', { v: localeDisplayName(currentLocale) }),
         ),
       )
+      console.log(
+        theme.system(
+          t('status.mcp', {
+            v: mcpPool ? String(mcpPool.status().toolCount) : t('common.none'),
+          }),
+        ),
+      )
       continue
     }
 
@@ -2403,6 +2457,7 @@ t('self.done_hint', { v: back }),
     transcript.log('user_task', { task: taskText, workdir: currentWorkdir })
 
     const tools = mod.createTools(currentWorkdir, { undo })
+    if (mcpPool) tools.push(...mcpPool.tools)
     if (editor) editor.busy = true
     try {
       await runTask(browser, tools, taskText, currentWorkdir, {
@@ -2436,6 +2491,7 @@ t('self.done_hint', { v: back }),
   if (editor) editor.dispose()
   await browser.close().catch(() => {})
   await mod.closeWeb().catch(() => {})
+  if (mcpPool) await mcpPool.close().catch(() => {})
   transcript.close()
 }
 

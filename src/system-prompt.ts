@@ -148,6 +148,15 @@ You have access to the following tools:
 
 ${toolDescriptions}
 ${gitSection}${attachSection}${contextSection}
+## MCP tools
+
+Some tools are provided by external MCP servers and their names look
+like server__tool (for example playwright__browser_navigate). Treat
+them exactly like the built-in tools. A tool name with the __ separator
+and the (MCP server: ...) note in its description tells you which server
+it belongs to. The JSON Schema in the description lists the exact fields
+(including their descriptions and enums) - follow it.
+
 ## How to use tools
 
 To call ONE tool, respond with ONLY a JSON object (no markdown fences, no extra text):

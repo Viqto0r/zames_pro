@@ -106,6 +106,42 @@ Skills and custom commands show up in the «/» completion list and in `/help`.
 /init [--force]               analyze the project and create AGENTS.md
 ```
 
+## MCP (external tools)
+
+zames can use tools from [MCP](https://modelcontextprotocol.io) servers.
+The flagship example is @playwright/mcp: it gives the agent a real browser
+(navigate, click, snapshot, type, ...) on top of the one zames already uses
+for the DeepSeek chat.
+
+Drop a config file (same shape as Claude Code / Cursor):
+
+- `~/.zames/mcp.json` - global
+- `<project>/.zames/mcp.json` - project-scoped (later files win)
+- `<project>/.mcp.json` - the common MCP name
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest", "--headless", "--isolated"]
+    }
+  }
+}
+```
+
+IMPORTANT: keep the MCP browser isolated. @playwright/mcp defaults to the
+SAME profile directory as zames (~/.zames/profile). If it is launched
+without --isolated (or without its own --user-data-dir), the MCP browser
+and the agent browser fight over one profile and the DeepSeek chat shows
+"Something went wrong when opening your profile". Always pass --isolated
+as in the example above.
+Servers can also be remote ("url": "https://...", "transport": "sse").
+Their tools show up in the agent as `server__tool` (e.g.
+`playwright__browser_navigate`) and are listed with `/mcp` and in `/status`.
+A server that fails to connect is skipped with a warning and never breaks the
+agent.
+
 ## Configuration
 
 Global config: `~/.zames/config.json`

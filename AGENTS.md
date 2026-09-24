@@ -3,6 +3,40 @@
 This file is for those who work on the agent itself (including the agent
 during self-review). README.md is for users.
 
+## NEVER touch a running browser or another agent's processes
+
+HARD RULE for anyone working on zames: never kill, restart or clean up a
+browser process you did not start yourself. The agent runs on the same
+machine as the browser it drives, and possibly alongside ANOTHER running
+zames/agent instance that uses Playwright too.
+
+- Do NOT run pkill/kill/taskkill/Stop-Process on chrome/chromium/playwright.
+- Do NOT delete ~/.zames/profile or its Singleton* files while a browser may
+  be running - that is the profile the live agent uses, and removing it
+  mid-run breaks the agent <-> chat connection.
+- Do NOT call browser.close() / browser.stopGeneration() from an
+  out-of-band script to clean up. Only the agent loop owns those calls.
+- If you need a browser for a test, launch a SEPARATE one with its own
+  --user-data-dir (or --isolated for MCP). Never point a test at
+  ~/.zames/profile.
+
+Reason: a browser on the SAME --user-data-dir cannot coexist with another
+one. The second launch gets "Something went wrong when opening your
+profile" and both sides lose state. This actually happened: a verification
+run of @playwright/mcp (without --isolated) grabbed ~/.zames/profile,
+conflicted with the live agent, and the cleanup killed the agent browser.
+
+## MCP and the shared profile
+
+@playwright/mcp uses the SAME default profile directory as zames
+(~/.zames/profile) unless told otherwise. Two consequences:
+
+1. When configuring the playwright MCP server for zames, ALWAYS pass
+   --isolated (in-memory profile) or an explicit separate
+   --user-data-dir. Otherwise the MCP browser and the agent browser fight
+   over one profile and the chat breaks.
+2. When testing MCP by hand, also use --isolated / a temp --user-data-dir
+   and never the agent profile.
 ## What it is
 
 zames is a terminal coding agent. It does not use the model API directly; it
