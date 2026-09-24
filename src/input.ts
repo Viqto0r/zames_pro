@@ -400,6 +400,11 @@ export class LineEditor {
 
   unlock(): void {
     this.locked = false
+    // A lock may have set the status hint ("operation in progress, input is
+    // temporarily locked"). If nothing else replaced it (no spinner, no
+    // pending text), clear it here — otherwise the hint stays on screen
+    // forever after a fast operation like /new.
+    if (this.statusText) this.setStatus('')
   }
 
   setPrompt(str: string): void {

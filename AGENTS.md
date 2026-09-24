@@ -221,7 +221,9 @@ the first line. Current logic:
   mid-operation is not queued and sent right after it (which used to break the
   restored session). The lock shows a status hint; Ctrl+C/Ctrl+D still pass
   through so the user can abort. The lock is released in a `finally` in
-  src/index.ts around each operation;
+  src/index.ts around each operation; `unlock()` also clears that status
+  hint (otherwise "operation in progress" stayed on screen forever after a
+  fast operation like `/new`);
 - large pastes (3+ lines) are collapsed in the input line into a compact
   marker `[Pasted lines#N]` (`pasteReplacement`/`formatPasteMarker` in
   src/input.ts) so a pasted log/code block doesn't flood the line. The

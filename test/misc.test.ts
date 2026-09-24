@@ -124,7 +124,8 @@ test('lock блокирует ввод и submit, Ctrl+C проходит', () =
   const e = new LineEditor()
   e._render = () => {}
   e.printAbove = () => {}
-  e.setStatus = () => {}
+  // setStatus is kept real (not stubbed): unlock() must clear the status
+  // hint, otherwise "operation in progress" stays on screen forever.
   let submitted = ''
   let aborted = 0
   e.onSubmit = (t) => { submitted = t }
@@ -134,6 +135,7 @@ test('lock блокирует ввод и submit, Ctrl+C проходит', () =
 
   e.lock('wait')
   assert.equal(e.locked, true)
+  assert.ok(e.statusText.includes('wait'))
 
   // Text input is swallowed: the buffer stays empty.
   e._handle(Buffer.from('hello'))
@@ -147,9 +149,10 @@ test('lock блокирует ввод и submit, Ctrl+C проходит', () =
   e._handle(Buffer.from(CTRL_C))
   assert.equal(aborted, 1)
 
-  // After unlock, input works again.
+  // After unlock, input works again — and the lock status hint is gone.
   e.unlock()
   assert.equal(e.locked, false)
+  assert.equal(e.statusText, '')
   e.buf = 'hi'
   e.cursor = 2
   e._handle(Buffer.from(CRc))
