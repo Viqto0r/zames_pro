@@ -84,6 +84,15 @@ Additional safeguards against "stalls" (verified on real transcripts):
   The `<parameter>` parser missed it, and the call was silently lost (the
   agent stalled). Now the first balanced `{...}` inside the tag is parsed as
   args;
+- `parseToolCallPermissive()` also handles a call whose argument keys are
+  INLINE with `"tool"`, with no `"args"` wrapper at all —
+  `{"tool": "Bash", "command_note": "", "command": "git push ..."}}`.
+  The strict parser rejects it (there is no `obj.args`), and the permissive
+  one used to bail out early (`indexOf('"args"') === -1`), so the call was
+  counted as malformed and re-asked; after `MAX_MALFORMED_RETRIES` the run
+  stopped with the model's text as the final answer (a real "stopped after a
+  tool call" case from the transcript, `git push`). Now the object's keys are
+  flattened into `args` (the `tool` key is dropped);
 - in `runAgentLoop()` the `looksLikeToolCall` guard kicks in: if the answer
   looks like a call (there is `"tool":`, `invoke`, `parameter`, `tool_calls`,
   `DSML`, `function_call`) but is not recognized — the model is asked to

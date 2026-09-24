@@ -159,3 +159,36 @@ test('JSON-вызовы, разделённые прозой, собираютс
   const tools = (res as Array<{ tool: string }>).map((c) => c.tool)
   assert.deepEqual(tools, ['Read', 'Write'])
 })
+
+test('inline-args без обёртки "args" распознаётся (реальный кейс)', () => {
+  // Модель положила ключи аргументов рядом с "tool", без "args":
+  // {"tool": "Bash", "command_note": "", "command": "git push ..."}}
+  // Строгий парсер такое отвергал (нет obj.args), а permissive выходил
+  // раньше времени (indexOf('"args"') === -1) — вызов считался malformed.
+  const res = parseToolCall(
+    '{"tool": "Bash", "command_note": "", "command": "git push origin master"}}',
+  )
+  assert.ok(res, 'вызов должен распознаваться')
+  const c = first(res)
+  assert.equal(c.tool, 'Bash')
+  assert.equal(c.args.command, 'git push origin master')
+})
+
+test('inline-args: числа и булевы значения приводятся', () => {
+  const res = parseToolCall(
+    '{"tool": "Read", "path": "src/index.ts", "offset": 10, "limit": 20}',
+  )
+  assert.ok(res)
+  const c = first(res)
+  assert.equal(c.tool, 'Read')
+  assert.equal(c.args.offset, 10)
+  assert.equal(c.args.limit, 20)
+})
+
+test('inline-args не ломает обычный вызов с "args"', () => {
+  const res = parseToolCall(call('Bash', { command: 'ls' }))
+  assert.ok(res)
+  const c = first(res)
+  assert.equal(c.tool, 'Bash')
+  assert.equal(c.args.command, 'ls')
+})

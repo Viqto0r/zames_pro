@@ -1025,6 +1025,26 @@ function parseToolCallPermissive(
   if (!toolMatch) return null
   const tool = toolMatch[1]
 
+  // The model occasionally puts the argument keys INLINE with "tool" —
+  // {"tool": "Bash", "command": "..."} — with no "args" wrapper at all.
+  // The strict parser rejects it (no obj.args), and the permissive parser
+  // used to bail out too (indexOf('"args"') === -1). Such a call was
+  // reported as malformed and re-asked up to MAX_MALFORMED_RETRIES times;
+  // after the budget ran out the run stopped with the model's text as the
+  // final answer. Flatten the inline keys into args when "args" is absent.
+  if (text.indexOf('"args"') === -1) {
+    const braceIdx = text.indexOf('{')
+    if (braceIdx === -1) return null
+    const endBrace = findMatching(text, braceIdx, '{', '}')
+    const objText =
+      endBrace === -1 ? text.slice(braceIdx) : text.slice(braceIdx, endBrace + 1)
+    const inlineArgs = parseArgsPermissive(objText) || parseArgsGreedy(objText)
+    if (!inlineArgs) return null
+    delete inlineArgs.tool
+    // The value may be a string ("command": "...") or a number/bool.
+    return { tool, args: inlineArgs }
+  }
+
   const argsIdx = text.indexOf('"args"')
   if (argsIdx === -1) return null
   const openIdx = text.indexOf('{', argsIdx)
