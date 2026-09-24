@@ -340,7 +340,8 @@ interactive launch.
 - `/debug-dom` — save the page HTML (selector debugging)
 - `/skills` — list discovered skills (SKILL.md)
 - `/memory` — show AGENTS.md / MEMORY.md files in effect
-- `/init` — create a starter AGENTS.md for the project
+- `/init [--force]` — the agent analyzes the project and writes AGENTS.md
+  (via the Write tool, like Codex's /init); `--force` overwrites an existing file
 - `/help`, `help` — help
 - `/exit`, `/quit` — exit
 
@@ -572,3 +573,20 @@ Order:
 Pipeline requirements: the `NPM_TOKEN` secret in the repository settings.
 
 To check the result: the Actions tab on GitHub and the package page on npm.
+
+### Trigger phrases
+
+When the operator says something like "подними версию", "выпусти версию",
+"сделай релиз", "release", "bump the version", "cut a release" — they mean the
+FULL flow above, and you must do it yourself without asking for each step:
+1. choose the bump (patch/minor/major) from the nature of the changes since the
+   last tag (bug fix → patch, new feature → minor, breaking change → major),
+2. bump `version` in `package.json`,
+3. commit everything (code + version) with `chore: release X.Y.Z`,
+4. create the tag `vX.Y.Z`,
+5. push the branch AND the tag (`git push` + `git push origin vX.Y.Z`).
+
+Do NOT run `npm publish` — the tag push triggers the GitHub Actions pipeline
+(`.github/workflows/publish.yml`) which publishes to npm. After the push, tell
+the operator the new version and that CI will publish it; to verify, point them
+to the Actions tab and the npm package page.

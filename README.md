@@ -83,8 +83,9 @@ workflows from your repository and from `~/.zames`.
 
 - **AGENTS.md** — project instructions. Put one in the repo root (or in any
   parent folder of the working directory). Global instructions live in
-  `~/.zames/AGENTS.md` (and `~/.claude/CLAUDE.md`). Create a starter file with
-  `/init`.
+  `~/.zames/AGENTS.md` (and `~/.claude/CLAUDE.md`). Run `/init` and the agent
+  will explore the project and write an AGENTS.md based on the real build/test
+  commands and conventions (use `/init --force` to overwrite an existing file).
 - **MEMORY.md** — durable notes that persist between sessions. The agent
   appends useful facts here; you can edit it by hand.
 - **Skills** — a folder with a `SKILL.md` file (YAML frontmatter: `name`,
@@ -102,7 +103,7 @@ Skills and custom commands show up in the «/» completion list and in `/help`.
 ```
 /skills                       list discovered skills
 /memory                       show AGENTS.md / MEMORY.md in effect
-/init                         create a starter AGENTS.md
+/init [--force]               analyze the project and create AGENTS.md
 ```
 
 ## Configuration

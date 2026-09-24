@@ -49,6 +49,10 @@ test('все ключи каталога имеют оба языка (ru/en)', 
     'cfg.usage',
     'self.review_hint',
     'msg.interactive',
+    'init.analyzing',
+    'init.done',
+    'init.failed',
+    'init.overwrite',
   ]
   for (const k of keys) {
     const ru = translate('ru')(k)

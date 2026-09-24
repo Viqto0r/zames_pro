@@ -2098,25 +2098,87 @@ t('self.done_hint', { v: back }),
       continue
     }
 
-    if (lower === '/init') {
+    if (lower === '/init' || lower.startsWith('/init ')) {
+      const force = lower.includes('--force')
       const target = path.join(currentWorkdir, 'AGENTS.md')
       const exists = await fs.stat(target).catch(() => null)
-      if (exists) {
-        console.log(theme.warn(t('init.exists', { v: target })))
+      if (exists && !force) {
+        console.log(theme.warn(t('init.overwrite', { v: target })))
         continue
       }
-      const stub =
-        '# AGENTS.md\n\n' +
-        'Project instructions for the coding agent. Describe the build/test commands, ' +
-        'conventions, and any rules the agent must follow in this repository.\n\n' +
-        '## Commands\n\n' +
-        '- build: `...`\n' +
-        '- test: `...`\n' +
-        '- lint: `...`\n\n' +
-        '## Conventions\n\n' +
-        '- ...\n'
-      await fs.writeFile(target, stub, 'utf-8')
-      console.log(theme.assistant(t('init.created', { v: target })))
+      // Like Codex: let the agent explore the project and write AGENTS.md via
+      // the Write tool, so the file reflects the real build/test commands and
+      // conventions instead of a static template.
+      const initTask =
+        'The user ran /init. Analyze this repository and create an AGENTS.md ' +
+        'file at the project root that onboards future coding agents. Explore ' +
+        'the project first (read the README, package.json and other manifests, ' +
+        'configs, CI, and a sample of source files). Then write AGENTS.md with: ' +
+        'an overview of what the project is; build/typecheck/test/lint commands ' +
+        '(use the real scripts you find); code style and conventions; the repo ' +
+        'layout; and any gotchas or rules an agent must follow. Keep it concise ' +
+        'and factual, based only on what you find. Write the file with the Write ' +
+        'tool, then reply via respond with a one-line summary.'
+
+      const initTools = mod.createTools(currentWorkdir, { undo })
+      if (editor) editor.busy = true
+      console.log(theme.system(t('init.analyzing')))
+      try {
+        await mod.runAgentLoop({
+          browser,
+          tools: initTools,
+          task: initTask,
+          workdir: currentWorkdir,
+          maxIterations: maxIter,
+          freshChat: freshChatNext,
+          sendSystemPrompt: sendSystemPromptNext,
+          transcript,
+          onThinking: () => {},
+          onToolCall: (name, toolArgs) => {
+            if (editor) editor.toolCall(name, toolArgs)
+          },
+          onToolResult: (r) => {
+            if (editor) editor.toolResult(r)
+          },
+          onAssistantMessage: (m) => {
+            if (editor) editor.assistant(m)
+          },
+          onWarning: (m) => {
+            if (editor) editor.warning(m)
+          },
+          locale: currentLocale,
+        })
+      } catch (e) {
+        console.error(theme.error(t('init.failed')), (e as Error).message)
+      } finally {
+        if (editor) editor.busy = false
+      }
+
+      freshChatNext = false
+      sendSystemPromptNext = false
+      if (!currentChatId) {
+        currentChatId = await browser.getCurrentChatId()
+      }
+      saveLastChat(currentChatId, currentWorkdir)
+
+      const created = await fs.stat(target).catch(() => null)
+      if (created) {
+        console.log(theme.assistant(t('init.done', { v: target })))
+      } else {
+        const stub =
+          '# AGENTS.md\n\n' +
+          'Project instructions for the coding agent. Describe the build/test commands, ' +
+          'conventions, and any rules the agent must follow in this repository.\n\n' +
+          '## Commands\n\n' +
+          '- build: `...`\n' +
+          '- test: `...`\n' +
+          '- lint: `...`\n\n' +
+          '## Conventions\n\n' +
+          '- ...\n'
+        await fs.writeFile(target, stub, 'utf-8')
+        console.log(theme.warn(t('init.failed')))
+        console.log(theme.assistant(t('init.created', { v: target })))
+      }
       continue
     }
 
