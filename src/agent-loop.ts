@@ -383,11 +383,15 @@ export async function runAgentLoop({
               ')',
           )
         }
+ const large = String(rawResponse || '').length > 3000
+ const truncHint = large
+  ? 'Your call was too long and got cut off. Do NOT resend the same huge call: split it. For a large file use Write with small content_base64 pieces, or write several smaller files. Keep each tool call under about 2000 characters.'
+  : 'For example: a small JSON tool-call object'
         message =
           'Your previous answer was not recognized as a tool call. ' +
           'Reply with EXACTLY one JSON tool-call object, no text before or after. ' +
           'Do NOT use XML/DSML tags — plain JSON only. ' +
-          'For example: {"tool": "Read", "args": {"path": "src/index.js"}}'
+ truncHint
         continue
       }
 
