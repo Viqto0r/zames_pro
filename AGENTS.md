@@ -62,13 +62,48 @@ root: tools cannot read/write above it.
 ## Tools
 
 File tools (src/tools.ts): Read, Write, Edit, Bash, Glob, Grep.
+Extra tools (src/extraTools.ts): LS, MultiEdit, TodoWrite, ApplyPatch.
 Git (src/gitTools.ts): GitStatus, GitDiff, GitLog, GitAdd, GitCommit, GitPush.
 Web (src/web.ts): WebFetch, WebSearch.
 Service: respond (final answer to the user, finishes the task).
 
+`Read` returns RAW file content by default (the contract Edit relies on: the
+model copies `old_string` from the Read output). Optional `numbered=true`
+prepends `cat -n`-style line numbers — purely for reference, the model must
+NOT copy the prefix into Edit. Very long lines (>2000 chars) are truncated in
+both modes so one minified line can't flood the context; an empty file returns
+a `(файл пустой)` note instead of an empty string. When changing this format,
+keep the raw default: `Edit`/`MultiEdit` string matching would break otherwise.
+
 The tool list is assembled in `createTools()` (src/tools.ts) and passed into
-the system-prompt. To add a tool — describe it in the relevant module and add
+the system-prompt. Extra tools (LS, MultiEdit, TodoWrite, ApplyPatch) live in
+`createExtraTools()` (src/extraTools.ts) and are merged in by `createTools()`.
+To add a tool — describe it in the relevant module and add
 it to the shared list.
+
+## Language policy (agent-facing vs user-facing)
+
+Two different languages live in the code and MUST NOT be mixed up:
+
+- **Agent-facing text is ENGLISH.** Everything the MODEL sees — tool
+  descriptions, tool parameters, tool-result strings and errors, the
+  corrective/nudge messages in `agent-loop.ts`, the labels in the
+  system-prompt (`### <Tool>`, `Parameters:`), MCP tool descriptions — must be
+  in English (like Claude Code / Codex). These files must contain NO Cyrillic:
+  `src/tools.ts`, `src/extraTools.ts`, `src/gitTools.ts`, `src/web.ts`,
+  `src/system-prompt.ts`.
+- **User-facing text is LOCALIZED.** Everything the OPERATOR sees in the
+  terminal (help, service messages, spinner, warnings, `/config` labels) goes
+  through `src/i18n.ts` (`CATALOG`, picked by `ui.locale`). Do not hardcode a
+  user string in a module — add a key to CATALOG (both ru and en).
+- **Functional Cyrillic stays.** DOM selectors and regexes that match
+  DeepSeek's Russian UI (`button[aria-label*="отправ"]`, `/остановить/`,
+  rate-limit matchers), the `(прервано пользователем)` sentinel and the
+  bilingual `looksLikeUnfinishedWork` matchers are NOT prose — leave them.
+
+When adding a tool: write its description/params in English. When adding a
+message the operator sees: add it to CATALOG. Never put Russian prose into a
+tool description or an agent-loop nudge.
 
 ## tool-call format
 

@@ -153,7 +153,7 @@ test('неизвестный инструмент возвращает ошиб�
     workdir: process.cwd(),
   })
   assert.equal(result, 'done')
-  assert.ok(asks[1].includes('Неизвестный инструмент'), asks[1])
+  assert.ok(asks[1].includes('Unknown tool'), asks[1])
 })
 
 test('пустой/служебный ответ не завершает задачу, агент просит продолжить', async () => {

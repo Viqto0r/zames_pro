@@ -255,9 +255,9 @@ export async function runAgentLoop({
         error: (e as Error).message,
       })
       safeWarning(
-        'browser.ask() не вернул ответ за ' +
+        'browser.ask() did not return an answer within ' +
           Math.round(askDeadlineMs / 1000) +
-          'с — повторяю запрос.',
+          's — retrying the request.',
       )
       if (afterToolRetries < MAX_AFTER_TOOL_RETRIES) {
         afterToolRetries++
@@ -265,13 +265,13 @@ export async function runAgentLoop({
         continue
       }
       transcript?.log('ask_timeout_exhausted', {
-        message: 'ask() не вернул ответ и лимит повторов исчерпан',
+        message: 'ask() did not return an answer and the retry limit is exhausted',
       })
       safeWarning(
-        'browser.ask() перестал отвечать; лимит повторов исчерпан, ' +
-          'останавливаюсь. Ответа модели нет — проверьте чат DeepSeek вручную.',
+        'browser.ask() stopped responding; retry limit exhausted, ' +
+          'stopping. No model answer — check the DeepSeek chat manually.',
       )
-      return 'ask() watchdog: ответ модели не получен'
+      return 'ask() watchdog: no model answer received'
     }
     await reportChat()
     transcript?.log('assistant_raw', { response: rawResponse })
@@ -331,10 +331,10 @@ export async function runAgentLoop({
         response: String(rawResponse || '').slice(0, 200),
       })
       message =
-        'Ты остановился после результата инструмента. Продолжи работу: ' +
-        'ответь РОВНО одним JSON-объектом вызова инструмента, без текста до и после, ' +
-        'например: {"tool": "Bash", "args": {"command": "..."}}. ' +
-        'Если задача действительно выполнена — вызови respond с итоговым сообщением.'
+        'You stopped after a tool result. Continue the work: ' +
+        'reply with EXACTLY one JSON tool-call object, no text before or after, ' +
+        'for example: {"tool": "Bash", "args": {"command": "..."}}. ' +
+        'If the task is really done — call respond with the final message.'
       await new Promise((r) => setTimeout(r, 1500))
       continue
     }
@@ -357,7 +357,7 @@ export async function runAgentLoop({
     if (parsedCalls.some((p) => p && p._permissive)) {
       transcript?.log('permissive_parse', { response: rawResponse })
       if (debugLog) {
-        console.error('внимание: tool-call распознан нестрогим парсером')
+        console.error('warning: tool-call recognized by the permissive parser')
       }
     }
 
@@ -376,7 +376,7 @@ export async function runAgentLoop({
         })
         if (debugLog) {
           console.error(
-            'внимание: ответ похож на tool-call, но не распознан (попытка ' +
+            'warning: the answer looks like a tool-call but was not recognized (attempt ' +
               malformedRetries +
               '/' +
               MAX_MALFORMED_RETRIES +
@@ -384,10 +384,10 @@ export async function runAgentLoop({
           )
         }
         message =
-          'Твой предыдущий ответ не распознан как вызов инструмента. ' +
-          'Ответь РОВНО одним JSON-объектом вызова инструмента, без текста до и после. ' +
-          'НЕ используй XML/DSML-теги — только JSON. ' +
-          'Например: {"tool": "Read", "args": {"path": "src/index.js"}}'
+          'Your previous answer was not recognized as a tool call. ' +
+          'Reply with EXACTLY one JSON tool-call object, no text before or after. ' +
+          'Do NOT use XML/DSML tags — plain JSON only. ' +
+          'For example: {"tool": "Read", "args": {"path": "src/index.js"}}'
         continue
       }
 
@@ -416,7 +416,7 @@ export async function runAgentLoop({
         })
         if (debugLog) {
           console.error(
-            'внимание: пустой/служебный ответ, прошу продолжить (попытка ' +
+            'warning: empty/service answer, asking to continue (attempt ' +
               stallRetries +
               '/' +
               MAX_STALL_RETRIES +
@@ -424,9 +424,9 @@ export async function runAgentLoop({
           )
         }
         message =
-          'Продолжи выполнение задачи. Если нужен инструмент — ответь РОВНО ' +
-          'одним JSON-объектом вызова: {"tool": "...", "args": {...}}. ' +
-          'Если задача выполнена — вызови инструмент respond с итоговым сообщением.'
+          'Continue the task. If you need a tool — reply with EXACTLY ' +
+          'one JSON tool-call object: {"tool": "...", "args": {...}}. ' +
+          'If the task is done — call the respond tool with the final message.'
         continue
       }
 
@@ -444,7 +444,7 @@ export async function runAgentLoop({
         })
         if (debugLog) {
           console.error(
-            'внимание: ответ похож на незавершённую работу, прошу продолжить (попытка ' +
+            'warning: the answer looks like unfinished work, asking to continue (attempt ' +
               looksDoneRetries +
               '/' +
               MAX_LOOKSDONE_RETRIES +
@@ -452,11 +452,11 @@ export async function runAgentLoop({
           )
         }
         message =
-          'Похоже, ты собирался вызвать инструмент, но не вызвал. ' +
-          'Если задача ещё не выполнена — ответь РОВНО одним JSON-объектом ' +
-          'вызова инструмента, без текста до и после. ' +
-          'Если задача действительно выполнена — вызови respond с итоговым ' +
-          'сообщением оператору.'
+          'It looks like you meant to call a tool but did not. ' +
+          'If the task is not finished — reply with EXACTLY one JSON ' +
+          'tool-call object, no text before or after. ' +
+          'If the task is really done — call respond with the final ' +
+          'message to the operator.'
         continue
       }
 
@@ -472,12 +472,12 @@ export async function runAgentLoop({
         })
         message =
           (justRanTool
-            ? 'Ты остановился после вызова инструмента и написал обычный текст. '
-            : 'Ты написал обычный текст без вызова инструмента. ') +
-          'Задача ещё не завершена. Ответь РОВНО одним JSON-объектом вызова ' +
-          'инструмента, без текста до и после, например: ' +
+            ? 'You stopped after a tool call and wrote plain text. '
+            : 'You wrote plain text without a tool call. ') +
+          'The task is not finished. Reply with EXACTLY one JSON tool-call ' +
+          'object, no text before or after, for example: ' +
           '{\"tool\": \"Bash\", \"args\": {\"command\": \"...\"}}. ' +
-          'Если задача действительно выполнена — вызови respond с итоговым сообщением.'
+          'If the task is really done — call respond with the final message.'
         continue
       }
 
@@ -490,8 +490,8 @@ export async function runAgentLoop({
           response: rawResponse.slice(0, 500),
         })
         message =
-          'Последний шаг: вызови инструмент respond с итоговым сообщением ' +
-          'оператору. Не пиши обычный текст — только вызов respond, например: ' +
+          'Last step: call the respond tool with the final message ' +
+          'to the operator. Do not write plain text — only a respond call, for example: ' +
           '{\"tool\": \"respond\", \"args\": {\"message\": \"...\"}}'
         continue
       }
@@ -542,7 +542,7 @@ export async function runAgentLoop({
         transcript?.log('empty_respond', { attempt: stallRetries })
         if (debugLog) {
           console.error(
-            'внимание: пустой respond, прошу продолжить (попытка ' +
+            'warning: empty respond, asking to continue (attempt ' +
               stallRetries +
               '/' +
               MAX_STALL_RETRIES +
@@ -550,9 +550,9 @@ export async function runAgentLoop({
           )
         }
         message =
-          'Ты вызвал respond с пустым message. Если задача выполнена — ' +
-          'вызови respond с итоговым сообщением оператору. Если нет — ' +
-          'продолжи работу вызовом инструмента.'
+          'You called respond with an empty message. If the task is done — ' +
+          'call respond with the final message to the operator. If not — ' +
+          'continue the work with a tool call.'
         continue
       }
       // An EMPTY respond must NEVER be a silent final: the operator would see
@@ -563,10 +563,10 @@ export async function runAgentLoop({
       if (!isMeaningfulRespond(msg)) {
         transcript?.log('empty_respond_exhausted', { response: rawResponse })
         safeWarning(
-          'Модель вызвала respond без текста, и лимит повторов исчерпан. ' +
-            'Проверьте чат DeepSeek вручную.',
+          'The model called respond without text, and the retry limit is exhausted. ' +
+            'Check the DeepSeek chat manually.',
         )
-        return 'Модель не сформировала итоговое сообщение (пустой respond).'
+        return 'The model produced no final message (empty respond).'
       }
       safeAssistantMessage(msg)
       transcript?.log('assistant_final', { message: msg })
@@ -582,7 +582,7 @@ export async function runAgentLoop({
       const tool = tools.find((t) => t.name === call.tool)
 
       if (!tool) {
-        const err = `Неизвестный инструмент: ${call.tool}`
+        const err = `Unknown tool: ${call.tool}`
         safeToolResult(err)
         transcript?.log('tool_error', { tool: call.tool, error: err })
         results.push({ tool: call.tool, result: err })
@@ -596,7 +596,7 @@ export async function runAgentLoop({
       try {
         result = await tool.fn(call.args)
       } catch (e) {
-        result = `Ошибка: ${(e as Error).message}`
+        result = `Error: ${(e as Error).message}`
       }
 
       safeToolResult(result)
@@ -639,7 +639,7 @@ export async function runAgentLoop({
     }
   }
 
-  return 'Достигнут лимит итераций.'
+  return 'Iteration limit reached.'
 }
 
 // The answer looks like a tool call, but parseToolCall() did not recognize it.

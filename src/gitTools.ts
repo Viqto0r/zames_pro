@@ -29,15 +29,15 @@ export function runGit(
 
         if (!err) {
           const combined = (out + errStr).trim()
-          resolve(combined || '(команда выполнена, вывода нет)')
+          resolve(combined || '(command produced no output)')
           return
         }
 
         const parts: string[] = []
-        if (err.killed) parts.push(`⏱ Таймаут ${timeout}ms`)
+        if (err.killed) parts.push(`⏱ Timeout ${timeout}ms`)
         else if (err.code !== undefined && err.code !== null)
           parts.push(`Exit code: ${err.code}`)
-        else parts.push(`Ошибка: ${err.message}`)
+        else parts.push(`Error: ${err.message}`)
         if (out.trim()) parts.push(out.trim())
         if (errStr.trim()) parts.push(errStr.trim())
         resolve(parts.join(String.fromCharCode(10)))
@@ -145,7 +145,7 @@ export function createGitTools(workdir: string): ToolDef[] {
     {
       name: 'GitStatus',
       description:
-        'Показать git status рабочей директории. Возвращает ошибку, если это не git-репозиторий.',
+        'Show the git status of the working directory. Returns an error if this is not a git repository.',
       parameters: {},
       fn: async () => {
         const err = await ensureRepo()
@@ -157,7 +157,7 @@ export function createGitTools(workdir: string): ToolDef[] {
     {
       name: 'GitDiff',
       description:
-        'Показать git diff. По умолчанию незастейдженные изменения. Можно ограничить path и указать staged=true.',
+        'Show git diff. By default unstaged changes. Can be limited with path and staged=true.',
       parameters: { path: 'string?', staged: 'boolean?' },
       fn: async ({ path: p, staged }) => {
         const err = await ensureRepo()
@@ -171,7 +171,7 @@ export function createGitTools(workdir: string): ToolDef[] {
 
     {
       name: 'GitLog',
-      description: 'Показать последние N коммитов (по умолчанию 10).',
+      description: 'Show the last N commits (default 10).',
       parameters: { count: 'number?' },
       fn: async ({ count }) => {
         const err = await ensureRepo()
@@ -187,7 +187,7 @@ export function createGitTools(workdir: string): ToolDef[] {
     {
       name: 'GitAdd',
       description:
-        'Добавить файлы в индекс. Если paths не задан — git add -A (всё).',
+        'Stage files. If paths is not given — git add -A (everything).',
       parameters: { paths: 'string?' },
       fn: async ({ paths }) => {
         const err = await ensureRepo()
@@ -205,7 +205,7 @@ export function createGitTools(workdir: string): ToolDef[] {
     {
       name: 'GitCommit',
       description:
-        'Закоммитить застейдженное (если ничего не застейджено — сначала git add -A). Не пушит.',
+        'Commit staged changes (if nothing is staged — git add -A first). Does not push.',
       parameters: { message: 'string' },
       fn: async ({ message }) => {
         const err = await ensureRepo()
@@ -213,7 +213,7 @@ export function createGitTools(workdir: string): ToolDef[] {
 
         const msg = String(message || '')
         if (!msg.trim()) {
-          return 'Ошибка: message пустой.'
+          return 'Error: message is empty.'
         }
 
         // We stage everything only if the index is empty (as the description promises).
@@ -224,9 +224,9 @@ export function createGitTools(workdir: string): ToolDef[] {
         )
         const hasStaged =
           !/^\s*/.test(staged) &&
-          staged.trim() !== '(команда выполнена, вывода нет)'
+          staged.trim() !== '(command produced no output)'
         const addResult = hasStaged
-          ? '(индекс уже не пуст — add -A пропущен)'
+          ? '(index is not empty — add -A skipped)'
           : await runGit('git add -A', workdir, 20_000)
 
         const fs = await import('fs/promises')
@@ -250,7 +250,7 @@ export function createGitTools(workdir: string): ToolDef[] {
     {
       name: 'GitPush',
       description:
-        'Запушить ветку в origin. Требует настроенных креденшелов (SSH или Windows Credential Manager).',
+        'Push a branch to origin. Requires configured credentials (SSH or Windows Credential Manager).',
       parameters: { branch: 'string?', setUpstream: 'boolean?' },
       fn: async ({ branch, setUpstream }) => {
         const err = await ensureRepo()
@@ -260,7 +260,7 @@ export function createGitTools(workdir: string): ToolDef[] {
           branch && String(branch).trim()
             ? String(branch).trim()
             : (await runGit('git branch --show-current', workdir, 5000)).trim()
-        if (!b) return 'Ошибка: не удалось определить ветку для push.'
+        if (!b) return 'Error: could not determine the branch to push.'
 
         const flag = setUpstream ? '-u ' : ''
         const target = quoteArgs(b)

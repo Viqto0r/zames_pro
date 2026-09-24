@@ -80,7 +80,7 @@ export function buildSystemPrompt({
   const toolDescriptions = tools
     .map(
       (t2: ToolDef) =>
-        `### ${t2.name}\n${t2.description}\nПараметры: ${JSON.stringify(t2.parameters)}`,
+        `### ${t2.name}\n${t2.description}\nParameters: ${JSON.stringify(t2.parameters)}`,
     )
     .join('\n\n')
 

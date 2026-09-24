@@ -76,6 +76,23 @@ zames --version
 zames --help
 ```
 
+## Tools
+
+The agent has the same style of tools as Claude Code / Codex CLI:
+
+- **File tools** — `Read`, `Write`, `Edit`, `Bash`, `Glob`, `Grep`. `Read`
+  returns raw content by default; pass `numbered=true` to get `cat -n`-style
+  line numbers (for reference only — do not paste them into `Edit`).
+- **Extra tools** — `LS` (list a directory), `MultiEdit` (several edits to one
+  file applied atomically), `TodoWrite` (session task checklist), `ApplyPatch`
+  (multi-file patch in Codex's V4A format: `*** Begin Patch` … `*** End Patch`).
+- **Git** — `GitStatus`, `GitDiff`, `GitLog`, `GitAdd`, `GitCommit`, `GitPush`.
+- **Web** — `WebFetch`, `WebSearch`.
+- **Service** — `respond` (final answer to the operator, ends the task).
+
+All file tools stay inside the working directory (sandbox). `Write`/`Edit` and
+`MultiEdit`/`ApplyPatch` make a backup (undo) before touching a file.
+
 ## Project context, skills and memory
 
 Like Codex / Claude Code, zames reads project instructions and reusable

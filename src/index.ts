@@ -164,6 +164,7 @@ const SRC_EXT = /[.]ts$/.test(new URL(import.meta.url).pathname) ? '.ts' : '.js'
 const RELOADABLE = [
   'mcp',
   'tools',
+  'extraTools',
   'agent-loop',
   'system-prompt',
   'gitTools',
@@ -980,7 +981,7 @@ async function runTask(
       // just "stop" after a tool call with no explanation. Surface it.
       if (
         outcome &&
-        (outcome.startsWith('Достигнут лимит итераций') ||
+        (outcome.startsWith('Iteration limit reached') ||
           outcome.startsWith('ask() watchdog'))
       ) {
         ui.warning(outcome)

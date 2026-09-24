@@ -5,3 +5,7 @@ dist
 tmp/
 .husky/_
 
+
+# A tool call that omitted its path used to create this file by accident.
+# Kept as a safety net so it never reaches a commit.
+undefined

@@ -136,9 +136,9 @@ export function createWebTools(): ToolDef[] {
     {
       name: 'WebFetch',
       description:
-        'Загрузить URL и вернуть очищенный текст страницы (без HTML-тегов). ' +
-        'Используй для чтения документации, статей, README на GitHub. ' +
-        'Если страница рендерится JavaScript-ом и текст пустой — попробуй ещё раз с render=true.',
+        'Fetch a URL and return the cleaned text of the page (without HTML tags). ' +
+        'Use it to read docs, articles, READMEs on GitHub. ' +
+        'If the page is rendered by JavaScript and the text is empty — retry with render=true.',
       parameters: {
         url: 'string',
         render: 'boolean?',
@@ -146,7 +146,7 @@ export function createWebTools(): ToolDef[] {
       },
       fn: async ({ url, render, maxChars }: ToolArgs) => {
         if (!/^https?:\/\//i.test(String(url))) {
-          return `Ошибка: URL должен начинаться с http:// или https://`
+          return `Error: URL must start with http:// or https://`
         }
 
         const limit = Math.min(Number(maxChars) || MAX_TEXT, 60_000)
@@ -176,15 +176,15 @@ export function createWebTools(): ToolDef[] {
             return (
               `HTTP ${r.status}  ${r.url}\n` +
               `Content-Type: ${r.contentType}\n\n` +
-              `Страница почти пустая в сыром HTML (${text.length} символов). ` +
-              `Похоже, контент рендерится JavaScript-ом. ` +
-              `Повтори вызов с render=true.\n\n---\n${text}`
+              `The page is almost empty in raw HTML (${text.length} chars). ` +
+              `It looks like the content is rendered by JavaScript. ` +
+              `Retry with render=true.\n\n---\n${text}`
             )
           }
 
           return formatResult(r.status, r.url, text, limit)
         } catch (e) {
-          return `Ошибка загрузки ${url}: ${(e as Error).message}`
+          return `Error fetching ${url}: ${(e as Error).message}`
         }
       },
     },
@@ -192,15 +192,15 @@ export function createWebTools(): ToolDef[] {
     {
       name: 'WebSearch',
       description:
-        'Поиск в интернете через DuckDuckGo HTML (без API-ключа). ' +
-        'Возвращает список результатов: заголовок, URL, краткое описание.',
+        'Search the web via DuckDuckGo HTML (no API key). ' +
+        'Returns a list of results: title, URL, short description.',
       parameters: {
         query: 'string',
         maxResults: 'number?',
       },
       fn: async ({ query, maxResults }: ToolArgs) => {
         const q = encodeURIComponent(String(query || ''))
-        if (!q) return 'Ошибка: query пустой.'
+        if (!q) return 'Error: query is empty.'
 
         const limit = Math.min(Math.max(Number(maxResults) || 8, 1), 20)
 
@@ -216,7 +216,7 @@ export function createWebTools(): ToolDef[] {
           )
 
           if (r.status !== 200) {
-            return `DuckDuckGo вернул HTTP ${r.status}`
+            return `DuckDuckGo returned HTTP ${r.status}`
           }
 
           // We parse with simple regexes. The html.duckduckgo.com format is stable.
@@ -239,7 +239,7 @@ export function createWebTools(): ToolDef[] {
           }
 
           if (!results.length) {
-            return `Результатов не найдено. Возможно, изменился формат выдачи DuckDuckGo.`
+            return `No results found. The DuckDuckGo output format may have changed.`
           }
 
           const lines = results.map(
@@ -249,7 +249,7 @@ export function createWebTools(): ToolDef[] {
           )
           return lines.join('\n\n')
         } catch (e) {
-          return `Ошибка поиска: ${(e as Error).message}`
+          return `Search error: ${(e as Error).message}`
         }
       },
     },
@@ -265,6 +265,6 @@ function formatResult(status: number, url: string, text: string, limit: number):
   }
   return (
     `HTTP ${status}  ${url}\n\n${out}` +
-    (truncated ? `\n\n[...обрезано на ${limit} символах]` : '')
+    (truncated ? `\n\n[...truncated at ${limit} chars]` : '')
   )
 }
