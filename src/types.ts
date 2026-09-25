@@ -47,6 +47,15 @@ export interface TranscriptConfig {
   dir: string
 }
 
+export interface BrowserAuthConfig {
+  /** DeepSeek login/phone/email used for automatic sign-in. */
+  username: string
+  /** DeepSeek password used for automatic sign-in. */
+  password: string
+  /** Persist the authenticated session (cookies) for later auto-login. */
+  saveSession: boolean
+}
+
 export interface BrowserConfig {
   answerTimeoutMs: number
   askRetries: number
@@ -59,6 +68,8 @@ export interface BrowserConfig {
   deepThinking: boolean
   /** DeepSeek Smart search (web search) toggle. */
   webSearch: boolean
+  /** Credentials for automatic login when the session is logged out. */
+  auth: BrowserAuthConfig
 }
 
 import type { Locale } from './i18n.js'

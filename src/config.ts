@@ -10,7 +10,9 @@ const PROJECT_CONFIG = path.join(process.cwd(), '.zamesrc.json')
 
 export const DEFAULTS: ZamesConfig = {
   maxIterations: 0,
-  headless: false,
+  // Headless by default: the browser runs without a visible window. Set
+  // headless: false (or pass --headed) to watch/debug the DeepSeek page.
+  headless: true,
   debug: false,
   browserChannel: null,
 
@@ -50,6 +52,11 @@ export const DEFAULTS: ZamesConfig = {
     maxRateLimitRetries: 6,
     deepThinking: false,
     webSearch: true,
+    auth: {
+      username: '',
+      password: '',
+      saveSession: true,
+    },
   },
 
   ui: {
@@ -101,8 +108,10 @@ function deepMerge(
 // also serves as the "schema" for /config list and for set validation.
 //
 // To add a new setting — add it here and to DEFAULTS/types.ts.
-// Do NOT add secrets and paths that change on the fly (transcript.dir,
-// browserChannel) here — editing them requires a restart and may surprise.
+// Do NOT add paths that change on the fly (transcript.dir, browserChannel)
+// here — editing them requires a restart and may surprise. Note:
+// browser.auth.* IS in the schema (login/password for auto sign-in); the
+// password is masked in the menu/list/get output.
 
 export type ConfigValueType = 'boolean' | 'number' | 'string' | 'enum'
 
@@ -126,6 +135,9 @@ export const CONFIG_SCHEMA: ConfigField[] = [
   { path: 'ui.locale', type: 'enum', values: ['ru', 'en'], labelKey: 'cfg.f.ui_locale', groupKey: 'cfg.group.ui' },
  { path: 'maxIterations', type: 'number', min: 0, max: 100000, labelKey: 'cfg.f.maxIterations', groupKey: 'cfg.group.agent' },
   { path: 'headless', type: 'boolean', labelKey: 'cfg.f.headless', groupKey: 'cfg.group.agent' },
+  { path: 'browser.auth.username', type: 'string', labelKey: 'cfg.f.browser_authUsername', groupKey: 'cfg.group.browser' },
+  { path: 'browser.auth.password', type: 'string', labelKey: 'cfg.f.browser_authPassword', groupKey: 'cfg.group.browser' },
+  { path: 'browser.auth.saveSession', type: 'boolean', labelKey: 'cfg.f.browser_authSaveSession', groupKey: 'cfg.group.browser' },
   { path: 'debug', type: 'boolean', labelKey: 'cfg.f.debug', groupKey: 'cfg.group.agent' },
   { path: 'hotReload', type: 'boolean', labelKey: 'cfg.f.hotReload', groupKey: 'cfg.group.agent' },
   { path: 'confirmation.write', type: 'boolean', labelKey: 'cfg.f.confirmation_write', groupKey: 'cfg.group.confirmation' },

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import path from 'path'
 import fs from 'fs/promises'
+import { existsSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { theme } from './theme.js'
 
@@ -91,6 +92,16 @@ interface ReviewMode {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+// True when a DeepSeek session/credentials were stored earlier (auth.json).
+// Used by /doctor to report that auto re-login is ready.
+function authMarkerExists(): boolean {
+  try {
+    return existsSync(path.join(ZAMES_HOME, 'auth.json'))
+  } catch {
+    return false
+  }
+}
+
 // ---------- CLI parsing ----------
 
 const args = process.argv.slice(2)
@@ -129,7 +140,11 @@ let currentLocale: Locale = isLocale(config.ui?.locale)
 const t = (key: string, params?: Record<string, string | number>): string =>
   translate(currentLocale)(key, params)
 
-const headless = hasFlag('--headless') || config.headless
+// Headless is the default. --headed forces a visible window (useful for the
+// first sign-in or debugging the DOM). --headless keeps it explicit.
+const headless = hasFlag('--headed')
+  ? false
+  : hasFlag('--headless') || config.headless
 const debug = hasFlag('--debug') || config.debug
 const calibrate = hasFlag('--calibrate')
 const maxIterArg = getArg('--max-iter', null)
@@ -305,6 +320,7 @@ ${theme.bold(t('help.options'))}
   --resend-prompt    ${t('help.opt.resend_prompt')}
   --max-iter <n>     ${t('help.opt.max_iter', { n: config.maxIterations })}
   --headless         ${t('help.opt.headless')}
+  --headed           ${t('help.opt.headed')}
   --debug            ${t('help.opt.debug')}
   --calibrate        ${t('help.opt.calibrate')}
   --dev              ${t('help.opt.dev')}
@@ -1131,6 +1147,17 @@ async function main(): Promise<void> {
     debug,
     channel: config.browserChannel,
     ...config.browser,
+    locale: currentLocale,
+    // Persist credentials the operator typed in the terminal so the next
+    // launch can re-login silently after a logout.
+    onAuthSave: (username, password) => {
+      config.browser.auth.username = username
+      config.browser.auth.password = password
+      try {
+        writeConfigValue('home', 'browser.auth.username', username)
+        writeConfigValue('home', 'browser.auth.password', password)
+      } catch {}
+    },
   })
 
   const bootSpinner = mod.createSpinner(currentLocale)
@@ -1534,7 +1561,9 @@ async function main(): Promise<void> {
             ? cur
               ? t('common.on')
               : t('common.off')
-            : JSON.stringify(cur)
+            : /password/i.test(f.path) && String(cur).length > 0
+              ? '********'
+              : JSON.stringify(cur)
       const extra = f.values ? '  [' + f.values.join('|') + ']' : ''
       console.log(
         '    ' +
@@ -1644,7 +1673,11 @@ async function main(): Promise<void> {
           t('cfg.value', {
             v: key,
             value:
-              cur === undefined ? t('cfg.menu.default') : JSON.stringify(cur),
+              cur === undefined
+                ? t('cfg.menu.default')
+                : /password/i.test(key) && String(cur).length > 0
+                  ? '********'
+                  : JSON.stringify(cur),
           }),
         ),
       )
@@ -2474,6 +2507,7 @@ t('self.done_hint', { v: back }),
  mcpServers: mcpStatus.servers.length,
  mcpTools: mcpStatus.toolCount,
  transcriptOk: !!transcript.file,
+ authSaved: authMarkerExists(),
  }),
  ),
  )

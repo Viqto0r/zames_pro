@@ -186,6 +186,8 @@ export interface DoctorInput {
  mcpServers: number
  mcpTools: number
  transcriptOk: boolean
+ /** A stored DeepSeek session/credentials exist (auth.json present). */
+ authSaved?: boolean
 }
 
 export function renderDoctor(d: DoctorInput): string {
@@ -209,6 +211,11 @@ export function renderDoctor(d: DoctorInput): string {
  d.configOk ? 'loaded' : 'error: ' + (d.configError || 'unknown'),
  )
  row(true, 'browser', d.browserChannel ? d.browserChannel : 'bundled chromium')
+ row(
+ !!d.authSaved,
+ 'auth',
+ d.authSaved ? 'session saved (auto re-login ready)' : 'no saved session',
+ )
  row(
  !!d.clipboardTool,
  'clipboard',

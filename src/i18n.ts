@@ -59,7 +59,8 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   'help.opt.new_chat': { ru: 'начать новый чат (по умолчанию)', en: 'start a new chat (default)' },
   'help.opt.resend_prompt': { ru: 'дослать system-prompt в существующий чат', en: 'resend system-prompt into an existing chat' },
   'help.opt.max_iter': { ru: 'лимит итераций, 0 = без лимита ({n})', en: 'iteration limit, 0 = unlimited ({n})' },
-  'help.opt.headless': { ru: 'браузер без UI', en: 'headless browser' },
+  'help.opt.headless': { ru: 'браузер без UI (по умолчанию)', en: 'headless browser (default)' },
+  'help.opt.headed': { ru: 'показать окно браузера (отладка/вход)', en: 'show the browser window (debug/sign-in)' },
   'help.opt.debug': { ru: 'подробный лог', en: 'verbose log' },
   'help.opt.calibrate': { ru: 'режим калибровки селекторов', en: 'selector calibration mode' },
   'help.opt.dev': { ru: 'режим разработки: авто-перечитывание модулей', en: 'dev mode: auto-reload modules' },
@@ -322,6 +323,38 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   'cfg.f.browser_maxRateLimitRetries': { ru: 'Число повторов при лимите', en: 'Rate-limit retry count' },
   'cfg.f.browser_deepThinking': { ru: 'Глубокое мышление (долго; размышления не выводятся)', en: 'Deep thinking (slow; reasoning is hidden)' },
   'cfg.f.browser_webSearch': { ru: 'Умный поиск в интернете', en: 'Smart web search' },
+  'cfg.f.browser_authUsername': { ru: 'Логин DeepSeek для авто-входа', en: 'DeepSeek login for auto sign-in' },
+  'cfg.f.browser_authPassword': { ru: 'Пароль DeepSeek для авто-входа', en: 'DeepSeek password for auto sign-in' },
+  'cfg.f.browser_authSaveSession': { ru: 'Сохранять сессию входа в профиле', en: 'Persist the login session in the profile' },
+
+  // ---------- login / auth ----------
+  'auth.need_login': { ru: '🔐 Требуется вход в DeepSeek.', en: '🔐 DeepSeek sign-in required.' },
+  'auth.prompt_login': { ru: 'Логин DeepSeek (телефон/email): ', en: 'DeepSeek login (phone/email): ' },
+  'auth.prompt_password': { ru: 'Пароль DeepSeek: ', en: 'DeepSeek password: ' },
+  'auth.prompt_password_saved': {
+    ru: 'Пароль DeepSeek (Enter — использовать сохранённый): ',
+    en: 'DeepSeek password (Enter — use the saved one): ',
+  },
+  'auth.auto_login': { ru: 'Авто-вход в DeepSeek...', en: 'Signing in to DeepSeek...' },
+  'auth.auto_login_ok': { ru: 'Вход выполнен.', en: 'Signed in.' },
+  'auth.auto_login_failed': { ru: 'Авто-вход не удался: {v}', en: 'Auto sign-in failed: {v}' },
+  'auth.login_rejected': { ru: 'DeepSeek отклонил вход: {v}', en: 'DeepSeek rejected the sign-in: {v}' },
+  'auth.form_not_found': {
+    ru: 'Форма входа не распознана. Запустите с --headed и войдите вручную.',
+    en: 'Login form not recognized. Run with --headed and sign in manually.',
+  },
+  'auth.no_reason': {
+    ru: 'причина не определена (возможно, неверный логин/пароль или капча)',
+    en: 'no reason detected (possibly wrong login/password or a captcha)',
+  },
+  'auth.manual_hint': { ru: 'Войдите в DeepSeek в открытом браузере, затем нажмите Enter.', en: 'Sign in to DeepSeek in the open browser, then press Enter.' },
+  'auth.manual_hint_headless': {
+    ru: 'Войдите в DeepSeek: откройте https://chat.deepseek.com/ в своём браузере. Если включён headless — задайте логин/пароль через /config или запустите с --headed.',
+    en: 'Sign in to DeepSeek: open https://chat.deepseek.com/ in your browser. If headless is on — set the login/password via /config or run with --headed.',
+  },
+  'auth.session_saved': { ru: 'Сессия DeepSeek сохранена.', en: 'DeepSeek session saved.' },
+  'auth.session_restored': { ru: 'Сессия DeepSeek восстановлена.', en: 'DeepSeek session restored.' },
+  'auth.enter_to_continue': { ru: 'Нажмите Enter, чтобы продолжить...', en: 'Press Enter to continue...' },
 
   'cfg.menu.title': { ru: '⚙ Настройки — выбери параметр', en: '⚙ Settings — choose a parameter' },
   'cfg.menu.hint': { ru: '↑/↓ — выбор, Enter — изменить, q/Esc — выйти', en: '↑/↓ select, Enter edit, q/Esc quit' },

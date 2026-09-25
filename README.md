@@ -9,7 +9,42 @@ directory, reads and edits files, runs commands, and commits to git.
 ## Requirements
 
 - Node.js >= 18
-- A DeepSeek account (you log in manually in the browser window that opens on first launch)
+- A DeepSeek account. On first launch zames asks for your DeepSeek
+  login/password in the terminal (and stores them in `~/.zames/config.json`
+  after a successful sign-in, so a later logout is handled automatically
+  without asking you again). You can also sign in manually in the browser
+  window when the browser is headed.
+
+## Signing in
+
+The browser runs **headless by default**. When DeepSeek requires a sign-in,
+zames:
+
+1. reuses the session stored in the persistent profile (`~/.zames/profile`)
+   if it is still valid;
+2. otherwise signs in automatically with the saved credentials
+   (`browser.auth.username` / `browser.auth.password`);
+3. otherwise asks you for the login/password in the terminal (in a TTY) and,
+   after a successful sign-in, remembers them for next time;
+4. otherwise falls back to a manual sign-in hint.
+
+To sign in by hand (for example, if DeepSeek shows a captcha), run with a
+visible window:
+
+```bash
+zames --headed
+```
+
+The `--headless` flag (the default) and `headless: true` in the config keep
+the browser without a window; `--headed` / `headless: false` show it.
+
+Headless works out of the box: a headless Chrome normally advertises a
+`HeadlessChrome/...` User-Agent that DeepSeek's CDN blocks with a 403, so
+zames strips that marker before loading the page (keeping the real engine
+version). You do not need `--headed` just to log in.
+
+Credentials and toggles can also be edited from `/config`
+(`browser.auth.username`, `browser.auth.password`, `browser.auth.saveSession`).
 
 ## Installation
 
@@ -71,6 +106,7 @@ zames --new-chat
 zames --resend-prompt
 zames --dir <path>
 zames --headless
+zames --headed
 zames --debug
 zames --version
 zames --help

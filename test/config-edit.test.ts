@@ -71,3 +71,24 @@ test('writeConfigValue отвергает неизвестный ключ', asyn
   const mod = await freshConfig()
   assert.throws(() => mod.writeConfigValue('project', 'nope.nope', '1'))
 })
+
+test('browser.auth.* есть в схеме и валидируется как строка/bool', async () => {
+  const { getConfigField, validateConfigValue, DEFAULTS } = await freshConfig()
+  const user = getConfigField('browser.auth.username')
+  const pass = getConfigField('browser.auth.password')
+  const save = getConfigField('browser.auth.saveSession')
+  assert.ok(user && pass && save)
+  assert.equal(user!.type, 'string')
+  assert.equal(pass!.type, 'string')
+  assert.equal(save!.type, 'boolean')
+  assert.equal(validateConfigValue(pass!, 'p@ss w/rd'), 'p@ss w/rd')
+  // Defaults: no credentials, session persistence on.
+  assert.equal(DEFAULTS.browser.auth.username, '')
+  assert.equal(DEFAULTS.browser.auth.password, '')
+  assert.equal(DEFAULTS.browser.auth.saveSession, true)
+})
+
+test('headless по умолчанию включён', async () => {
+  const { DEFAULTS } = await freshConfig()
+  assert.equal(DEFAULTS.headless, true)
+})

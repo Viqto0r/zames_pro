@@ -41,6 +41,10 @@ function displayValue(
 ): string {
   if (value === undefined) return t('cfg.menu.default')
   if (typeof value === 'boolean') return value ? t('common.on') : t('common.off')
+  // Never print a password in clear text: show a fixed mask when set.
+  if (/password/i.test(field.path) && String(value).length > 0) {
+    return '********'
+  }
   return String(value)
 }
 

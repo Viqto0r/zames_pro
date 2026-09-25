@@ -10,9 +10,144 @@ import os from 'os'
 import fs from 'fs/promises'
 import { execSync } from 'child_process'
 import { theme } from './theme.js'
+import { translate, DEFAULT_LOCALE, type Locale } from './i18n.js'
+
+// Muted terminal input for passwords. We do NOT use readline here: readline
+// echoes the typed text through its own internal _writeToOutput, which cannot
+// be reliably overridden from outside (a real bug: the login prompt swallowed
+// the password step). Instead we read raw keystrokes from stdin and echo one
+// `*` per typed character. In a non-TTY (pipe/redirect) we fall back to a
+// plain line read.
+export function askPassword(question: string): Promise<string> {
+  return new Promise((resolve) => {
+    process.stdout.write(question)
+
+    // Non-interactive: read a single line from stdin as-is.
+    if (!process.stdin.isTTY) {
+      void import('readline').then(({ createInterface }) => {
+        const rl = createInterface({
+          input: process.stdin,
+          output: process.stdout,
+        })
+        rl.question('', (answer: string) => {
+          rl.close()
+          resolve(answer)
+        })
+      })
+      return
+    }
+
+    const stdin = process.stdin
+    const wasRaw = stdin.isRaw
+    stdin.setRawMode(true)
+    stdin.resume()
+
+    let value = ''
+    const onData = (buf: Buffer): void => {
+      const s = buf.toString('utf8')
+      for (const ch of s) {
+        const code = ch.charCodeAt(0)
+        // Enter / Ctrl+J -> done.
+        if (ch === '\r' || ch === '\n') {
+          done()
+          return
+        }
+        // Ctrl+C -> abort the whole process (same as elsewhere in the CLI).
+        if (code === 3) {
+          cleanup()
+          process.stdout.write('\n')
+          process.exit(130)
+        }
+        // Ctrl+D -> finish with whatever we have.
+        if (code === 4) {
+          done()
+          return
+        }
+        // Backspace (0x7f or 0x08): remove the last char and one star.
+        if (code === 127 || code === 8) {
+          if (value.length > 0) {
+            value = value.slice(0, -1)
+            process.stdout.write('\b \b')
+          }
+          continue
+        }
+        // Ignore other control characters (arrows, etc.).
+        if (code < 32) continue
+        value += ch
+        process.stdout.write('*')
+      }
+    }
+
+    const cleanup = (): void => {
+      stdin.removeListener('data', onData)
+      try {
+        stdin.setRawMode(wasRaw || false)
+      } catch {}
+      stdin.pause()
+    }
+
+    const done = (): void => {
+      cleanup()
+      process.stdout.write('\n')
+      resolve(value)
+    }
+
+    stdin.on('data', onData)
+  })
+}
 
 const USER_DATA_DIR = path.join(os.homedir(), '.zames', 'profile')
 const CHAT_URL = 'https://chat.deepseek.com/'
+
+// A headless Chrome advertises "HeadlessChrome/..." in its User-Agent, and
+// DeepSeek's CDN (CloudFront/WAF) rejects that UA with a plain "403 ERROR"
+// page before the app is even served — so a headless login looked broken while
+// a headed one worked (headed Chrome sends "Chrome/..."). We keep the real
+// engine version and only drop the "Headless" marker. When the operator
+// explicitly set a UA in the config, that one wins (see _launchOnce).
+export function sanitizeHeadlessUA(ua: string): string {
+  return String(ua || '').replace(/HeadlessChrome/g, 'Chrome')
+}
+// Written after a successful sign-in so the next launch knows a session was
+// stored in the persistent profile (used by /doctor and diagnostics).
+const AUTH_MARKER_FILE = path.join(os.homedir(), '.zames', 'auth.json')
+
+// DeepSeek sign-in form. The login page is served on the same origin and
+// swaps in a password field; the exact classes change, so we match loosely on
+// input types and the known placeholder/autocomplete attributes.
+const PASSWORD_SELECTORS = [
+  'input[type="password"]',
+  'input[autocomplete="current-password"]',
+  'input[autocomplete="new-password"]',
+]
+
+const LOGIN_SELECTORS = [
+  'input[type="email"]',
+  'input[type="tel"]',
+  'input[name="email"]',
+  'input[name="phone"]',
+  'input[name="username"]',
+  'input[placeholder*="email" i]',
+  'input[placeholder*="phone" i]',
+  'input[placeholder*="телефон" i]',
+  'input[placeholder*="почт" i]',
+  'input[autocomplete="username"]',
+  'input[autocomplete="email"]',
+]
+
+const LOGIN_SUBMIT_SELECTORS = [
+  // DeepSeek's real button: a div[role=button] with these classes and a
+  // <span class="ds-button__content">Log in</span> inside.
+  'div[role="button"].ds-button--primary.ds-button--filled',
+  'div[role="button"].ds-button--primary',
+  'button[type="submit"]',
+  'button:has-text("Log in")',
+  'button:has-text("Sign in")',
+  'button:has-text("Войти")',
+  'div[role="button"]:has-text("Log in")',
+  'div[role="button"]:has-text("Sign in")',
+  'div[role="button"]:has-text("Войти")',
+]
 
 const INPUT_SELECTORS = [
   'textarea',
@@ -154,6 +289,22 @@ export interface DeepSeekBrowserOptions {
   deepThinking?: boolean
   /** Enable DeepSeek's "Smart search" (web search) toggle. */
   webSearch?: boolean
+  /** Credentials for automatic sign-in when the session is logged out. */
+  auth?: {
+    username?: string
+    password?: string
+    saveSession?: boolean
+  }
+  /** Interface language for login prompts shown by the browser. */
+  locale?: Locale
+  /** Called after a successful interactive login, with the credentials used. */
+  onAuthSave?: (username: string, password: string) => void
+  /**
+   * Explicit User-Agent. When omitted, the browser derives one from the real
+   * engine version and strips the "Headless" marker (DeepSeek's CDN 403s a
+   * "HeadlessChrome/..." UA).
+   */
+  userAgent?: string
 }
 
 export interface ChatInfo {
@@ -180,6 +331,16 @@ export class DeepSeekBrowser {
   // is never read/shown). webSearch: the "Smart search" toggle.
   deepThinking: boolean
   webSearch: boolean
+  // Credentials for automatic sign-in. The password is stored in the config
+  // file (~/.zames/config.json) and is used only when DeepSeek has logged the
+  // session out. `saveSession` keeps the profile (cookies) so a fresh launch
+  // reuses the session instead of asking the operator every time.
+  auth: { username: string; password: string; saveSession: boolean }
+  // Interface language for the login prompts printed by the browser itself.
+  locale: Locale
+  // Called after a successful interactive login so index.ts can persist the
+  // credentials into the user config (the browser does not write config).
+  onAuthSave: ((username: string, password: string) => void) | null
   _lastSentAt: number
   _abort: boolean
   // The user pressed Esc/Ctrl+C — a "stop" for the WHOLE current batch of
@@ -203,6 +364,10 @@ export class DeepSeekBrowser {
   // remaining seconds. Lets the UI animate the pause status instead of
   // printing a static line (the dots used to be frozen during the pause).
   onSendPause: ((seconds: number) => void) | null
+  // User-Agent sent by the browser. In headless mode the "Headless" marker
+  // must be stripped (DeepSeek's CDN answers 403 to it); computed in the
+  // constructor, overridable by an explicit UA in the options/config.
+  userAgent: string
 
   constructor({
     headless = false,
@@ -219,6 +384,10 @@ export class DeepSeekBrowser {
  serverBusyWaitMs = 3000,
     deepThinking = false,
     webSearch = true,
+    auth,
+    locale,
+    onAuthSave,
+    userAgent,
   }: DeepSeekBrowserOptions = {}) {
     this.headless = headless
     this.debug = debug
@@ -234,6 +403,13 @@ export class DeepSeekBrowser {
  this.serverBusyWaitMs = serverBusyWaitMs
     this.deepThinking = deepThinking
     this.webSearch = webSearch
+    this.auth = {
+      username: (auth?.username || '').trim(),
+      password: auth?.password || '',
+      saveSession: auth?.saveSession !== false,
+    }
+    this.locale = locale || DEFAULT_LOCALE
+    this.onAuthSave = onAuthSave || null
     this._lastSentAt = 0
     this._abort = false
     this._stopped = false
@@ -245,6 +421,16 @@ export class DeepSeekBrowser {
     this._netHookInstalled = false
     this.onSendStart = null
     this.onSendPause = null
+    // An explicit UA (config/options) is respected as-is. Otherwise it stays
+    // empty here and is derived from the real engine UA after launch — see
+    // _fixHeadlessUserAgent (a headless "HeadlessChrome/..." UA gets 403 from
+    // DeepSeek's CDN).
+    this.userAgent = userAgent ? sanitizeHeadlessUA(userAgent) : ''
+  }
+
+  /** Translation bound to this browser's locale. */
+  _t(key: string, params?: Record<string, string | number>): string {
+    return translate(this.locale)(key, params)
   }
 
   async launch(): Promise<void> {
@@ -254,6 +440,32 @@ export class DeepSeekBrowser {
       await cleanSingletonFiles()
     }
     await this._launchOnce()
+    await this._fixHeadlessUserAgent()
+  }
+
+  /**
+   * A headless Chromium advertises "HeadlessChrome/<v>" in its User-Agent, and
+   * DeepSeek's CDN (CloudFront/WAF) answers that UA with a plain "403 ERROR"
+   * page before the app is served — so sign-in worked with a visible window and
+   * silently failed headless. Read the UA the engine really reports and, when
+   * it carries the "Headless" marker, relaunch once with a sanitized
+   * `--user-agent` (the marker removed, the real version kept). A UA passed
+   * explicitly in the options/config is never touched.
+   */
+  async _fixHeadlessUserAgent(): Promise<void> {
+    if (!this.headless) return
+    try {
+      const ua: string = await this.page.evaluate(() => navigator.userAgent)
+      const fixed = sanitizeHeadlessUA(ua)
+      if (fixed === ua) return
+      this.userAgent = fixed
+      if (this.debug)
+        console.error('profile: headless UA → перезапуск с обычным Chrome UA')
+      await this.context.close().catch(() => {})
+      await this._launchOnce()
+    } catch (e) {
+      if (this.debug) console.error('profile: UA-фикс не удался:', (e as Error).message)
+    }
   }
 
   async _launchOnce(): Promise<void> {
@@ -266,6 +478,7 @@ export class DeepSeekBrowser {
       args: ['--disable-blink-features=AutomationControlled'],
     }
     if (this.channel) options.channel = this.channel
+    if (this.userAgent) options.userAgent = this.userAgent
 
     try {
       this.context = await chromium.launchPersistentContext(
@@ -355,11 +568,46 @@ export class DeepSeekBrowser {
   }
 
   async waitForLogin(): Promise<void> {
-    const loggedIn = await this.isLoggedIn()
-    if (loggedIn) return
+    // 1) Already signed in (session cookie in the persistent profile)?
+    if (await this.isLoggedIn()) {
+      if (this.debug) console.error('auth: сессия уже активна')
+      return
+    }
 
-    console.log('\n🔐 Залогиньтесь в DeepSeek в открытом браузере.')
-    console.log('   После входа нажмите Enter в терминале...\n')
+    // 2) Try to sign in automatically with the saved credentials. The
+    //    password lives in the config (~/.zames/config.json) and is only used
+    //    when the session is logged out — i.e. exactly the "re-login without
+    //    asking" case. If the login form is absent (e.g. DeepSeek uses a
+    //    captcha / another provider), this fails and we fall through.
+    if (this.auth.username && this.auth.password) {
+      console.log(theme.system(this._t('auth.auto_login')))
+      const ok = await this._autoLogin().catch((e) => {
+        console.log(theme.warn(this._t('auth.auto_login_failed', { v: (e as Error).message })))
+        return false
+      })
+      if (ok) {
+        console.log(theme.assistant(this._t('auth.auto_login_ok')))
+        return
+      }
+    }
+
+    // 3) Ask the operator for credentials in the terminal, try them, and
+    //    only then fall back to the manual hint. Interactive only: in a
+    //    pipe/redirect (or headless without credentials) we print a hint.
+    const asked = await this._promptAndLogin().catch((e) => {
+      if (this.debug) console.error('auth: prompt error:', (e as Error).message)
+      return false
+    })
+    if (asked) return
+
+    // 4) Last resort: manual sign-in in the browser window.
+    console.log('\n' + theme.warn(this._t('auth.need_login')))
+    if (this.headless) {
+      console.log('   ' + this._t('auth.manual_hint_headless'))
+    } else {
+      console.log('   ' + this._t('auth.manual_hint'))
+    }
+    console.log('\n')
 
     const readline = await import('readline')
     const rl = readline.createInterface({
@@ -372,19 +620,290 @@ export class DeepSeekBrowser {
         resolve()
       })
     })
+    if (await this.isLoggedIn()) {
+      await this._persistSessionIfNeeded()
+      console.log(theme.assistant(this._t('auth.auto_login_ok')))
+    }
+  }
+
+  /**
+   * Try to sign in with this.auth. Returns true when the login form was
+   * filled and the session became active. Never throws for a missing form —
+   * the caller decides whether to fall back.
+   */
+  async _autoLogin(): Promise<boolean> {
+    const filled = await this._fillLoginForm(this.auth.username, this.auth.password)
+    if (!filled) return false
+    const ok = await this._waitLoggedIn(20_000)
+    if (ok) await this._persistSessionIfNeeded()
+    return ok
+  }
+
+  /**
+   * Ask the operator for login/password in the terminal (only in a TTY) and
+   * try them. An empty password falls back to the saved one. Returns true
+   * when the sign-in succeeded.
+   */
+  async _promptAndLogin(): Promise<boolean> {
+    if (!process.stdin.isTTY || !process.stdout.isTTY) return false
+    const hasSaved = !!(this.auth.username && this.auth.password)
+    // Prompt only when we have a login field to fill.
+    if (!(await this._loginFormVisible())) {
+      if (this.debug) console.error('auth: форма входа не найдена')
+      return false
+    }
+
+    console.log('\n' + theme.warn(this._t('auth.need_login')))
+
+    // Username via a normal readline question (echoed).
+    let user = this.auth.username
+    if (!user) {
+      const readline = await import('readline')
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+        terminal: true,
+      })
+      user = (
+        await new Promise<string>((resolve) =>
+          rl.question(this._t('auth.prompt_login'), (a) => resolve(a)),
+        )
+      ).trim()
+      rl.close()
+    }
+
+    // Password via raw keystroke reading, echoed as `*` (readline would echo
+    // it in clear or swallow the prompt — see askPassword).
+    const passPromptKey = hasSaved
+      ? 'auth.prompt_password_saved'
+      : 'auth.prompt_password'
+    const pass = await askPassword(this._t(passPromptKey))
+
+    const password = pass || this.auth.password
+    if (!user || !password) return false
+
+    console.log(theme.system(this._t('auth.auto_login')))
+    const filled = await this._fillLoginForm(user, password)
+    if (!filled) {
+      console.log(theme.warn(this._t('auth.form_not_found')))
+      return false
+    }
+    const ok = await this._waitLoggedIn(20_000)
+    if (ok) {
+      // Remember the credentials so the next launch can re-login silently.
+      this.auth.username = user
+      this.auth.password = password
+      await this._persistSessionIfNeeded()
+      this.onAuthSave?.(user, password)
+      console.log(theme.assistant(this._t('auth.auto_login_ok')))
+    } else {
+      // Detect a credentials error shown by DeepSeek, otherwise report a
+      // generic failure with the page hint so the operator can react.
+      const reason = await this._readLoginError()
+      if (reason) {
+        console.log(theme.error(this._t('auth.login_rejected', { v: reason })))
+      } else {
+        console.log(theme.warn(this._t('auth.auto_login_failed', { v: this._t('auth.no_reason') })))
+      }
+    }
+    return ok
+  }
+
+  /**
+   * Read a visible login/credentials error message from the page, if any.
+   * Best-effort: returns '' when nothing recognizable is found.
+   */
+  async _readLoginError(): Promise<string> {
+    try {
+      const txt = await this.page.evaluate(() => {
+        const sels = [
+          '[role="alert"]',
+          '[class*="error" i]',
+          '[class*="toast" i]',
+          '[class*="notification" i]',
+        ]
+        let out = ''
+        for (const s of sels) {
+          for (const el of Array.from(document.querySelectorAll(s))) {
+            const e = el as HTMLElement
+            const st = getComputedStyle(e)
+            if (st.display === 'none' || st.visibility === 'hidden') continue
+            const t = (e.innerText || '').trim()
+            if (t) out += ' ' + t
+          }
+        }
+        return out.replace(/\s+/g, ' ').trim()
+      })
+      return txt.slice(0, 200)
+    } catch {
+      return ''
+    }
+  }
+
+  /** Is a login form (password field) present on the page? */
+  async _loginFormVisible(): Promise<boolean> {
+    return await this.page
+      .locator(PASSWORD_SELECTORS.join(', '))
+      .first()
+      .isVisible({ timeout: 2000 })
+      .catch(() => false)
+  }
+
+  /**
+   * Fill the DeepSeek sign-in form with the given credentials and submit it.
+   * Returns false if the form (or the submit button) is not found.
+   */
+  async _fillLoginForm(username: string, password: string): Promise<boolean> {
+    const pwd = await this._findVisible(PASSWORD_SELECTORS, 4000)
+    if (!pwd) return false
+
+    // The email/phone field is the text input above the password field. Try
+    // the known selectors first, then fall back to the nearest text input.
+    let userInput: Locator | null = await this._findVisible(LOGIN_SELECTORS, 2000)
+    if (!userInput) {
+      // Find the index of the password input and use the closest preceding
+      // text/email/tel input as the login field.
+      const idx = await this.page.evaluate((pwdSel: string) => {
+        const p = document.querySelector(pwdSel) as HTMLInputElement | null
+        if (!p) return -1
+        const inputs = Array.from(
+          document.querySelectorAll('input'),
+        ) as HTMLInputElement[]
+        const pi = inputs.indexOf(p)
+        for (let i = pi - 1; i >= 0; i--) {
+          const t = (inputs[i].type || 'text').toLowerCase()
+          if (t === 'text' || t === 'email' || t === 'tel') return i
+        }
+        return -1
+      }, PASSWORD_SELECTORS[0])
+      if (idx >= 0) userInput = this.page.locator('input').nth(idx)
+    }
+    if (!userInput) return false
+
+    await this._setInputText(userInput, username)
+    await this._setInputText(pwd, password)
+    await this.page.waitForTimeout(150)
+
+    // Submit. DeepSeek's login form is a React form; the button text is
+    // localized and classes change, so we try, in order:
+    //   1. known submit selectors;
+    //   2. a submit/primary button inside the same <form> as the password;
+    //   3. pressing Enter in the password field;
+    //   4. clicking the password field's closest button sibling.
+    // After each attempt we give the login a short window and stop as soon as
+    // it succeeds, so a stray click does not fire on an already-logged-in page.
+    const tryLogin = async (): Promise<boolean> => {
+      if (await this._waitLoggedIn(3000)) return true
+      return false
+    }
+
+    // Precise first attempt: DeepSeek's button is
+    // <div role="button" class="ds-button ds-button--primary ...">
+    //   <span class="ds-button__content">Log in</span></div>
+    // Click exactly the one whose visible label is a login word, so we never
+    // hit "Log in with Google" or another primary button by mistake.
+    const precise = this.page
+      .locator('div[role="button"].ds-button--primary, button')
+      .filter({ hasText: /^\s*(log ?in|sign ?in|войти)\s*$/i })
+    const pc = await precise.count().catch(() => 0)
+    if (pc > 0) {
+      try {
+        await precise.last().click({ timeout: 2000 })
+        if (await tryLogin()) return true
+      } catch {}
+    }
+
+    for (const sel of LOGIN_SUBMIT_SELECTORS) {
+      const btn = this.page.locator(sel).last()
+      try {
+        if ((await btn.count()) === 0) continue
+        if (!(await btn.isVisible().catch(() => false))) continue
+        await btn.click({ timeout: 2000 })
+        if (await tryLogin()) return true
+      } catch {}
+    }
+
+    // Button inside the same form as the password field.
+    const formClicked = await this.page
+      .evaluate((pwdSel: string) => {
+        const p = document.querySelector(pwdSel) as HTMLInputElement | null
+        if (!p) return false
+        const form = p.closest('form')
+        const scope: ParentNode = form || document
+        const btns = Array.from(
+          scope.querySelectorAll(
+            'button[type="submit"], button, div[role="button"]',
+          ),
+        ) as HTMLElement[]
+        for (const b of btns) {
+          const txt = (b.textContent || '').trim().toLowerCase()
+          const aria = (b.getAttribute('aria-label') || '').toLowerCase()
+          if (/log ?in|sign ?in|войти|continue|продолж/.test(txt + ' ' + aria)) {
+            b.click()
+            return true
+          }
+        }
+        // Fallback: the primary-looking button in the scope.
+        const primary = btns.find((b) => {
+          const cls = (b.className || '').toString()
+          return /primary|submit|ds-button--primary/i.test(cls)
+        })
+        if (primary) {
+          primary.click()
+          return true
+        }
+        return false
+      }, PASSWORD_SELECTORS[0])
+      .catch(() => false)
+    if (formClicked && (await tryLogin())) return true
+
+    // Enter in the password field.
+    await pwd.press('Enter').catch(() => {})
+    return true
+  }
+
+  /** Poll isLoggedIn until it succeeds or the deadline passes. */
+  async _waitLoggedIn(timeoutMs: number): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs
+    while (Date.now() < deadline) {
+      if (await this.isLoggedIn().catch(() => false)) return true
+      await this.page.waitForTimeout(500)
+    }
+    return false
+  }
+
+  /**
+   * Persist the authenticated session. The persistent profile already keeps
+   * cookies on disk; `saveSession` (config) is kept as an explicit toggle for
+   * the operator. We additionally save a small marker so /doctor and the next
+   * launch can tell that a session exists.
+   */
+  async _persistSessionIfNeeded(): Promise<void> {
+    if (!this.auth.saveSession) return
+    if (!(await this.isLoggedIn().catch(() => false))) return
+    try {
+      await fs.mkdir(path.join(os.homedir(), '.zames'), { recursive: true })
+      await fs.writeFile(
+        AUTH_MARKER_FILE,
+        JSON.stringify({ at: new Date().toISOString() }, null, 2),
+        'utf-8',
+      )
+    } catch {}
   }
 
   async isLoggedIn(): Promise<boolean> {
-    for (const sel of INPUT_SELECTORS) {
-      try {
-        await this.page.locator(sel).first().waitFor({
-          state: 'visible',
-          timeout: 3000,
-        })
-        return true
-      } catch {}
+    // Single combined query with a short timeout: the old loop waited up to
+    // 3s PER selector (9s total), and _waitLoggedIn calls this repeatedly,
+    // which made login feel like it "hangs".
+    try {
+      await this.page
+        .locator(INPUT_SELECTORS.join(', '))
+        .first()
+        .waitFor({ state: 'visible', timeout: 2000 })
+      return true
+    } catch {
+      return false
     }
-    return false
   }
 
   async newChat(): Promise<void> {

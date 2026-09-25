@@ -611,9 +611,58 @@ The reasoning text is never read: `_readLastAnswerText()` skips elements
 inside `.ds-think-content`, and `net-capture.ts` already ignores
 `reasoning_content`/thinking chunks.
 
+## Headless by default + login (src/browser.ts)
+
+`headless` is **true by default** (DEFAULTS in config.ts). `--headed` (or
+`headless: false` in the config) shows the browser window for manual sign-in
+and selector debugging. `--headless` is kept as an explicit override.
+
+### Why headless "could not log in" while headed worked (fixed)
+
+A headless Chromium advertises `HeadlessChrome/<v>` in its User-Agent, and
+DeepSeek's CDN (CloudFront/WAF) answers that UA with a plain `403 ERROR` page
+BEFORE the app is served. A headed window sends `Chrome/<v>` and loads fine.
+So the SAME login worked headed and silently failed headless — the operator
+saw "headed logs in, headless doesn't". This was NOT a bug in the login
+selectors.
+
+Fix: `DeepSeekBrowser.launch()` calls `_fixHeadlessUserAgent()` right after
+the first launch. It reads the real UA from the page (`navigator.userAgent`),
+and if it carries the `Headless` marker, closes and relaunches once with
+the marker removed via the `userAgent` launch option (`sanitizeHeadlessUA()`,
+exported and unit-tested). Only the marker is stripped; the real engine
+version is kept. An explicit UA passed in the options/config wins and is
+never touched. When adding browser-launch logic, keep this in mind: any
+headless run must not send a `HeadlessChrome` UA to chat.deepseek.com.
+
+`DeepSeekBrowser.waitForLogin()` handles the DeepSeek session in layers:
+
+1. `isLoggedIn()` — the persistent profile (`~/.zames/profile`) still has a
+   valid cookie → nothing to do;
+2. `_autoLogin()` with `browser.auth.username` / `browser.auth.password` from
+   the config → the "logged out but credentials are known" case;
+3. `_promptAndLogin()` — in a TTY, ask the operator for login (normal
+   readline question) and password (raw keystroke reading, echoed as `*`,
+   `askPassword()`), try them, and on success call `onAuthSave` so index.ts
+   persists them with `writeConfigValue('home', …)` (the browser module never
+   writes the config itself). `askPassword()` reads stdin in raw mode instead
+   of readline because readline's echo (`_writeToOutput`) cannot be reliably
+   muted from outside — that bug made the password step hang; it echoes one
+   `*` per char and handles Backspace/Ctrl+C/Ctrl+D.
+4. a manual hint (`auth.manual_hint` / `auth.manual_hint_headless`) and a
+   final `isLoggedIn()` wait after Enter.
+
+The password field in `/config` is shown masked (`********`) in the menu, the
+text list, and `/config get`. `_persistSessionIfNeeded()` writes a marker
+`~/.zames/auth.json` after a successful login; `/doctor` reports it as the
+`auth` row (`renderDoctor({ authSaved })`). Login DOM selectors live in
+`PASSWORD_SELECTORS` / `LOGIN_SELECTORS` / `LOGIN_SUBMIT_SELECTORS` at the top
+of browser.ts; the login field is found by the closest preceding text input
+when no explicit selector matches.
+
 Data in `~/.zames`: profile (browser), logs (transcript), undo, snapshots,
-`.sessions` (sessions/chats). Temp files — `<project>/tmp` (in .gitignore,
-cleaned on launch).
+`.sessions` (sessions/chats), `auth.json` (session marker). Temp files —
+`<project>/tmp` (in .gitignore, cleaned on launch).
 
 ## Sessions (src/sessions.ts)
 
