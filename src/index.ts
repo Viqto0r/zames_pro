@@ -993,6 +993,7 @@ async function runTask(
         attachments: next.attachments || [],
         transcript,
         onThinking: () => ui.thinking(),
+        onSendPause: (seconds) => ui.sendPause(seconds),
         onToolCall: (name, toolArgs) => ui.toolCall(name, toolArgs),
         onToolResult: (result) => ui.toolResult(result),
         onAssistantMessage: (msg) => ui.assistant(msg),
@@ -1053,9 +1054,10 @@ async function runTask(
   } finally {
     stopWatching()
     ui.stop()
-    // Detach the send hook so a later browser.ask() outside this task cannot
+    // Detach the send hooks so a later browser.ask() outside this task cannot
     // start a stale spinner.
     browser.onSendStart = null
+    browser.onSendPause = null
   }
 }
 
@@ -1301,6 +1303,7 @@ async function main(): Promise<void> {
     const ed = new LineEditor({
       prompt: buildPrompt(),
       commands: buildSlashCommands(),
+      locale: currentLocale,
     })
     editor = ed
     ed.setTmpDir(TMP_DIR)
@@ -1482,6 +1485,7 @@ async function main(): Promise<void> {
       currentLocale = value
       config.ui.locale = value
       if (editor) {
+        editor.setLocale(value)
         editor.setCommands(buildSlashCommands())
         editor.setPrompt(buildPrompt())
       }

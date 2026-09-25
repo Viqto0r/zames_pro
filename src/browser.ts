@@ -199,6 +199,10 @@ export class DeepSeekBrowser {
   // a generation really begins, not during the pre-send phase (chat open,
   // throttle wait), which used to show a spinner with no work in flight.
   onSendStart: (() => void) | null
+  // Fired when the agent starts waiting out the send-interval pause, with the
+  // remaining seconds. Lets the UI animate the pause status instead of
+  // printing a static line (the dots used to be frozen during the pause).
+  onSendPause: ((seconds: number) => void) | null
 
   constructor({
     headless = false,
@@ -240,6 +244,7 @@ export class DeepSeekBrowser {
     this._netSniffLimit = 5
     this._netHookInstalled = false
     this.onSendStart = null
+    this.onSendPause = null
   }
 
   async launch(): Promise<void> {
@@ -813,22 +818,48 @@ export class DeepSeekBrowser {
     if (!this._lastSentAt) return
     const gap = this.minSendIntervalMs - (Date.now() - this._lastSentAt)
     if (gap <= 0) return
-    console.error(
-      theme.warn(`⏳ пауза ${Math.ceil(gap / 1000)}с перед отправкой`),
-    )
-    await this._sleepInterruptible(gap)
+    // Report the pause to the UI as an ANIMATED status (with the remaining
+    // seconds) instead of the old static console line — the dots used to be
+    // frozen here, which looked like the spinner had hung. The seconds are
+    // refreshed once per second, so the status visibly counts down.
+    const report = (leftMs: number) => {
+      const secs = Math.max(0, Math.ceil(leftMs / 1000))
+      if (this.onSendPause) {
+        try {
+          this.onSendPause(secs)
+        } catch {}
+      } else {
+        console.error(theme.warn(`⏳ send pause ${secs}s`))
+      }
+    }
+    report(gap)
+    await this._sleepInterruptible(gap, report)
   }
 
   // Sleep in small slices so Esc/Ctrl+C can cancel the wait promptly.
   // Returns true if the sleep was cut short by _abort.
-  async _sleepInterruptible(ms: number): Promise<boolean> {
+  //
+  // onTick (optional) is called about once per second with the remaining time,
+  // so the UI can show a live countdown during the pause.
+  async _sleepInterruptible(
+    ms: number,
+    onTick?: (leftMs: number) => void,
+  ): Promise<boolean> {
     const step = 100
     let left = ms
+    let sinceTick = 0
     while (left > 0) {
       if (this._abort) return true
       const chunk = Math.min(step, left)
       await this.page.waitForTimeout(chunk)
       left -= chunk
+      if (onTick) {
+        sinceTick += chunk
+        if (sinceTick >= 1000) {
+          sinceTick = 0
+          onTick(left)
+        }
+      }
     }
     return this._abort
   }

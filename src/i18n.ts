@@ -146,6 +146,9 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     en: 'Mixing the slurry…|Whipping it to a smooth paste…|Stirring logic into it…|Shaking it into a cocktail…|Whisking it around…|Blending it with caffeine…|Kneading dough out of it…|Whipping it into foam…|Tossing it with a spatula…|Kneading clay out of it…|Homogenizing it into concrete…|Shaking it until clear…|Blending it into a smoothie…|Mixing cement out of it…|Whipping porridge out of it…|Stirring it with hope…|Swirling the sediment…|Running the blender over it…|Mixing it beyond recognition…|Mixing mortar out of it…|Whipping a cocktail of it…|Stirring it with the deadline spatula…|Whipping foam out of it…|Homogenizing it evenly…|Tumbling it in a cement mixer…|Beating it into a uniform mass…|Stirring it until clear…|Mixing it from whatever is around…',
   },
   'spinner.hint': { ru: 'Esc — стоп', en: 'Esc — stop' },
+  'spinner.pause': { ru: '⏳ пауза {n}с перед отправкой', en: '⏳ pause {n}s before send' },
+  'editor.more': { ru: '…ещё {n}', en: '…{n} more' },
+  'editor.answer': { ru: '● Ответ', en: '● Answer' },
 
   // ---------- status ----------
   'status.workdir': { ru: 'Рабочая директория: {v}', en: 'Working directory: {v}' },

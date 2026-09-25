@@ -277,6 +277,39 @@ clears it in its `finally`. The early `safeThinking()` calls were removed. The
 spinner now appears only when a generation really begins, and the spinner in
 all other cases (tool calls, `/chats`, browser launch) is untouched.
 
+### The pause before a send is animated too (onSendPause)
+
+The `minSendIntervalMs` throttle (15s by default) is waited out INSIDE
+`_askOnce()`, BEFORE `onSendStart` fires. During that wait `_waitForSendSlot()`
+used to print a static `⏳ пауза Nс перед отправкой` line — there was no
+spinner animation, and the operator saw a frozen status ("the spinner does not
+move").
+
+Fix: `DeepSeekBrowser` exposes a second hook, `onSendPause(seconds)`, fired in
+`_waitForSendSlot()` when the pause starts AND refreshed about once per second
+with the remaining seconds (via the optional `onTick` of `_sleepInterruptible`),
+so the status visibly counts down. The static `console.error` line is now only
+a fallback when no hook is wired.
+`runAgentLoop()` wires `browser.onSendPause = safe(onSendPause)` alongside
+`onSendStart`, and `runTask()` (src/index.ts) passes `onSendPause: (s) =>
+ui.sendPause(s)` and clears `browser.onSendPause = null` in its `finally`.
+Both UIs implement `sendPause()`: `LineEditor` (src/input.ts) and the ora
+`SpinnerUI` (src/spinner.ts) start the SAME animated dot sequence as the
+thinking spinner, but with the pause text. In `LineEditor` the animation logic
+was factored into `_startAnimated(baseText)` (shared by `_startThinking()` and
+`sendPause()`); in src/spinner.ts the same for `startAnimated(baseText)`.
+Because the browser calls `onSendPause` about once per second (to refresh the
+countdown), both implementations only UPDATE the base text and keep the running
+dot timer while the animation is already active (`_animating`/`animating`
+flag) — otherwise the dots would restart from zero every second and look frozen
+on a single dot.
+The editor's own labels (`spinner.hint`, `spinner.pause`, `editor.more`,
+`editor.answer`) go through i18n: `LineEditor` takes a `locale` option
+(passed from src/index.ts, and refreshed via `editor.setLocale()` when
+`/config lang` changes it). The ora `SpinnerUI` already received `locale`.
+There must be NO hardcoded Russian in src/input.ts or src/spinner.ts — the
+interface strings live in the i18n `CATALOG`.
+
 ### A run that ends without a model answer is surfaced
 
 `runAgentLoop()` can end without any model answer: the iteration limit

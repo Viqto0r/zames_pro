@@ -5,6 +5,7 @@ import { translate, type Locale } from './i18n.js'
 
 export interface SpinnerUI {
   thinking: () => void
+  sendPause: (seconds: number) => void
   setPending: (text: string | null) => void
   toolCall: (name: string, args: unknown) => void
   toolResult: (result: unknown) => void
@@ -34,6 +35,12 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
   let dotTimer: ReturnType<typeof setInterval> | null = null
   let dotPhase = 0
   let pending: string | null = null
+  // Current animated base text and its dot renderer. Kept in variables (not
+  // captured in the interval closure) so sendPause() can update the text
+  // without restarting the dot animation — otherwise the dots would reset to
+  // zero every second and look frozen on a single dot.
+  let animBase = ''
+  let animating = false
 
   // Dot animation: start from an empty string (0 dots), then grow.
   // We align the width to the maximum (3) so the hint doesn't shift.
@@ -50,6 +57,7 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
       clearInterval(dotTimer)
       dotTimer = null
     }
+    animating = false
     if (spinner) spinner.stop()
   }
 
@@ -57,22 +65,31 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
   // so you can type the next message. Without it this is not obvious.
   const HINT = theme.dim('  ·  ' + translate(locale)('spinner.hint'))
 
-  // Start the animated status: brown text + "running" dots.
-  const startThinking = () => {
-    const base = theme.brown(stripEllipsis(randomThinkingPhrase(locale)))
+  // Run the animated status line: a brown base text plus a growing/shrinking
+  // "running" dot sequence. Shared by the thinking spinner and the send-pause
+  // indicator, so the pause is animated too (before, it was a static line and
+  // the dots did not move — the operator saw a frozen spinner).
+  const startAnimated = (baseText: string) => {
+    animBase = theme.brown(stripEllipsis(baseText))
     // The dots are the same color as the base and of fixed width — otherwise
     // the hint on the right "jumps" when the animation phase changes.
     const dots = (n: number) =>
       theme.brown(DOTS[n] + DOTS_PAD.slice(DOTS[n].length))
-    start(base + dots(0) + HINT)
+    start(animBase + dots(0) + HINT)
     dotPhase = 0
     if (dotTimer) clearInterval(dotTimer)
     dotTimer = setInterval(() => {
       if (!spinner) return
       dotPhase = (dotPhase + 1) % DOTS.length
-      spinner.text = base + dots(dotPhase) + HINT
+      spinner.text = animBase + dots(dotPhase) + HINT
     }, 400)
+    animating = true
     if (dotTimer.unref) dotTimer.unref()
+  }
+
+  // Start the animated status: brown text + "running" dots.
+  const startThinking = () => {
+    startAnimated(randomThinkingPhrase(locale))
   }
 
   // Show the typed but not yet sent text instead of the spinner.
@@ -82,6 +99,7 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
       clearInterval(dotTimer)
       dotTimer = null
     }
+    animating = false
     if (!spinner) spinner = ora('')
     spinner.start()
     spinner.text = theme.prompt('✎ ') + pending + HINT
@@ -94,6 +112,23 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
         return
       }
       startThinking()
+    },
+
+    // The agent is waiting out the send-interval pause before a real send.
+    // Show it as an ANIMATED status line with the remaining seconds, so the
+    // spinner keeps moving during the pause (previously a static console line
+    // was printed and the dots stayed frozen).
+    sendPause: (seconds: number) => {
+      if (pending) return
+      const label = translate(locale)('spinner.pause', { n: seconds })
+      // Update only the base text while the dot animation is already running,
+      // so the countdown refreshes without resetting the dots.
+      if (animating && dotTimer && spinner) {
+        animBase = theme.brown(stripEllipsis(label))
+        spinner.text = animBase + theme.brown(DOTS[dotPhase] + DOTS_PAD.slice(DOTS[dotPhase].length)) + HINT
+        return
+      }
+      startAnimated(label)
     },
 
     // The text the user types while the agent is working.
@@ -123,7 +158,7 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
       const rendered = renderMarkdown(msg)
       // Model answer marker: helps visually separate it from the user's input
       // (which is highlighted by the prompt with a golden arrow).
-      console.log(NL + theme.assistant('● Ответ') + NL)
+      console.log(NL + theme.assistant(translate(locale)('editor.answer')) + NL)
       console.log(rendered)
       console.log(theme.dim('─'.repeat(60)) + NL)
     },

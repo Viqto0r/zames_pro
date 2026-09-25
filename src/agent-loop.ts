@@ -23,6 +23,8 @@ export interface RunAgentLoopOptions {
   sendSystemPrompt?: boolean
   transcript?: TranscriptLike | null
   onThinking?: () => void
+  /** Fired during the send-interval pause with the remaining seconds. */
+  onSendPause?: (seconds: number) => void
   onAssistantThought?: (text: string) => void
   onToolCall?: (name: string, args: ToolArgs) => void
   onToolResult?: (result: unknown) => void
@@ -47,6 +49,7 @@ export async function runAgentLoop({
   transcript = null,
   attachments = [],
   onThinking = () => {},
+  onSendPause = () => {},
   onAssistantThought = () => {},
   onToolCall = () => {},
   onToolResult = () => {},
@@ -76,6 +79,10 @@ export async function runAgentLoop({
   // Previously safeThinking() fired before browser.ask(), so the spinner ran
   // through the whole throttle pause / chat-open phase with nothing in flight.
   browser.onSendStart = safeThinking
+  // Animate the send-interval pause too: the browser reports the remaining
+  // seconds, the UI shows an animated status instead of a frozen line.
+  const safeSendPause = safe(onSendPause)
+  browser.onSendPause = safeSendPause
   const safeAssistantThought = safe(onAssistantThought)
   const safeToolCall = safe(onToolCall)
   const safeToolResult = safe(onToolResult)

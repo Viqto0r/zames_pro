@@ -63,3 +63,37 @@ test('onSendStart is wired to onThinking and cleared after the loop', async () =
   assert.equal(result, 'готово')
   assert.ok(thinkingCalls >= 1, 'onThinking must have fired at least once')
 })
+
+test('onSendPause is forwarded to the UI callback', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-spinner'))
+  const tools: ToolDef[] = [
+    {
+      name: 'respond',
+      description: 'respond',
+      parameters: { message: 'string' },
+      fn: (args) => String(args['message']),
+    },
+  ]
+  const browser = makeBrowser([jsonCall('respond', { message: 'готово' })])
+  // The browser reports a send-pause: the loop must forward the seconds to
+  // the UI hook (which animates the pause status).
+  const originalAsk = browser.ask.bind(browser)
+  browser.ask = async function (this: BrowserLike, text: string) {
+    if (this.onSendPause) this.onSendPause(12)
+    return originalAsk(text)
+  } as BrowserLike['ask']
+  const pauses: number[] = []
+  let hookSeen: ((s: number) => void) | null | undefined
+
+  await runAgentLoop({
+    browser,
+    tools,
+    task: 'privet',
+    workdir: dir,
+    onSendPause: (seconds) => {
+      pauses.push(seconds)
+    },
+  })
+
+  assert.deepEqual(pauses, [12])
+})

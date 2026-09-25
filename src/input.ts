@@ -1,6 +1,7 @@
 import { theme } from './theme.js'
 import { renderMarkdown } from './markdown.js'
 import { randomThinkingPhrase, stripEllipsis } from './spinner.js'
+import { translate, type Locale } from './i18n.js'
 import {
   AttachmentStore,
   parseImagePaste,
@@ -87,7 +88,6 @@ export function expandPastes(pastes: PasteBlock[], text: string): string {
 // We align the width to the maximum (3) so the hint doesn't shift.
 const DOTS = ['', '.', '..', '...']
 const DOTS_PAD = '   '
-const HINT = theme.dim('  ·  Esc — стоп')
 
 function safeJson(v: unknown): string {
   try {
@@ -217,6 +217,7 @@ export interface SlashCommand {
 export interface LineEditorOptions {
   prompt?: string
   commands?: SlashCommand[]
+  locale?: Locale
 }
 
 export class LineEditor {
@@ -233,6 +234,9 @@ export class LineEditor {
   onCtrlC: (() => void) | null
   _inPaste: boolean
   _dotTimer: ReturnType<typeof setInterval> | null
+  // True while the dot-animation timer is running. Lets sendPause() update
+  // only the base text (remaining seconds) without restarting the timer.
+  _animating: boolean
   _dotPhase: number
   _thinkBase: string
   _wasRaw: boolean
@@ -261,8 +265,12 @@ export class LineEditor {
   // user could type and send a message mid-operation, and it would be queued
   // and sent right after the operation, breaking the restored session.
   locked: boolean
+  // Interface language for the editor's own labels (hint, answer marker,
+  // pause status). Everything the OPERATOR sees must be localized.
+  locale: Locale
 
-  constructor({ prompt = '> ', commands = [] }: LineEditorOptions = {}) {
+  constructor({ prompt = '> ', commands = [], locale = 'ru' }: LineEditorOptions = {}) {
+    this.locale = locale
     this.promptStr = prompt
     this.buf = ''
     this.cursor = 0
@@ -276,6 +284,7 @@ export class LineEditor {
     this.onCtrlC = null
     this._inPaste = false
     this._dotTimer = null
+    this._animating = false
     this._dotPhase = 0
     this._thinkBase = ''
     this._wasRaw = false
@@ -412,6 +421,12 @@ export class LineEditor {
     this._render()
   }
 
+  // Update the interface language (labels: hint, answer marker, pause).
+  setLocale(locale: Locale): void {
+    this.locale = locale
+    this._render()
+  }
+
   // Update slash-command descriptions (interface language change).
   setCommands(commands: SlashCommand[]): void {
     this.slashCommands = commands
@@ -466,7 +481,7 @@ export class LineEditor {
       })
       out += NL + lines.join(NL)
       const hidden = sugg.length - shown.length
-      if (hidden > 0) out += NL + theme.dim('   …ещё ' + hidden)
+      if (hidden > 0) out += NL + theme.dim('   ' + translate(this.locale)('editor.more', { n: hidden }))
     }
 
     process.stdout.write(out)
@@ -507,6 +522,7 @@ export class LineEditor {
       clearInterval(this._dotTimer)
       this._dotTimer = null
     }
+    this._animating = false
   }
 
   _dots(n: number): string {
@@ -515,19 +531,33 @@ export class LineEditor {
     return theme.brown(DOTS[n] + DOTS_PAD.slice(DOTS[n].length))
   }
 
+  // Status-line hint ("Esc — stop"), localized.
+  _hint(): string {
+    return theme.dim('  ·  ' + translate(this.locale)('spinner.hint'))
+  }
+
   _startThinking() {
     if (this.pendingText) {
-      this.setStatus(theme.prompt('✎ ') + this.pendingText + HINT)
+      this.setStatus(theme.prompt('✎ ') + this.pendingText + this._hint())
       return
     }
-    this._thinkBase = theme.brown(stripEllipsis(randomThinkingPhrase()))
+    this._startAnimated(randomThinkingPhrase())
+  }
+
+  // Animated status: a brown base text plus a growing "running" dot sequence.
+  // Shared by the thinking spinner and the send-pause indicator, so the pause
+  // is animated too (previously the pause was a static console line and the
+  // dots stayed frozen).
+  _startAnimated(baseText: string) {
+    this._thinkBase = theme.brown(stripEllipsis(baseText))
     this._dotPhase = 0
-    this.setStatus(this._thinkBase + this._dots(0) + HINT)
+    this.setStatus(this._thinkBase + this._dots(0) + this._hint())
     this._stopDots()
     this._dotTimer = setInterval(() => {
       this._dotPhase = (this._dotPhase + 1) % DOTS.length
-      this.setStatus(this._thinkBase + this._dots(this._dotPhase) + HINT)
+      this.setStatus(this._thinkBase + this._dots(this._dotPhase) + this._hint())
     }, 400)
+    this._animating = true
     if (this._dotTimer.unref) this._dotTimer.unref()
   }
 
@@ -535,11 +565,27 @@ export class LineEditor {
     this._startThinking()
   }
 
+  // The agent is waiting out the send-interval pause before a real send.
+  // Show it as an ANIMATED status with the remaining seconds. The browser
+  // calls this repeatedly (once per second), so we update only the base text
+  // and keep the running dot timer — otherwise the dots would restart from
+  // zero on every update and look frozen on a single dot.
+  sendPause(seconds: number) {
+    if (this.pendingText) return
+    const label = translate(this.locale)('spinner.pause', { n: seconds })
+    if (this._animating && this._dotTimer) {
+      this._thinkBase = theme.brown(stripEllipsis(label))
+      this.setStatus(this._thinkBase + this._dots(this._dotPhase) + this._hint())
+      return
+    }
+    this._startAnimated(label)
+  }
+
   setPending(text: string | null): void {
     this.pendingText = text && String(text).length ? String(text) : null
     if (this.pendingText) {
       this._stopDots()
-      this.setStatus(theme.prompt('✎ ') + this.pendingText + HINT)
+      this.setStatus(theme.prompt('✎ ') + this.pendingText + this._hint())
     } else {
       this._startThinking()
     }
@@ -565,7 +611,7 @@ export class LineEditor {
     this.stop()
     const rendered = renderMarkdown(msg)
     this.printAbove(
-      NL + theme.assistant('● Ответ') + NL + rendered + NL + theme.dim('─'.repeat(60)),
+      NL + theme.assistant(translate(this.locale)('editor.answer')) + NL + rendered + NL + theme.dim('─'.repeat(60)),
     )
   }
 

@@ -132,6 +132,9 @@ export interface BrowserLike {
   // Optional hook: called right when a message is actually sent (after the
   // send-pause). Lets the UI start the working spinner only on a real send.
   onSendStart?: (() => void) | null
+  // Optional hook: called when the agent starts waiting out the send-interval
+  // pause, with the remaining seconds. Lets the UI animate the pause status.
+  onSendPause?: ((seconds: number) => void) | null
   newChat: () => Promise<void>
   stopGeneration: () => Promise<boolean>
   getCurrentChatId: () => Promise<string | null>
