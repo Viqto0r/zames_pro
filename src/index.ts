@@ -1486,6 +1486,14 @@ async function main(): Promise<void> {
         editor.setPrompt(buildPrompt())
       }
     }
+    // Reflect browser toggles on the LIVE browser object. The browser is
+    // created once at startup, so without this a /config set browser.*
+    // change would only apply after a restart.
+    if (path === 'browser.deepThinking' || path === 'browser.webSearch') {
+      const b = browser as unknown as Record<string, unknown>
+      if (path === 'browser.deepThinking') b.deepThinking = !!value
+      else b.webSearch = !!value
+    }
   }
 
   function configSetRaw(field: ConfigField, raw: string): void {

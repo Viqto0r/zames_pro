@@ -206,6 +206,8 @@ Examples:
 ```
 /config set maxIterations 20
 /config set confirmation.bash false
+/config set browser.deepThinking true   # DeepSeek Deep thinking (slow; reasoning is hidden)
+/config set browser.webSearch false     # DeepSeek Smart web search
 /config lang en
 ```
 

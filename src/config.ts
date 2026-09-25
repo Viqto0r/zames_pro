@@ -48,6 +48,8 @@ export const DEFAULTS: ZamesConfig = {
     minSendIntervalMs: 15000,
     rateLimitWaitMs: 300000,
     maxRateLimitRetries: 6,
+    deepThinking: false,
+    webSearch: true,
   },
 
   ui: {
@@ -139,6 +141,8 @@ export const CONFIG_SCHEMA: ConfigField[] = [
   { path: 'browser.minSendIntervalMs', type: 'number', min: 0, max: 600000, labelKey: 'cfg.f.browser_minSendIntervalMs', groupKey: 'cfg.group.browser' },
   { path: 'browser.rateLimitWaitMs', type: 'number', min: 0, max: 3600000, labelKey: 'cfg.f.browser_rateLimitWaitMs', groupKey: 'cfg.group.browser' },
   { path: 'browser.maxRateLimitRetries', type: 'number', min: 0, max: 100, labelKey: 'cfg.f.browser_maxRateLimitRetries', groupKey: 'cfg.group.browser' },
+  { path: 'browser.deepThinking', type: 'boolean', labelKey: 'cfg.f.browser_deepThinking', groupKey: 'cfg.group.browser' },
+  { path: 'browser.webSearch', type: 'boolean', labelKey: 'cfg.f.browser_webSearch', groupKey: 'cfg.group.browser' },
 ]
 
 

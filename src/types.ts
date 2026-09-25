@@ -55,6 +55,10 @@ export interface BrowserConfig {
   minSendIntervalMs: number
   rateLimitWaitMs: number
   maxRateLimitRetries: number
+  /** DeepSeek Deep thinking toggle (reasoning; slow, hidden). */
+  deepThinking: boolean
+  /** DeepSeek Smart search (web search) toggle. */
+  webSearch: boolean
 }
 
 import type { Locale } from './i18n.js'

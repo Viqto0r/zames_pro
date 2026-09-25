@@ -44,6 +44,12 @@ function parseDataLines(body: string): unknown[] {
 //     incremental APPEND chunks response/fragments/-1/content.
 export function extractFromSse(body: string): string {
   let out = ''
+  // Type of the CURRENT last fragment. When deep thinking is on, the
+  // stream first fills a THINK fragment (the reasoning) and only then a
+  // RESPONSE fragment (the answer), and BOTH use the same APPEND path
+  // response/fragments/-1/content. Without tracking this, the reasoning was
+  // concatenated into the answer and leaked to the terminal.
+  let lastType = ''
   for (const obj of parseDataLines(body)) {
     if (obj == null || typeof obj !== 'object') continue
     const o = obj as Record<string, unknown>
@@ -61,22 +67,41 @@ export function extractFromSse(body: string): string {
         ? (v.response as Record<string, unknown>)
         : undefined
     if (resp && Array.isArray(resp.fragments)) {
-      for (const fr of resp.fragments as Record<string, unknown>[]) {
+      const frags = resp.fragments as Record<string, unknown>[]
+      for (const fr of frags) {
         if (fr && fr.type === 'RESPONSE' && typeof fr.content === 'string') {
           out += fr.content
         }
       }
+      const lastFrag = frags[frags.length - 1]
+      if (lastFrag && typeof lastFrag.type === 'string') lastType = lastFrag.type
+      continue
+    }
+
+    // A NEW fragment is appended to response/fragments[]. The LAST fragment
+    // decides what the following content chunks belong to (THINK vs
+    // RESPONSE).
+    if (o.p === 'response/fragments' && Array.isArray(o.v)) {
+      const frags = o.v as Record<string, unknown>[]
+      for (const fr of frags) {
+        if (fr && fr.type === 'RESPONSE' && typeof fr.content === 'string') {
+          out += fr.content
+        }
+      }
+      const lastFrag = frags[frags.length - 1]
+      if (lastFrag && typeof lastFrag.type === 'string') lastType = lastFrag.type
       continue
     }
 
     // Incremental APPEND: p='response/fragments/-1/content' -> v=string;
-    // subsequent chunks come with a single v field.
+    // subsequent chunks come with a single v field. Append ONLY when the
+    // current fragment is RESPONSE; a THINK fragment is the reasoning.
     if (o.p === 'response/fragments/-1/content' && typeof o.v === 'string') {
-      out += o.v
+      if (lastType === '' || lastType === 'RESPONSE') out += o.v
       continue
     }
     if (o.p === undefined && typeof o.v === 'string') {
-      out += o.v
+      if (lastType === '' || lastType === 'RESPONSE') out += o.v
     }
   }
   return out

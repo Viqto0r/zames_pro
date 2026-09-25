@@ -317,6 +317,8 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   'cfg.f.browser_minSendIntervalMs': { ru: 'Мин. пауза между отправками, мс', en: 'Min pause between sends, ms' },
   'cfg.f.browser_rateLimitWaitMs': { ru: 'Пауза при лимите частоты, мс', en: 'Wait on rate limit, ms' },
   'cfg.f.browser_maxRateLimitRetries': { ru: 'Число повторов при лимите', en: 'Rate-limit retry count' },
+  'cfg.f.browser_deepThinking': { ru: 'Глубокое мышление (долго; размышления не выводятся)', en: 'Deep thinking (slow; reasoning is hidden)' },
+  'cfg.f.browser_webSearch': { ru: 'Умный поиск в интернете', en: 'Smart web search' },
 
   'cfg.menu.title': { ru: '⚙ Настройки — выбери параметр', en: '⚙ Settings — choose a parameter' },
   'cfg.menu.hint': { ru: '↑/↓ — выбор, Enter — изменить, q/Esc — выйти', en: '↑/↓ select, Enter edit, q/Esc quit' },

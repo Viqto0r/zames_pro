@@ -150,6 +150,10 @@ export interface DeepSeekBrowserOptions {
   maxRateLimitRetries?: number
  maxServerBusyRetries?: number
  serverBusyWaitMs?: number
+  /** Enable DeepSeek's "Deep thinking" toggle (reasoning; slow). */
+  deepThinking?: boolean
+  /** Enable DeepSeek's "Smart search" (web search) toggle. */
+  webSearch?: boolean
 }
 
 export interface ChatInfo {
@@ -171,6 +175,11 @@ export class DeepSeekBrowser {
   maxRateLimitRetries: number
  maxServerBusyRetries: number
  serverBusyWaitMs: number
+  // Desired state of the DeepSeek chat toggles, applied before each send.
+  // deepThinking: the "Deep thinking" toggle (reasoning; the reasoning text
+  // is never read/shown). webSearch: the "Smart search" toggle.
+  deepThinking: boolean
+  webSearch: boolean
   _lastSentAt: number
   _abort: boolean
   // The user pressed Esc/Ctrl+C — a "stop" for the WHOLE current batch of
@@ -204,6 +213,8 @@ export class DeepSeekBrowser {
     maxRateLimitRetries = 6,
  maxServerBusyRetries = 5,
  serverBusyWaitMs = 3000,
+    deepThinking = false,
+    webSearch = true,
   }: DeepSeekBrowserOptions = {}) {
     this.headless = headless
     this.debug = debug
@@ -217,6 +228,8 @@ export class DeepSeekBrowser {
     this.maxRateLimitRetries = maxRateLimitRetries
  this.maxServerBusyRetries = maxServerBusyRetries
  this.serverBusyWaitMs = serverBusyWaitMs
+    this.deepThinking = deepThinking
+    this.webSearch = webSearch
     this._lastSentAt = 0
     this._abort = false
     this._stopped = false
@@ -405,10 +418,30 @@ export class DeepSeekBrowser {
       return this._netCapture
     }
     return await this.page.evaluate((sels: string[]) => {
+      // DeepSeek stores the model's reasoning in .ds-think-content blocks.
+      // They are NOT the answer and must never be picked up as the answer
+      // (otherwise the terminal would show the long reasoning). We also
+      // prefer the first (most specific) selector with a hit.
+      const inThink = (e: Element | null): boolean => {
+        let n: Element | null = e
+        while (n) {
+          const cls = (n.className || '').toString()
+          if (/ds-think-content|thinking-content/i.test(cls)) return true
+          n = n.parentElement
+        }
+        return false
+      }
       let el: HTMLElement | null = null
       for (const s of sels) {
         const list = document.querySelectorAll(s)
-        if (list.length) el = list[list.length - 1] as HTMLElement
+        if (!list.length) continue
+        for (let i = list.length - 1; i >= 0; i--) {
+          const cand = list[i] as HTMLElement
+          if (inThink(cand)) continue
+          el = cand
+          break
+        }
+        if (el) break
       }
       if (!el) return ''
       const out: string = el.innerText || el.textContent || ''
@@ -485,6 +518,35 @@ export class DeepSeekBrowser {
 
   async _isGenerating(): Promise<boolean> {
     return await this._stopButtonVisible()
+  }
+
+  // DeepSeek exposes two toggle buttons above the input: "Deep thinking"
+  // (reasoning) and "Smart search" (web search). Their labels are localized,
+  // so we match by a loose regex on the visible text and read the state from
+  // aria-pressed. We click ONLY when the state differs, so a send does not
+  // flip a toggle the operator set by hand.
+  async _setToggle(labelRe: RegExp, want: boolean): Promise<void> {
+    try {
+      const btns = this.page.locator('.ds-toggle-button')
+      const count = await btns.count().catch(() => 0)
+      for (let i = 0; i < count; i++) {
+        const b = btns.nth(i)
+        const txt = ((await b.textContent().catch(() => '')) || '').trim()
+        if (!labelRe.test(txt)) continue
+        const pressed =
+          (await b.getAttribute('aria-pressed').catch(() => null)) === 'true'
+        if (pressed !== want) {
+          await b.click({ timeout: 2000 }).catch(() => {})
+          await this.page.waitForTimeout(150)
+        }
+        return
+      }
+    } catch {}
+  }
+
+  async _applyToggles(): Promise<void> {
+    await this._setToggle(/глубок|deep\s*think/i, this.deepThinking)
+    await this._setToggle(/поиск|search/i, this.webSearch)
   }
 
   async stopGeneration(): Promise<boolean> {
@@ -824,6 +886,11 @@ export class DeepSeekBrowser {
     }
     this._netCapture = ''
     this._netCaptureAt = 0
+
+    // Align the DeepSeek chat toggles (deep thinking / web search) with the
+    // configured state BEFORE typing. Doing it here (after the send-pause) it
+    // does not flip toggles for a generation that is not going to happen.
+    await this._applyToggles()
 
     // Attach files/images FIRST (before the text): the DeepSeek upload widget
     // shows them above the input, and only then the message can be sent.

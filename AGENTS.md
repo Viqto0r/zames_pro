@@ -569,6 +569,15 @@ it only added a useless 15s pause at the start).
 returned after `stabilityChecks - 1` stable ticks spaced by `stabilityDelayMs`.
 Both are honored (they used to be dead config with a hardcoded 800ms tick).
 
+`browser.deepThinking` / `browser.webSearch` (false / true by default) —
+DeepSeek chat toggles ("Deep thinking" / "Smart search"). `_applyToggles()`
+in `browser.ts` is called in `_askOnce()` right after the send-pause, BEFORE
+the text is typed, and clicks the toggle only when `aria-pressed` differs
+from the configured state (so a manual flip by the operator is not undone).
+The reasoning text is never read: `_readLastAnswerText()` skips elements
+inside `.ds-think-content`, and `net-capture.ts` already ignores
+`reasoning_content`/thinking chunks.
+
 Data in `~/.zames`: profile (browser), logs (transcript), undo, snapshots,
 `.sessions` (sessions/chats). Temp files — `<project>/tmp` (in .gitignore,
 cleaned on launch).

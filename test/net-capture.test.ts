@@ -65,6 +65,18 @@ test('extractAnswer: SSE имеет приоритет, иначе JSON', () => 
   assert.equal(extractAnswer(JSON.stringify({ content: 'json' })), 'json')
 })
 
+
+test('SSE: reasoning (THINK-фрагмент) не попадает в ответ', () => {
+  const body =
+    sseChunk({ v: { response: { fragments: [{ id: 2, type: 'THINK', content: 'REASONING_START' }] } } }) +
+    sseChunk({ p: 'response/fragments/-1/content', o: 'APPEND', v: '_SECRET_REASONING' }) +
+    sseChunk({ v: '_MORE_REASONING' }) +
+    sseChunk({ p: 'response/fragments', o: 'APPEND', v: [{ id: 3, type: 'RESPONSE', content: 'REAL_ANSWER' }] }) +
+    sseChunk({ p: 'response/fragments/-1/content', o: 'APPEND', v: '_PART2' }) +
+    sseChunk({ v: '_END' })
+  const out = extractFromSse(body)
+  assert.equal(out, 'REAL_ANSWER_PART2_END')
+})
 test('extractAnswer: сохраняет tool-call с шаблонной строкой без искажений', () => {
   const call = JSON.stringify({
     tool: 'Bash',
