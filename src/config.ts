@@ -9,7 +9,7 @@ const HOME_CONFIG = path.join(ZAMES_HOME, 'config.json')
 const PROJECT_CONFIG = path.join(process.cwd(), '.zamesrc.json')
 
 export const DEFAULTS: ZamesConfig = {
-  maxIterations: 200,
+  maxIterations: 0,
   headless: false,
   debug: false,
   browserChannel: null,
@@ -122,7 +122,7 @@ export interface ConfigField {
 
 export const CONFIG_SCHEMA: ConfigField[] = [
   { path: 'ui.locale', type: 'enum', values: ['ru', 'en'], labelKey: 'cfg.f.ui_locale', groupKey: 'cfg.group.ui' },
-  { path: 'maxIterations', type: 'number', min: 1, max: 100000, labelKey: 'cfg.f.maxIterations', groupKey: 'cfg.group.agent' },
+ { path: 'maxIterations', type: 'number', min: 0, max: 100000, labelKey: 'cfg.f.maxIterations', groupKey: 'cfg.group.agent' },
   { path: 'headless', type: 'boolean', labelKey: 'cfg.f.headless', groupKey: 'cfg.group.agent' },
   { path: 'debug', type: 'boolean', labelKey: 'cfg.f.debug', groupKey: 'cfg.group.agent' },
   { path: 'hotReload', type: 'boolean', labelKey: 'cfg.f.hotReload', groupKey: 'cfg.group.agent' },

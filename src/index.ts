@@ -132,9 +132,9 @@ const t = (key: string, params?: Record<string, string | number>): string =>
 const headless = hasFlag('--headless') || config.headless
 const debug = hasFlag('--debug') || config.debug
 const calibrate = hasFlag('--calibrate')
+const maxIterArg = getArg('--max-iter', null)
 const maxIter =
-  Number(getArg('--max-iter', String(config.maxIterations))) ||
-  config.maxIterations
+ maxIterArg !== null ? Number(maxIterArg) : config.maxIterations
 
 const positional = getPositional()
 const task = getArg('--task', positional.join(' ').trim() || null)

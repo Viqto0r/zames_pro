@@ -41,7 +41,7 @@ export async function runAgentLoop({
   tools,
   task,
   workdir,
-  maxIterations = 200,
+  maxIterations = 0,
   freshChat = false,
   sendSystemPrompt = false,
   transcript = null,
@@ -212,9 +212,15 @@ export async function runAgentLoop({
  // not come back in time. This is separate from unparsedRetries because a
  // timeout is an infrastructure failure, not a model protocol violation.
  let afterToolRetries = 0
+ // toolsRanInTask: how many tools actually ran in THIS task. The protocol
+ // guard uses it to tell "started, then slipped into chat mode" (a reasoning
+ // paragraph that is neither a tool call nor a real respond) from a genuine
+ // short answer. We key on the STRUCTURE (work already started), not words.
+ let toolsRanInTask = 0
  const MAX_AFTER_TOOL_RETRIES = 6
 
-  for (let i = 0; i < maxIterations; i++) {
+  const iterCap = maxIterations > 0 ? maxIterations : 100000;
+ for (let i = 0; i < iterCap; i++) {
     // NOTE: the spinner is NOT started here. browser.onSendStart fires it
     // right when the message is actually typed/sent (after the send-pause),
     // so no spinner runs during the pre-send phase.
@@ -503,6 +509,28 @@ export async function runAgentLoop({
         continue
       }
 
+      // STRUCTURAL guard against "the model slipped into chat mode":
+      // after work has already started (a tool really ran in this task), a
+      // plain-text answer that is neither a tool call nor a real respond must
+      // NOT be returned to the operator as the final result. Returning it is
+      // exactly the "agent stopped mid-task" symptom (e.g. it writes a reasoning
+      // paragraph "Now let me analyze..." instead of calling a tool). We do not
+      // match words here - the STRUCTURE (toolsRanInTask > 0) is the signal.
+      if (toolsRanInTask > 0) {
+        transcript?.log('protocol_violation_final', {
+        response: rawResponse.slice(0, 500),
+        })
+        safeWarning(translate(locale)('msg.suspicious_stop'))
+        // The model stopped calling tools mid-task. Surface the last text as
+        // a READABLE report, but say explicitly that the task may be incomplete:
+        // never let a reasoning paragraph masquerade as a finished result.
+        const lastText = (rawResponse || '').trim()
+        return (
+        lastText
+        ? lastText + String.fromCharCode(10) + String.fromCharCode(10) + '(The model stopped calling tools before finishing. The task may be incomplete - check the DeepSeek chat.)'
+        : 'The model stopped calling tools before finishing the task.'
+        )
+      }
       const suspiciousFinal =
         responseLooksLikeToolCall(rawResponse) ||
         looksLikeUnfinishedWork((rawResponse || '').trim()) ||
@@ -617,6 +645,7 @@ export async function runAgentLoop({
     // A tool just ran — the next answer is expected to be a fresh tool call.
  // Reset the watchdog so the next empty/repeated answer is nudged.
  justRanTool = true
+ toolsRanInTask++
  // The tool really executed on this turn. The NEXT iteration will treat
  // a repeat of this answer as stale only because of this flag (see NEXT,
  // not the current, justRanTool check).

@@ -37,7 +37,8 @@ test('validateConfigValue приводит типы и отвергает мус
   const numF = getConfigField('maxIterations')!
   assert.equal(validateConfigValue(numF, '7'), 7)
   assert.throws(() => validateConfigValue(numF, 'abc'))
-  assert.throws(() => validateConfigValue(numF, '0')) // min=1
+  assert.equal(validateConfigValue(numF, '0'), 0) // min=0: 0 = unlimited
+  assert.throws(() => validateConfigValue(numF, '-1')) // min=0
 
   const enF = getConfigField('ui.locale')!
   assert.equal(validateConfigValue(enF, 'EN'), 'en')

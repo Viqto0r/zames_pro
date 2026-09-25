@@ -51,7 +51,7 @@ root: tools cannot read/write above it.
 1. `src/index.ts` — CLI, argument parsing, the main input loop, `/...` commands.
 2. `src/agent-loop.ts` — the agent loop: sends the task, parses the model's
    answer, looks for a tool-call, runs the tool, returns the result to the
-   model. Up to `maxIterations` iterations (40 by default).
+   model. Up to `maxIterations` iterations (0 = UNLIMITED by default).
 3. `src/browser.ts` — all Playwright work: finding the input field, inserting
    text (a paste event for contenteditable), waiting for the answer, reading
    the answer, Stop/Esc, determining the current chat id, listing chats.
@@ -232,6 +232,19 @@ each successful tool call. After it is exhausted the loop asks for `respond`
 exactly once (`finalRespondAsked`) and then surfaces the model's own text
 with one warning — never a stub, never a 20-iteration hang.
 
+### Structural guard against "slipped into chat mode"
+
+Old guards keyed on WORDS (responseLooksLikeToolCall — looks like a call,
+looksLikeUnfinishedWork — future-tense promise). DeepSeek also writes a
+reasoning PARAGRAPH with no call at all ("Итак, разберём...", "The problem
+is..."); it matched neither guard and was returned as the final answer — the
+"agent stopped mid-task" symptom. The fix is STRUCTURAL: runAgentLoop counts
+toolsRanInTask; once > 0, a plain-text answer that is neither a parsed tool
+call nor a real respond is NOT a clean final. It warns the operator, logs
+protocol_violation_final and appends a "may be incomplete" note. We do NOT
+enumerate reasoning phrases (the model would just reword); the structure is the
+signal. Guard is off when no tool ran. Covered by test/protocol-guard.test.ts.
+
 ### browser.ask(): accepting an echo/stale answer
 
 `_askOnce()` (src/browser.ts) decides that a new answer has started and
@@ -378,7 +391,8 @@ the `## Attachments` section in src/system-prompt.ts and the note in
 `runAgentLoop`.
 
 IMPORTANT when editing this code: do not put "raw" control characters (CR/LF)
-into string literals — only the escape sequences `\r`/`\n` (in src/input.ts
+into string literals — only the escape sequences `\r`/`
+` (in src/input.ts
 control characters are assembled via `String.fromCharCode`).
 
 ## Input while the agent works (message queue)
