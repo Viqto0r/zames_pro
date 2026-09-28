@@ -187,8 +187,16 @@ const STATUS_RE =
   /^(reading|thinking|searching|analyzing|generating|stop|остановить|читаю|думаю|поиск|анализ)[\s.…]*$/i
 
 // DeepSeek's answer when the rate limit is exceeded.
+//
+// IMPORTANT: the generic "try again later" / "повторите позже" tail is NOT
+// part of this pattern. DeepSeek appends it to MANY toasts ("Server busy.
+// Try again later.", "Service unavailable. Try again later."), so matching it
+// here classified every server hiccup as a RATE LIMIT and sent the agent into
+// a 5-minute wait (and, after the finish-loop stopped reading toasts every
+// tick, looked like "the agent hung"). The rate limit is recognized by its
+// specific wording only.
 const RATE_LIMIT_RE =
-  /(messages? too frequent|too many requests|rate limit|слишком часто|повторите позже|try again later)/i
+  /(messages? too frequent|too many requests|rate limit|слишком часто|сообщени[яе] слишком част)/i
 
 // Transient server-side hiccups (DeepSeek overloaded / hiccup). Unlike the
 // rate limit, these usually clear in seconds, so we retry quickly instead of
@@ -1775,20 +1783,24 @@ export class DeepSeekBrowser {
     const deadline = Date.now() + timeout
     let last = ''
     let stable = 0
-    let tick = 0
     while (Date.now() < deadline) {
       if (this._abort) {
         return last || '(прервано пользователем)'
       }
-      // We check the limit toast not every tick but about once per 5 ticks,
-      // so we don't poke the DOM unnecessarily.
-      if (tick++ % 5 === 0) {
+      // Rate-limit / server-busy toast. The old code only read the toasts
+      // when `tick % 5 === 0` (once per ~2s), and the throw on the rate limit
+      // made the server-busy branch unreachable. A toast that appears and
+      // disappears between those checks was missed entirely, so the run
+      // waited out the whole deadline and threw ds.send_no_new_answer. We now
+      // read the toast on EVERY tick (a cheap, selector-scoped evaluate) and
+      // classify both conditions independently.
+      {
         const pageText = await this._readPageText()
         if (isRateLimitText(pageText)) {
           throw new RateLimitError(pageText.slice(0, 300))
-          if (isServerBusyText(pageText)) {
-            throw new ServerBusyError(pageText.slice(0, 300))
-          }
+        }
+        if (isServerBusyText(pageText)) {
+          throw new ServerBusyError(pageText.slice(0, 300))
         }
       }
       const netFresh =

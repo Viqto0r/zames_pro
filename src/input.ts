@@ -558,6 +558,16 @@ export class LineEditor {
     // token context right-aligned on the SAME row (10k · 12%). The context is
     // refreshed from onContextQuery() on every render, so it follows the live
     // DeepSeek counter without a polling timer of its own.
+    //
+    // `top` MUST count EXACTLY the rows we print, or the next _eraseBlock()
+    // moves the cursor to the wrong row and the block (spinner + input) is
+    // re-drawn on top of the previous one instead of replacing it — the
+    // operator sees the status line duplicated/stacking, most visibly during
+    // the send-pause countdown (which re-renders about once per second).
+    // The earlier code computed `top = visRows(status + '  ' + ctxText)` even
+    // though it PRINTS `status + ' '.repeat(space) + ctxText` with a DIFFERENT
+    // total width, so at certain widths `top` disagreed with the printed rows.
+    // Both branches below now derive `top` from the exact string they print.
     const ctxText = this._contextText()
     if (this.statusText) {
       if (ctxText) {
@@ -567,16 +577,16 @@ export class LineEditor {
         // put the context on its own line instead.
         const space = cols - visLen(this.statusText) - visLen(ctxText)
         if (space >= 2) {
-          out += this.statusText + ' '.repeat(space) + ctxText + NL
-          top = visRows(
-            this.statusText + ' '.repeat(2) + ctxText,
-            cols,
-          )
+          const row = this.statusText + ' '.repeat(space) + ctxText
+          out += row + NL
+          top = visRows(row, cols)
         } else {
           out += this.statusText + NL
           top = visRows(this.statusText, cols)
-          out += ' '.repeat(Math.max(0, cols - visLen(ctxText))) + ctxText + NL
-          top += visRows(ctxText, cols)
+          const ctxRow =
+            ' '.repeat(Math.max(0, cols - visLen(ctxText))) + ctxText
+          out += ctxRow + NL
+          top += visRows(ctxRow, cols)
         }
       } else {
         out += this.statusText + NL
@@ -587,8 +597,9 @@ export class LineEditor {
     } else if (ctxText) {
       // Idle: no spinner, but the context still belongs on its own line just
       // above the input, right-aligned.
-      out += ' '.repeat(Math.max(0, cols - visLen(ctxText))) + ctxText + NL
-      top = visRows(ctxText, cols)
+      const ctxRow = ' '.repeat(Math.max(0, cols - visLen(ctxText))) + ctxText
+      out += ctxRow + NL
+      top = visRows(ctxRow, cols)
     }
     const lay = layoutInput(this.promptStr, this.buf, this.cursor, cols)
     out += lay.rows.map((r) => r.prefix + r.text).join(NL)
