@@ -258,6 +258,7 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   'chats.not_created': { ru: 'Чат ещё не создан.', en: 'No chat created yet.' },
   'chats.history_title': { ru: 'Диалог чата:', en: 'Chat dialogue:' },
   'chats.history_empty': { ru: 'Диалог пуст или не удалось прочитать сообщения.', en: 'The dialogue is empty or the messages could not be read.' },
+  'chats.history_service_only': { ru: 'В этом чате нет пользовательских реплик — только служебные сообщения агента (вызовы инструментов).', en: 'This chat has no user turns — only the agent service messages (tool calls).' },
   'chats.history_truncated': { ru: '… показаны последние {n} сообщений.', en: '… showing the last {n} messages.' },
   'chats.history_you': { ru: 'Вы', en: 'You' },
   'chats.history_agent': { ru: 'Агент', en: 'Agent' },

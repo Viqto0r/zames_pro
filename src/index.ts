@@ -980,8 +980,11 @@ async function printRestoredHistory(
     return
   }
   if (!messages.length) {
-    // The history exists but contains only service/protocol messages.
-    console.log(theme.system(t('chats.history_service_only')))
+    // The history exists but contains only service/protocol messages (e.g.
+    // a chat where only the system-prompt and tool-calls were stored).
+    console.log(
+      theme.system(t('chats.history_service_only', { n: String(all.length) })),
+    )
     return
   }
   const out = (text: string): void => {
