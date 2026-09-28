@@ -271,25 +271,6 @@ clearly SETTLED — the Stop button is gone and the text has been stable for two
 ticks — even if the text equals `beforeText`. The network-capture check stays
 as the strongest signal of a fresh answer.
 
-### beforeText must come from the DOM, never from the network capture
-
-A second root cause of the SAME "agent stopped after a tool call" flapping:
-`beforeText` was read through `_readLastAnswerTextClean()`, which prefers
-`_netCapture` when it is fresh. After a send, `_onResponse` rewrites
-`_netCapture` with the CURRENT answer, so the DOM-vs-capture comparison in
-`_askOnce()` compared the capture against ITSELF: `cur === beforeText`, the
-`changed` signal never fired, and `ask()` ended with `ds.send_no_new_answer`
-and retried for minutes. The operator saw repeated
-`ask() попытка N/3 провалилась: Новый ответ не получен`.
-
-Fix: `beforeText` (and the `cur`/`cur2`/final comparisons in `_askOnce`) now
-use `_readLastAnswerTextCleanDom()` / `_readLastAnswerTextDom()`, which read
-the RENDERED page and never touch `_netCapture`. The capture is kept purely
-as a freshness signal (`_netCaptureAt >= _lastSentAt`) and as the raw answer
-for the tool-call. `_readLastAnswerText()` (capture-first) is still used to
-RETURN the answer, so the raw-text contract is unchanged. Covered by
-`test/answer-source.test.ts`.
-
 ### The spinner must start only on a real send
 
 The "agent is working" spinner used to be started by the CALLER

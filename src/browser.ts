@@ -982,21 +982,6 @@ export class DeepSeekBrowser {
     if (this._netCapture && this._netCaptureAt >= this._lastSentAt) {
       return this._netCapture
     }
-    return await this._readLastAnswerTextDom()
-  }
-
-  // The answer as rendered on the page, ALWAYS from the DOM (never from the
-  // network capture). This is what the "has a new answer started?" checks
-  // must compare against `beforeText`.
-  //
-  // Why a separate reader: `_readLastAnswerText()` prefers `_netCapture` when
-  // it is fresh. `beforeText` was taken through it, so after a send the
-  // network capture (the SAME text) made `cur` equal to `beforeText` — the
-  // "changed" signal never fired and ask() ended with "no new answer" and
-  // retried for minutes, while the operator saw the agent "stop after a tool
-  // call". The DOM reader has no such self-comparison problem: before the
-  // send the DOM shows the OLD answer, after it the NEW one.
-  async _readLastAnswerTextDom(): Promise<string> {
     return await this.page.evaluate((sels: string[]) => {
       // DeepSeek stores the model's reasoning in .ds-think-content blocks.
       // They are NOT the answer and must never be picked up as the answer
@@ -1059,21 +1044,6 @@ export class DeepSeekBrowser {
 
   async _readLastAnswerTextClean(): Promise<string> {
     const raw = await this._readLastAnswerText().catch(() => '')
-    return this._cleanAnswer(raw)
-  }
-
-  // The same "clean" filter as _readLastAnswerTextClean, but read from the
-  // DOM only. Used by _askOnce for the before/after comparison: the network
-  // capture must not be compared against itself (see _readLastAnswerTextDom).
-  async _readLastAnswerTextCleanDom(): Promise<string> {
-    const raw = await this._readLastAnswerTextDom().catch(() => '')
-    return this._cleanAnswer(raw)
-  }
-
-  // Drop service placeholders ("Reading…", "Thinking…") so they are not
-  // mistaken for an answer; keep everything else as-is (including whitespace
-  // the tool-call relies on).
-  _cleanAnswer(raw: string): string {
     const t = (raw || '').trim()
     if (!t) return ''
     if (STATUS_RE.test(t)) return ''
@@ -1542,12 +1512,7 @@ export class DeepSeekBrowser {
       throw new Error(this._t('ds.input_missing'))
     }
 
-    // `beforeText` MUST come from the DOM, not from _readLastAnswerText():
-    // that reader prefers the network capture, so comparing `cur` (also the
-    // capture) against `beforeText` compared the capture against itself and
-    // the "new answer" check never fired — the source of the
-    // ds.send_no_new_answer flapping.
-    const beforeText = await this._readLastAnswerTextCleanDom().catch(() => '')
+    const beforeText = await this._readLastAnswerTextClean().catch(() => '')
     this._askDebug('SEND agent=' + agent + ' len=' + prompt.length + ' beforeLen=' + beforeText.length + ' beforeHead=' + JSON.stringify(beforeText.slice(0, 60)))
 
     await this._waitForSendSlot(agent)
@@ -1621,7 +1586,7 @@ export class DeepSeekBrowser {
       if (isServerBusyText(pageText)) {
         throw new ServerBusyError(pageText.slice(0, 300))
       }
-      const cur = await this._readLastAnswerTextCleanDom().catch(() => '')
+      const cur = await this._readLastAnswerTextClean().catch(() => '')
       const bodyLen = await this.page
         .evaluate(() => document.body.innerText.length)
         .catch(() => 0)
@@ -1670,7 +1635,7 @@ export class DeepSeekBrowser {
 // (otherwise it is the old answer on screen) or a fresh network capture
 // proves a new answer. Returning an equal text made the loop re-run the
 // previous tool call.
-const cur = await this._readLastAnswerTextCleanDom().catch(() => '')
+const cur = await this._readLastAnswerTextClean().catch(() => '')
 const fresh = !!this._netCapture && this._netCaptureAt >= this._lastSentAt
 if (cur && cur.trim() && normText(cur) !== normText(beforeText) && !(await this._isGenerating())) {
 return cur
@@ -1689,7 +1654,7 @@ return this._netCapture
       const retryDeadline = Date.now() + 20_000
       while (Date.now() < retryDeadline) {
         if (this._abort) return '(прервано пользователем)'
-        const cur2 = await this._readLastAnswerTextCleanDom().catch(() => '')
+        const cur2 = await this._readLastAnswerTextClean().catch(() => '')
         const net2 =
           !!this._netCapture && this._netCaptureAt >= this._lastSentAt
         const grew2 =
@@ -1735,7 +1700,7 @@ return this._netCapture
       }
       const netFresh =
         !!this._netCapture && this._netCaptureAt >= this._lastSentAt
-      const cur = await this._readLastAnswerTextCleanDom().catch(() => '')
+      const cur = await this._readLastAnswerTextClean().catch(() => '')
       // Ignore an "answer" that is identical to what was on the page BEFORE we
       // sent the message: that is the previous answer, not a new one. Returning
       // it would make the agent re-process the old tool call (or silently
