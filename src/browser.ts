@@ -1182,6 +1182,14 @@ export class DeepSeekBrowser {
     return this._toggles
   }
 
+  // Update the cached toggle states (used by the status icons) without a send.
+  // Called from /config so the icons change immediately.
+  setToggleState(s: { deepThinking?: boolean; webSearch?: boolean }): void {
+    if (typeof s.deepThinking === 'boolean')
+      this._toggles.deepThinking = s.deepThinking
+    if (typeof s.webSearch === 'boolean') this._toggles.webSearch = s.webSearch
+  }
+
   // The CURRENT state of the two DeepSeek toggles, read from the DOM
   // (aria-pressed) so the status line reflects what is actually on, not what
   // the config asked for. Falls back to the configured values when the buttons

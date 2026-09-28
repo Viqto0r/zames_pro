@@ -63,6 +63,27 @@ test('onToggleQuery refreshes the states before a render', () => {
   assert.equal(e.searchEnabled, true)
 })
 
+test('refreshStatus repaints and picks up the new toggle state', () => {
+  const e = new LineEditor()
+  e._render = () => {}
+  let state = { deepThinking: false, webSearch: false }
+  e.onToggleQuery = () => state
+  e.refreshStatus()
+  assert.equal(e.thinkingEnabled, false)
+  // A /config change flips the state and calls refreshStatus — the next
+  // render must show the new icon immediately.
+  state = { deepThinking: true, webSearch: true }
+  let rendered = 0
+  e._render = () => {
+    rendered++
+    e._refreshToggles()
+  }
+  e.refreshStatus()
+  assert.equal(rendered, 1, 'refreshStatus must repaint')
+  assert.equal(e.thinkingEnabled, true)
+  assert.equal(e.searchEnabled, true)
+})
+
 test('a throwing onToggleQuery does not break the render', () => {
   const e = new LineEditor()
   e.thinkingEnabled = true

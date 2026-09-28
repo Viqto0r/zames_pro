@@ -1670,11 +1670,26 @@ async function main(): Promise<void> {
     }
     // Reflect browser toggles on the LIVE browser object. The browser is
     // created once at startup, so without this a /config set browser.*
-    // change would only apply after a restart.
+    // change would only apply after a restart. We also update the cached
+    // toggle states (_toggles) that the status icons read, and repaint the
+    // editor, so the 🧠/🌐 icons change IMMEDIATELY (previously they only
+    // updated after the next send, when _applyToggles() ran).
     if (path === 'browser.deepThinking' || path === 'browser.webSearch') {
-      const b = browser as unknown as Record<string, unknown>
+      const b = browser as unknown as {
+        deepThinking: boolean
+        webSearch: boolean
+        setToggleState: (s: {
+          deepThinking?: boolean
+          webSearch?: boolean
+        }) => void
+      }
       if (path === 'browser.deepThinking') b.deepThinking = !!value
       else b.webSearch = !!value
+      b.setToggleState({
+        deepThinking: b.deepThinking,
+        webSearch: b.webSearch,
+      })
+      if (editor) editor.refreshStatus()
     }
   }
 

@@ -786,6 +786,12 @@ export class LineEditor {
     this.cursorRowFromTop = top + lay.cursorRow
   }
 
+  // Public repaint hook: called when an external state that the status line
+  // reads (e.g. the toggle icons) changed, so it can be redrawn immediately.
+  refreshStatus(): void {
+    this._render()
+  }
+
   _render() {
     this._eraseBlock()
     this._writeBlock()
