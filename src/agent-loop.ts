@@ -89,6 +89,17 @@ export async function runAgentLoop({
   const safeAssistantMessage = safe(onAssistantMessage)
   const safeWarning = safe(onWarning)
 
+  // One AbortController per task. A tool gets `toolAbort.signal`; the loop
+  // aborts it as soon as the operator presses Esc/Ctrl+C (browser._abort /
+  // _stopped). This is what actually kills a running `npm test` instead of
+  // just abandoning it.
+  const toolAbort = new AbortController()
+  const syncToolAbort = (): void => {
+    if ((browser._abort || browser._stopped) && !toolAbort.signal.aborted) {
+      toolAbort.abort()
+    }
+  }
+
   if (freshChat) {
     await browser.newChat()
     transcript?.log('new_chat')
@@ -651,14 +662,25 @@ export async function runAgentLoop({
         continue
       }
 
+      // The operator may have pressed Esc while we were parsing/among the
+      // previous calls — make sure the signal reflects it before we start.
+      syncToolAbort()
       safeToolCall(call.tool, call.args)
       transcript?.log('tool_call', { tool: call.tool, args: call.args })
 
       let result
+      // While the tool runs, poll for an Esc/Ctrl+C: the abort flag is a plain
+      // boolean set by stopGeneration(), so the only way to turn it into a
+      // child-process kill is to check it periodically. 100ms is cheap and
+      // makes Esc feel immediate.
+      const poll = setInterval(syncToolAbort, 100)
+      if (typeof poll.unref === 'function') poll.unref()
       try {
-        result = await tool.fn(call.args)
+        result = await tool.fn(call.args, { signal: toolAbort.signal })
       } catch (e) {
         result = `Error: ${(e as Error).message}`
+      } finally {
+        clearInterval(poll)
       }
 
       safeToolResult(result)

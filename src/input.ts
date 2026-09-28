@@ -275,9 +275,9 @@ export function formatTokenStatus(
   }
   const pct = Math.max(0, (n / limit) * 100)
   const pctStr = pct >= 10 ? String(Math.round(pct)) : pct.toFixed(1)
-  // "ctx" marks this as the USED context size, so the operator does not have
+  // "ctx:" marks this as the USED context size, so the operator does not have
   // to guess what "302k · 30%" means.
-  return 'ctx ' + compact + ' · ' + pctStr + '%'
+  return 'ctx: ' + compact + ' · ' + pctStr + '%'
 }
 
 export class LineEditor {
@@ -297,6 +297,9 @@ export class LineEditor {
   // True while the dot-animation timer is running. Lets sendPause() update
   // only the base text (remaining seconds) without restarting the timer.
   _animating: boolean
+  // Whether the animated status shows the trailing "Esc — стоп" hint. Off
+  // while a tool runs (its process cannot be cancelled).
+  _showHint: boolean
   _dotPhase: number
   _thinkBase: string
   // The last rendered status row(s) (status + right-aligned context). Cached so
@@ -366,6 +369,7 @@ export class LineEditor {
     this._inPaste = false
     this._dotTimer = null
     this._animating = false
+    this._showHint = true
     this._dotPhase = 0
     this._thinkBase = ''
     this._lastStatusBlock = ''
@@ -772,6 +776,7 @@ export class LineEditor {
 
   // Status-line hint ("Esc — stop"), localized.
   _hint(): string {
+    if (!this._showHint) return ''
     return theme.dim('  ·  ' + translate(this.locale)('spinner.hint'))
   }
 
@@ -787,8 +792,13 @@ export class LineEditor {
   // Shared by the thinking spinner and the send-pause indicator, so the pause
   // is animated too (previously the pause was a static console line and the
   // dots stayed frozen).
-  _startAnimated(baseText: string) {
+  //
+  // `showHint` (default true) controls the trailing "· Esc — стоп". While a
+  // TOOL runs we hide it: the tool's child process cannot be killed, so
+  // promising "Esc to stop" would be misleading.
+  _startAnimated(baseText: string, showHint = true) {
     this._thinkBase = theme.brown(stripEllipsis(baseText))
+    this._showHint = showHint
     this._dotPhase = 0
     this.setStatus(this._thinkBase + this._dots(0) + this._hint())
     this._stopDots()
@@ -845,7 +855,9 @@ export class LineEditor {
     // A tool may run for a long time (Bash, npm test, MCP). Without an active
     // animation the operator sees a frozen screen and cannot tell work is in
     // progress. Start the animated status AFTER printAbove (which stops the
-    // dots) and keep it running until toolResult()/assistant()/stop().
+    // dots) and keep it running until toolResult()/assistant()/stop(). Esc now
+    // really aborts the tool (the Bash child process is killed via the
+    // AbortSignal), so the "Esc — стоп" hint is shown.
     this._startAnimated(
       translate(this.locale)('spinner.running_tool', { name }),
     )

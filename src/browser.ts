@@ -8,7 +8,6 @@ import { extractAnswer, extractTokenUsage, dumpNetBody } from './net-capture.js'
 import path from 'path'
 import os from 'os'
 import fs from 'fs/promises'
-import { execSync } from 'child_process'
 import { theme } from './theme.js'
 import { translate, DEFAULT_LOCALE, type Locale } from './i18n.js'
 
@@ -242,17 +241,6 @@ export class ServerBusyError extends Error {
 
 // ---------- profile cleanup ----------
 
-async function killStaleChrome() {
-  if (process.platform !== 'win32') return
-  try {
-    execSync(
-      `powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name='chrome.exe'\\" | Where-Object { $_.CommandLine -like '*\\.zames\\profile*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"`,
-      { stdio: 'ignore', timeout: 5000 },
-    )
-    await new Promise((r) => setTimeout(r, 800))
-  } catch {}
-}
-
 async function cleanSingletonFiles() {
   const names = ['SingletonLock', 'SingletonCookie', 'SingletonSocket']
   for (const name of names) {
@@ -464,7 +452,11 @@ export class DeepSeekBrowser {
   }
 
   async launch(): Promise<void> {
-    await killStaleChrome()
+    // NOTE: we deliberately do NOT kill stray chrome processes here. Per the
+    // project rules, an agent must never kill a browser it did not start —
+    // another zames instance may be using the same profile. A locked profile
+    // is handled by removing the Singleton files (below) and, if it is still
+    // busy, by a clear error in _launchOnce().
     if (await profileLooksLocked()) {
       if (this.debug) console.error('profile: удаляю Singleton-файлы')
       await cleanSingletonFiles()
@@ -524,7 +516,10 @@ export class DeepSeekBrowser {
       ) {
         if (this.debug)
           console.error('profile: занят, перезапускаю после очистки')
-        await killStaleChrome()
+        // Do NOT kill a foreign chrome (see AGENTS.md): only clear the
+        // Singleton files and retry. If the profile is genuinely in use by a
+        // live browser, nukeProfile() below fails safely and the error
+        // surfaces instead of silently killing someone else's session.
         await cleanSingletonFiles()
 
         try {
@@ -614,11 +609,11 @@ export class DeepSeekBrowser {
     try {
       if (this.context) await this.context.close()
     } catch {}
-    // A restart must REUSE the existing profile. `launch()` would call
-    // killStaleChrome() and clean Singleton files, which can race with a
-    // sibling agent on the same profile; here we just relaunch the persistent
-    // context in place. A fresh window appears only because the old context was
-    // actually closed — no second window is created while one is alive.
+    // A restart must REUSE the existing profile. `launch()` would clean
+    // Singleton files, which can race with a sibling agent on the same
+    // profile; here we just relaunch the persistent context in place. A fresh
+    // window appears only because the old context was actually closed — no
+    // second window is created while one is alive.
     await this._launchOnce()
     await this._fixHeadlessUserAgent()
   }
@@ -2266,6 +2261,5 @@ export class DeepSeekBrowser {
     try {
       if (this.context) await this.context.close()
     } catch {}
-    await killStaleChrome()
   }
 }

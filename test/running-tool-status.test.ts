@@ -46,6 +46,18 @@ test('toolResult stops the running animation', () => {
   assert.equal(e._dotTimer, null, 'the dot timer must be cleared')
 })
 
+test('the running-tool status shows the stop hint (Esc now aborts the tool)', () => {
+  const e = new LineEditor()
+  e.toolCall('Bash', { command: 'npm test' })
+  // Esc now really aborts the tool (the Bash child process is killed via the
+  // AbortSignal), so the hint is shown while the tool runs.
+  assert.ok(
+    e.statusText.includes('Esc'),
+    'stop hint expected while a tool runs: ' + e.statusText,
+  )
+  e.stop()
+})
+
 test('the running status cycles through the dots', async () => {
   const writes = capture((e) => {
     e.toolCall('Bash', { command: 'npm test' })

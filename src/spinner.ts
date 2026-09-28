@@ -69,19 +69,24 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
   // "running" dot sequence. Shared by the thinking spinner and the send-pause
   // indicator, so the pause is animated too (before, it was a static line and
   // the dots did not move — the operator saw a frozen spinner).
-  const startAnimated = (baseText: string) => {
+  //
+  // `showHint` (default true) controls the trailing "· Esc — стоп". While a
+  // tool runs we hide it: its process cannot be cancelled, so promising a stop
+  // would be misleading.
+  const startAnimated = (baseText: string, showHint = true) => {
     animBase = theme.brown(stripEllipsis(baseText))
+    const hint = showHint ? HINT : ''
     // The dots are the same color as the base and of fixed width — otherwise
     // the hint on the right "jumps" when the animation phase changes.
     const dots = (n: number) =>
       theme.brown(DOTS[n] + DOTS_PAD.slice(DOTS[n].length))
-    start(animBase + dots(0) + HINT)
+    start(animBase + dots(0) + hint)
     dotPhase = 0
     if (dotTimer) clearInterval(dotTimer)
     dotTimer = setInterval(() => {
       if (!spinner) return
       dotPhase = (dotPhase + 1) % DOTS.length
-      spinner.text = animBase + dots(dotPhase) + HINT
+      spinner.text = animBase + dots(dotPhase) + hint
     }, 400)
     animating = true
     if (dotTimer.unref) dotTimer.unref()

@@ -4,7 +4,7 @@ import { exec, type ExecOptions } from 'child_process'
 import { createGitTools } from './gitTools.js'
 import { createWebTools } from './web.js'
 import { createExtraTools } from './extraTools.js'
-import type { ToolArgs, ToolDef } from './types.js'
+import type { ToolArgs, ToolDef, ToolContext } from './types.js'
 import type { UndoStore } from './undo.js'
 
 // NOTE: tool descriptions and tool-result strings are AGENT-FACING, not
@@ -46,7 +46,11 @@ export function createTools(
       }
     }
   }
-  const runShell = (command: string, timeout = 30_000): Promise<string> =>
+  const runShell = (
+    command: string,
+    timeout = 30_000,
+    signal?: AbortSignal,
+  ): Promise<string> =>
     new Promise((resolve) => {
       const options: ExecOptions = {
         cwd: workdir,
@@ -54,6 +58,9 @@ export function createTools(
         maxBuffer: 1024 * 1024 * 8,
         windowsHide: true,
         env: { ...process.env },
+        // Abort the child process when the operator pressed Esc/Ctrl+C.
+        // Without it a long `npm test` kept running even after the stop.
+        signal,
       }
 
       if (process.platform === 'win32') {
@@ -76,6 +83,8 @@ export function createTools(
 
         if (err.killed) {
           parts.push(`⏱ Timeout after ${timeout}ms — process killed.`)
+        } else if ((err as { code?: string }).code === 'ABORT_ERR') {
+          parts.push('(aborted by the operator)')
         } else if (err.code !== undefined && err.code !== null) {
           parts.push(`Exit code: ${err.code}`)
         } else if (err.signal) {
@@ -223,9 +232,13 @@ export function createTools(
         'Do not use for commands that require interactive input. ' +
         'For git use the Git* tools. For the web use WebFetch / WebSearch.',
       parameters: { command: 'string', timeout: 'number?' },
-      fn: async ({ command, timeout }: ToolArgs) => {
+      fn: async ({ command, timeout }: ToolArgs, ctx?: ToolContext) => {
         assertCommandInsideRoot(req(command, 'command'))
-        return runShell(req(command, 'command'), timeout as number | undefined)
+        return runShell(
+          req(command, 'command'),
+          timeout as number | undefined,
+          ctx?.signal,
+        )
       },
     },
 

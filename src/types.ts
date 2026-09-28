@@ -21,11 +21,18 @@ export type ParsedToolCall = ToolCall | ToolCall[] | null
 export type ToolParameters = Record<string, string>
 
 /** Tool definition as the agent sees it. */
+export interface ToolContext {
+  // Aborted when the operator pressed Esc/Ctrl+C. Long-running tools (Bash)
+  // pass it to child_process so the process is actually killed, not merely
+  // abandoned.
+  signal?: AbortSignal
+}
+
 export interface ToolDef {
   name: string
   description: string
   parameters: ToolParameters
-  fn: (args: ToolArgs) => Promise<unknown> | unknown
+  fn: (args: ToolArgs, ctx?: ToolContext) => Promise<unknown> | unknown
 }
 
 // ---------- config ----------
