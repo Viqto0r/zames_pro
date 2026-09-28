@@ -138,8 +138,8 @@ config commands (/new, /chats, /resume, /cd, /status, /config,
 Codex CLI:
 
 - /diff [--staged] — show the working-tree git diff (--staged for the index).
-- /cost (alias /usage) — session stats: tasks, tool calls, duration
- (DeepSeek web does not expose token counts).
+- /cost (alias /usage) — session stats: tasks, tool calls, duration, and the
+ context size in tokens (DeepSeek's `accumulated_token_usage`).
 - /export [file] — write the session transcript to a Markdown file
  (zames-export-<stamp>.md by default).
 - /doctor — diagnose node, git, config, browser, clipboard and MCP.

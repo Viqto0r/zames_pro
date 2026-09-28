@@ -132,6 +132,18 @@ Additionally the interception yields the chat id earlier than it appears in the
 URL (browser._netChatId is used in getCurrentChatId as a fallback).
 Details — in the comments of src/net-capture.ts and src/browser.ts.
 
+The SAME interception also captures the CONTEXT SIZE: DeepSeek sends
+`accumulated_token_usage` (a cumulative token counter for the whole chat) in
+the SSE stream (`v.response.accumulated_token_usage` and BATCH updates).
+`extractTokenUsage(body)` (src/net-capture.ts) returns the latest value;
+`browser._lastTokenUsage` (exposed via `getLastTokenUsage()`) is updated in
+`_onResponse` and from `fetchChatMessages` (every message of
+history_messages carries the counter). `/cost` and `/status` print it, and
+`printRestoredHistory` shows it on `/resume`. This is the closest thing to
+"used context" the web UI exposes — there is no prompt_tokens/completion_tokens
+like the API. We do NOT add a tokenizer dependency: the server counter is the
+truth and a local BPE estimate would be wrong.
+
 Write/Edit accept base64 variants of the arguments (content_base64,
 old_base64/new_base64) — this works around channel distortions: base64 consists
 only of [A-Za-z0-9+/=] and is not corrupted. The system-prompt advises the model

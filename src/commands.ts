@@ -102,9 +102,19 @@ export function formatDuration(ms: number): string {
 export function renderCost(
  stats: SessionStats,
  transcriptFile: string | null,
+ tokenUsage: number | null = null,
 ): string {
  const lines: string[] = []
- lines.push('Session stats (DeepSeek web does not expose token counts):')
+ lines.push('Session stats:')
+ if (typeof tokenUsage === 'number') {
+ lines.push(
+ ' context: ~' + tokenUsage + ' tokens (DeepSeek accumulated_token_usage)',
+ )
+ } else {
+ lines.push(
+ ' context: unknown (DeepSeek reports it after the first answer in a chat)',
+ )
+ }
  lines.push(' tasks: ' + stats.turns)
  lines.push(' tool calls: ' + stats.toolCalls)
  const top = Object.entries(stats.toolCounts).sort((a, b) => b[1] - a[1])

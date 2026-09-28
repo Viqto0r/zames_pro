@@ -160,6 +160,53 @@ export function extractAnswer(body: string): string {
   return extractFromJson(body)
 }
 
+// The CONTEXT size (in tokens) DeepSeek reports for the current answer.
+//
+// chat.deepseek.com does not expose prompt_tokens/completion_tokens the way
+// the API does. What it sends instead is `accumulated_token_usage` — a
+// CUMULATIVE counter of the whole chat so far, present both in the SSE
+// completion stream and (per message) in /api/v0/chat/history_messages. It
+// is the number the operator wants for "how much context is used": the
+// latest value is the current size of the chat context in tokens.
+//
+// SSE placement:
+//   * the initial fragment: v.response.accumulated_token_usage
+//   * an update chunk: {"p":"response","o":"BATCH",
+//                       "v":[{"p":"accumulated_token_usage","v":N}, ...]}
+// We take the LAST value seen (the freshest).
+//
+// Returns null when the body carries no counter (e.g. an OpenAI-shaped
+// response or a non-answer endpoint) so the caller can keep the old value.
+export function extractTokenUsage(body: string): number | null {
+  let found: number | null = null
+  const consider = (n: unknown): void => {
+    if (typeof n === 'number' && Number.isFinite(n) && n >= 0) found = n
+  }
+  for (const obj of parseDataLines(body)) {
+    if (obj == null || typeof obj !== 'object') continue
+    const o = obj as Record<string, unknown>
+
+    // The initial fragment: v.response.accumulated_token_usage.
+    const v = o.v as Record<string, unknown> | undefined
+    const resp =
+      v && typeof v === 'object'
+        ? (v.response as Record<string, unknown>)
+        : undefined
+    if (resp) consider(resp.accumulated_token_usage)
+
+    // A BATCH update: v is an array of {"p":"accumulated_token_usage","v":N}.
+    if (Array.isArray(o.v)) {
+      for (const item of o.v) {
+        if (item && typeof item === 'object') {
+          const it = item as Record<string, unknown>
+          if (it.p === 'accumulated_token_usage') consider(it.v)
+        }
+      }
+    }
+  }
+  return found
+}
+
 // Saves the DeepSeek network response body to disk for post-mortem analysis.
 // The files live in ~/.zames/net-log — from them the real answer format is visible.
 // DEBUG ONLY: disabled unless ZAMES_NET_DEBUG=1. It writes a file per network

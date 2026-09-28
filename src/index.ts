@@ -992,6 +992,10 @@ async function printRestoredHistory(
     else console.log(text)
   }
   out(theme.system(t('chats.history_title')))
+  const restoredTokens = browser.getLastTokenUsage()
+  if (typeof restoredTokens === 'number') {
+    out(theme.dim(t('chats.history_tokens', { v: String(restoredTokens) })))
+  }
   for (const m of messages) {
     if (m.role === 'user') {
       out(theme.user('❯ ' + t('chats.history_you') + ': ') + m.text.trim())
@@ -2489,6 +2493,14 @@ t('self.done_hint', { v: back }),
           }),
         ),
       )
+      const tokens = browser.getLastTokenUsage()
+      console.log(
+        theme.system(
+          t('status.tokens', {
+            v: tokens === null ? t('common.unknown') : String(tokens),
+          }),
+        ),
+      )
       continue
     }
 
@@ -2525,7 +2537,11 @@ t('self.done_hint', { v: back }),
  // best-effort
  }
  }
- console.log(theme.system(renderCost(stats, transcript.file)))
+ console.log(
+ theme.system(
+ renderCost(stats, transcript.file, browser.getLastTokenUsage()),
+ ),
+ )
  continue
  }
 

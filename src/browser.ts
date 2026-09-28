@@ -4,7 +4,7 @@ import {
   type Page,
   type Locator,
 } from 'playwright'
-import { extractAnswer, dumpNetBody } from './net-capture.js'
+import { extractAnswer, extractTokenUsage, dumpNetBody } from './net-capture.js'
 import path from 'path'
 import os from 'os'
 import fs from 'fs/promises'
@@ -358,6 +358,11 @@ export class DeepSeekBrowser {
   _netCapture: string
   _netCaptureAt: number
   _netChatId: string | null
+  // The latest CONTEXT size (in tokens) DeepSeek reported in the current
+  // chat. It is the `accumulated_token_usage` counter taken from the SSE
+  // completion stream and from /api/v0/chat/history_messages. Null until the
+  // first answer (or history fetch) delivers it. Shown by /cost and /status.
+  _lastTokenUsage: number | null
   // Authorization / PoW headers sniffed from DeepSeek's own API requests, so
   // fetchChatMessages can replay them (a bare fetch does not get them).
   _apiAuth: string
@@ -429,6 +434,7 @@ export class DeepSeekBrowser {
     this._netCapture = ''
     this._netCaptureAt = 0
     this._netChatId = null
+    this._lastTokenUsage = null
     this._apiAuth = ''
     this._apiPow = ''
     this._lastHistoryError = ''
@@ -576,6 +582,12 @@ export class DeepSeekBrowser {
       this._netSniff.push({ url, contentType: ct, body })
       if (this._netSniff.length > this._netSniffLimit) this._netSniff.shift()
       void dumpNetBody(url, body)
+
+      // Context size (tokens) reported by DeepSeek for this answer. Kept
+      // even when extractAnswer() returns nothing (a history_messages
+      // response carries the counter but no answer text).
+      const usage = extractTokenUsage(body)
+      if (usage !== null) this._lastTokenUsage = usage
 
       const extracted = extractAnswer(body)
       if (extracted) {
@@ -1926,7 +1938,13 @@ return this._netCapture
           }
           const NL = String.fromCharCode(10)
           const out: Array<{ role: string; text: string }> = []
+          // The context size: the LATEST accumulated_token_usage in the chat
+          // (each message carries the running counter).
+          let usage: number | null = null
           for (const m of messages) {
+            if (m && typeof m.accumulated_token_usage === 'number') {
+              usage = m.accumulated_token_usage
+            }
             const role = m && m.role === 'ASSISTANT' ? 'assistant' : 'user'
             const want = role === 'assistant' ? 'RESPONSE' : 'REQUEST'
             let text = ''
@@ -1937,7 +1955,7 @@ return this._netCapture
             text = text.replace(new RegExp(NL + '{3,}', 'g'), NL + NL).trim()
             if (text) out.push({ role, text })
           }
-          return { error: '', list: out }
+          return { error: '', list: out, usage }
         } catch (e) {
           return { error: 'fetch failed: ' + (e as Error).message, list: [] }
         }
@@ -1949,6 +1967,10 @@ return this._netCapture
         list: [] as Array<{ role: string; text: string }>,
       }))
     this._lastHistoryError = res?.error || ''
+    // Pick up the context size the history carries, so /resume (and /cost
+    // right after it) shows a real number even before the first answer.
+    const usage = (res as { usage?: number | null } | undefined)?.usage
+    if (typeof usage === 'number') this._lastTokenUsage = usage
     const list = (res?.list || []) as ChatMessage[]
     if (list.length || !res?.error) return list
     // Fallback: Playwright's own request context (shares the browser cookies)
@@ -1970,8 +1992,12 @@ return this._netCapture
       const out: ChatMessage[] = []
       for (const m of messages as Array<{
         role?: string
+        accumulated_token_usage?: number
         fragments?: Array<{ type?: string; content?: string }>
       }>) {
+        if (m && typeof m.accumulated_token_usage === 'number') {
+          this._lastTokenUsage = m.accumulated_token_usage
+        }
         const role: ChatMessage['role'] =
           m && m.role === 'ASSISTANT' ? 'assistant' : 'user'
         const want = role === 'assistant' ? 'RESPONSE' : 'REQUEST'
@@ -2098,6 +2124,12 @@ return this._netCapture
     } catch {
       return this._netChatId
     }
+  }
+
+  // The latest context size (in tokens) DeepSeek reported for the current
+  // chat, or null when nothing has been seen yet. Used by /cost and /status.
+  getLastTokenUsage(): number | null {
+    return this._lastTokenUsage
   }
 
   async close(): Promise<void> {

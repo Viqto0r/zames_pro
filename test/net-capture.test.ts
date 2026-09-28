@@ -4,6 +4,7 @@ import {
   extractFromSse,
   extractFromJson,
   extractAnswer,
+  extractTokenUsage,
 } from '../src/net-capture.ts'
 
 const NL = String.fromCharCode(10)
@@ -84,4 +85,39 @@ test('extractAnswer: сохраняет tool-call с шаблонной стро
   })
   const out = extractAnswer(sseChunk({ choices: [{ delta: { content: call } }] }))
   assert.equal(out, call)
+})
+
+// The context counter comes in the initial fragment (v.response) and in
+// BATCH updates. The LAST value must win (it is the freshest).
+test('extractTokenUsage: initial v.response fragment', () => {
+  const body = sseChunk({
+    v: { response: { accumulated_token_usage: 35931, fragments: [] } },
+  })
+  assert.equal(extractTokenUsage(body), 35931)
+})
+
+test('extractTokenUsage: BATCH update overrides the initial value', () => {
+  const body =
+    sseChunk({ v: { response: { accumulated_token_usage: 35931 } } }) +
+    sseChunk({ p: 'response/fragments/-1/content', o: 'APPEND', v: 'x' }) +
+    sseChunk({
+      p: 'response',
+      o: 'BATCH',
+      v: [{ p: 'accumulated_token_usage', v: 36380 }],
+    })
+  assert.equal(extractTokenUsage(body), 36380)
+})
+
+test('extractTokenUsage: no counter -> null (not 0)', () => {
+  assert.equal(
+    extractTokenUsage(sseChunk({ choices: [{ delta: { content: 'hi' } }] })),
+    null,
+  )
+  assert.equal(extractTokenUsage(''), null)
+  assert.equal(extractTokenUsage('not sse'), null)
+})
+
+test('extractTokenUsage: ignores non-numbers', () => {
+  const body = sseChunk({ v: { response: { accumulated_token_usage: 'nope' } } })
+  assert.equal(extractTokenUsage(body), null)
 })

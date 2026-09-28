@@ -109,6 +109,18 @@ test('renderCost contains key lines', () => {
  assert.ok(out.includes('Read: 2'))
  assert.ok(out.includes('8s'))
  assert.ok(out.includes('/tmp/t.jsonl'))
+ // No token count passed -> an explicit "unknown" line, never a bogus 0.
+ assert.ok(out.includes('context: unknown'))
+})
+
+test('renderCost shows the token context when known', () => {
+ const out = renderCost(
+ { turns: 1, toolCalls: 0, toolCounts: {}, durationMs: 0, startedAt: null },
+ null,
+ 12345,
+ )
+ assert.ok(out.includes('12345 tokens'))
+ assert.ok(!out.includes('context: unknown'))
 })
 
 // ---------- /export ----------
