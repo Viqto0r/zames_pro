@@ -1,0 +1,14 @@
+fix(input): stop the pause status from stacking (autowrap)
+
+The status line was padded to the FULL terminal width (cols), which triggers
+autowrap on Tabby / iTerm / Windows Terminal: the cursor wraps to the next
+line, the following erase moves to the wrong row, and the next frame is drawn
+one row lower — the operator sees the "pause Ns" line duplicated/stacking.
+
+The padded status+context row now keeps one column free (effective width
+cols-1), so it never reaches the right edge and never autowraps. This is the
+root cause of the pause-line duplication; it only appeared once the token
+context started sharing the status row.
+
+Add test/no-stack-render.test.ts: the padded row must never equal the terminal
+width, and the editor must print a status row narrower than the terminal.

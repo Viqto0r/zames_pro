@@ -605,13 +605,20 @@ export class LineEditor {
     const ctxText = this._contextText()
     let statusOut = ''
     let top = 0
+    // Never fill a row to the FULL terminal width: on terminals with
+    // autowrap (Tabby, iTerm, Windows Terminal) a row that reaches the last
+    // column wraps the cursor to the next line, so the following erase moves
+    // to the wrong row and the status line STACKS on screen. Keep one column
+    // free (effective width = cols - 1) for the right-aligned context and for
+    // the padded status row.
+    const usable = Math.max(1, cols - 1)
     if (this.statusText) {
       if (ctxText) {
         // Right-align the context on the SAME row as the status. When the
         // status is too long to leave room, do NOT cram them together (that
         // pushed the trailing `%` past the right edge and it got truncated):
         // put the context on its own line instead.
-        const space = cols - visLen(this.statusText) - visLen(ctxText)
+        const space = usable - visLen(this.statusText) - visLen(ctxText)
         if (space >= 2) {
           const row = this.statusText + ' '.repeat(space) + ctxText
           statusOut = row + NL
@@ -620,7 +627,7 @@ export class LineEditor {
           statusOut = this.statusText + NL
           top = visRows(this.statusText, cols)
           const ctxRow =
-            ' '.repeat(Math.max(0, cols - visLen(ctxText))) + ctxText
+            ' '.repeat(Math.max(0, usable - visLen(ctxText))) + ctxText
           statusOut += ctxRow + NL
           top += visRows(ctxRow, cols)
         }
@@ -633,7 +640,8 @@ export class LineEditor {
     } else if (ctxText) {
       // Idle: no spinner, but the context still belongs on its own line just
       // above the input, right-aligned.
-      const ctxRow = ' '.repeat(Math.max(0, cols - visLen(ctxText))) + ctxText
+      const ctxRow =
+        ' '.repeat(Math.max(0, usable - visLen(ctxText))) + ctxText
       statusOut = ctxRow + NL
       top = visRows(ctxRow, cols)
     }
