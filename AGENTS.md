@@ -506,6 +506,13 @@ interactive launch.
 - commands.ts - pure helpers for /diff, /cost, /export, /doctor,
  /permissions, /add-dir, /review (tested in test/commands.test.ts)
 - `/add-dir <path>` — validate an extra directory
+- `/compact` — DeepSeek compresses the current chat into a handover summary,
+  then a NEW chat is opened with the system prompt resent and the summary
+  posted as the carried-over context. Helpers `buildCompactPrompt()` /
+  `buildCompactCarryover()` live in `src/commands.ts` (pure, tested); the
+  command itself is in src/index.ts and reuses `browser.ask()` +
+  `browser.newChat()`. The OLD-chat summary call is `agent: true` (throttled),
+  the two sends into the new chat are `agent: false`.
 - `/review [focus] [--staged]` — the agent reviews uncommitted changes
 - `/config` — view and edit settings (see "Configuration")
 - `/config lang <ru|en>` — switch the interface and agent language

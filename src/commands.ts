@@ -360,6 +360,59 @@ export function formatRestoredHistory(
   return out.join(NL + NL)
 }
 
+// ---------- /compact ----------
+
+/**
+ * The prompt that asks the model to compress the current chat into a handover
+ * summary. It is sent to the OLD chat before a new one is opened; the answer
+ * (the summary) is then carried over as the context of the new chat.
+ *
+ * The summary must be self-sufficient: the new chat sees ONLY this text (plus
+ * the system prompt), so the model is told to keep facts, decisions, file
+ * paths, commands and the exact current state of the work.
+ */
+export function buildCompactPrompt(locale: 'ru' | 'en' = 'ru'): string {
+  if (locale === 'en') {
+    return (
+      'Compact the conversation so far into a handover summary for a NEW chat. ' +
+      'This summary is the ONLY context the new chat will start with, so it must be self-sufficient. ' +
+      'Include: (1) the user goal and constraints; (2) what has been done so far; ' +
+      '(3) the exact current state (files changed, commands run, their results); ' +
+      '(4) open questions and the next concrete steps. ' +
+      'Keep file paths, function/identifier names, commands and error texts verbatim. ' +
+      'Be concise but complete — no small talk, no code dumps beyond short essential snippets.'
+    )
+  }
+  return (
+    'Сожми историю диалога в краткое резюме для НОВОГО чата. ' +
+    'Это резюме будет ЕДИНСТВЕННЫМ контекстом, с которым новый чат начнёт работу, поэтому оно должно быть самодостаточным. ' +
+    'Включи: (1) цель пользователя и ограничения; (2) что уже сделано; ' +
+    '(3) точное текущее состояние (изменённые файлы, выполненные команды и их результаты); ' +
+    '(4) открытые вопросы и следующие конкретные шаги. ' +
+    'Пути к файлам, имена функций/идентификаторов, команды и тексты ошибок сохраняй дословно. ' +
+    'Пиши кратко, но полно — без воды и без больших дампов кода (только короткие важные фрагменты).'
+  )
+}
+
+/**
+ * Wrap the model's summary into the text posted as the first message of the
+ * NEW chat. The system prompt is sent separately (sendSystemPrompt), so here
+ * we only mark the block as a carried-over context and add the operator's
+ * original goal so the model does not lose it.
+ */
+export function buildCompactCarryover(summary: string, task?: string): string {
+  const body = String(summary ?? '').trim()
+  const goal = String(task ?? '').trim()
+  let out =
+    'Context carried over from a previous chat (compacted). ' +
+    'Treat it as the history of our work so far and continue from the current state.'
+  out += NL + NL + body
+  if (goal) {
+    out += NL + NL + 'Original task: ' + goal
+  }
+  return out
+}
+
 // ---------- /review ----------
 
 export function buildReviewPrompt(focus: string, hasStaged = false): string {

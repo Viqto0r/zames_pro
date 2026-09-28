@@ -152,6 +152,14 @@ Codex CLI:
  last 20 messages are shown (`RESTORED_HISTORY_LIMIT`).
 - /review [focus] [--staged] — ask the agent to review uncommitted changes
  and report findings (no code changes).
+- /compact — ask DeepSeek to compress the current chat into a handover
+ summary, then open a NEW chat, resend the system prompt and post the summary
+ as the carried-over context. Use it when the context gets long.
+
+The token context is also shown live: the status line above the input has the
+spinner/text on the left and the context on the right (e.g. `125k · 13%`,
+percent of a 1M context). It comes from DeepSeek's `accumulated_token_usage`
+and is hidden until the first answer delivers it.
 
 
 ## Project context, skills and memory

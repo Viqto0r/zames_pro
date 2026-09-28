@@ -220,6 +220,34 @@ export interface LineEditorOptions {
   locale?: Locale
 }
 
+// Format a token count for the status line: compact (10k, 125k) plus the
+// percentage of CONTEXT_LIMIT. Exported so it is unit-tested without a live
+// editor. A null/undefined/NaN count renders an empty string (no status).
+export const CONTEXT_LIMIT = 1_000_000
+
+export function formatTokenStatus(
+  tokens: number | null | undefined,
+  limit = CONTEXT_LIMIT,
+): string {
+  if (typeof tokens !== 'number' || !Number.isFinite(tokens) || tokens < 0) {
+    return ''
+  }
+  const n = Math.round(tokens)
+  let compact: string
+  if (n >= 1_000_000) {
+    const m = n / 1_000_000
+    compact = (Number.isInteger(m) ? String(m) : m.toFixed(1)) + 'M'
+  } else if (n >= 1_000) {
+    const k = n / 1_000
+    compact = (k >= 100 ? String(Math.round(k)) : k.toFixed(1).replace(/\.0$/, '')) + 'k'
+  } else {
+    compact = String(n)
+  }
+  const pct = Math.max(0, (n / limit) * 100)
+  const pctStr = pct >= 10 ? String(Math.round(pct)) : pct.toFixed(1)
+  return compact + ' · ' + pctStr + '%'
+}
+
 export class LineEditor {
   promptStr: string
   buf: string
@@ -268,6 +296,13 @@ export class LineEditor {
   // Interface language for the editor's own labels (hint, answer marker,
   // pause status). Everything the OPERATOR sees must be localized.
   locale: Locale
+  // Token context for the status line: the compact count (10k/125k) plus the
+  // percentage of the context limit, right-aligned above the input line. Null
+  // hides it. Updated by the caller from browser.getLastTokenUsage().
+  contextStatus: string | null
+  // A callback the editor calls to fetch the CURRENT token count before every
+  // status render, so the status line stays fresh without the caller polling.
+  onContextQuery: (() => number | null) | null
 
   constructor({ prompt = '> ', commands = [], locale = 'ru' }: LineEditorOptions = {}) {
     this.locale = locale
@@ -301,6 +336,22 @@ export class LineEditor {
     this.onAttach = null
     this.onClipboard = null
     this.locked = false
+    this.contextStatus = null
+    this.onContextQuery = null
+  }
+
+  // The token status for the CURRENT render: refreshed from onContextQuery
+  // when wired, otherwise the last value passed to setContextStatus().
+  _contextForRender(): string | null {
+    if (this.onContextQuery) {
+      try {
+        const n = this.onContextQuery()
+        this.contextStatus = n === null || n === undefined ? null : formatTokenStatus(n) || null
+      } catch {
+        // A broken callback must never break the render.
+      }
+    }
+    return this.contextStatus
   }
 
   // Read the OS clipboard for an image and insert its marker. Used when the
@@ -421,6 +472,12 @@ export class LineEditor {
     this._render()
   }
 
+  // Update the token-context text shown at the right of the status line.
+  setContextStatus(tokens: number | null | undefined): void {
+    this.contextStatus = formatTokenStatus(tokens) || null
+    this._render()
+  }
+
   // Update the interface language (labels: hint, answer marker, pause).
   setLocale(locale: Locale): void {
     this.locale = locale
@@ -458,11 +515,33 @@ export class LineEditor {
     const cols = process.stdout.columns || 80
     let out = ''
     let top = 0
+    // Status line above the input: the spinner/answer text on the left and the
+    // token context right-aligned on the SAME row (10k · 12%). The context is
+    // refreshed from onContextQuery() on every render, so it follows the live
+    // DeepSeek counter without a polling timer of its own.
+    const ctx = this._contextForRender()
+    const ctxText = ctx ? theme.dim(ctx) : ''
     if (this.statusText) {
-      out += this.statusText + NL
+      if (ctxText) {
+        const pad = Math.max(
+          1,
+          cols - visLen(this.statusText) - visLen(ctxText),
+        )
+        out += this.statusText + ' '.repeat(pad) + ctxText + NL
+      } else {
+        out += this.statusText + NL
+      }
       // The status may wrap onto several lines — we account for this,
       // otherwise the block erase misses and statuses pile up.
-      top = visRows(this.statusText, cols)
+      top = visRows(
+        this.statusText + (ctxText ? ' '.repeat(2) + ctxText : ''),
+        cols,
+      )
+    } else if (ctxText) {
+      // Idle: no spinner, but the context still belongs on its own line just
+      // above the input, right-aligned.
+      out += ' '.repeat(Math.max(0, cols - visLen(ctxText))) + ctxText + NL
+      top = visRows(ctxText, cols)
     }
     const lay = layoutInput(this.promptStr, this.buf, this.cursor, cols)
     out += lay.rows.map((r) => r.prefix + r.text).join(NL)

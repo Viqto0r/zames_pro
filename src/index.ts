@@ -60,6 +60,8 @@ import {
  buildReviewPrompt,
  trimRestoredMessages,
  RESTORED_HISTORY_LIMIT,
+ buildCompactPrompt,
+ buildCompactCarryover,
  type RestoredMessage,
 } from './commands.js'
 import { renderMarkdown } from './markdown.js'
@@ -363,6 +365,7 @@ ${theme.bold(t('help.commands'))}
  ${t('help.cmd.permissions')}
  ${t('help.cmd.add_dir')}
  ${t('help.cmd.review')}
+ ${t('help.cmd.compact')}
   ${t('help.cmd.config')}
   ${t('help.cmd.lang')}
   ${t('help.cmd.debug_dom')}
@@ -420,6 +423,7 @@ const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
  { name: '/permissions', key: 'help.cmd.permissions' },
  { name: '/add-dir', key: 'help.cmd.add_dir' },
  { name: '/review', key: 'help.cmd.review' },
+ { name: '/compact', key: 'help.cmd.compact' },
   { name: '/config', key: 'help.cmd.config' },
   { name: '/skills', key: 'help.cmd.skills' },
   { name: '/memory', key: 'help.cmd.memory' },
@@ -1421,6 +1425,10 @@ async function main(): Promise<void> {
     })
     editor = ed
     ed.setTmpDir(TMP_DIR)
+    // The token context right-aligned on the status line (above the input).
+    // The editor pulls the number on every render, so it follows the live
+    // DeepSeek counter (accumulated_token_usage) without a polling timer.
+    ed.onContextQuery = () => browser.getLastTokenUsage()
     ed.onAttach = async (raw: string) => {
       // Case 1: the paste is the image data itself (data URL / base64 blob).
       const image = parseImagePaste(raw)
@@ -2645,7 +2653,106 @@ t('self.done_hint', { v: back }),
  continue
  }
 
- if (lower === '/review' || lower.startsWith('/review ')) {
+    if (lower === '/compact') {
+      // Compaction: ask DeepSeek (in the CURRENT chat) to compress the
+      // history into a handover summary, then start a NEW chat, resend the
+      // system prompt and post the summary as the carried-over context.
+      // This keeps the model working with a small context while nothing is
+      // lost: the summary plus the system prompt are all the new chat needs.
+      if (!currentChatId) {
+        currentChatId = await browser.getCurrentChatId()
+      }
+      if (!currentChatId) {
+        console.error(theme.warn(t('compact.no_chat')))
+        continue
+      }
+      const beforeTokens = browser.getLastTokenUsage()
+      if (editor) editor.lock(t('msg.input_locked'))
+      try {
+        console.log(theme.system(t('compact.start')))
+        // 1) Ask the OLD chat to summarize itself. agent: true - this is a
+        // real back-and-forth, so the send throttle applies.
+        let summary = ''
+        try {
+          summary = await browser.ask(buildCompactPrompt(currentLocale), {
+            agent: true,
+            timeout: Math.max(60_000, config.browser.answerTimeoutMs),
+          })
+        } catch (e) {
+          console.error(
+            theme.error(t('compact.summary_failed', { v: (e as Error).message })),
+          )
+          continue
+        }
+        summary = String(summary || '').trim()
+        // A model "answer" that is actually an error/abort sentinel is not a
+        // summary - do not carry it over.
+        if (!summary || /^\(прервано пользователем\)$/.test(summary)) {
+          console.error(
+            theme.error(
+              t('compact.summary_failed', { v: summary || t('common.unknown') }),
+            ),
+          )
+          continue
+        }
+        transcript.log('compact_summary', {
+          chars: summary.length,
+          beforeTokens,
+        })
+        // 2) New chat + system prompt + the summary as the first message.
+        await browser.newChat()
+        await browser.ask(
+          mod.buildSystemPrompt({
+            workdir: currentWorkdir,
+            tools: mod.createTools(currentWorkdir, { undo }),
+            locale: currentLocale,
+          }),
+          { timeout: 60_000, agent: false },
+        )
+        await browser.ask(buildCompactCarryover(summary, task ?? undefined), {
+          timeout: 60_000,
+          agent: false,
+        })
+        currentChatId = await browser.getCurrentChatId()
+        saveLastChat(currentChatId, currentWorkdir)
+        freshChatNext = false
+        // The new chat already carries the system prompt and the context.
+        sendSystemPromptNext = false
+        console.log(
+          theme.assistant(
+            t('compact.done') +
+              String.fromCharCode(10) +
+              t('compact.report', {
+                chars: summary.length,
+                tokens:
+                  beforeTokens === null
+                    ? t('common.unknown')
+                    : String(beforeTokens),
+              }),
+          ),
+        )
+        if (editor) {
+          editor.printAbove(
+            theme.dim(
+              String.fromCharCode(10) +
+                '--- compacted context ---' +
+                String.fromCharCode(10) +
+                summary +
+                String.fromCharCode(10) +
+                '--- end ---' +
+                String.fromCharCode(10),
+            ),
+          )
+        }
+      } catch (e) {
+        console.error(theme.error((e as Error).message))
+      } finally {
+        if (editor) editor.unlock()
+      }
+      continue
+    }
+
+    if (lower === '/review' || lower.startsWith('/review ')) {
  const rest = trimmed.slice('/review'.length).trim()
  const staged = rest.indexOf("--staged") !== -1
  const focus = rest.replace(/--staged/g, '').trim()
