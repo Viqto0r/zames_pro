@@ -3,65 +3,53 @@ import assert from 'node:assert/strict'
 import { LineEditor } from '../src/input.ts'
 import { theme } from '../src/theme.ts'
 
-// Two colored icons before the context counter show the DeepSeek toggles:
-// 🧠 "Deep thinking" and 🌐 "Smart search". A dim gray icon means off, a
-// teal-green icon means on. The exact ANSI codes depend on whether the test
-// process has a TTY, so we assert on the COLOR ROLE (which formatter was used),
-// not on raw escape sequences.
+// Icons for the DeepSeek toggles: 🧠 (deep thinking) and 🌐 (smart search),
+// shown before the context counter. Only ENABLED toggles are shown, in green —
+// this does not rely on the terminal honoring the ANSI color, so there is no
+// ambiguity between "off" and "on".
 
-function withColorSpies(fn: () => void): { on: string[]; off: string[] } {
-  const on: string[] = []
-  const off: string[] = []
-  const origOn = theme.toggleOn
-  const origOff = theme.toggleOff
-  // Tag the calls so we can see which formatter received which icon.
+function withColorSpy(fn: () => void): string[] {
+  const seen: string[] = []
+  const orig = theme.toggleOn
   theme.toggleOn = ((s: string) => {
-    on.push(s)
+    seen.push(s)
     return s
   }) as typeof theme.toggleOn
-  theme.toggleOff = ((s: string) => {
-    off.push(s)
-    return s
-  }) as typeof theme.toggleOff
   try {
     fn()
   } finally {
-    theme.toggleOn = origOn
-    theme.toggleOff = origOff
+    theme.toggleOn = orig
   }
-  return { on, off }
+  return seen
 }
 
-test('icons: ON uses the green formatter, OFF uses the dim one', () => {
+test('only the enabled toggle is shown', () => {
   const e = new LineEditor()
   e.thinkingEnabled = true
   e.searchEnabled = false
-  const { on, off } = withColorSpies(() => {
-    const icons = e._toggleIcons()
-    assert.ok(icons.includes('🧠'), 'brain icon must be present')
-    assert.ok(icons.includes('🌐'), 'globe icon must be present')
-  })
-  assert.deepEqual(
-    on,
-    ['🧠\uFE0E'],
-    'the ON brain must use the green formatter',
-  )
-  assert.deepEqual(
-    off,
-    ['🌐\uFE0E'],
-    'the OFF globe must use the dim formatter',
-  )
+  const icons = e._toggleIcons()
+  assert.ok(icons.includes('🧠'), 'the ON brain must be shown')
+  assert.ok(!icons.includes('🌐'), 'the OFF globe must be hidden')
 })
 
-test('both icons go green when both toggles are on', () => {
+test('both icons are shown and green when both toggles are on', () => {
   const e = new LineEditor()
   e.thinkingEnabled = true
   e.searchEnabled = true
-  const { on, off } = withColorSpies(() => {
-    e._toggleIcons()
+  const seen = withColorSpy(() => {
+    const icons = e._toggleIcons()
+    assert.ok(icons.includes('🧠'))
+    assert.ok(icons.includes('🌐'))
   })
-  assert.deepEqual(on, ['🧠\uFE0E', '🌐\uFE0E'])
-  assert.deepEqual(off, [])
+  // Both were formatted with the green (ON) formatter.
+  assert.equal(seen.length, 2)
+})
+
+test('no icons when both toggles are off', () => {
+  const e = new LineEditor()
+  e.thinkingEnabled = false
+  e.searchEnabled = false
+  assert.equal(e._toggleIcons(), '')
 })
 
 test('onToggleQuery refreshes the states before a render', () => {
@@ -83,6 +71,5 @@ test('a throwing onToggleQuery does not break the render', () => {
     throw new Error('boom')
   }
   e._refreshToggles()
-  // The previous state is kept.
   assert.equal(e.thinkingEnabled, true)
 })

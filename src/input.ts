@@ -446,21 +446,18 @@ export class LineEditor {
     return theme.success(ctx)
   }
 
-  // Two colored icons for the DeepSeek toggles: 🧠 "Deep thinking" and 🌐 "Smart
-  // search". A dim gray icon = off, a teal-green icon = on. Placed just before
-  // the context counter, so the operator sees the live chat state at a glance.
-  // U+FE0E (VARIATION SELECTOR-15) forces the TEXT presentation of the emoji:
-  // without it the terminal paints the emoji in its own colors (pink brain,
-  // blue globe) and the ANSI color is ignored — "the icons are colored, and it
-  // is unclear which is on". With the selector they become monochrome glyphs
-  // and take the on/off color.
+  // Icons for the DeepSeek toggles: 🧠 "Deep thinking" and 🌐 "Smart search",
+  // shown before the context counter. Only the ENABLED toggles are shown, and
+  // they are teal-green. This does NOT rely on the terminal honoring the ANSI
+  // color: a disabled toggle is simply absent, so there is no ambiguity
+  // between "gray (off)" and "the emoji's own color (on)". U+FE0E forces the
+  // monochrome TEXT presentation so the green is actually visible.
   _toggleIcons(): string {
-    const on = (s: string): string => theme.toggleOn(s)
-    const off = (s: string): string => theme.toggleOff(s)
     const TEXT = '\uFE0E'
-    const brain = this.thinkingEnabled ? on('🧠' + TEXT) : off('🧠' + TEXT)
-    const globe = this.searchEnabled ? on('🌐' + TEXT) : off('🌐' + TEXT)
-    return brain + ' ' + globe + ' '
+    const parts: string[] = []
+    if (this.thinkingEnabled) parts.push(theme.toggleOn('🧠' + TEXT))
+    if (this.searchEnabled) parts.push(theme.toggleOn('🌐' + TEXT))
+    return parts.length ? parts.join(' ') + ' ' : ''
   }
 
   // Read the OS clipboard for an image and insert its marker. Used when the
