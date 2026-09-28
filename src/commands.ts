@@ -268,6 +268,88 @@ export function resolveExtraDir(
  return { path: abs }
 }
 
+// ---------- restored dialogue ----------
+
+/** One message of a restored chat, as read from the DeepSeek DOM. */
+export interface RestoredMessage {
+  role: 'user' | 'assistant'
+  text: string
+}
+
+/** How many characters of the dialogue are printed by default. */
+export const RESTORED_HISTORY_LIMIT = 20
+
+/**
+ * Is this message worth showing to the operator as part of the dialogue?
+ *
+ * The chat history contains a lot of protocol noise that is meaningless in
+ * the terminal: the system-prompt (a huge REQUEST), tool results
+ * ("Tool result for ..."), the agent's raw tool-calls (JSON / DSML), the
+ * "You stopped after a tool result..." nudges, and the agent's <system> notes.
+ * We keep only real user turns and real assistant answers.
+ */
+export function isDisplayableMessage(m: RestoredMessage): boolean {
+  const text = String((m && m.text) || '').trim()
+  if (!text) return false
+  if (text.length > 100_000) return false // the system-prompt / a giant blob
+  if (m.role === 'user') {
+    // Tool output, the system-prompt and the corrective nudges are not the
+    // operator's words.
+    if (/^Tool result for /.test(text)) return false
+    if (/^You are a coding agent running in a terminal/.test(text)) return false
+    if (/^You stopped after a tool result/.test(text)) return false
+    if (/^\[system\]/.test(text)) return false
+    if (/^The user ran \//.test(text)) return false
+    return true
+  }
+  // Assistant: a tool-call (JSON or DSML) is not an answer to show. The
+  // DSML markers use FULL-WIDTH vertical bars (｜｜DSML), so the regex must
+  // match them, not the ASCII pipe.
+  if (/DSML/i.test(text)) return false
+  if (/^<system>/i.test(text)) return false
+  if (/"tool"\s*:/.test(text.slice(0, 600))) {
+    return false
+  }
+  if (/^\s*[\[{]/.test(text) && /"args"\s*:/.test(text.slice(0, 600))) {
+    return false
+  }
+  return true
+}
+
+/**
+ * Keep only the last `limit` messages and drop empties/service noise. The
+ * source (network history or DOM) may contain protocol messages; they are
+ * filtered out here so the terminal output stays readable.
+ */
+export function trimRestoredMessages(
+  messages: RestoredMessage[],
+  limit = RESTORED_HISTORY_LIMIT,
+): RestoredMessage[] {
+  const clean = (messages || []).filter(
+    (m) => m && typeof m.text === 'string' && isDisplayableMessage(m),
+  )
+  if (limit > 0 && clean.length > limit) return clean.slice(clean.length - limit)
+  return clean
+}
+
+/**
+ * Render the restored dialogue as plain text lines: "❯ ..." for the operator,
+ * "● ..." for the agent. Markdown rendering is done by the caller (it needs
+ * the terminal width); this helper is pure and unit-tested.
+ */
+export function formatRestoredHistory(
+  messages: RestoredMessage[],
+  opts: { limit?: number } = {},
+): string {
+  const list = trimRestoredMessages(messages, opts.limit ?? RESTORED_HISTORY_LIMIT)
+  const out: string[] = []
+  for (const m of list) {
+    const marker = m.role === 'user' ? '❯ ' : '● '
+    out.push(marker + m.text.trim())
+  }
+  return out.join(NL + NL)
+}
+
 // ---------- /review ----------
 
 export function buildReviewPrompt(focus: string, hasStaged = false): string {

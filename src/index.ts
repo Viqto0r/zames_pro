@@ -58,7 +58,11 @@ import {
  renderPermissions,
  resolveExtraDir,
  buildReviewPrompt,
+ trimRestoredMessages,
+ RESTORED_HISTORY_LIMIT,
+ type RestoredMessage,
 } from './commands.js'
+import { renderMarkdown } from './markdown.js'
 import { closeWeb } from './web.js'
 import {
   saveSession,
@@ -91,6 +95,7 @@ interface ReviewMode {
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const NL = String.fromCharCode(10)
 
 // True when a DeepSeek session/credentials were stored earlier (auth.json).
 // Used by /doctor to report that auto re-login is ready.
@@ -932,6 +937,80 @@ async function resolveWorkdir(): Promise<string> {
   return dir
 }
 
+// ---------- restored dialogue ----------
+
+/**
+ * Print the dialogue of the just-opened chat into the terminal. Called by
+ * /resume, /resume-id and on startup when a previous session is restored, so
+ * the operator sees the context instead of a bare "Chat opened.".
+ *
+ * Best-effort: a DOM-scraping failure must never break the restore.
+ */
+async function printRestoredHistory(
+  browser: DeepSeekBrowser,
+  ui: { printAbove: (t: string) => void } | null,
+  chatId: string | null = null,
+): Promise<void> {
+  // Prefer DeepSeek's own history endpoint (complete, unvirtualized); fall
+  // back to scraping the rendered DOM when the request fails.
+  let all: RestoredMessage[] = []
+  let fetchCount = -1
+  let domCount = -1
+  if (chatId && browser.fetchChatMessages) {
+    all = await browser.fetchChatMessages(chatId).catch(() => [])
+    fetchCount = all.length
+  }
+  if (!all.length && browser.readChatMessages) {
+    all = await browser.readChatMessages().catch(() => [])
+    domCount = all.length
+  }
+  const messages = trimRestoredMessages(all)
+  // Always surface the diagnostic line when the history could not be turned
+  // into anything printable — otherwise "the dialogue is empty" is a dead end
+  // (was the fetch blocked? did the chat really have no user turns?).
+  if (!all.length || (debug && !messages.length)) {
+    console.log(
+      theme.dim(
+        `[history] chat=${chatId || '-'} fetch=${fetchCount} dom=${domCount} raw=${all.length} shown=${messages.length} auth=${browser._apiAuth ? 'yes' : 'no'} err=${browser._lastHistoryError || '-'}`,
+      ),
+    )
+  }
+  if (!all.length) {
+    console.log(theme.system(t('chats.history_empty')))
+    return
+  }
+  if (!messages.length) {
+    // The history exists but contains only service/protocol messages.
+    console.log(theme.system(t('chats.history_service_only')))
+    return
+  }
+  const out = (text: string): void => {
+    if (ui) ui.printAbove(text)
+    else console.log(text)
+  }
+  out(theme.system(t('chats.history_title')))
+  for (const m of messages) {
+    if (m.role === 'user') {
+      out(theme.user('❯ ' + t('chats.history_you') + ': ') + m.text.trim())
+    } else {
+      out(
+        NL +
+          theme.assistant('● ' + t('chats.history_agent') + ':') +
+          NL +
+          renderMarkdown(m.text.trim()) +
+          NL,
+      )
+    }
+  }
+  if (all.length > messages.length) {
+    out(
+      theme.dim(
+        t('chats.history_truncated', { n: String(RESTORED_HISTORY_LIMIT) }),
+      ),
+    )
+  }
+}
+
 // ---------- task runner ----------
 
 async function runTask(
@@ -1292,6 +1371,7 @@ async function main(): Promise<void> {
       sendSystemPromptNext = resendPrompt
       saveLastChat(resumeId, currentWorkdir)
       console.log(theme.system(t('msg.chat_opened') + ' ' + resumeId + String.fromCharCode(10)))
+      await printRestoredHistory(browser, null, resumeId)
     } catch (e) {
       console.error(
         theme.error(t('msg.open_chat_error', { v: (e as Error).message })),
@@ -2075,6 +2155,7 @@ t('self.done_hint', { v: back }),
                 : ' Контекст чата сохранён. Системный промпт не пересылается (--resend-prompt чтобы дослать).\n',
             ),
         )
+        await printRestoredHistory(browser, editor, pick.id)
       } catch (e) {
         console.error(
           theme.error(t('msg.open_chat_error', { v: '' })),
@@ -2150,6 +2231,7 @@ t('self.done_hint', { v: back }),
           theme.assistant('Чат открыт.') +
             theme.system(String.fromCharCode(10)),
         )
+        await printRestoredHistory(browser, editor, id)
       } catch (e) {
         console.error(
           theme.error(t('msg.open_chat_error', { v: '' })),

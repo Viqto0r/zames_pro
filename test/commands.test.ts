@@ -13,6 +13,10 @@ import {
  renderPermissions,
  resolveExtraDir,
  buildReviewPrompt,
+ trimRestoredMessages,
+ formatRestoredHistory,
+ isDisplayableMessage,
+ RESTORED_HISTORY_LIMIT,
 } from '../src/commands.ts'
 
 const NL = String.fromCharCode(10)
@@ -192,4 +196,72 @@ test('buildReviewPrompt includes scope and focus', () => {
  const staged = buildReviewPrompt('', true)
  assert.ok(staged.includes('staged'))
  assert.ok(!staged.includes('Extra focus'))
+})
+
+// ---------- restored dialogue ----------
+
+test('trimRestoredMessages drops empties and keeps the tail', () => {
+ const msgs = [
+ { role: 'user' as const, text: 'a' },
+ { role: 'assistant' as const, text: '  ' },
+ { role: 'user' as const, text: 'b' },
+ { role: 'assistant' as const, text: 'c' },
+ ]
+ const out = trimRestoredMessages(msgs, 2)
+ assert.equal(out.length, 2)
+ assert.equal(out[0].text, 'b')
+ assert.equal(out[1].text, 'c')
+})
+
+test('trimRestoredMessages with 0 limit keeps everything', () => {
+ const msgs = [
+ { role: 'user' as const, text: 'a' },
+ { role: 'assistant' as const, text: 'b' },
+ ]
+ assert.equal(trimRestoredMessages(msgs, 0).length, 2)
+})
+
+test('formatRestoredHistory marks roles', () => {
+ const out = formatRestoredHistory(
+ [
+ { role: 'user', text: 'привет' },
+ { role: 'assistant', text: 'ответ' },
+ ],
+ { limit: 10 },
+ )
+ assert.ok(out.includes('привет'))
+ assert.ok(out.includes('ответ'))
+ assert.ok(out.startsWith('❯ '))
+})
+
+test('RESTORED_HISTORY_LIMIT is a positive number', () => {
+ assert.ok(RESTORED_HISTORY_LIMIT > 0)
+})
+
+// ---------- isDisplayableMessage ----------
+
+test('isDisplayableMessage keeps a real user turn and a real answer', () => {
+ assert.equal(
+ isDisplayableMessage({ role: 'user', text: 'исправь баг в ask()' }),
+ true,
+ )
+ assert.equal(
+ isDisplayableMessage({ role: 'assistant', text: 'Готово, поправил.' }),
+ true,
+ )
+})
+
+test('isDisplayableMessage drops the protocol noise', () => {
+ const noise = [
+ { role: 'user' as const, text: 'Tool result for Bash:\nagent-loop.ts' },
+ { role: 'user' as const, text: 'You are a coding agent running in a terminal. ...' },
+ { role: 'user' as const, text: 'You stopped after a tool result. Continue...' },
+ { role: 'assistant' as const, text: '{"tool": "Read", "args": {"path": "a.ts"}}' },
+ { role: 'assistant' as const, text: '<｜｜DSML｜｜ calls>\n<｜｜DSML｜｜ invoke name="Read">' },
+ { role: 'assistant' as const, text: '<system>I need to look at...</system>' },
+ { role: 'assistant' as const, text: '   ' },
+ ]
+ for (const m of noise) {
+ assert.equal(isDisplayableMessage(m), false, JSON.stringify(m).slice(0, 60))
+ }
 })

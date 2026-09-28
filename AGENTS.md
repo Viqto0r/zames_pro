@@ -680,6 +680,49 @@ API: `saveSession`, `loadLastSession(workdir)`, `readSession(id)`,
 `listSessions()`, `sessionsDir()`. Saving is called from `saveLastChat()` in
 `index.ts` after every task, new chat and `/resume`.
 
+### Printing the restored dialogue
+
+When a chat is restored (`/resume <n>`, `/resume-id <id>`, or the automatic
+startup restore), the whole visible dialogue is printed into the terminal so
+the operator sees the context instead of a bare "Chat opened.".
+`DeepSeekBrowser.fetchChatMessages(id)` (src/browser.ts) is tried FIRST: it
+fetches `/api/v0/chat/history_messages?chat_session_id=<id>` from INSIDE the
+page and reads `data.biz_data.chat_messages[]`, keeping REQUEST fragments
+(user) and RESPONSE fragments (assistant) — THINK/FILE fragments are skipped.
+This returns the WHOLE history, while the rendered page virtualizes long
+chats.
+
+IMPORTANT: that endpoint needs an `Authorization` header (DeepSeek's app
+reads a token from its own storage and sets it explicitly). A bare `fetch`
+does NOT get it — the request answers 401/empty. So `_installNetHook()` also
+listens to `page.on('request')`, sniffs `authorization` / `x-ds-pow-response`
+off real `deepseek.com/api/` requests into `_apiAuth` / `_apiPow`, and
+`fetchChatMessages` replays them (waiting up to ~3s for DeepSeek's own
+history request to fire on a freshly opened chat). Cookies alone are not
+enough.
+
+If that fails, `DeepSeekBrowser.readChatMessages()` scrapes the DOM
+best-effort: message containers are matched loosely
+(`div[class*="ds-message"]` / `chat-message` / `message-item`), the role is
+taken from the `ds-assistant-message-*` / `ds-markdown` class (everything else
+is a user turn), and `.ds-think-content` (reasoning) is skipped — same rule as
+in `_readLastAnswerText()`. If no message containers are found, it falls back
+to the assistant-only `ANSWER_SELECTORS`.
+
+The rendering is split in two: `trimRestoredMessages()` and
+`formatRestoredHistory()` (src/commands.ts) are pure and unit-tested (see
+`test/commands.test.ts`), while `printRestoredHistory()` (src/index.ts) does
+the actual output via `editor.printAbove()` (or `console.log` before the
+editor exists) and `renderMarkdown()`. Only the last
+`RESTORED_HISTORY_LIMIT` (20) messages are shown. `readChatMessages` /
+`fetchChatMessages` are optional in `BrowserLike`, so test doubles and
+self-review are unaffected. The feature is best-effort: a fetch/scraping
+failure never breaks the restore. When nothing is printed,
+`fetchChatMessages` stores its failure reason in `browser._lastHistoryError`,
+which `printRestoredHistory()` shows (and `--debug` prints the
+`[history] chat=... raw=... shown=... err=...` line). A chat that contains
+ONLY tool-calls yields "service only" — that is expected, not a bug.
+
 ## Other modules
 
 - `theme.ts` — output palette (chalk)

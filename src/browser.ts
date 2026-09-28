@@ -313,6 +313,12 @@ export interface ChatInfo {
   href?: string
 }
 
+/** One message of a restored dialogue (role + text). */
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  text: string
+}
+
 export class DeepSeekBrowser {
   headless: boolean
   debug: boolean
@@ -352,6 +358,13 @@ export class DeepSeekBrowser {
   _netCapture: string
   _netCaptureAt: number
   _netChatId: string | null
+  // Authorization / PoW headers sniffed from DeepSeek's own API requests, so
+  // fetchChatMessages can replay them (a bare fetch does not get them).
+  _apiAuth: string
+  _apiPow: string
+  // Last error from fetchChatMessages ('' on success). Surfaced under --debug
+  // so a missing restored history can be diagnosed.
+  _lastHistoryError: string
   _netSniff: Array<{ url: string; contentType: string; body: string }>
   _netSniffLimit: number
   _netHookInstalled: boolean
@@ -416,6 +429,9 @@ export class DeepSeekBrowser {
     this._netCapture = ''
     this._netCaptureAt = 0
     this._netChatId = null
+    this._apiAuth = ''
+    this._apiPow = ''
+    this._lastHistoryError = ''
     this._netSniff = []
     this._netSniffLimit = 5
     this._netHookInstalled = false
@@ -526,6 +542,19 @@ export class DeepSeekBrowser {
     this._netHookInstalled = true
     pg.on('response', (resp: import('playwright').Response) => {
       void this._onResponse(resp).catch(() => {})
+    })
+    // DeepSeek's own API calls carry an Authorization header (the app reads a
+    // token from its storage and sets it explicitly). A bare fetch from our
+    // code does NOT get it, so history_messages would answer 401/empty.
+    // Sniff the header off the real requests and replay it later.
+    pg.on('request', (req: import('playwright').Request) => {
+      try {
+        const url = req.url()
+        if (!/deepseek\.com\/api\//i.test(url)) return
+        const h = req.headers()
+        if (h['authorization']) this._apiAuth = h['authorization']
+        if (h['x-ds-pow-response']) this._apiPow = h['x-ds-pow-response']
+      } catch {}
     })
   }
 
@@ -1766,6 +1795,217 @@ return this._netCapture
     } catch (e) {
       throw new Error(`Не удалось открыть чат ${id}: ${(e as Error).message}`)
     }
+  }
+
+  // Fetch the WHOLE dialogue from DeepSeek's own history endpoint instead of
+  // scraping the DOM. The rendered page only shows a part of the history (the
+  // list is virtualized), while /api/v0/chat/history_messages returns every
+  // message of the chat as JSON. The request is made INSIDE the page, so the
+  // auth cookie and the CSRF/PoW handling are the browser's.
+  //
+  // Shape of data.biz_data.chat_messages[]: { role: 'USER'|'ASSISTANT',
+  // fragments: [{ type: 'REQUEST'|'RESPONSE'|'THINK'|'FILE', content }] }.
+  // We keep REQUEST (user) and RESPONSE (assistant); THINK (reasoning) is
+  // skipped and FILE fragments carry no text.
+  async fetchChatMessages(id: string): Promise<ChatMessage[]> {
+    this._lastHistoryError = ''
+    if (!this.page || !id) return []
+    // The Authorization header is sniffed off DeepSeek's own API requests. On
+    // a freshly opened chat that request may not have fired yet — wait a bit
+    // (up to 3s) so the replay is authorized instead of answering 401/empty.
+    for (let i = 0; i < 15 && !this._apiAuth; i++) {
+      await this.page.waitForTimeout(200)
+    }
+    const auth = this._apiAuth
+    const pow = this._apiPow
+    const res = await this.page
+      .evaluate(
+        async (opts: { chatId: string; auth: string; pow: string }) => {
+        try {
+          const url =
+            'https://chat.deepseek.com/api/v0/chat/history_messages?chat_session_id=' +
+            encodeURIComponent(opts.chatId)
+          const headers: Record<string, string> = {
+            accept: 'application/json',
+          }
+          if (opts.auth) headers['authorization'] = opts.auth
+          if (opts.pow) headers['x-ds-pow-response'] = opts.pow
+          const resp = await fetch(url, {
+            credentials: 'include',
+            headers,
+          })
+          if (!resp.ok) return { error: 'HTTP ' + resp.status, list: [] }
+          const json = await resp.json()
+          const messages =
+            json && json.data && json.data.biz_data
+              ? json.data.biz_data.chat_messages
+              : null
+          if (!Array.isArray(messages)) {
+            return { error: 'no chat_messages in response', list: [] }
+          }
+          const NL = String.fromCharCode(10)
+          const out: Array<{ role: string; text: string }> = []
+          for (const m of messages) {
+            const role = m && m.role === 'ASSISTANT' ? 'assistant' : 'user'
+            const want = role === 'assistant' ? 'RESPONSE' : 'REQUEST'
+            let text = ''
+            for (const fr of (m && m.fragments) || []) {
+              if (!fr || fr.type !== want) continue
+              if (typeof fr.content === 'string') text += fr.content
+            }
+            text = text.replace(new RegExp(NL + '{3,}', 'g'), NL + NL).trim()
+            if (text) out.push({ role, text })
+          }
+          return { error: '', list: out }
+        } catch (e) {
+          return { error: 'fetch failed: ' + (e as Error).message, list: [] }
+        }
+        },
+        { chatId: id, auth, pow },
+      )
+      .catch((e) => ({
+        error: 'evaluate failed: ' + (e as Error).message,
+        list: [] as Array<{ role: string; text: string }>,
+      }))
+    this._lastHistoryError = res?.error || ''
+    const list = (res?.list || []) as ChatMessage[]
+    if (list.length || !res?.error) return list
+    // Fallback: Playwright's own request context (shares the browser cookies)
+    // when the in-page fetch was blocked (CSP, CORS, a page error).
+    this._lastHistoryError = res.error
+    try {
+      const resp = await this.page.request.get(
+        'https://chat.deepseek.com/api/v0/chat/history_messages?chat_session_id=' +
+          encodeURIComponent(id),
+        { headers: { accept: 'application/json' } },
+      )
+      if (!resp.ok()) return list
+      const json = (await resp.json()) as {
+        data?: { biz_data?: { chat_messages?: unknown[] } }
+      }
+      const messages = json?.data?.biz_data?.chat_messages
+      if (!Array.isArray(messages)) return list
+      const NL = String.fromCharCode(10)
+      const out: ChatMessage[] = []
+      for (const m of messages as Array<{
+        role?: string
+        fragments?: Array<{ type?: string; content?: string }>
+      }>) {
+        const role: ChatMessage['role'] =
+          m && m.role === 'ASSISTANT' ? 'assistant' : 'user'
+        const want = role === 'assistant' ? 'RESPONSE' : 'REQUEST'
+        let text = ''
+        for (const fr of (m && m.fragments) || []) {
+          if (!fr || fr.type !== want) continue
+          if (typeof fr.content === 'string') text += fr.content
+        }
+        text = text.replace(new RegExp(NL + '{3,}', 'g'), NL + NL).trim()
+        if (text) out.push({ role, text })
+      }
+      this._lastHistoryError = ''
+      return out
+    } catch (e) {
+      this._lastHistoryError = 'request failed: ' + (e as Error).message
+      return list
+    }
+  }
+
+  // Read the WHOLE visible dialogue of the currently open chat, top to
+  // bottom. Used by /resume and /resume-id so the operator sees the restored
+  // context in the terminal instead of just "Chat opened.".
+  //
+  // Best-effort DOM scraping: DeepSeek renders every message as a markdown
+  // block (assistant) or a plain bubble (user). Role detection relies on the
+  // ds-assistant-message-* class; anything that is not an assistant block is
+  // treated as a user message. The model's reasoning (.ds-think-content) is
+  // skipped, exactly like in _readLastAnswerText.
+  async readChatMessages(): Promise<ChatMessage[]> {
+    if (!this.page) return []
+    const raw = await this.page
+      .evaluate(() => {
+        const inThink = (e: Element | null): boolean => {
+          let n: Element | null = e
+          while (n) {
+            const cls = (n.className || '').toString()
+            if (/ds-think-content|thinking-content/i.test(cls)) return true
+            n = n.parentElement
+          }
+          return false
+        }
+        const textOf = (e: Element): string => {
+          const h = e as HTMLElement
+          const t = h.innerText || h.textContent || ''
+          const NL = String.fromCharCode(10)
+          return t.replace(new RegExp(NL + '{3,}', 'g'), NL + NL).trim()
+        }
+
+        // A message block is "assistant" when it contains an answer markdown
+        // wrapper (ds-markdown / ds-assistant-message), otherwise it is a
+        // user bubble. DeepSeek's class names drift between builds, so the
+        // detection is content-based, not class-prefix-based.
+        const looksAssistant = (e: Element): boolean => {
+          const cls = (e.className || '').toString()
+          if (/ds-assistant-message|assistant-message/i.test(cls)) return true
+          if (e.querySelector('[class*="ds-assistant-message"]')) return true
+          // A user bubble has no rendered markdown; an answer does.
+          if (e.querySelector('[class*="ds-markdown"]')) return true
+          return false
+        }
+
+        // Message-level containers first (broad), then the answer wrappers.
+        const containerSels = [
+          '[data-message-id]',
+          '[class*="ds-message"]',
+          '[class*="chat-message"]',
+          '[class*="message-item"]',
+          '[class*="_message"]',
+        ]
+        let blocks: Element[] = []
+        for (const s of containerSels) {
+          const found = Array.from(document.querySelectorAll(s)).filter(
+            (e) => !inThink(e) && textOf(e).length > 0,
+          )
+          if (found.length) {
+            blocks = found
+            break
+          }
+        }
+
+        const out: Array<{ role: string; text: string }> = []
+        if (blocks.length) {
+          for (const b of blocks) {
+            const t = textOf(b)
+            if (!t) continue
+            out.push({
+              role: looksAssistant(b) ? 'assistant' : 'user',
+              text: t,
+            })
+          }
+          if (out.length) return out
+        }
+
+        // Last resort: assistant answers only (no user turns) — better than
+        // nothing when no message container matched.
+        const sels = [
+          'div.ds-assistant-message-main-content',
+          'div[class*="ds-assistant-message-main-content"]',
+          'div[class*="ds-markdown"]',
+        ]
+        for (const s of sels) {
+          const list = Array.from(document.querySelectorAll(s)).filter(
+            (e) => !inThink(e),
+          )
+          if (!list.length) continue
+          for (const el of list) {
+            const t = textOf(el)
+            if (t) out.push({ role: 'assistant', text: t })
+          }
+          break
+        }
+        return out
+      })
+      .catch(() => [] as ChatMessage[])
+    return raw as ChatMessage[]
   }
 
   async getCurrentChatId(): Promise<string | null> {

@@ -147,6 +147,9 @@ Codex CLI:
  alwaysConfirm regex list).
 - /add-dir <path> — validate an extra directory (the sandbox is fixed at
  startup; relaunch with --dir to write there).
+- /resume <n> (after /chats) and /resume-id <id> — open a chat and PRINT its
+ dialogue into the terminal, so the restored context is visible. Only the
+ last 20 messages are shown (`RESTORED_HISTORY_LIMIT`).
 - /review [focus] [--staged] — ask the agent to review uncommitted changes
  and report findings (no code changes).
 

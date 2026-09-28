@@ -151,5 +151,9 @@ export interface BrowserLike {
   getCurrentChatId: () => Promise<string | null>
   listChats: (limit?: number) => Promise<Array<{ id: string; title: string }>>
   openChat: (id: string) => Promise<boolean>
+  // Optional: read the whole visible dialogue of the open chat so /resume can
+  // print it. Optional so test doubles / self-review do not have to implement
+  // it.
+  readChatMessages?: () => Promise<Array<{ role: 'user' | 'assistant'; text: string }>>
   close: () => Promise<void>
 }
