@@ -180,6 +180,17 @@ const STOP_SELECTORS = [
   'button[aria-label*="Stop" i]',
 ]
 
+// DeepSeek's "Continue" button. With the reasoning ("Deep thinking") toggle
+// on, the server caps the THINK phase: the reasoning stops mid-way and the UI
+// offers a Continue button (this is NOT the same as a truncated turn with
+// generation_err — there the answer failed; here the model simply paused).
+// The agent must click it so the reasoning/answer keeps flowing, otherwise the
+// turn sits idle until the operator presses Continue by hand.
+//
+// The button is found by scanning every div[role=button]/button and matching
+// an EXACT short label ("Continue" / "Продолжить"), because the class names
+// change and :has-text is not valid in a page-side querySelectorAll.
+
 // DeepSeek UI service statuses that are NOT the model's answer.
 // Otherwise the agent takes a status (Reading...) for an answer and breaks parsing.
 const STATUS_RE =
@@ -202,6 +213,21 @@ const RATE_LIMIT_RE =
 // waiting minutes. "Server busy", 503, "temporarily unavailable", etc.
 const SERVER_BUSY_RE =
   /(server (is )?busy|server error|service (is )?unavailable|temporarily unavailable|internal server error|502|503|504|server overloaded|сервер занят|сервер перегружен|сервис недоступен|внутренняя ошибка|попробуйте позже)/i
+
+// DeepSeek turns a generation that FAILED mid-way into a truncated turn
+// (`quasi_status: INCOMPLETE` + `finish_reason: generation_err`) and shows a
+// "Continue" button in the UI. The failure is invisible to the answer text:
+// the DOM keeps the partial answer (often the previous one), so the finish
+// loop used to wait out the whole timeout and throw ds.send_no_new_answer.
+// The SSE body IS available (net-capture keeps it as `_netCapture`), so we
+// recognize the failed/truncated turn from it and retry instead of hanging.
+const GENERATION_ERR_RE = /"finish_reason":\s*"generation_err"/i
+const INCOMPLETE_STATUS_RE = /"quasi_status","v":"INCOMPLETE"/i
+
+export function isGenerationIncompleteText(text: string): boolean {
+  const t = String(text || '')
+  return GENERATION_ERR_RE.test(t) || INCOMPLETE_STATUS_RE.test(t)
+}
 
 export function isRateLimitText(text: string): boolean {
   return RATE_LIMIT_RE.test(String(text || ''))
@@ -236,6 +262,21 @@ export class ServerBusyError extends Error {
   constructor(detail: string) {
     super('Server busy. Try again later. ' + detail)
     this.name = 'ServerBusyError'
+  }
+}
+
+// The generation was truncated by the server (`generation_err` / INCOMPLETE).
+// Distinct from ServerBusyError: the DeepSeek backend answered, but the turn
+// did not finish, and the UI offers a "Continue" button. The agent retries the
+// same send (a new message into the chat) instead of waiting for an answer
+// that will never arrive. This is what the operator hit with the reasoning
+// (deep thinking) mode on: the long THINK phase makes the truncation far more
+// likely, so with thinking off everything worked and with it on the turn kept
+// stopping and showing "Continue".
+export class GenerationIncompleteError extends Error {
+  constructor(detail: string) {
+    super('Generation incomplete (server truncated the answer). ' + detail)
+    this.name = 'GenerationIncompleteError'
   }
 }
 
@@ -281,6 +322,12 @@ export interface DeepSeekBrowserOptions {
   maxRateLimitRetries?: number
   maxServerBusyRetries?: number
   serverBusyWaitMs?: number
+  /** Retries for a turn the server truncated (`generation_err`/INCOMPLETE). */
+  maxIncompleteRetries?: number
+  /** Pause before resending after a truncated turn (ms). */
+  incompleteWaitMs?: number
+  /** Click DeepSeek's "Continue" button automatically (reasoning pause). */
+  autoContinue?: boolean
   /** Enable DeepSeek's "Deep thinking" toggle (reasoning; slow). */
   deepThinking?: boolean
   /** Enable DeepSeek's "Smart search" (web search) toggle. */
@@ -328,6 +375,12 @@ export class DeepSeekBrowser {
   maxRateLimitRetries: number
   maxServerBusyRetries: number
   serverBusyWaitMs: number
+  // Retries for a turn the server truncated (generation_err / INCOMPLETE).
+  maxIncompleteRetries: number
+  incompleteWaitMs: number
+  // Click DeepSeek's "Continue" button automatically when the reasoning phase
+  // is paused by the server (deep thinking mode).
+  autoContinue: boolean
   // Desired state of the DeepSeek chat toggles, applied before each send.
   // deepThinking: the "Deep thinking" toggle (reasoning; the reasoning text
   // is never read/shown). webSearch: the "Smart search" toggle.
@@ -400,6 +453,9 @@ export class DeepSeekBrowser {
     maxRateLimitRetries = 6,
     maxServerBusyRetries = 5,
     serverBusyWaitMs = 3000,
+    maxIncompleteRetries = 4,
+    incompleteWaitMs = 2000,
+    autoContinue = true,
     deepThinking = false,
     webSearch = true,
     auth,
@@ -419,6 +475,9 @@ export class DeepSeekBrowser {
     this.maxRateLimitRetries = maxRateLimitRetries
     this.maxServerBusyRetries = maxServerBusyRetries
     this.serverBusyWaitMs = serverBusyWaitMs
+    this.maxIncompleteRetries = maxIncompleteRetries
+    this.incompleteWaitMs = incompleteWaitMs
+    this.autoContinue = autoContinue
     this.deepThinking = deepThinking
     this.webSearch = webSearch
     this.auth = {
@@ -1146,6 +1205,46 @@ export class DeepSeekBrowser {
     return await this._stopButtonVisible()
   }
 
+  // Click the DeepSeek "Continue" button when it is visible (reasoning/answer
+  // paused by the server). Returns true when a click happened.
+  //
+  // With the "Deep thinking" toggle on, DeepSeek caps the THINK phase and
+  // shows Continue; the model does NOT resume by itself. Without this, a long
+  // reasoning turn sat idle until the operator pressed Continue by hand. We
+  // only act on an EXACT short label so a random "Continue" in prose (a button
+  // inside a rendered answer, etc.) is never clicked.
+  async _clickContinueIfVisible(): Promise<boolean> {
+    try {
+      const clicked = await this.page.evaluate(() => {
+        // Normalize a label: textContent + aria-label, whitespace collapsed.
+        const labelOf = (b: HTMLElement): string =>
+          ((b.textContent || '') + ' ' + (b.getAttribute('aria-label') || ''))
+            .replace(/\s+/g, ' ')
+            .trim()
+        // The button must be a SHORT exact label, otherwise a paragraph or a
+        // rendered "Continue" inside the answer could be clicked by mistake.
+        const isExact = (t: string): boolean =>
+          /^(continue|продолжить|продолжение)\s*[.!…]?$/i.test(t)
+        const cands = Array.from(
+          document.querySelectorAll('div[role="button"], button'),
+        ) as HTMLElement[]
+        for (const e of cands) {
+          const t = labelOf(e)
+          if (!isExact(t)) continue
+          const st = getComputedStyle(e)
+          if (st.display === 'none' || st.visibility === 'hidden') continue
+          if (!e.offsetParent && st.position !== 'fixed') continue
+          e.click()
+          return true
+        }
+        return false
+      })
+      return !!clicked
+    } catch {
+      return false
+    }
+  }
+
   // DeepSeek exposes two toggle buttons above the input: "Deep thinking"
   // (reasoning) and "Smart search" (web search). Their labels are localized,
   // so we match by a loose regex on the visible text and read the state from
@@ -1273,6 +1372,11 @@ export class DeepSeekBrowser {
     let attempt = 0
     let rateLimitRetries = 0
     let serverBusyRetries = 0
+    // Bumped when DeepSeek truncated the turn (`generation_err`/INCOMPLETE).
+    // The retry does NOT consume a regular ask() attempt: it is a server-side
+    // hiccup, not a failed send, and it is more likely in the reasoning
+    // (deep thinking) mode, where the long THINK phase gets cut off.
+    let incompleteRetries = 0
 
     while (attempt < this.askRetries) {
       attempt++
@@ -1343,6 +1447,38 @@ export class DeepSeekBrowser {
             ),
           )
           const aborted = await this._sleepInterruptible(this.serverBusyWaitMs)
+          if (aborted) return '(прервано пользователем)'
+          continue
+        }
+
+        // The turn was TRUNCATED by the server (`generation_err`, INCOMPLETE):
+        // DeepSeek answered with a partial (often empty) answer and shows a
+        // "Continue" button. In reasoning mode this is much more likely. We
+        // resend the SAME prompt into the chat (that is what the Continue
+        // button does) instead of waiting for an answer that will never come.
+        if (e instanceof GenerationIncompleteError) {
+          incompleteRetries++
+          if (incompleteRetries > this.maxIncompleteRetries) {
+            console.error(
+              theme.error(
+                this._t('ds.incomplete_give_up', {
+                  attempt: incompleteRetries,
+                }),
+              ),
+            )
+            throw e
+          }
+          console.error(
+            theme.warn(
+              this._t('ds.incomplete_retry', {
+                attempt: incompleteRetries,
+                max: this.maxIncompleteRetries,
+              }),
+            ),
+          )
+          const aborted = await this._sleepInterruptible(
+            this.incompleteWaitMs,
+          )
           if (aborted) return '(прервано пользователем)'
           continue
         }
@@ -1742,6 +1878,22 @@ export class DeepSeekBrowser {
       if (isServerBusyText(pageText)) {
         throw new ServerBusyError(pageText.slice(0, 300))
       }
+      // The turn was truncated by the server: the SSE body carries
+      // finish_reason=generation_err / quasi_status=INCOMPLETE and the UI
+      // shows "Continue". Retry instead of waiting out the whole timeout.
+      if (
+        this._netCapture &&
+        this._netCaptureAt >= this._lastSentAt &&
+        isGenerationIncompleteText(this._netCapture)
+      ) {
+        throw new GenerationIncompleteError(this._netCapture.slice(-300))
+      }
+      // Reasoning-mode pause during the THINK phase: click Continue so the
+      // generation resumes (the button appears before any RESPONSE text, so
+      // the start-wait would otherwise spin until the deadline).
+      if (this.autoContinue && (await this._clickContinueIfVisible())) {
+        this._askDebug('CLICKED Continue (start-loop)')
+      }
       const cur = await this._readLastAnswerTextCleanDom().catch(() => '')
       const bodyLen = await this.page
         .evaluate(() => document.body.innerText.length)
@@ -1884,6 +2036,24 @@ export class DeepSeekBrowser {
         if (isServerBusyText(pageText)) {
           throw new ServerBusyError(pageText.slice(0, 300))
         }
+      }
+      // The server truncated the turn (generation_err / INCOMPLETE). The DOM
+      // keeps the partial answer, so without this check the loop waits out the
+      // whole timeout and throws ds.send_no_new_answer — the operator sees the
+      // agent "stop" with a Continue button in the chat. Retry the send.
+      if (
+        this._netCapture &&
+        this._netCaptureAt >= this._lastSentAt &&
+        isGenerationIncompleteText(this._netCapture)
+      ) {
+        throw new GenerationIncompleteError(this._netCapture.slice(-300))
+      }
+      // Reasoning-mode pause: DeepSeek caps the THINK phase and shows a
+      // Continue button; the model does not resume by itself. Click it so the
+      // answer keeps flowing instead of waiting for the operator.
+      if (this.autoContinue && (await this._clickContinueIfVisible())) {
+        this._askDebug('CLICKED Continue (finish-loop)')
+        continue
       }
       const netFresh =
         !!this._netCapture && this._netCaptureAt >= this._lastSentAt

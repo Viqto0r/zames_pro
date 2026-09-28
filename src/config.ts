@@ -50,6 +50,9 @@ export const DEFAULTS: ZamesConfig = {
     minSendIntervalMs: 15000,
     rateLimitWaitMs: 300000,
     maxRateLimitRetries: 6,
+    maxIncompleteRetries: 4,
+    incompleteWaitMs: 2000,
+    autoContinue: true,
     deepThinking: false,
     webSearch: true,
     auth: {
@@ -275,6 +278,28 @@ export const CONFIG_SCHEMA: ConfigField[] = [
     min: 0,
     max: 100,
     labelKey: 'cfg.f.browser_maxRateLimitRetries',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'browser.maxIncompleteRetries',
+    type: 'number',
+    min: 0,
+    max: 100,
+    labelKey: 'cfg.f.browser_maxIncompleteRetries',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'browser.incompleteWaitMs',
+    type: 'number',
+    min: 0,
+    max: 600000,
+    labelKey: 'cfg.f.browser_incompleteWaitMs',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'browser.autoContinue',
+    type: 'boolean',
+    labelKey: 'cfg.f.browser_autoContinue',
     groupKey: 'cfg.group.browser',
   },
   {

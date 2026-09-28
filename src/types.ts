@@ -71,6 +71,12 @@ export interface BrowserConfig {
   minSendIntervalMs: number
   rateLimitWaitMs: number
   maxRateLimitRetries: number
+  /** Retries for a turn the server truncated (`generation_err`/INCOMPLETE). */
+  maxIncompleteRetries: number
+  /** Pause before resending after a truncated turn (ms). */
+  incompleteWaitMs: number
+  /** Auto-click DeepSeek's "Continue" button (reasoning pause). */
+  autoContinue: boolean
   /** DeepSeek Deep thinking toggle (reasoning; slow, hidden). */
   deepThinking: boolean
   /** DeepSeek Smart search (web search) toggle. */

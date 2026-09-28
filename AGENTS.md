@@ -663,6 +663,37 @@ The reasoning text is never read: `_readLastAnswerText()` skips elements
 inside `.ds-think-content`, and `net-capture.ts` already ignores
 `reasoning_content`/thinking chunks.
 
+`browser.maxIncompleteRetries` / `browser.incompleteWaitMs` (4 / 2000ms by
+default) — retries for a turn the SERVER truncated. With the reasoning
+("Deep thinking") toggle ON, DeepSeek frequently cuts a turn short: the SSE
+stream ends with `quasi_status: INCOMPLETE` and
+`finish_reason: generation_err` ("Server is temporarily unavailable") and the
+web UI shows a **Continue** button. The DOM keeps the partial (often the
+previous) answer, so before this fix the finish loop in `_askOnce()` waited
+out the whole `answerTimeoutMs` and threw `ds.send_no_new_answer` — to the
+operator it looked like "the agent stopped with a Continue button in the chat",
+and it happened only with thinking ON (the long THINK phase makes truncation
+far more likely). Now `isGenerationIncompleteText()`
+(`src/browser.ts`, matched against the raw `_netCapture` SSE body) recognizes the
+truncated turn in BOTH the start-wait and the finish loop, throws
+`GenerationIncompleteError`, and `ask()` resends the SAME prompt into the same
+chat (what the Continue button does) up to `maxIncompleteRetries` times. The
+retry does NOT consume a regular `askRetries` attempt. After the budget is
+exhausted the operator gets `ds.incomplete_give_up` (which suggests turning the
+reasoning mode off).
+
+`browser.autoContinue` (true by default) — click DeepSeek's **Continue** button
+automatically. With the reasoning toggle on the server also CAPS the THINK
+phase (a long reasoning turn pauses mid-way and shows Continue); the model does
+NOT resume by itself, so the turn used to sit idle until the operator pressed
+Continue by hand. `_clickContinueIfVisible()` (src/browser.ts) is polled in BOTH
+`_askOnce()` loops; it scans every `div[role=button]`/`button` and clicks only a
+button whose WHOLE label is `Continue`/`Продолжить`/`Продолжение` (a short exact
+label, so a "Continue" inside rendered prose is never clicked). This is a
+different case from `GenerationIncompleteError`: here the generation is still
+alive, just paused, so we click instead of resending. Set
+`browser.autoContinue: false` to disable the auto-click.
+
 ## Headless by default + login (src/browser.ts)
 
 `headless` is **true by default** (DEFAULTS in config.ts). `--headed` (or

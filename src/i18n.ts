@@ -550,6 +550,14 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: '⚠ Ответ не получен ({attempt}/{max}): {error} — повторяю...',
     en: '⚠ No answer yet ({attempt}/{max}): {error} — retrying...',
   },
+  'ds.incomplete_retry': {
+    ru: '⏳ DeepSeek оборвал ответ (кнопка Continue в чате) — повторяю отправку ({attempt}/{max})...',
+    en: '⏳ DeepSeek truncated the answer (the Continue button in the chat) — resending ({attempt}/{max})...',
+  },
+  'ds.incomplete_give_up': {
+    ru: '✖ DeepSeek {attempt} раз подряд оборвал ответ, не дойдя до конца. Возможно, включён режим размышления — попробуй выключить его (browser.deepThinking) или повтори позже.',
+    en: '✖ DeepSeek truncated the answer {attempt} times in a row. The reasoning mode (deep thinking) may be on — try turning it off (browser.deepThinking) or retry later.',
+  },
   'ds.ask_restart_browser': {
     ru: '⚠ Браузер потерял страницу — перезапускаю и вхожу заново...',
     en: '⚠ The browser lost the page — restarting and signing in again...',
@@ -881,6 +889,18 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   'cfg.f.browser_maxRateLimitRetries': {
     ru: 'Число повторов при лимите',
     en: 'Rate-limit retry count',
+  },
+  'cfg.f.browser_maxIncompleteRetries': {
+    ru: 'Повторы при обрыве ответа (Continue)',
+    en: 'Retries when the answer is truncated (Continue)',
+  },
+  'cfg.f.browser_incompleteWaitMs': {
+    ru: 'Пауза перед повтором после обрыва, мс',
+    en: 'Wait before retrying a truncated turn, ms',
+  },
+  'cfg.f.browser_autoContinue': {
+    ru: 'Автонажатие кнопки Continue (режим размышления)',
+    en: 'Auto-click Continue (reasoning mode)',
   },
   'cfg.f.browser_deepThinking': {
     ru: 'Глубокое мышление (долго; размышления не выводятся)',
