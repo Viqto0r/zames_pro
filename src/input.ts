@@ -842,9 +842,17 @@ export class LineEditor {
   toolCall(name: string, args: unknown): void {
     const preview = safeJson(args).slice(0, 120)
     this.printAbove(theme.tool('🔧 ' + name) + ' ' + theme.dim(preview))
+    // A tool may run for a long time (Bash, npm test, MCP). Without an active
+    // animation the operator sees a frozen screen and cannot tell work is in
+    // progress. Start the animated status AFTER printAbove (which stops the
+    // dots) and keep it running until toolResult()/assistant()/stop().
+    this._startAnimated(
+      translate(this.locale)('spinner.running_tool', { name }),
+    )
   }
 
   toolResult(result: unknown): void {
+    this.stop()
     const text = typeof result === 'string' ? result : safeJson(result)
     const preview = text.slice(0, 200).split(NL).join(' ↵ ')
     this.printAbove(theme.toolResult('   → ' + preview))

@@ -146,6 +146,10 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
       stop()
       const preview = JSON.stringify(args).slice(0, 120)
       console.log(theme.tool('🔧 ' + name), theme.dim(preview))
+      // Keep an animated status while the tool runs (Bash/npm/MCP can take a
+      // long time): the operator must see that work is in progress.
+      if (pending) return
+      startAnimated(translate(locale)('spinner.running_tool', { name }))
     },
 
     toolResult: (result: unknown) => {

@@ -368,6 +368,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: '⏳ пауза {n}с перед отправкой',
     en: '⏳ pause {n}s before send',
   },
+  'spinner.running_tool': {
+    ru: '⚙ выполняю {name}',
+    en: '⚙ running {name}',
+  },
   'editor.more': { ru: '…ещё {n}', en: '…{n} more' },
   'editor.answer': { ru: '● Ответ', en: '● Answer' },
 
