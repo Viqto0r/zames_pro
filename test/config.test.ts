@@ -12,14 +12,23 @@ async function freshConfig(): Promise<typeof import('../src/config.ts')> {
 }
 
 test('loadConfig без файлов возвращает дефолты', async () => {
-  const { loadConfig, DEFAULTS } = await freshConfig()
-  const cfg = loadConfig()
-  assert.equal(cfg.maxIterations, DEFAULTS.maxIterations)
-  assert.equal(
-    cfg.browser.minSendIntervalMs,
-    DEFAULTS.browser.minSendIntervalMs,
-  )
-  assert.equal(cfg.undo.enabled, true)
+  // Run in a clean temp directory: the project's own .zamesrc.json (if any)
+  // must not leak into the "no config files" case.
+  const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-proj-'))
+  const origCwd = process.cwd()
+  process.chdir(proj)
+  try {
+    const { loadConfig, DEFAULTS } = await freshConfig()
+    const cfg = loadConfig()
+    assert.equal(cfg.maxIterations, DEFAULTS.maxIterations)
+    assert.equal(
+      cfg.browser.minSendIntervalMs,
+      DEFAULTS.browser.minSendIntervalMs,
+    )
+    assert.equal(cfg.undo.enabled, true)
+  } finally {
+    process.chdir(origCwd)
+  }
 })
 
 test('локальный .zamesrc.json переопределяет дефолты', async () => {

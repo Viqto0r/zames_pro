@@ -1,0 +1,11 @@
+fix(ci): resolve peer-deps and add lint/format to the pipeline
+
+- Add .npmrc with legacy-peer-deps=true. typescript-eslint 8 requires
+  TypeScript <6.1, while the project builds with TypeScript 7; a clean
+  "npm install" (what CI runs) failed with ERESOLVE and broke the v2.21.0
+  pipelines. The linter still runs against the TS 6 API via
+  scripts/eslint-ts6.mjs.
+- Pin @eslint/js to ^9 to match eslint ^9 (^10 required eslint 10).
+- test.yml: run npm run lint and npm run format:check.
+- Isolate the "loadConfig without files" test in a temp cwd so a local
+  .zamesrc.json cannot leak into the defaults check.

@@ -75,9 +75,12 @@
   `eslint-config-prettier`. Весь `src/` и `test/` отформатированы.
   Скрипты: `npm run format` / `format:check`.
 
-- [ ] **CI: lint + format:check**
-  Добавить в GitHub Actions шаг с `npm run lint` и `npm run format:check`,
-  чтобы новый код соответствовал правилам.
+- [x] **CI: lint + format:check**
+  Добавлены шаги `npm run lint` и `npm run format:check` в
+  `.github/workflows/test.yml`. Плюс добавлен `.npmrc` с
+  `legacy-peer-deps=true`: typescript-eslint 8 требует TS <6.1, а проект
+  собирается TS 7, поэтому чистая `npm install` без этого флага падала с
+  ERESOLVE (уронило пайплайны v2.21.0).
 
 ## Заметки
 
