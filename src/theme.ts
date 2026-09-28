@@ -29,6 +29,8 @@ export const theme = {
   error: chalk.hex('#c98a80'), // muted terracotta
   success: chalk.hex('#a9c08c'), // soft sage
   brown: chalk.hex('#a1723f'), // brown (status/spinner)
+  toggleOn: chalk.hex('#6fd0b0'), // teal-green — a toggle is ON
+  toggleOff: chalk.hex('#4a4f5a'), // dim gray — a toggle is OFF
   bold: chalk.bold,
 }
 

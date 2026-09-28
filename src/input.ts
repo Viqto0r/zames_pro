@@ -345,6 +345,15 @@ export class LineEditor {
   contextStatus: string | null
   // The raw token count behind contextStatus (for the color level).
   contextTokens: number | null
+  // Whether the DeepSeek "Deep thinking" / "Smart search" toggles are ON.
+  // Shown as two colored icons before the context counter: a dim gray icon
+  // means off, a teal-green icon means on.
+  thinkingEnabled: boolean
+  searchEnabled: boolean
+  // A callback the editor calls to fetch the CURRENT toggle states before
+  // every render, so the icons follow the live chat state.
+  onToggleQuery:
+    (() => { deepThinking: boolean; webSearch: boolean } | null) | null
   // A callback the editor calls to fetch the CURRENT token count before every
   // status render, so the status line stays fresh without the caller polling.
   onContextQuery: (() => number | null) | null
@@ -389,7 +398,25 @@ export class LineEditor {
     this.locked = false
     this.contextStatus = null
     this.contextTokens = null
+    this.thinkingEnabled = false
+    this.searchEnabled = false
+    this.onToggleQuery = null
     this.onContextQuery = null
+  }
+
+  // Refresh the toggle icon states from onToggleQuery (if wired) before a
+  // render. A broken callback must never break the render.
+  _refreshToggles(): void {
+    if (!this.onToggleQuery) return
+    try {
+      const s = this.onToggleQuery()
+      if (s) {
+        this.thinkingEnabled = !!s.deepThinking
+        this.searchEnabled = !!s.webSearch
+      }
+    } catch {
+      // ignore
+    }
   }
 
   // The token status for the CURRENT render: refreshed from onContextQuery
@@ -417,6 +444,17 @@ export class LineEditor {
     if (level === 'high') return theme.error(ctx)
     if (level === 'warn') return theme.warn(ctx)
     return theme.success(ctx)
+  }
+
+  // Two colored icons for the DeepSeek toggles: 🧠 "Deep thinking" and 🌐 "Smart
+  // search". A dim gray icon = off, a teal-green icon = on. Placed just before
+  // the context counter, so the operator sees the live chat state at a glance.
+  _toggleIcons(): string {
+    const on = (s: string): string => theme.toggleOn(s)
+    const off = (s: string): string => theme.toggleOff(s)
+    const brain = this.thinkingEnabled ? on('🧠') : off('🧠')
+    const globe = this.searchEnabled ? on('🌐') : off('🌐')
+    return brain + ' ' + globe + ' '
   }
 
   // Read the OS clipboard for an image and insert its marker. Used when the
@@ -608,7 +646,12 @@ export class LineEditor {
     // though it PRINTS `status + ' '.repeat(space) + ctxText` with a DIFFERENT
     // total width, so at certain widths `top` disagreed with the printed rows.
     // Both branches below now derive `top` from the exact string they print.
-    const ctxText = this._contextText()
+    // Toggle icons (always shown) + the context counter (when known). The
+    // icons reflect the live DeepSeek toggles; a fresh chat has no token count
+    // but the icons are still meaningful.
+    const ctxRaw = this._contextText()
+    this._refreshToggles()
+    const ctxText = this._toggleIcons() + ctxRaw
     let statusOut = ''
     let top = 0
     // Never fill a row to the FULL terminal width: on terminals with

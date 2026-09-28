@@ -359,6 +359,10 @@ export class DeepSeekBrowser {
   // completion stream and from /api/v0/chat/history_messages. Null until the
   // first answer (or history fetch) delivers it. Shown by /cost and /status.
   _lastTokenUsage: number | null
+  // Last known DeepSeek toggle states (deep thinking / web search), kept in
+  // sync by _applyToggles()/getToggleStates(). Exposed synchronously so the
+  // editor can draw the toggle icons on every render without awaiting.
+  _toggles: { deepThinking: boolean; webSearch: boolean }
   // Authorization / PoW headers sniffed from DeepSeek's own API requests, so
   // fetchChatMessages can replay them (a bare fetch does not get them).
   _apiAuth: string
@@ -431,6 +435,7 @@ export class DeepSeekBrowser {
     this._netCaptureAt = 0
     this._netChatId = null
     this._lastTokenUsage = null
+    this._toggles = { deepThinking, webSearch }
     this._apiAuth = ''
     this._apiPow = ''
     this._lastHistoryError = ''
@@ -1168,6 +1173,45 @@ export class DeepSeekBrowser {
   async _applyToggles(): Promise<void> {
     await this._setToggle(/глубок|deep\s*think/i, this.deepThinking)
     await this._setToggle(/поиск|search/i, this.webSearch)
+    this._toggles = await this.getToggleStates()
+  }
+
+  // Synchronous snapshot of the last known toggle states, for the editor's
+  // status icons (called on every render, must not await).
+  getToggleStatesSync(): { deepThinking: boolean; webSearch: boolean } {
+    return this._toggles
+  }
+
+  // The CURRENT state of the two DeepSeek toggles, read from the DOM
+  // (aria-pressed) so the status line reflects what is actually on, not what
+  // the config asked for. Falls back to the configured values when the buttons
+  // are not found.
+  async getToggleStates(): Promise<{
+    deepThinking: boolean
+    webSearch: boolean
+  }> {
+    const read = async (
+      labelRe: RegExp,
+      fallback: boolean,
+    ): Promise<boolean> => {
+      try {
+        const btns = this.page.locator('.ds-toggle-button')
+        const count = await btns.count().catch(() => 0)
+        for (let i = 0; i < count; i++) {
+          const b = btns.nth(i)
+          const txt = ((await b.textContent().catch(() => '')) || '').trim()
+          if (!labelRe.test(txt)) continue
+          return (
+            (await b.getAttribute('aria-pressed').catch(() => null)) === 'true'
+          )
+        }
+      } catch {}
+      return fallback
+    }
+    return {
+      deepThinking: await read(/глубок|deep\s*think/i, this.deepThinking),
+      webSearch: await read(/поиск|search/i, this.webSearch),
+    }
   }
 
   async stopGeneration(): Promise<boolean> {

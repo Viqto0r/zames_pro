@@ -1461,6 +1461,9 @@ async function main(): Promise<void> {
     // The editor pulls the number on every render, so it follows the live
     // DeepSeek counter (accumulated_token_usage) without a polling timer.
     ed.onContextQuery = () => browser.getLastTokenUsage()
+    // Toggle icons (🧠 deep thinking, 🌐 web search) before the context
+    // counter. The editor pulls the live state on every render.
+    ed.onToggleQuery = () => browser.getToggleStatesSync()
     ed.onAttach = async (raw: string) => {
       // Case 1: the paste is the image data itself (data URL / base64 blob).
       const image = parseImagePaste(raw)
