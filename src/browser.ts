@@ -226,10 +226,10 @@ export class RateLimitError extends Error {
 }
 // DeepSeek transient server error (Server busy).
 export class ServerBusyError extends Error {
- constructor(detail: string) {
- super('Server busy. Try again later. ' + detail)
- this.name = 'ServerBusyError'
- }
+  constructor(detail: string) {
+    super('Server busy. Try again later. ' + detail)
+    this.name = 'ServerBusyError'
+  }
 }
 
 // ---------- profile cleanup ----------
@@ -283,8 +283,8 @@ export interface DeepSeekBrowserOptions {
   minSendIntervalMs?: number
   rateLimitWaitMs?: number
   maxRateLimitRetries?: number
- maxServerBusyRetries?: number
- serverBusyWaitMs?: number
+  maxServerBusyRetries?: number
+  serverBusyWaitMs?: number
   /** Enable DeepSeek's "Deep thinking" toggle (reasoning; slow). */
   deepThinking?: boolean
   /** Enable DeepSeek's "Smart search" (web search) toggle. */
@@ -330,8 +330,8 @@ export class DeepSeekBrowser {
   minSendIntervalMs: number
   rateLimitWaitMs: number
   maxRateLimitRetries: number
- maxServerBusyRetries: number
- serverBusyWaitMs: number
+  maxServerBusyRetries: number
+  serverBusyWaitMs: number
   // Desired state of the DeepSeek chat toggles, applied before each send.
   // deepThinking: the "Deep thinking" toggle (reasoning; the reasoning text
   // is never read/shown). webSearch: the "Smart search" toggle.
@@ -398,8 +398,8 @@ export class DeepSeekBrowser {
     minSendIntervalMs = 15000,
     rateLimitWaitMs = 300000,
     maxRateLimitRetries = 6,
- maxServerBusyRetries = 5,
- serverBusyWaitMs = 3000,
+    maxServerBusyRetries = 5,
+    serverBusyWaitMs = 3000,
     deepThinking = false,
     webSearch = true,
     auth,
@@ -417,8 +417,8 @@ export class DeepSeekBrowser {
     this.minSendIntervalMs = minSendIntervalMs
     this.rateLimitWaitMs = rateLimitWaitMs
     this.maxRateLimitRetries = maxRateLimitRetries
- this.maxServerBusyRetries = maxServerBusyRetries
- this.serverBusyWaitMs = serverBusyWaitMs
+    this.maxServerBusyRetries = maxServerBusyRetries
+    this.serverBusyWaitMs = serverBusyWaitMs
     this.deepThinking = deepThinking
     this.webSearch = webSearch
     this.auth = {
@@ -486,7 +486,8 @@ export class DeepSeekBrowser {
       await this.context.close().catch(() => {})
       await this._launchOnce()
     } catch (e) {
-      if (this.debug) console.error('profile: UA-фикс не удался:', (e as Error).message)
+      if (this.debug)
+        console.error('profile: UA-фикс не удался:', (e as Error).message)
     }
   }
 
@@ -623,7 +624,11 @@ export class DeepSeekBrowser {
     if (this.auth.username && this.auth.password) {
       console.log(theme.system(this._t('auth.auto_login')))
       const ok = await this._autoLogin().catch((e) => {
-        console.log(theme.warn(this._t('auth.auto_login_failed', { v: (e as Error).message })))
+        console.log(
+          theme.warn(
+            this._t('auth.auto_login_failed', { v: (e as Error).message }),
+          ),
+        )
         return false
       })
       if (ok) {
@@ -673,7 +678,10 @@ export class DeepSeekBrowser {
    * the caller decides whether to fall back.
    */
   async _autoLogin(): Promise<boolean> {
-    const filled = await this._fillLoginForm(this.auth.username, this.auth.password)
+    const filled = await this._fillLoginForm(
+      this.auth.username,
+      this.auth.password,
+    )
     if (!filled) return false
     const ok = await this._waitLoggedIn(20_000)
     if (ok) await this._persistSessionIfNeeded()
@@ -744,7 +752,11 @@ export class DeepSeekBrowser {
       if (reason) {
         console.log(theme.error(this._t('auth.login_rejected', { v: reason })))
       } else {
-        console.log(theme.warn(this._t('auth.auto_login_failed', { v: this._t('auth.no_reason') })))
+        console.log(
+          theme.warn(
+            this._t('auth.auto_login_failed', { v: this._t('auth.no_reason') }),
+          ),
+        )
       }
     }
     return ok
@@ -800,7 +812,10 @@ export class DeepSeekBrowser {
 
     // The email/phone field is the text input above the password field. Try
     // the known selectors first, then fall back to the nearest text input.
-    let userInput: Locator | null = await this._findVisible(LOGIN_SELECTORS, 2000)
+    let userInput: Locator | null = await this._findVisible(
+      LOGIN_SELECTORS,
+      2000,
+    )
     if (!userInput) {
       // Find the index of the password input and use the closest preceding
       // text/email/tel input as the login field.
@@ -879,7 +894,9 @@ export class DeepSeekBrowser {
         for (const b of btns) {
           const txt = (b.textContent || '').trim().toLowerCase()
           const aria = (b.getAttribute('aria-label') || '').toLowerCase()
-          if (/log ?in|sign ?in|войти|continue|продолж/.test(txt + ' ' + aria)) {
+          if (
+            /log ?in|sign ?in|войти|continue|продолж/.test(txt + ' ' + aria)
+          ) {
             b.click()
             return true
           }
@@ -1194,7 +1211,7 @@ export class DeepSeekBrowser {
     let lastErr: Error | null = null
     let attempt = 0
     let rateLimitRetries = 0
- let serverBusyRetries = 0
+    let serverBusyRetries = 0
 
     while (attempt < this.askRetries) {
       attempt++
@@ -1358,12 +1375,16 @@ export class DeepSeekBrowser {
     // replied to the wrong thing (or nothing), and the loop looked stalled.
     if (norm(got) !== norm(text)) {
       await input.click()
-      await this.page.keyboard.press("Control+A")
-      await this.page.keyboard.press("Delete")
+      await this.page.keyboard.press('Control+A')
+      await this.page.keyboard.press('Delete')
       await this.page.keyboard.insertText(text)
       const got2 = await input.evaluate((el: any) => {
-        if (el.tagName.toLowerCase() === "textarea" || el.tagName.toLowerCase() === "input") return el.value
-        return el.innerText || el.textContent || ""
+        if (
+          el.tagName.toLowerCase() === 'textarea' ||
+          el.tagName.toLowerCase() === 'input'
+        )
+          return el.value
+        return el.innerText || el.textContent || ''
       })
       if (norm(got2) !== norm(text)) {
         throw new Error(
@@ -1513,7 +1534,8 @@ export class DeepSeekBrowser {
   _askDebug(msg: string): void {
     if (!process.env.ZAMES_ASK_DEBUG) return
     try {
-      const line = new Date().toISOString() + ' ' + msg + String.fromCharCode(10)
+      const line =
+        new Date().toISOString() + ' ' + msg + String.fromCharCode(10)
       const dir = path.join(os.homedir(), '.zames')
       void fs.appendFile(path.join(dir, 'ask-debug.log'), line).catch(() => {})
     } catch {}
@@ -1548,7 +1570,16 @@ export class DeepSeekBrowser {
     // the "new answer" check never fired — the source of the
     // ds.send_no_new_answer flapping.
     const beforeText = await this._readLastAnswerTextCleanDom().catch(() => '')
-    this._askDebug('SEND agent=' + agent + ' len=' + prompt.length + ' beforeLen=' + beforeText.length + ' beforeHead=' + JSON.stringify(beforeText.slice(0, 60)))
+    this._askDebug(
+      'SEND agent=' +
+        agent +
+        ' len=' +
+        prompt.length +
+        ' beforeLen=' +
+        beforeText.length +
+        ' beforeHead=' +
+        JSON.stringify(beforeText.slice(0, 60)),
+    )
 
     await this._waitForSendSlot(agent)
     // Esc/Ctrl+C pressed during the pause — do not send anything.
@@ -1642,7 +1673,14 @@ export class DeepSeekBrowser {
         !!this._netCapture && this._netCaptureAt >= this._lastSentAt
       if (changed || netStarted || bodyLen > startBodyLen) {
         started = true
-        this._askDebug('STARTED changed=' + changed + ' netStarted=' + netStarted + ' bodyGrew=' + (bodyLen > startBodyLen))
+        this._askDebug(
+          'STARTED changed=' +
+            changed +
+            ' netStarted=' +
+            netStarted +
+            ' bodyGrew=' +
+            (bodyLen > startBodyLen),
+        )
         break
       }
       // Fallback for an echo: the text equals beforeText, so it is the OLD
@@ -1662,22 +1700,40 @@ export class DeepSeekBrowser {
         settledTicks = 0
       }
       lastStartCur = cur
-      this._askDebug('START-loop curLen=' + cur.length + ' changed=' + changed + ' netStarted=' + netStarted + ' bodyLen=' + bodyLen + ' settled=' + settledTicks + ' generating=' + notGenerating)
+      this._askDebug(
+        'START-loop curLen=' +
+          cur.length +
+          ' changed=' +
+          changed +
+          ' netStarted=' +
+          netStarted +
+          ' bodyLen=' +
+          bodyLen +
+          ' settled=' +
+          settledTicks +
+          ' generating=' +
+          notGenerating,
+      )
       await this.page.waitForTimeout(300)
     }
     if (!started) {
-// Last chance: accept the text only when it DIFFERS from beforeText
-// (otherwise it is the old answer on screen) or a fresh network capture
-// proves a new answer. Returning an equal text made the loop re-run the
-// previous tool call.
-const cur = await this._readLastAnswerTextCleanDom().catch(() => '')
-const fresh = !!this._netCapture && this._netCaptureAt >= this._lastSentAt
-if (cur && cur.trim() && normText(cur) !== normText(beforeText) && !(await this._isGenerating())) {
-return cur
-}
-if (fresh) {
-return this._netCapture
-}
+      // Last chance: accept the text only when it DIFFERS from beforeText
+      // (otherwise it is the old answer on screen) or a fresh network capture
+      // proves a new answer. Returning an equal text made the loop re-run the
+      // previous tool call.
+      const cur = await this._readLastAnswerTextCleanDom().catch(() => '')
+      const fresh = !!this._netCapture && this._netCaptureAt >= this._lastSentAt
+      if (
+        cur &&
+        cur.trim() &&
+        normText(cur) !== normText(beforeText) &&
+        !(await this._isGenerating())
+      ) {
+        return cur
+      }
+      if (fresh) {
+        return this._netCapture
+      }
       // The send did not start generation within 15s. The most common cause is
       // that the message did not actually go out (Enter lost, button not
       // clicked). Instead of throwing (which made ask() retry for minutes and
@@ -1730,20 +1786,27 @@ return this._netCapture
         const pageText = await this._readPageText()
         if (isRateLimitText(pageText)) {
           throw new RateLimitError(pageText.slice(0, 300))
- if (isServerBusyText(pageText)) { throw new ServerBusyError(pageText.slice(0, 300)) }
+          if (isServerBusyText(pageText)) {
+            throw new ServerBusyError(pageText.slice(0, 300))
+          }
         }
       }
       const netFresh =
         !!this._netCapture && this._netCaptureAt >= this._lastSentAt
-      const cur = await this._readLastAnswerTextCleanDom().catch(() => '')
+      // The DOM may be empty while the answer is already in the network
+      // capture (a resumed chat re-renders its history, the answer selector
+      // may lag, or page.evaluate times out). In that case fall back to the
+      // raw capture: it is the CURRENT answer and must not be ignored just
+      // because the DOM has not caught up.
+      let cur = await this._readLastAnswerTextCleanDom().catch(() => '')
+      if (!cur && netFresh) cur = this._cleanAnswer(this._netCapture)
       // Ignore an "answer" that is identical to what was on the page BEFORE we
       // sent the message: that is the previous answer, not a new one. Returning
       // it would make the agent re-process the old tool call (or silently
       // stop). We keep waiting instead. A fresh network capture is exempt: it
       // belongs to the CURRENT send even if the DOM still shows the old text.
       const isNew =
-        !!cur &&
-        (netFresh || normText(cur) !== normText(beforeText))
+        !!cur && (netFresh || normText(cur) !== normText(beforeText))
       // An echo/stale answer equals beforeText, so isNew stays false and the
       // old loop waited until the full timeout — the "agent stopped after a
       // tool call" hang. If generation has clearly ENDED (no Stop button) and
@@ -1766,7 +1829,20 @@ return this._netCapture
         stable = 0
       }
       if (isNew) last = cur
-      this._askDebug('FIN-loop isNew=' + isNew + ' sameAsBefore=' + sameAsBefore + ' stable=' + stable + ' curLen=' + cur.length + ' lastLen=' + last.length + ' netFresh=' + netFresh)
+      this._askDebug(
+        'FIN-loop isNew=' +
+          isNew +
+          ' sameAsBefore=' +
+          sameAsBefore +
+          ' stable=' +
+          stable +
+          ' curLen=' +
+          cur.length +
+          ' lastLen=' +
+          last.length +
+          ' netFresh=' +
+          netFresh,
+      )
       await this.page.waitForTimeout(Math.max(0, this.stabilityDelayMs))
     }
 
@@ -1779,7 +1855,12 @@ return this._netCapture
     if (this._netCapture && this._netCaptureAt >= this._lastSentAt) {
       return this._netCapture
     }
-    this._askDebug('THROW no-new-answer lastLen=' + last.length + ' beforeLen=' + beforeText.length)
+    this._askDebug(
+      'THROW no-new-answer lastLen=' +
+        last.length +
+        ' beforeLen=' +
+        beforeText.length,
+    )
     throw new Error(this._t('ds.send_no_new_answer'))
   }
 
@@ -1886,7 +1967,9 @@ return this._netCapture
       await this.page.waitForTimeout(1500)
       return true
     } catch (e) {
-      throw new Error(this._t('ds.open_chat_failed', { id, error: (e as Error).message }))
+      throw new Error(
+        this._t('ds.open_chat_failed', { id, error: (e as Error).message }),
+      )
     }
   }
 
@@ -1914,51 +1997,51 @@ return this._netCapture
     const res = await this.page
       .evaluate(
         async (opts: { chatId: string; auth: string; pow: string }) => {
-        try {
-          const url =
-            'https://chat.deepseek.com/api/v0/chat/history_messages?chat_session_id=' +
-            encodeURIComponent(opts.chatId)
-          const headers: Record<string, string> = {
-            accept: 'application/json',
-          }
-          if (opts.auth) headers['authorization'] = opts.auth
-          if (opts.pow) headers['x-ds-pow-response'] = opts.pow
-          const resp = await fetch(url, {
-            credentials: 'include',
-            headers,
-          })
-          if (!resp.ok) return { error: 'HTTP ' + resp.status, list: [] }
-          const json = await resp.json()
-          const messages =
-            json && json.data && json.data.biz_data
-              ? json.data.biz_data.chat_messages
-              : null
-          if (!Array.isArray(messages)) {
-            return { error: 'no chat_messages in response', list: [] }
-          }
-          const NL = String.fromCharCode(10)
-          const out: Array<{ role: string; text: string }> = []
-          // The context size: the LATEST accumulated_token_usage in the chat
-          // (each message carries the running counter).
-          let usage: number | null = null
-          for (const m of messages) {
-            if (m && typeof m.accumulated_token_usage === 'number') {
-              usage = m.accumulated_token_usage
+          try {
+            const url =
+              'https://chat.deepseek.com/api/v0/chat/history_messages?chat_session_id=' +
+              encodeURIComponent(opts.chatId)
+            const headers: Record<string, string> = {
+              accept: 'application/json',
             }
-            const role = m && m.role === 'ASSISTANT' ? 'assistant' : 'user'
-            const want = role === 'assistant' ? 'RESPONSE' : 'REQUEST'
-            let text = ''
-            for (const fr of (m && m.fragments) || []) {
-              if (!fr || fr.type !== want) continue
-              if (typeof fr.content === 'string') text += fr.content
+            if (opts.auth) headers['authorization'] = opts.auth
+            if (opts.pow) headers['x-ds-pow-response'] = opts.pow
+            const resp = await fetch(url, {
+              credentials: 'include',
+              headers,
+            })
+            if (!resp.ok) return { error: 'HTTP ' + resp.status, list: [] }
+            const json = await resp.json()
+            const messages =
+              json && json.data && json.data.biz_data
+                ? json.data.biz_data.chat_messages
+                : null
+            if (!Array.isArray(messages)) {
+              return { error: 'no chat_messages in response', list: [] }
             }
-            text = text.replace(new RegExp(NL + '{3,}', 'g'), NL + NL).trim()
-            if (text) out.push({ role, text })
+            const NL = String.fromCharCode(10)
+            const out: Array<{ role: string; text: string }> = []
+            // The context size: the LATEST accumulated_token_usage in the chat
+            // (each message carries the running counter).
+            let usage: number | null = null
+            for (const m of messages) {
+              if (m && typeof m.accumulated_token_usage === 'number') {
+                usage = m.accumulated_token_usage
+              }
+              const role = m && m.role === 'ASSISTANT' ? 'assistant' : 'user'
+              const want = role === 'assistant' ? 'RESPONSE' : 'REQUEST'
+              let text = ''
+              for (const fr of (m && m.fragments) || []) {
+                if (!fr || fr.type !== want) continue
+                if (typeof fr.content === 'string') text += fr.content
+              }
+              text = text.replace(new RegExp(NL + '{3,}', 'g'), NL + NL).trim()
+              if (text) out.push({ role, text })
+            }
+            return { error: '', list: out, usage }
+          } catch (e) {
+            return { error: 'fetch failed: ' + (e as Error).message, list: [] }
           }
-          return { error: '', list: out, usage }
-        } catch (e) {
-          return { error: 'fetch failed: ' + (e as Error).message, list: [] }
-        }
         },
         { chatId: id, auth, pow },
       )

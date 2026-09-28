@@ -225,6 +225,27 @@ export interface LineEditorOptions {
 // editor. A null/undefined/NaN count renders an empty string (no status).
 export const CONTEXT_LIMIT = 1_000_000
 
+// Thresholds for coloring the context counter. Below YELLOW the value is
+// green (plenty of room), between YELLOW and RED it is yellow (getting full),
+// above RED it is red (nearly exhausted). Percent of CONTEXT_LIMIT.
+export const CONTEXT_YELLOW_PCT = 50
+export const CONTEXT_RED_PCT = 80
+
+// The color role for a context fill level, as a stable string so it can be
+// unit-tested without a terminal: 'ok' | 'warn' | 'high'. Null tokens -> null.
+export function tokenStatusLevel(
+  tokens: number | null | undefined,
+  limit = CONTEXT_LIMIT,
+): 'ok' | 'warn' | 'high' | null {
+  if (typeof tokens !== 'number' || !Number.isFinite(tokens) || tokens < 0) {
+    return null
+  }
+  const pct = (tokens / limit) * 100
+  if (pct >= CONTEXT_RED_PCT) return 'high'
+  if (pct >= CONTEXT_YELLOW_PCT) return 'warn'
+  return 'ok'
+}
+
 export function formatTokenStatus(
   tokens: number | null | undefined,
   limit = CONTEXT_LIMIT,
@@ -300,6 +321,8 @@ export class LineEditor {
   // percentage of the context limit, right-aligned above the input line. Null
   // hides it. Updated by the caller from browser.getLastTokenUsage().
   contextStatus: string | null
+  // The raw token count behind contextStatus (for the color level).
+  contextTokens: number | null
   // A callback the editor calls to fetch the CURRENT token count before every
   // status render, so the status line stays fresh without the caller polling.
   onContextQuery: (() => number | null) | null
@@ -337,6 +360,7 @@ export class LineEditor {
     this.onClipboard = null
     this.locked = false
     this.contextStatus = null
+    this.contextTokens = null
     this.onContextQuery = null
   }
 
@@ -346,12 +370,25 @@ export class LineEditor {
     if (this.onContextQuery) {
       try {
         const n = this.onContextQuery()
-        this.contextStatus = n === null || n === undefined ? null : formatTokenStatus(n) || null
+        this.contextTokens = typeof n === 'number' ? n : null
+        this.contextStatus =
+          n === null || n === undefined ? null : formatTokenStatus(n) || null
       } catch {
         // A broken callback must never break the render.
       }
     }
     return this.contextStatus
+  }
+
+  // The context text colored by fill level: green (ok), yellow (warn),
+  // red (high).
+  _contextText(): string {
+    const ctx = this._contextForRender()
+    if (!ctx) return ''
+    const level = tokenStatusLevel(this.contextTokens)
+    if (level === 'high') return theme.error(ctx)
+    if (level === 'warn') return theme.warn(ctx)
+    return theme.success(ctx)
   }
 
   // Read the OS clipboard for an image and insert its marker. Used when the
@@ -474,6 +511,8 @@ export class LineEditor {
 
   // Update the token-context text shown at the right of the status line.
   setContextStatus(tokens: number | null | undefined): void {
+    this.contextTokens =
+      typeof tokens === 'number' && Number.isFinite(tokens) ? tokens : null
     this.contextStatus = formatTokenStatus(tokens) || null
     this._render()
   }
@@ -519,24 +558,32 @@ export class LineEditor {
     // token context right-aligned on the SAME row (10k · 12%). The context is
     // refreshed from onContextQuery() on every render, so it follows the live
     // DeepSeek counter without a polling timer of its own.
-    const ctx = this._contextForRender()
-    const ctxText = ctx ? theme.dim(ctx) : ''
+    const ctxText = this._contextText()
     if (this.statusText) {
       if (ctxText) {
-        const pad = Math.max(
-          1,
-          cols - visLen(this.statusText) - visLen(ctxText),
-        )
-        out += this.statusText + ' '.repeat(pad) + ctxText + NL
+        // Right-align the context on the SAME row as the status. When the
+        // status is too long to leave room, do NOT cram them together (that
+        // pushed the trailing `%` past the right edge and it got truncated):
+        // put the context on its own line instead.
+        const space = cols - visLen(this.statusText) - visLen(ctxText)
+        if (space >= 2) {
+          out += this.statusText + ' '.repeat(space) + ctxText + NL
+          top = visRows(
+            this.statusText + ' '.repeat(2) + ctxText,
+            cols,
+          )
+        } else {
+          out += this.statusText + NL
+          top = visRows(this.statusText, cols)
+          out += ' '.repeat(Math.max(0, cols - visLen(ctxText))) + ctxText + NL
+          top += visRows(ctxText, cols)
+        }
       } else {
         out += this.statusText + NL
+        // The status may wrap onto several lines — we account for this,
+        // otherwise the block erase misses and statuses pile up.
+        top = visRows(this.statusText, cols)
       }
-      // The status may wrap onto several lines — we account for this,
-      // otherwise the block erase misses and statuses pile up.
-      top = visRows(
-        this.statusText + (ctxText ? ' '.repeat(2) + ctxText : ''),
-        cols,
-      )
     } else if (ctxText) {
       // Idle: no spinner, but the context still belongs on its own line just
       // above the input, right-aligned.

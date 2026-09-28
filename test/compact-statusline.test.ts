@@ -3,7 +3,10 @@ import assert from 'node:assert/strict'
 import {
   LineEditor,
   formatTokenStatus,
+  tokenStatusLevel,
   CONTEXT_LIMIT,
+  CONTEXT_YELLOW_PCT,
+  CONTEXT_RED_PCT,
 } from '../src/input.ts'
 import {
   buildCompactPrompt,
@@ -30,6 +33,29 @@ test('formatTokenStatus: null/undefined/NaN hide the status', () => {
 
 test('formatTokenStatus: honors a custom limit', () => {
   assert.equal(formatTokenStatus(50, 100), '50 · 50%')
+})
+
+test('tokenStatusLevel: green/yellow/red thresholds', () => {
+  assert.equal(tokenStatusLevel(0), 'ok')
+  // 499_999 tokens -> 49.9999% -> green; 500_000 -> 50% -> yellow
+  assert.equal(tokenStatusLevel(499_999), 'ok')
+  assert.equal(tokenStatusLevel(500_000), 'warn')
+  assert.equal(tokenStatusLevel(799_999), 'warn')
+  assert.equal(tokenStatusLevel(800_000), 'high')
+  assert.equal(tokenStatusLevel(1_500_000), 'high')
+})
+
+test('tokenStatusLevel: null for invalid input', () => {
+  assert.equal(tokenStatusLevel(null), null)
+  assert.equal(tokenStatusLevel(undefined), null)
+  assert.equal(tokenStatusLevel(Number.NaN), null)
+  assert.equal(tokenStatusLevel(-1), null)
+})
+
+test('tokenStatusLevel: honors a custom limit', () => {
+  assert.equal(tokenStatusLevel(50, 100), 'warn')
+  assert.equal(tokenStatusLevel(80, 100), 'high')
+  assert.equal(tokenStatusLevel(10, 100), 'ok')
 })
 
 test('CONTEXT_LIMIT is 1M', () => {

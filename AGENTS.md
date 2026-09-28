@@ -290,6 +290,20 @@ for the tool-call. `_readLastAnswerText()` (capture-first) is still used to
 RETURN the answer, so the raw-text contract is unchanged. Covered by
 `test/answer-source.test.ts`.
 
+### The DOM answer reader must fall back to the network capture
+
+A resumed chat can hang `ask()` even though DeepSeek answered: the answer is
+already in `_netCapture` (the SSE body), but `_readLastAnswerTextCleanDom()`
+returns an empty string (the history is re-rendering, the answer selector
+lags, or `page.evaluate` times out). The finish-loop required `!!cur`, so
+`isNew` stayed false, the network answer was ignored, and `ask()` spun until
+the deadline — the "agent hangs after the first message in a resumed chat"
+symptom. Fix: in the finish-loop, when the DOM is empty but the capture is
+fresh (`_netCaptureAt >= _lastSentAt`), fall back to `_cleanAnswer(this._netCapture)`.
+Also: when the status text is too long to leave room, the token context goes
+on its OWN line instead of being crammed onto one row (cramming pushed the
+trailing `%` past the right edge and truncated it to `1.8`).
+
 ### The spinner must start only on a real send
 
 The "agent is working" spinner used to be started by the CALLER
@@ -780,7 +794,8 @@ ONLY tool-calls yields "service only" — that is expected, not a bug.
 - Tests: `npm test` (tsx --test test/*.test.ts); watch — `npm run test:watch`
 - Build: `npm run build` (tsc -p tsconfig.build.json → dist/, no sourcemap)
 - Run (prod): `npm start` (node dist/index.js) or `zames`
-- Run (dev, no build): `npm run dev` (tsx src/index.ts)
+- Run (dev, no build): `npm run dev` (tsx src/index.ts, HEADED by default
+  so the DeepSeek window is visible while developing)
 - Test framework: the built-in `node:test` + `tsx` (see `test/*.test.ts`).
 
 ## TypeScript
