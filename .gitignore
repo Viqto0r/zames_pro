@@ -13,3 +13,4 @@ undefined
 # Per-project local settings. Kept out of git so personal toggles
 # (e.g. confirmation.*) never ship with the package.
 .zamesrc.json
+commit-msg.tmp
