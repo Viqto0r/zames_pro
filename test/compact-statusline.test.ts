@@ -13,12 +13,12 @@ import { buildCompactPrompt, buildCompactCarryover } from '../src/commands.ts'
 // ---------- token status formatting ----------
 
 test('formatTokenStatus: compact k/M and percent of the limit', () => {
-  assert.equal(formatTokenStatus(0), '0 · 0.0%')
-  assert.equal(formatTokenStatus(999), '999 · 0.1%')
-  assert.equal(formatTokenStatus(10_000), '10k · 1.0%')
-  assert.equal(formatTokenStatus(125_000), '125k · 13%')
-  assert.equal(formatTokenStatus(1_000_000), '1M · 100%')
-  assert.equal(formatTokenStatus(1_500_000), '1.5M · 150%')
+  assert.equal(formatTokenStatus(0), 'ctx 0 · 0.0%')
+  assert.equal(formatTokenStatus(999), 'ctx 999 · 0.1%')
+  assert.equal(formatTokenStatus(10_000), 'ctx 10k · 1.0%')
+  assert.equal(formatTokenStatus(125_000), 'ctx 125k · 13%')
+  assert.equal(formatTokenStatus(1_000_000), 'ctx 1M · 100%')
+  assert.equal(formatTokenStatus(1_500_000), 'ctx 1.5M · 150%')
 })
 
 test('formatTokenStatus: null/undefined/NaN hide the status', () => {
@@ -29,7 +29,7 @@ test('formatTokenStatus: null/undefined/NaN hide the status', () => {
 })
 
 test('formatTokenStatus: honors a custom limit', () => {
-  assert.equal(formatTokenStatus(50, 100), '50 · 50%')
+  assert.equal(formatTokenStatus(50, 100), 'ctx 50 · 50%')
 })
 
 test('tokenStatusLevel: green/yellow/red thresholds', () => {
@@ -65,7 +65,7 @@ test('setContextStatus stores the formatted token text', () => {
   const e = new LineEditor()
   e._render = () => {}
   e.setContextStatus(12_500)
-  assert.equal(e.contextStatus, '12.5k · 1.3%')
+  assert.equal(e.contextStatus, 'ctx 12.5k · 1.3%')
 })
 
 test('onContextQuery refreshes the context on every render', () => {
@@ -73,9 +73,9 @@ test('onContextQuery refreshes the context on every render', () => {
   e._render = () => {}
   let value: number | null = 1000
   e.onContextQuery = () => value
-  assert.equal(e._contextForRender(), '1k · 0.1%')
+  assert.equal(e._contextForRender(), 'ctx 1k · 0.1%')
   value = 250_000
-  assert.equal(e._contextForRender(), '250k · 25%')
+  assert.equal(e._contextForRender(), 'ctx 250k · 25%')
   value = null
   assert.equal(e._contextForRender(), null)
 })

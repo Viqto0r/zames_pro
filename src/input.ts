@@ -275,7 +275,9 @@ export function formatTokenStatus(
   }
   const pct = Math.max(0, (n / limit) * 100)
   const pctStr = pct >= 10 ? String(Math.round(pct)) : pct.toFixed(1)
-  return compact + ' · ' + pctStr + '%'
+  // "ctx" marks this as the USED context size, so the operator does not have
+  // to guess what "302k · 30%" means.
+  return 'ctx ' + compact + ' · ' + pctStr + '%'
 }
 
 export class LineEditor {
@@ -640,8 +642,7 @@ export class LineEditor {
     } else if (ctxText) {
       // Idle: no spinner, but the context still belongs on its own line just
       // above the input, right-aligned.
-      const ctxRow =
-        ' '.repeat(Math.max(0, usable - visLen(ctxText))) + ctxText
+      const ctxRow = ' '.repeat(Math.max(0, usable - visLen(ctxText))) + ctxText
       statusOut = ctxRow + NL
       top = visRows(ctxRow, cols)
     }
