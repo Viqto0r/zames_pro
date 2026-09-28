@@ -681,8 +681,8 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   },
   'chats.opening': { ru: 'Открываю: {v}', en: 'Opening: {v}' },
   'chats.context_kept': {
-    ru: ' Контекст чата сохранён. Системный промпт не пересылается (--resend-prompt чтобы дослать).\n',
-    en: ' Chat context kept. System prompt is not resent (--resend-prompt to force).\n',
+    ru: ' Контекст чата сохранён. Системный промпт будет переслан на следующей задаче.\n',
+    en: ' Chat context kept. The system prompt will be resent on the next task.\n',
   },
   'chats.prompt_will_resend': {
     ru: ' Системный промпт будет переслан на следующей задаче.\n',

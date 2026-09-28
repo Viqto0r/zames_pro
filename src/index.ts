@@ -549,7 +549,18 @@ async function resolveAttachPath(
   }
   s = s.replace(/\\ /g, ' ')
   if (!looksLikeFilePath(s) && !isImageName(s)) return null
-  const candidates = path.isAbsolute(s) ? [s] : [path.resolve(workdir, s)]
+  const candidates = path.isAbsolute(s)
+    ? [s]
+    : [
+        // Most common: relative to the project (working) directory.
+        path.resolve(workdir, s),
+        // The operator may paste a path relative to the terminal's cwd (which
+        // can be the parent of the project) or copy it with the project name
+        // included, e.g. "zames_pro/tmp/image.png" while workdir is already
+        // .../zames_pro. Try both so the marker appears instead of raw text.
+        path.resolve(process.cwd(), s),
+        path.resolve(workdir, '..', s),
+      ]
   for (const c of candidates) {
     const st = await fs.stat(c).catch(() => null)
     if (st && st.isFile()) return c
@@ -1404,7 +1415,7 @@ async function main(): Promise<void> {
       await browser.openChat(resumeId)
       currentChatId = resumeId
       freshChatNext = false
-      sendSystemPromptNext = resendPrompt
+      sendSystemPromptNext = true
       saveLastChat(resumeId, currentWorkdir)
       console.log(
         theme.system(
@@ -2189,15 +2200,13 @@ async function main(): Promise<void> {
         await browser.openChat(pick.id)
         currentChatId = pick.id
         freshChatNext = false
-        sendSystemPromptNext = resendPrompt
+        sendSystemPromptNext = true
         saveLastChat(pick.id, currentWorkdir, pick.title)
         transcript.log('resume_chat', { id: pick.id, title: pick.title })
         console.log(
           theme.assistant(t('msg.chat_opened')) +
             theme.system(
-              resendPrompt
-                ? ' Системный промпт будет переслан на следующей задаче.\n'
-                : ' Контекст чата сохранён. Системный промпт не пересылается (--resend-prompt чтобы дослать).\n',
+              ' Системный промпт будет переслан на следующей задаче (чтобы модель видела инструменты).\n',
             ),
         )
         await printRestoredHistory(browser, editor, pick.id)
@@ -2263,7 +2272,7 @@ async function main(): Promise<void> {
         await browser.openChat(id)
         currentChatId = id
         freshChatNext = false
-        sendSystemPromptNext = resendPrompt
+        sendSystemPromptNext = true
         saveLastChat(id, currentWorkdir)
         transcript.log('resume_chat', { id })
         console.log(
@@ -2487,9 +2496,6 @@ async function main(): Promise<void> {
         theme.system(
           t('status.prompt_next', { v: sendSystemPromptNext ? yes : no }),
         ),
-      )
-      console.log(
-        theme.system(t('status.resend', { v: resendPrompt ? yes : no })),
       )
       console.log(
         theme.system(

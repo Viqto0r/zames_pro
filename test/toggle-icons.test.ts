@@ -41,8 +41,16 @@ test('icons: ON uses the green formatter, OFF uses the dim one', () => {
     assert.ok(icons.includes('🧠'), 'brain icon must be present')
     assert.ok(icons.includes('🌐'), 'globe icon must be present')
   })
-  assert.deepEqual(on, ['🧠'], 'the ON brain must use the green formatter')
-  assert.deepEqual(off, ['🌐'], 'the OFF globe must use the dim formatter')
+  assert.deepEqual(
+    on,
+    ['🧠\uFE0E'],
+    'the ON brain must use the green formatter',
+  )
+  assert.deepEqual(
+    off,
+    ['🌐\uFE0E'],
+    'the OFF globe must use the dim formatter',
+  )
 })
 
 test('both icons go green when both toggles are on', () => {
@@ -52,7 +60,7 @@ test('both icons go green when both toggles are on', () => {
   const { on, off } = withColorSpies(() => {
     e._toggleIcons()
   })
-  assert.deepEqual(on, ['🧠', '🌐'])
+  assert.deepEqual(on, ['🧠\uFE0E', '🌐\uFE0E'])
   assert.deepEqual(off, [])
 })
 

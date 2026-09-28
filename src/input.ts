@@ -449,11 +449,17 @@ export class LineEditor {
   // Two colored icons for the DeepSeek toggles: 🧠 "Deep thinking" and 🌐 "Smart
   // search". A dim gray icon = off, a teal-green icon = on. Placed just before
   // the context counter, so the operator sees the live chat state at a glance.
+  // U+FE0E (VARIATION SELECTOR-15) forces the TEXT presentation of the emoji:
+  // without it the terminal paints the emoji in its own colors (pink brain,
+  // blue globe) and the ANSI color is ignored — "the icons are colored, and it
+  // is unclear which is on". With the selector they become monochrome glyphs
+  // and take the on/off color.
   _toggleIcons(): string {
     const on = (s: string): string => theme.toggleOn(s)
     const off = (s: string): string => theme.toggleOff(s)
-    const brain = this.thinkingEnabled ? on('🧠') : off('🧠')
-    const globe = this.searchEnabled ? on('🌐') : off('🌐')
+    const TEXT = '\uFE0E'
+    const brain = this.thinkingEnabled ? on('🧠' + TEXT) : off('🧠' + TEXT)
+    const globe = this.searchEnabled ? on('🌐' + TEXT) : off('🌐' + TEXT)
     return brain + ' ' + globe + ' '
   }
 
@@ -944,6 +950,48 @@ export class LineEditor {
       this._render()
       return
     }
+    // Fallback for terminals that do NOT send a bracketed paste: if the WHOLE
+    // input is a path to an existing image/file, attach it and send the marker
+    // instead of the raw path. Without this the operator pasted a path, saw
+    // plain text, and no [image#N] marker appeared.
+    if (this.onAttach && !this.attachments.items.length) {
+      const t = display.trim()
+      const quoted =
+        (t.startsWith('"') && t.endsWith('"')) ||
+        (t.startsWith("'") && t.endsWith("'"))
+      // Only treat the input as a path when it is a SINGLE token (no spaces)
+      // that looks like a file name — so a normal sentence containing a dot is
+      // never swallowed as an attachment.
+      const singleToken = !/\s/.test(t)
+      const looksPath =
+        singleToken && /[./\\]/.test(t) && /\.[a-z0-9]{1,6}$/i.test(t)
+      if (looksPath || (quoted && /[./\\]/.test(t))) {
+        void this._attachOnSubmit(display)
+        return
+      }
+    }
+    this._doSubmit(display)
+  }
+
+  // Try to attach a whole-input path, then submit the marker (or the raw text
+  // when the attachment fails).
+  async _attachOnSubmit(display: string): Promise<void> {
+    if (this.onAttach) {
+      try {
+        const att = await this.onAttach(display.trim())
+        if (att) {
+          this.buf = att.marker
+          this.cursor = Array.from(this.buf).length
+          this._render()
+          this._doSubmit(att.marker)
+          return
+        }
+      } catch {}
+    }
+    this._doSubmit(display)
+  }
+
+  _doSubmit(display: string) {
     // The input line shows compact markers "[Pasted lines#N]" instead of large
     // pastes — expand them back into the original text before sending.
     const text = expandPastes(this.pastes, display)
