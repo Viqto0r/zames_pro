@@ -3,16 +3,23 @@ import type { ParsedToolCall, ToolArgs } from './types.js'
 function unescapeXml(s: string): string {
   const A = String.fromCharCode(38) // ampersand
   return String(s)
-    .split(A + 'lt;').join(String.fromCharCode(60))
-    .split(A + 'gt;').join(String.fromCharCode(62))
-    .split(A + 'quot;').join(String.fromCharCode(34))
-    .split(A + 'apos;').join(String.fromCharCode(39))
-    .split(A + 'amp;').join(A)
+    .split(A + 'lt;')
+    .join(String.fromCharCode(60))
+    .split(A + 'gt;')
+    .join(String.fromCharCode(62))
+    .split(A + 'quot;')
+    .join(String.fromCharCode(34))
+    .split(A + 'apos;')
+    .join(String.fromCharCode(39))
+    .split(A + 'amp;')
+    .join(A)
 }
 
 function readAttr(attrs: string, name: string): string | null {
   const Q = String.fromCharCode(34)
-  const re = new RegExp(name + '[ ]*=[ ]*([' + Q + ']([^' + Q + ']*)[' + Q + '])')
+  const re = new RegExp(
+    name + '[ ]*=[ ]*([' + Q + ']([^' + Q + ']*)[' + Q + '])',
+  )
   const m = attrs.match(re)
   return m ? m[2] : null
 }
@@ -38,14 +45,26 @@ function parseInlineJsonArgs(s: string): ToolArgs | null {
   let end = -1
   for (let i = from; i < s.length; i++) {
     const c = s[i]
-    if (esc) { esc = false; continue }
-    if (c === '\\') { esc = true; continue }
-    if (c === Q) { inStr = !inStr; continue }
+    if (esc) {
+      esc = false
+      continue
+    }
+    if (c === '\\') {
+      esc = true
+      continue
+    }
+    if (c === Q) {
+      inStr = !inStr
+      continue
+    }
     if (inStr) continue
     if (c === '{') depth++
     else if (c === '}') {
       depth--
-      if (depth === 0) { end = i + 1; break }
+      if (depth === 0) {
+        end = i + 1
+        break
+      }
     }
   }
   if (end === -1) return null

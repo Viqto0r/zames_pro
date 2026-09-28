@@ -6,7 +6,16 @@ import { extractPathToken } from './path-token.js'
 
 export { extractPathToken }
 
-export const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg', '.ico']
+export const IMAGE_EXTS = [
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.webp',
+  '.bmp',
+  '.svg',
+  '.ico',
+]
 
 export const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
 
@@ -21,11 +30,13 @@ export interface Attachment {
 }
 
 function sanitize(name: string): string {
-  return String(name || '')
-    .replace(/[\u0000-\u001f\u007f]/g, '')
-    .replace(/[\\/:*?"<>|]/g, '_')
-    .replace(/\s+/g, '_')
-    .slice(0, 80) || 'file'
+  return (
+    String(name || '')
+      .replace(/[\u0000-\u001f\u007f]/g, '')
+      .replace(/[\\/:*?"<>|]/g, '_')
+      .replace(/\s+/g, '_')
+      .slice(0, 80) || 'file'
+  )
 }
 
 export function guessMime(name: string): string {
@@ -78,11 +89,16 @@ export function isImageName(name: string): boolean {
   return IMAGE_EXTS.includes(path.extname(String(name || '')).toLowerCase())
 }
 
-export function parseDataUrl(text: string): { mime: string; data: Buffer } | null {
+export function parseDataUrl(
+  text: string,
+): { mime: string; data: Buffer } | null {
   const m = String(text || '').match(/^data:([^;,]*);base64,([\s\S]*)$/)
   if (!m) return null
   try {
-    return { mime: m[1] || 'application/octet-stream', data: Buffer.from(m[2].replace(/\s+/g, ''), 'base64') }
+    return {
+      mime: m[1] || 'application/octet-stream',
+      data: Buffer.from(m[2].replace(/\s+/g, ''), 'base64'),
+    }
   } catch {
     return null
   }
@@ -91,15 +107,19 @@ export function parseDataUrl(text: string): { mime: string; data: Buffer } | nul
 export function sniffMime(data: Buffer): string {
   if (!data || data.length < 4) return ''
   const b = data
-  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return 'image/png'
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47)
+    return 'image/png'
   if (b[0] === 0xff && b[1] === 0xd8) return 'image/jpeg'
   if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return 'image/gif'
-  if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46) return 'image/webp'
+  if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46)
+    return 'image/webp'
   if (b[0] === 0x42 && b[1] === 0x4d) return 'image/bmp'
   return ''
 }
 
-export function parseImagePaste(raw: string): { mime: string; data: Buffer } | null {
+export function parseImagePaste(
+  raw: string,
+): { mime: string; data: Buffer } | null {
   const text = String(raw || '').trim()
   if (!text) return null
   const dataUrl = parseDataUrl(text)
@@ -128,8 +148,14 @@ export class AttachmentStore {
     this.fileCount = 0
   }
 
-  add(item: { path: string; name: string; mime: string; size: number }): Attachment {
-    const image = isImageName(item.name) || String(item.mime).startsWith('image/')
+  add(item: {
+    path: string
+    name: string
+    mime: string
+    size: number
+  }): Attachment {
+    const image =
+      isImageName(item.name) || String(item.mime).startsWith('image/')
     const index = image ? ++this.imageCount : ++this.fileCount
     const marker = image ? '[image#' + index + ']' : '[file#' + index + ']'
     const att: Attachment = {
@@ -167,7 +193,11 @@ export function looksLikeFileName(name: string): boolean {
   return /^[\w.\- ]+\.[A-Za-z0-9]{1,8}$/.test(n)
 }
 
-export async function saveToTemp(tmpDir: string, name: string, data: Buffer): Promise<string> {
+export async function saveToTemp(
+  tmpDir: string,
+  name: string,
+  data: Buffer,
+): Promise<string> {
   await fs.mkdir(tmpDir, { recursive: true })
   const base = sanitize(name)
   let target = path.join(tmpDir, base)
@@ -192,11 +222,15 @@ export interface ClipboardResult {
 
 // True if any OS clipboard tool is available on this machine.
 export function hasClipboardTool(): boolean {
- if (process.platform === 'win32' || process.platform === 'darwin') return true
- if (process.platform === 'linux') {
- return Boolean(tryCommand('xclip', ['-version']) || tryCommand('xsel', ['--version']) || tryCommand('wl-paste', ['--version']))
- }
- return false
+  if (process.platform === 'win32' || process.platform === 'darwin') return true
+  if (process.platform === 'linux') {
+    return Boolean(
+      tryCommand('xclip', ['-version']) ||
+      tryCommand('xsel', ['--version']) ||
+      tryCommand('wl-paste', ['--version']),
+    )
+  }
+  return false
 }
 
 // Read an image from the OS clipboard. Tries, in order, every known tool for
@@ -207,32 +241,33 @@ export function hasClipboardTool(): boolean {
 // clipboard from the Windows one: the user copies an image in Windows, so we
 // must read it through powershell.exe, not xclip.
 export function windowsReachable(): boolean {
- if (process.platform === 'win32') return true
- if (process.platform !== 'linux') return false
- try {
- return require('fs').existsSync('/mnt/c/Windows')
- } catch {
- return false
- }
+  if (process.platform === 'win32') return true
+  if (process.platform !== 'linux') return false
+  try {
+    return require('fs').existsSync('/mnt/c/Windows')
+  } catch {
+    return false
+  }
 }
 
 export function isWsl(): boolean {
- if (process.platform !== 'linux') return false
- let kernelWsl = false
- if (process.env.WSL_DISTRO_NAME || process.env.WSL_INTEROP) kernelWsl = true
- if (!kernelWsl) {
- try {
- const rel = os.release().toLowerCase()
- if (rel.includes('microsoft') || rel.includes('wsl')) kernelWsl = true
- } catch {}
- }
- return kernelWsl && windowsReachable()
+  if (process.platform !== 'linux') return false
+  let kernelWsl = false
+  if (process.env.WSL_DISTRO_NAME || process.env.WSL_INTEROP) kernelWsl = true
+  if (!kernelWsl) {
+    try {
+      const rel = os.release().toLowerCase()
+      if (rel.includes('microsoft') || rel.includes('wsl')) kernelWsl = true
+    } catch {}
+  }
+  return kernelWsl && windowsReachable()
 }
 
 // PowerShell image grabber, embedded as a UTF-16LE base64 script and run
 // via powershell.exe -EncodedCommand: it saves the clipboard image to a
 // Windows temp .png and prints the Windows path; we read it from WSL.
-const PS_IMAGE_ENCODED = 'QQBkAGQALQBUAHkAcABlACAALQBBAHMAcwBlAG0AYgBsAHkATgBhAG0AZQAgAFMAeQBzAHQAZQBtAC4AVwBpAG4AZABvAHcAcwAuAEYAbwByAG0AcwAsAFMAeQBzAHQAZQBtAC4ARAByAGEAdwBpAG4AZwAKACQAaQBtAGcAPQBbAFMAeQBzAHQAZQBtAC4AVwBpAG4AZABvAHcAcwAuAEYAbwByAG0AcwAuAEMAbABpAHAAYgBvAGEAcgBkAF0AOgA6AEcAZQB0AEkAbQBhAGcAZQAoACkACgBpAGYAKAAkAGkAbQBnACkAewAkAHAAPQBKAG8AaQBuAC0AUABhAHQAaAAgACQAZQBuAHYAOgBUAEUATQBQACAAKAAiAHoAYQBtAGUAcwAtAGMAbABpAHAALQAiACsAWwBHAHUAaQBkAF0AOgA6AE4AZQB3AEcAdQBpAGQAKAApAC4AVABvAFMAdAByAGkAbgBnACgAKQArACIALgBwAG4AZwAiACkAOwAkAGkAbQBnAC4AUwBhAHYAZQAoACQAcAAsAFsAUwB5AHMAdABlAG0ALgBEAHIAYQB3AGkAbgBnAC4ASQBtAGEAZwBpAG4AZwAuAEkAbQBhAGcAZQBGAG8AcgBtAGEAdABdADoAOgBQAG4AZwApADsAVwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAkAHAAfQAKAA=='
+const PS_IMAGE_ENCODED =
+  'QQBkAGQALQBUAHkAcABlACAALQBBAHMAcwBlAG0AYgBsAHkATgBhAG0AZQAgAFMAeQBzAHQAZQBtAC4AVwBpAG4AZABvAHcAcwAuAEYAbwByAG0AcwAsAFMAeQBzAHQAZQBtAC4ARAByAGEAdwBpAG4AZwAKACQAaQBtAGcAPQBbAFMAeQBzAHQAZQBtAC4AVwBpAG4AZABvAHcAcwAuAEYAbwByAG0AcwAuAEMAbABpAHAAYgBvAGEAcgBkAF0AOgA6AEcAZQB0AEkAbQBhAGcAZQAoACkACgBpAGYAKAAkAGkAbQBnACkAewAkAHAAPQBKAG8AaQBuAC0AUABhAHQAaAAgACQAZQBuAHYAOgBUAEUATQBQACAAKAAiAHoAYQBtAGUAcwAtAGMAbABpAHAALQAiACsAWwBHAHUAaQBkAF0AOgA6AE4AZQB3AEcAdQBpAGQAKAApAC4AVABvAFMAdAByAGkAbgBnACgAKQArACIALgBwAG4AZwAiACkAOwAkAGkAbQBnAC4AUwBhAHYAZQAoACQAcAAsAFsAUwB5AHMAdABlAG0ALgBEAHIAYQB3AGkAbgBnAC4ASQBtAGEAZwBpAG4AZwAuAEkAbQBhAGcAZQBGAG8AcgBtAGEAdABdADoAOgBQAG4AZwApADsAVwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAkAHAAfQAKAA=='
 
 // PowerShell one-liner: write the clipboard file paths (CF_HDROP) to stdout.
 const PS_GET_FILE_DROP =
@@ -242,36 +277,65 @@ const PS_GET_FILE_DROP =
   '$f=$d.GetData([System.Windows.Forms.DataFormats]::FileDrop); $f -join [Environment]::NewLine}'
 
 export async function readClipboardImageDetailed(): Promise<ClipboardResult> {
-  if (process.platform === 'linux' || process.platform === 'freebsd' || process.platform === 'openbsd') {
+  if (
+    process.platform === 'linux' ||
+    process.platform === 'freebsd' ||
+    process.platform === 'openbsd'
+  ) {
     const wayland = process.env.WAYLAND_DISPLAY
     const x11 = process.env.DISPLAY
     const attempts: Array<{ bin: string; args: string[]; via: string }> = []
     // On WSL the Windows clipboard is what the user copies into — read it first.
     if (isWsl()) {
       const win = await readWindowsClipboardImage()
- if (win) return { data: win, via: 'powershell.exe' }
+      if (win) return { data: win, via: 'powershell.exe' }
     }
-    if (wayland || !x11) attempts.push({ bin: 'wl-paste', args: ['--type', 'image/png', '--no-newline'], via: 'wl-paste' })
+    if (wayland || !x11)
+      attempts.push({
+        bin: 'wl-paste',
+        args: ['--type', 'image/png', '--no-newline'],
+        via: 'wl-paste',
+      })
     if (x11 || !wayland) {
-      attempts.push({ bin: 'xclip', args: ['-selection', 'clipboard', '-t', 'image/png', '-o'], via: 'xclip' })
-      attempts.push({ bin: 'xsel', args: ['--clipboard', '--output'], via: 'xsel' })
+      attempts.push({
+        bin: 'xclip',
+        args: ['-selection', 'clipboard', '-t', 'image/png', '-o'],
+        via: 'xclip',
+      })
+      attempts.push({
+        bin: 'xsel',
+        args: ['--clipboard', '--output'],
+        via: 'xsel',
+      })
     }
     // Even if the session env is missing, try the other family as a fallback.
-    attempts.push({ bin: 'wl-paste', args: ['--type', 'image/png', '--no-newline'], via: 'wl-paste' })
-    attempts.push({ bin: 'xclip', args: ['-selection', 'clipboard', '-t', 'image/png', '-o'], via: 'xclip' })
+    attempts.push({
+      bin: 'wl-paste',
+      args: ['--type', 'image/png', '--no-newline'],
+      via: 'wl-paste',
+    })
+    attempts.push({
+      bin: 'xclip',
+      args: ['-selection', 'clipboard', '-t', 'image/png', '-o'],
+      via: 'xclip',
+    })
     const tried: string[] = []
     for (const a of attempts) {
       if (tried.includes(a.via)) continue
       tried.push(a.via)
       const data = tryCommand(a.bin, a.args)
-      if (data && sniffMime(data).startsWith('image/')) return { data, via: a.via }
+      if (data && sniffMime(data).startsWith('image/'))
+        return { data, via: a.via }
       if (data && data.length) return { data, via: a.via }
     }
     return { data: null, via: 'no-tool:' + tried.join(',') }
   }
   if (process.platform === 'darwin') {
     const data = tryCommand('pngpaste', ['-'])
-    return { data: data && data.length ? data : null, via: data ? 'pngpaste' : 'no-tool:pngpaste' }
+    return {
+      data: data && data.length ? data : null,
+      via: data ? 'pngpaste' : 'no-tool:pngpaste',
+    }
   }
   if (process.platform === 'win32') {
     // PowerShell reads the clipboard image and writes raw PNG bytes to stdout.
@@ -281,8 +345,16 @@ export async function readClipboardImageDetailed(): Promise<ClipboardResult> {
       'if($img){$ms=New-Object System.IO.MemoryStream; ' +
       '$img.Save($ms,[System.Drawing.Imaging.ImageFormat]::Png); ' +
       '[Console]::OpenStandardOutput().Write($ms.ToArray(),0,$ms.Length)}'
-    const data = tryCommand('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps])
-    return { data: data && data.length ? data : null, via: data ? 'powershell' : 'no-tool:powershell' }
+    const data = tryCommand('powershell', [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      ps,
+    ])
+    return {
+      data: data && data.length ? data : null,
+      via: data ? 'powershell' : 'no-tool:powershell',
+    }
   }
   return { data: null, via: 'unsupported-platform' }
 }
@@ -307,7 +379,10 @@ function tryCommand(bin: string, args: string[]): Buffer | null {
   }
 }
 
-export async function findFileByName(workdir: string, name: string): Promise<string | null> {
+export async function findFileByName(
+  workdir: string,
+  name: string,
+): Promise<string | null> {
   const candidate = path.resolve(workdir, name)
   if (await fs.stat(candidate).catch(() => null)) return candidate
   try {
@@ -322,49 +397,64 @@ export async function findFileByName(workdir: string, name: string): Promise<str
   return null
 }
 
-
-
 // Read file paths from the Windows clipboard (copied files, CF_HDROP) and
 // translate them to WSL paths. On WSL the user often copies a FILE, not an
 // image. Returns [] on non-WSL / when nothing is there.
 export function readWindowsClipboardFiles(): string[] {
- if (!isWsl()) return []
- const out = tryCommand('powershell.exe', ['-STA', '-NoProfile', '-NonInteractive', '-Command', PS_GET_FILE_DROP])
- if (!out) return []
- const text = out.toString('utf-8')
- return text
- .split(/\r?\n/)
- .map((s) => s.trim())
- .filter(Boolean)
- .map(winPathToWsl)
- .filter((p): p is string => !!p)
+  if (!isWsl()) return []
+  const out = tryCommand('powershell.exe', [
+    '-STA',
+    '-NoProfile',
+    '-NonInteractive',
+    '-Command',
+    PS_GET_FILE_DROP,
+  ])
+  if (!out) return []
+  const text = out.toString('utf-8')
+  return text
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map(winPathToWsl)
+    .filter((p): p is string => !!p)
 }
 
 // Convert a Windows path (C:\\Users\\me\\a.png) into a WSL path
 // (/mnt/c/Users/me/a.png). Leaves already-POSIX paths untouched.
 export function winPathToWsl(winPath: string): string | null {
- let p = String(winPath || '').trim()
- if (p.startsWith('"') && p.endsWith('"')) p = p.slice(1, -1)
- if (!p) return null
- if (p.startsWith('/')) return p
- if (p.charAt(1) !== ':' || (p.charAt(2) !== '/' && p.charAt(2) !== '\\')) return null
- const drive = p.charAt(0).toLowerCase()
- const rest = p.slice(3).split('\\').join('/')
- return '/mnt/' + drive + '/' + rest
+  let p = String(winPath || '').trim()
+  if (p.startsWith('"') && p.endsWith('"')) p = p.slice(1, -1)
+  if (!p) return null
+  if (p.startsWith('/')) return p
+  if (p.charAt(1) !== ':' || (p.charAt(2) !== '/' && p.charAt(2) !== '\\'))
+    return null
+  const drive = p.charAt(0).toLowerCase()
+  const rest = p.slice(3).split('\\').join('/')
+  return '/mnt/' + drive + '/' + rest
 }
 
 // Run the embedded PowerShell script and return the clipboard image bytes.
 export async function readWindowsClipboardImage(): Promise<Buffer | null> {
- if (!isWsl()) return null
- const out = tryCommand('powershell.exe', ['-STA', '-NoProfile', '-NonInteractive', '-EncodedCommand', PS_IMAGE_ENCODED])
- if (!out) return null
- const first = out.toString('utf-8').trim().split(String.fromCharCode(10))[0].trim()
- if (!first) return null
- const wslPath = winPathToWsl(first)
- if (!wslPath) return null
- try {
- return await fs.readFile(wslPath)
- } catch {
- return null
- }
+  if (!isWsl()) return null
+  const out = tryCommand('powershell.exe', [
+    '-STA',
+    '-NoProfile',
+    '-NonInteractive',
+    '-EncodedCommand',
+    PS_IMAGE_ENCODED,
+  ])
+  if (!out) return null
+  const first = out
+    .toString('utf-8')
+    .trim()
+    .split(String.fromCharCode(10))[0]
+    .trim()
+  if (!first) return null
+  const wslPath = winPathToWsl(first)
+  if (!wslPath) return null
+  try {
+    return await fs.readFile(wslPath)
+  } catch {
+    return null
+  }
 }

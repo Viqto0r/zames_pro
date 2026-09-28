@@ -3,7 +3,15 @@ import assert from 'node:assert/strict'
 import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
-import { createExtraTools, parsePatch, applyUpdateHunk, renderTodos, normalizeTodos, getTodos, resetTodos } from '../src/extraTools.ts'
+import {
+  createExtraTools,
+  parsePatch,
+  applyUpdateHunk,
+  renderTodos,
+  normalizeTodos,
+  getTodos,
+  resetTodos,
+} from '../src/extraTools.ts'
 import { createTools } from '../src/tools.ts'
 import type { ToolDef } from '../src/types.ts'
 
@@ -123,8 +131,12 @@ test('TodoWrite заменяет список целиком', async () => {
   resetTodos()
   const dir = await tmpDir()
   const tools = createExtraTools(dir, {})
-  await tool(tools, 'TodoWrite').fn({ todos: [{ content: 'a', status: 'pending' }] })
-  await tool(tools, 'TodoWrite').fn({ todos: [{ content: 'b', status: 'completed' }] })
+  await tool(tools, 'TodoWrite').fn({
+    todos: [{ content: 'a', status: 'pending' }],
+  })
+  await tool(tools, 'TodoWrite').fn({
+    todos: [{ content: 'b', status: 'completed' }],
+  })
   const list = getTodos()
   assert.equal(list.length, 1)
   assert.equal(list[0].content, 'b')
@@ -176,9 +188,17 @@ test('parsePatch требует Begin/End', () => {
 })
 
 test('parsePatch отклоняет абсолютные пути и ..', () => {
-  const abs = ['*** Begin Patch', '*** Add File: /etc/passwd', '*** End Patch'].join(NL)
+  const abs = [
+    '*** Begin Patch',
+    '*** Add File: /etc/passwd',
+    '*** End Patch',
+  ].join(NL)
   assert.ok(parsePatch(abs).error)
-  const dotdot = ['*** Begin Patch', '*** Add File: ../evil', '*** End Patch'].join(NL)
+  const dotdot = [
+    '*** Begin Patch',
+    '*** Add File: ../evil',
+    '*** End Patch',
+  ].join(NL)
   assert.ok(parsePatch(dotdot).error)
 })
 
@@ -200,7 +220,11 @@ test('applyUpdateHunk сообщает, если контекст не найд�
 
 test('ApplyPatch создаёт, правит и удаляет файлы', async () => {
   const dir = await tmpDir()
-  await fs.writeFile(path.join(dir, 'old.txt'), 'keep' + NL + 'old' + NL + 'tail', 'utf-8')
+  await fs.writeFile(
+    path.join(dir, 'old.txt'),
+    'keep' + NL + 'old' + NL + 'tail',
+    'utf-8',
+  )
   await fs.writeFile(path.join(dir, 'gone.txt'), 'bye', 'utf-8')
   const tools = createExtraTools(dir, {})
   const patch = [
@@ -216,7 +240,10 @@ test('ApplyPatch создаёт, правит и удаляет файлы', asy
     '*** End Patch',
   ].join(NL)
   await tool(tools, 'ApplyPatch').fn({ patch })
-  assert.equal(await fs.readFile(path.join(dir, 'sub/new.txt'), 'utf-8'), 'fresh' + NL)
+  assert.equal(
+    await fs.readFile(path.join(dir, 'sub/new.txt'), 'utf-8'),
+    'fresh' + NL,
+  )
   assert.equal(
     await fs.readFile(path.join(dir, 'old.txt'), 'utf-8'),
     'keep' + NL + 'new' + NL + 'tail',
@@ -270,7 +297,9 @@ test('Read numbered=true добавляет номера строк cat -n', asy
   const dir = await tmpDir()
   await fs.writeFile(path.join(dir, 'a.txt'), ['x', 'y'].join(NL), 'utf-8')
   const tools = createTools(dir, {})
-  const out = String(await tool(tools, 'Read').fn({ path: 'a.txt', numbered: true }))
+  const out = String(
+    await tool(tools, 'Read').fn({ path: 'a.txt', numbered: true }),
+  )
   const lines = out.split(NL)
   assert.equal(lines[0], '1\tx')
   assert.equal(lines[1], '2\ty')
@@ -279,10 +308,19 @@ test('Read numbered=true добавляет номера строк cat -n', asy
 
 test('Read numbered с offset нумерует от реальной строки', async () => {
   const dir = await tmpDir()
-  await fs.writeFile(path.join(dir, 'a.txt'), ['l0', 'l1', 'l2', 'l3'].join(NL), 'utf-8')
+  await fs.writeFile(
+    path.join(dir, 'a.txt'),
+    ['l0', 'l1', 'l2', 'l3'].join(NL),
+    'utf-8',
+  )
   const tools = createTools(dir, {})
   const out = String(
-    await tool(tools, 'Read').fn({ path: 'a.txt', offset: 2, limit: 2, numbered: true }),
+    await tool(tools, 'Read').fn({
+      path: 'a.txt',
+      offset: 2,
+      limit: 2,
+      numbered: true,
+    }),
   )
   assert.equal(out, '3\tl2' + NL + '4\tl3')
   await fs.rm(dir, { recursive: true, force: true })
@@ -317,7 +355,14 @@ test('Read сырой вывод подходит для Edit old_string', async
   const tools = createTools(dir, {})
   const raw = String(await tool(tools, 'Read').fn({ path: 'a.txt' }))
   assert.equal(raw, 'foo bar baz')
-  await tool(tools, 'Edit').fn({ path: 'a.txt', old_string: 'bar', new_string: 'QUX' })
-  assert.equal(await fs.readFile(path.join(dir, 'a.txt'), 'utf-8'), 'foo QUX baz')
+  await tool(tools, 'Edit').fn({
+    path: 'a.txt',
+    old_string: 'bar',
+    new_string: 'QUX',
+  })
+  assert.equal(
+    await fs.readFile(path.join(dir, 'a.txt'), 'utf-8'),
+    'foo QUX baz',
+  )
   await fs.rm(dir, { recursive: true, force: true })
 })

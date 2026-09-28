@@ -82,7 +82,9 @@ function writeIndex({ id, workdir }: { id: string; workdir: string }): void {
 // we return the last session overall (useful when launched from a new place).
 export function loadLastSession(workdir = ''): Session | null {
   try {
-    const index: SessionsIndex = JSON.parse(fs.readFileSync(INDEX_FILE, 'utf-8'))
+    const index: SessionsIndex = JSON.parse(
+      fs.readFileSync(INDEX_FILE, 'utf-8'),
+    )
     const byWorkdir = index && index.byWorkdir ? index.byWorkdir : {}
     const candidates = [byWorkdir[workdir], index.last].filter(
       (x): x is string => Boolean(x),

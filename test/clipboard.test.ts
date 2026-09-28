@@ -6,9 +6,9 @@ import { readClipboardImageDetailed } from '../src/attachments.ts'
 // safe: it never throws and always returns a { data, via } object, whatever
 // the platform / available tools are.
 test('readClipboardImageDetailed не бросает и возвращает форму {data, via}', async () => {
- const res = await readClipboardImageDetailed()
- assert.ok(res && typeof res === 'object')
- assert.ok('data' in res)
- assert.ok(typeof res.via === 'string' && res.via.length > 0)
- assert.ok(res.data === null || Buffer.isBuffer(res.data))
+  const res = await readClipboardImageDetailed()
+  assert.ok(res && typeof res === 'object')
+  assert.ok('data' in res)
+  assert.ok(typeof res.via === 'string' && res.via.length > 0)
+  assert.ok(res.data === null || Buffer.isBuffer(res.data))
 })

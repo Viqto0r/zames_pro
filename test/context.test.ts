@@ -65,7 +65,11 @@ test('loadCommands reads .zames/commands/*.md', async () => {
 
 test('loadProjectContext picks up AGENTS.md and MEMORY.md', async () => {
   const root = await mkTmp()
-  await fs.writeFile(path.join(root, 'AGENTS.md'), '# Rules\n\n- be nice', 'utf-8')
+  await fs.writeFile(
+    path.join(root, 'AGENTS.md'),
+    '# Rules\n\n- be nice',
+    'utf-8',
+  )
   await fs.writeFile(path.join(root, 'MEMORY.md'), '- remembered fact', 'utf-8')
   const ctx = await loadProjectContext(root)
   assert.ok(ctx.agents.some((f) => f.path.endsWith('AGENTS.md')))
@@ -93,7 +97,14 @@ test('buildSystemPrompt includes context sections', async () => {
         userInvokable: true,
       },
     ],
-    commands: [{ name: 'review', description: 'review it', path: '/p/.zames/commands/review.md', body: 'x' }],
+    commands: [
+      {
+        name: 'review',
+        description: 'review it',
+        path: '/p/.zames/commands/review.md',
+        body: 'x',
+      },
+    ],
   }
   const sp = buildSystemPrompt({ workdir: '/p', tools: [], context: ctx })
   assert.match(sp, /PROJECT-RULE-XYZ/)

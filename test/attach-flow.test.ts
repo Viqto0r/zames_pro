@@ -50,7 +50,12 @@ test('маркеры image/file попадают в текст сообщени�
   const img = parseImagePaste(PNG_B64)
   assert.ok(img)
   const p = await saveToTemp(dir, 'paste' + '.png', img.data)
-  const att = store.add({ path: p, name: 'paste.png', mime: img.mime, size: img.data.length })
+  const att = store.add({
+    path: p,
+    name: 'paste.png',
+    mime: img.mime,
+    size: img.data.length,
+  })
   assert.equal(att.marker, '[image#1]')
   // simulate the input line containing the marker plus user text
   const line = 'посмотри на это ' + att.marker + ' что тут?'

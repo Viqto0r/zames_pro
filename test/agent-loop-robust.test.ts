@@ -3,16 +3,33 @@ import assert from 'node:assert/strict'
 import { runAgentLoop } from '../src/agent-loop.ts'
 import type { ToolDef, BrowserLike } from '../src/types.ts'
 
-function makeBrowser(script: string[]): { browser: BrowserLike; asks: string[] } {
+function makeBrowser(script: string[]): {
+  browser: BrowserLike
+  asks: string[]
+} {
   let i = 0
   const asks: string[] = []
   const browser: BrowserLike = {
-    async ask(text: string) { asks.push(text); const r = script[i]; i++; if (r === undefined) throw new Error('script exhausted'); return r },
+    async ask(text: string) {
+      asks.push(text)
+      const r = script[i]
+      i++
+      if (r === undefined) throw new Error('script exhausted')
+      return r
+    },
     async newChat() {},
-    async getCurrentChatId() { return 'chat-xyz' },
-    async stopGeneration() { return true },
-    async listChats() { return [] },
-    async openChat() { return true },
+    async getCurrentChatId() {
+      return 'chat-xyz'
+    },
+    async stopGeneration() {
+      return true
+    },
+    async listChats() {
+      return []
+    },
+    async openChat() {
+      return true
+    },
     async close() {},
   }
   return { browser, asks }
@@ -34,7 +51,12 @@ test('пустой respond не завершает задачу, агент пр
     jsonCall('respond', { message: '' }),
     jsonCall('respond', { message: 'готово' }),
   ])
-  const result = await runAgentLoop({ browser, tools: [respondTool], task: 'x', workdir: process.cwd() })
+  const result = await runAgentLoop({
+    browser,
+    tools: [respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+  })
   assert.equal(result, 'готово')
   assert.ok(asks.length >= 2, 'ask calls: ' + asks.length)
 })
@@ -44,7 +66,12 @@ test('обрезанный JSON-вызов не завершает задачу 
     '{"tool": "Bash", "args": {"comm',
     jsonCall('respond', { message: 'ok' }),
   ])
-  const result = await runAgentLoop({ browser, tools: [respondTool], task: 'x', workdir: process.cwd() })
+  const result = await runAgentLoop({
+    browser,
+    tools: [respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+  })
   assert.equal(result, 'ok')
   assert.ok(asks.length >= 2, 'ask calls: ' + asks.length)
 })
@@ -54,8 +81,27 @@ test('вызов инструмента в одинарных кавычках �
   // {'tool': 'Read', ...} (single quotes) — not valid JSON.
   const SQ = String.fromCharCode(39)
   const pseudo =
-    '{' + SQ + 'tool' + SQ + ': ' + SQ + 'Read' + SQ + ', ' +
-    SQ + 'args' + SQ + ': {' + SQ + 'path' + SQ + ': ' + SQ + 'src/undo.ts' + SQ + '}}'
+    '{' +
+    SQ +
+    'tool' +
+    SQ +
+    ': ' +
+    SQ +
+    'Read' +
+    SQ +
+    ', ' +
+    SQ +
+    'args' +
+    SQ +
+    ': {' +
+    SQ +
+    'path' +
+    SQ +
+    ': ' +
+    SQ +
+    'src/undo.ts' +
+    SQ +
+    '}}'
   let readCalled = 0
   const readTool: ToolDef = {
     name: 'Read',
@@ -86,7 +132,12 @@ test('обрезанный DSML-вызов не завершает задачу 
     '<|DSML|invoke name="Bash"><|DSML|parameter name="comm',
     jsonCall('respond', { message: 'ok2' }),
   ])
-  const result = await runAgentLoop({ browser, tools: [respondTool], task: 'x', workdir: process.cwd() })
+  const result = await runAgentLoop({
+    browser,
+    tools: [respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+  })
   assert.equal(result, 'ok2')
   assert.ok(asks.length >= 2, 'ask calls: ' + asks.length)
 })
@@ -107,7 +158,10 @@ test('пустой respond исчерпывает stallRetries и не заве�
   // An empty respond must never be a silent final: instead of returning an
   // empty string, the loop warns the operator (no "stopped after a tool" effect).
   assert.notEqual(result, '')
-  assert.ok(result.length > 0, 'результат не должен быть пустым: ' + JSON.stringify(result))
+  assert.ok(
+    result.length > 0,
+    'результат не должен быть пустым: ' + JSON.stringify(result),
+  )
   assert.ok(warnings.length >= 1, 'оператор должен получить предупреждение')
 })
 
@@ -142,39 +196,42 @@ test('русское «сейчас проверю» без вызова не з
 })
 
 test('обычный текст без вызова переспрашивается; завершает только respond', async () => {
- const { browser, asks } = makeBrowser([
- 'Просто ответ без вызова',
- jsonCall('respond', { message: 'итог' }),
- ])
- const result = await runAgentLoop({
- browser,
- tools: [respondTool],
- task: 'x',
- workdir: process.cwd(),
- })
- assert.equal(result, 'итог')
- assert.ok(asks.length >= 2, 'ask calls: ' + asks.length)
+  const { browser, asks } = makeBrowser([
+    'Просто ответ без вызова',
+    jsonCall('respond', { message: 'итог' }),
+  ])
+  const result = await runAgentLoop({
+    browser,
+    tools: [respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+  })
+  assert.equal(result, 'итог')
+  assert.ok(asks.length >= 2, 'ask calls: ' + asks.length)
 })
 test('длинный ответ со словами про rate limit не считается служебным', async () => {
- // The transcript had a 1365-char answer where the agent quotes the ask()
- // code and the words "too frequent". It must NOT be taken as a service
- // answer (that caused a long re-ask loop). In strict mode it is still
- // plain text, so the agent re-asks once, then finishes on respond.
- const long =
- 'Да, именно так сейчас и сделано — повтор идёт в тот же чат.' +
- String.fromCharCode(10, 10) +
- 'Смотри ask(), строки 499–517: при RateLimitError ждём и повторяем, ' +
- 'сообщение «слишком часто» обрабатывается отдельно. ' +
- 'x'.repeat(300)
- const { browser, asks } = makeBrowser([long, jsonCall('respond', { message: 'ok' })])
- const result = await runAgentLoop({
- browser,
- tools: [respondTool],
- task: 'x',
- workdir: process.cwd(),
- })
- assert.equal(result, 'ok')
- assert.equal(asks.length, 2, 'ask calls: ' + asks.length)
+  // The transcript had a 1365-char answer where the agent quotes the ask()
+  // code and the words "too frequent". It must NOT be taken as a service
+  // answer (that caused a long re-ask loop). In strict mode it is still
+  // plain text, so the agent re-asks once, then finishes on respond.
+  const long =
+    'Да, именно так сейчас и сделано — повтор идёт в тот же чат.' +
+    String.fromCharCode(10, 10) +
+    'Смотри ask(), строки 499–517: при RateLimitError ждём и повторяем, ' +
+    'сообщение «слишком часто» обрабатывается отдельно. ' +
+    'x'.repeat(300)
+  const { browser, asks } = makeBrowser([
+    long,
+    jsonCall('respond', { message: 'ok' }),
+  ])
+  const result = await runAgentLoop({
+    browser,
+    tools: [respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+  })
+  assert.equal(result, 'ok')
+  assert.equal(asks.length, 2, 'ask calls: ' + asks.length)
 })
 test('короткое уведомление о лимите по-прежнему вызывает переспрос', async () => {
   const { browser, asks } = makeBrowser([
@@ -432,40 +489,48 @@ test('stale-эхо с другим markdown не перезапускает ин
     maxIterations: 12,
   })
   assert.equal(result, 'FIN')
-  assert.equal(echoRuns, 1, 'инструмент не должен выполняться повторно на stale-эхе')
+  assert.equal(
+    echoRuns,
+    1,
+    'инструмент не должен выполняться повторно на stale-эхе',
+  )
 })
 
 test('stale-эхо с другим markdown не перезапускает инструмент', async () => {
-// Real transcript signature: DeepSeek echoes the previous answer but with
-// different markdown emphasis, e.g. "Честно: гарантировать нельзя."
-// followed by "Честно: гарантировать нельзя." — SAME call. An exact
-// comparison missed it, the tool ran twice, and the loop stalled. Now the
-// stale echo is discarded (normalized comparison) and the tool runs once.
-let echoRuns = 0
-const countingEcho: ToolDef = {
-name: 'Echo',
-description: 'echo',
-parameters: { v: 'string' },
-fn: async () => {
-echoRuns++
-return 'ok'
-},
-}
-const call = jsonCall('Echo', { v: '1' })
-const { browser, asks } = makeBrowser([
-'Честно: гарантировать нельзя.' + String.fromCharCode(10) + call,
-'Честно: гарантировать нельзя.' + String.fromCharCode(10) + call,
-jsonCall('respond', { message: 'FIN' }),
-])
-const result = await runAgentLoop({
-browser,
-tools: [countingEcho, respondTool],
-task: 'x',
-workdir: process.cwd(),
-maxIterations: 12,
-})
-assert.equal(result, 'FIN')
-assert.equal(echoRuns, 1, 'инструмент не должен выполняться повторно на stale-эхе')
+  // Real transcript signature: DeepSeek echoes the previous answer but with
+  // different markdown emphasis, e.g. "Честно: гарантировать нельзя."
+  // followed by "Честно: гарантировать нельзя." — SAME call. An exact
+  // comparison missed it, the tool ran twice, and the loop stalled. Now the
+  // stale echo is discarded (normalized comparison) and the tool runs once.
+  let echoRuns = 0
+  const countingEcho: ToolDef = {
+    name: 'Echo',
+    description: 'echo',
+    parameters: { v: 'string' },
+    fn: async () => {
+      echoRuns++
+      return 'ok'
+    },
+  }
+  const call = jsonCall('Echo', { v: '1' })
+  const { browser, asks } = makeBrowser([
+    'Честно: гарантировать нельзя.' + String.fromCharCode(10) + call,
+    'Честно: гарантировать нельзя.' + String.fromCharCode(10) + call,
+    jsonCall('respond', { message: 'FIN' }),
+  ])
+  const result = await runAgentLoop({
+    browser,
+    tools: [countingEcho, respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+    maxIterations: 12,
+  })
+  assert.equal(result, 'FIN')
+  assert.equal(
+    echoRuns,
+    1,
+    'инструмент не должен выполняться повторно на stale-эхе',
+  )
 })
 
 test('эхо нераспознанного DSML-вызова выполняется, а не отбрасывается как stale', async () => {
@@ -491,11 +556,43 @@ test('эхо нераспознанного DSML-вызова выполняет
   const B = String.fromCharCode(124)
   const p = B + B + 'DSML' + B + B
   const dsml =
-    L + p + ' invoke name=' + Q + 'Echo' + Q + R +
-    L + p + ' parameter name=' + Q + 'args' + Q + ' string=' + Q + 'false' + Q + R +
-    '{' + Q + 'v' + Q + ': ' + Q + '1' + Q + '}' +
-    L + '/' + p + ' parameter' + R +
-    L + '/' + p + ' invoke' + R
+    L +
+    p +
+    ' invoke name=' +
+    Q +
+    'Echo' +
+    Q +
+    R +
+    L +
+    p +
+    ' parameter name=' +
+    Q +
+    'args' +
+    Q +
+    ' string=' +
+    Q +
+    'false' +
+    Q +
+    R +
+    '{' +
+    Q +
+    'v' +
+    Q +
+    ': ' +
+    Q +
+    '1' +
+    Q +
+    '}' +
+    L +
+    '/' +
+    p +
+    ' parameter' +
+    R +
+    L +
+    '/' +
+    p +
+    ' invoke' +
+    R
   const { browser } = makeBrowser([
     dsml,
     dsml,
@@ -509,5 +606,8 @@ test('эхо нераспознанного DSML-вызова выполняет
     maxIterations: 12,
   })
   assert.equal(result, 'FIN')
-  assert.ok(runs >= 1, 'нераспознанный DSML-вызов должен выполниться хотя бы раз')
+  assert.ok(
+    runs >= 1,
+    'нераспознанный DSML-вызов должен выполниться хотя бы раз',
+  )
 })

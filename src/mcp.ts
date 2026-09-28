@@ -80,7 +80,9 @@ export interface McpLoadOptions {
 }
 
 /** Names of the servers found in a config, before any connection. */
-export async function listConfiguredServers(workdir: string): Promise<string[]> {
+export async function listConfiguredServers(
+  workdir: string,
+): Promise<string[]> {
   const files = await discoverConfigFiles(workdir)
   const config = await loadConfigFiles(files)
   const servers = config.mcpServers || {}
@@ -93,10 +95,21 @@ export async function listConfiguredServers(workdir: string): Promise<string[]> 
 // the session is lost. So when a stdio server looks like @playwright/mcp we
 // auto-add --isolated (in-memory profile) unless the user already chose a
 // profile (--isolated / --user-data-dir / --extension / --cdp-endpoint).
-export function hardenPlaywrightArgs(command: string, args: string[]): string[] {
+export function hardenPlaywrightArgs(
+  command: string,
+  args: string[],
+): string[] {
   const hay = (String(command || '') + ' ' + args.join(' ')).toLowerCase()
   if (!hay.includes('playwright') || !hay.includes('mcp')) return args
-  if (args.some((a) => a === '--isolated' || a.startsWith('--user-data-dir') || a === '--extension' || a.startsWith('--cdp-endpoint'))) {
+  if (
+    args.some(
+      (a) =>
+        a === '--isolated' ||
+        a.startsWith('--user-data-dir') ||
+        a === '--extension' ||
+        a.startsWith('--cdp-endpoint'),
+    )
+  ) {
     return args
   }
   return [...args, '--isolated']
@@ -243,13 +256,23 @@ export function renderMcpResult(result: unknown): string {
     if (type === 'text') {
       parts.push(String(b.text ?? ''))
     } else if (type === 'image') {
-      parts.push('[image ' + String(b.mimeType ?? 'unknown') + ', written to disk by the MCP server]')
+      parts.push(
+        '[image ' +
+          String(b.mimeType ?? 'unknown') +
+          ', written to disk by the MCP server]',
+      )
     } else if (type === 'resource') {
       const res = (b.resource || {}) as Record<string, unknown>
       if (typeof res.text === 'string') {
         parts.push(String(res.uri ?? '') + String.fromCharCode(10) + res.text)
       } else if (typeof res.blob === 'string') {
-        parts.push('[binary resource ' + String(res.uri ?? '') + ', ' + String(res.mimeType ?? '') + ']')
+        parts.push(
+          '[binary resource ' +
+            String(res.uri ?? '') +
+            ', ' +
+            String(res.mimeType ?? '') +
+            ']',
+        )
       } else {
         parts.push(String(res.uri ?? ''))
       }
@@ -264,7 +287,10 @@ export function renderMcpResult(result: unknown): string {
     }
   }
 
-  const text = parts.filter((p) => p !== '').join(String.fromCharCode(10) + String.fromCharCode(10)).trim()
+  const text = parts
+    .filter((p) => p !== '')
+    .join(String.fromCharCode(10) + String.fromCharCode(10))
+    .trim()
   return formatResultString(text || '(MCP tool returned no content)', r.isError)
 }
 
@@ -333,18 +359,21 @@ async function connectServer(
     let transport: unknown
     if (cfg.url) {
       if (cfg.transport === 'sse') {
-        const { SSEClientTransport } = await import('@modelcontextprotocol/sdk/client/sse.js')
+        const { SSEClientTransport } =
+          await import('@modelcontextprotocol/sdk/client/sse.js')
         transport = new SSEClientTransport(new URL(cfg.url), {
           requestInit: cfg.headers ? { headers: cfg.headers } : undefined,
         })
       } else {
-        const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
+        const { StreamableHTTPClientTransport } =
+          await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
         transport = new StreamableHTTPClientTransport(new URL(cfg.url), {
           requestInit: cfg.headers ? { headers: cfg.headers } : undefined,
         })
       }
     } else {
-      const { StdioClientTransport } = await import('@modelcontextprotocol/sdk/client/stdio.js')
+      const { StdioClientTransport } =
+        await import('@modelcontextprotocol/sdk/client/stdio.js')
       transport = new StdioClientTransport({
         command: String(cfg.command),
         args: hardenPlaywrightArgs(String(cfg.command), cfg.args || []),
@@ -368,7 +397,7 @@ async function connectServer(
         schema: tool.inputSchema,
       }
     })
-    debug?.(`MCP: connected to ${name} (${tools.length} tools)` )
+    debug?.(`MCP: connected to ${name} (${tools.length} tools)`)
     return { name, client, tools }
   } catch (e) {
     const msg = (e as Error).message || String(e)
@@ -447,4 +476,3 @@ export async function createMcpPool(opts: McpLoadOptions): Promise<McpPool> {
     },
   }
 }
-

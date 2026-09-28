@@ -30,9 +30,17 @@ test('Read возвращает файл целиком', async () => {
 
 test('Read с offset/limit возвращает только запрошенные строки', async () => {
   const dir = await tmpDir()
-  await fs.writeFile(path.join(dir, 'a.txt'), ['l0', 'l1', 'l2', 'l3', 'l4'].join(NL), 'utf-8')
+  await fs.writeFile(
+    path.join(dir, 'a.txt'),
+    ['l0', 'l1', 'l2', 'l3', 'l4'].join(NL),
+    'utf-8',
+  )
   const tools = createTools(dir, {})
-  const out = await tool(tools, 'Read').fn({ path: 'a.txt', offset: 1, limit: 2 })
+  const out = await tool(tools, 'Read').fn({
+    path: 'a.txt',
+    offset: 1,
+    limit: 2,
+  })
   assert.equal(out, ['l1', 'l2'].join(NL))
   await fs.rm(dir, { recursive: true, force: true })
 })
@@ -50,7 +58,11 @@ test('Edit заменяет единственное вхождение', async 
   const dir = await tmpDir()
   await fs.writeFile(path.join(dir, 'a.txt'), 'foo bar baz', 'utf-8')
   const tools = createTools(dir, {})
-  await tool(tools, 'Edit').fn({ path: 'a.txt', old_string: 'bar', new_string: 'QUX' })
+  await tool(tools, 'Edit').fn({
+    path: 'a.txt',
+    old_string: 'bar',
+    new_string: 'QUX',
+  })
   const data = await fs.readFile(path.join(dir, 'a.txt'), 'utf-8')
   assert.equal(data, 'foo QUX baz')
   await fs.rm(dir, { recursive: true, force: true })
@@ -61,7 +73,11 @@ test('Edit падает, если строка не найдена', async () =>
   await fs.writeFile(path.join(dir, 'a.txt'), 'foo', 'utf-8')
   const tools = createTools(dir, {})
   await assert.rejects(async () =>
-    tool(tools, 'Edit').fn({ path: 'a.txt', old_string: 'nope', new_string: 'x' }),
+    tool(tools, 'Edit').fn({
+      path: 'a.txt',
+      old_string: 'nope',
+      new_string: 'x',
+    }),
   )
   await fs.rm(dir, { recursive: true, force: true })
 })
@@ -89,7 +105,9 @@ test('Edit с пустым old_string отвергается', async () => {
 test('инструменты не читают выше рабочей директории (sandbox)', async () => {
   const dir = await tmpDir()
   const tools = createTools(dir, {})
-  await assert.rejects(async () => tool(tools, 'Read').fn({ path: '../../../etc/passwd' }))
+  await assert.rejects(async () =>
+    tool(tools, 'Read').fn({ path: '../../../etc/passwd' }),
+  )
   await fs.rm(dir, { recursive: true, force: true })
 })
 
@@ -123,7 +141,9 @@ test('Bash сообщает exit code при ошибке', async () => {
 test('Bash блокирует cd выше рабочей директории', async () => {
   const dir = await tmpDir()
   const tools = createTools(dir, {})
-  await assert.rejects(async () => tool(tools, 'Bash').fn({ command: 'cd ../../.. && pwd' }))
+  await assert.rejects(async () =>
+    tool(tools, 'Bash').fn({ command: 'cd ../../.. && pwd' }),
+  )
   await fs.rm(dir, { recursive: true, force: true })
 })
 

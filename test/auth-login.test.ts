@@ -16,37 +16,61 @@ class FakeLocator {
     this.sel = sel
     this.nthIndex = nthIndex
   }
-  last() { return this }
-  first() { return this }
-  nth(i: number) { return new FakeLocator(this.calls, this.sel, i) }
-  filter() { return this }
+  last() {
+    return this
+  }
+  first() {
+    return this
+  }
+  nth(i: number) {
+    return new FakeLocator(this.calls, this.sel, i)
+  }
+  filter() {
+    return this
+  }
   async waitFor(opts?: unknown) {
     this.calls.push({ sel: this.sel, method: 'waitFor', args: [opts] })
     // Only the password field is "visible" in this fake page.
     if (!this.sel.includes('password')) throw new Error('not visible')
   }
-  async isVisible() { return this.sel.includes('password') }
-  async count() { return this.sel.includes('password') ? 1 : 0 }
-  async click() { this.calls.push({ sel: this.sel, method: 'click', args: [] }) }
-  async press(k: string) { this.calls.push({ sel: this.sel, method: 'press', args: [k] }) }
+  async isVisible() {
+    return this.sel.includes('password')
+  }
+  async count() {
+    return this.sel.includes('password') ? 1 : 0
+  }
+  async click() {
+    this.calls.push({ sel: this.sel, method: 'click', args: [] })
+  }
+  async press(k: string) {
+    this.calls.push({ sel: this.sel, method: 'press', args: [k] })
+  }
   async evaluate(fn: unknown, arg?: unknown) {
     this.calls.push({ sel: this.sel, method: 'evaluate', args: [arg] })
     return 'textarea'
   }
-  async fill() { this.calls.push({ sel: this.sel, method: 'fill', args: [] }) }
+  async fill() {
+    this.calls.push({ sel: this.sel, method: 'fill', args: [] })
+  }
 }
 
 class FakePage {
   calls: Call[] = []
   closed = false
-  locator(sel: string) { return new FakeLocator(this.calls, sel) }
+  locator(sel: string) {
+    return new FakeLocator(this.calls, sel)
+  }
   // Return index 0 so _fillLoginForm's "nearest text input" fallback finds a
   // login field (the real method evaluates the input index in the DOM).
-  async evaluate() { return 0 }
+  async evaluate() {
+    return 0
+  }
   async waitForTimeout() {}
   async goto() {}
   keyboard = { press: async () => {}, insertText: async () => {} }
-  url() { return 'https://chat.deepseek.com/' }
+  url() {
+    return 'https://chat.deepseek.com/'
+  }
 }
 
 function makeBrowser(): { b: DeepSeekBrowser; page: FakePage } {
@@ -78,7 +102,9 @@ test('_fillLoginForm: fills login+password and submits (returns true)', async ()
 test('_fillLoginForm: false when the password field is absent', async () => {
   const { b, page } = makeBrowser()
   // No input is visible: every selector throws on waitFor and reports hidden.
-  ;(page as unknown as { locator: (s: string) => FakeLocator }).locator = (s) => {
+  ;(page as unknown as { locator: (s: string) => FakeLocator }).locator = (
+    s,
+  ) => {
     const loc = new FakeLocator(page.calls, s + '-missing')
     loc.isVisible = async () => false
     loc.count = async () => 0
@@ -111,7 +137,9 @@ test('askPassword: echoes * per char and reads raw input', async () => {
   }
   ;(stdin as unknown as { isTTY: boolean }).isTTY = true
   ;(stdin as unknown as { isRaw: boolean }).isRaw = false
-  ;(stdin as unknown as { setRawMode: (v: boolean) => void }).setRawMode = (v) => {
+  ;(stdin as unknown as { setRawMode: (v: boolean) => void }).setRawMode = (
+    v,
+  ) => {
     ;(stdin as unknown as { isRaw: boolean }).isRaw = v
   }
   ;(stdin as unknown as { resume: () => void }).resume = () => {}
@@ -145,8 +173,12 @@ test('askPassword: echoes * per char and reads raw input', async () => {
     assert.ok(out.includes('\b \b'))
     assert.ok(!out.includes('ab'))
   } finally {
-    Object.defineProperty(process, 'stdin', { value: origIn, configurable: true })
-    ;(process.stdout as unknown as { write: typeof origWrite }).write = origWrite
+    Object.defineProperty(process, 'stdin', {
+      value: origIn,
+      configurable: true,
+    })
+    ;(process.stdout as unknown as { write: typeof origWrite }).write =
+      origWrite
   }
 })
 
@@ -170,8 +202,7 @@ test('sanitizeHeadlessUA: drops the Headless marker, keeps the version', () => {
 test('userAgent: an explicit UA is sanitized, headless derives it later', () => {
   const b = new DeepSeekBrowser({
     headless: true,
-    userAgent:
-      'Mozilla/5.0 HeadlessChrome/153.0.8010.12 Safari/537.36',
+    userAgent: 'Mozilla/5.0 HeadlessChrome/153.0.8010.12 Safari/537.36',
   })
   assert.equal(b.userAgent, 'Mozilla/5.0 Chrome/153.0.8010.12 Safari/537.36')
   // No explicit UA: nothing is set in the constructor (it is derived from the

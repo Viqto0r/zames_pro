@@ -532,7 +532,7 @@ export class DeepSeekBrowser {
             USER_DATA_DIR,
             options,
           )
-        } catch (e2) {
+        } catch {
           if (this.debug) console.error('profile: сношу целиком')
           await nukeProfile()
           this.context = await chromium.launchPersistentContext(
@@ -614,7 +614,13 @@ export class DeepSeekBrowser {
     try {
       if (this.context) await this.context.close()
     } catch {}
-    await this.launch()
+    // A restart must REUSE the existing profile. `launch()` would call
+    // killStaleChrome() and clean Singleton files, which can race with a
+    // sibling agent on the same profile; here we just relaunch the persistent
+    // context in place. A fresh window appears only because the old context was
+    // actually closed — no second window is created while one is alive.
+    await this._launchOnce()
+    await this._fixHeadlessUserAgent()
   }
 
   async waitForLogin(): Promise<void> {
@@ -1255,7 +1261,11 @@ export class DeepSeekBrowser {
           )
           // Interruptible: Esc/Ctrl+C must cancel this long wait too,
           // otherwise "stop" stays frozen for up to 5 minutes.
-          const aborted = await this._sleepInterruptible(this.rateLimitWaitMs)
+          // The wait is ANIMATED through onSendPause (a live countdown), so the
+          // operator sees the agent is waiting on the rate limit instead of a
+          // frozen spinner. `_lastSentAt` is bumped so the countdown renders.
+          const waitSec = Math.ceil(this.rateLimitWaitMs / 1000)
+          const aborted = await this._waitRateLimit(waitSec)
           if (aborted) return '(прервано пользователем)'
           continue
         }
@@ -1301,7 +1311,16 @@ export class DeepSeekBrowser {
             ),
         )
 
-        if (/closed|crash|Target page|browser/i.test((e as Error).message)) {
+        // Only a genuinely LOST page justifies a restart. "Target page,
+        // context or browser has been closed" means the page is gone for good;
+        // a bare "browser" mention (e.g. a selector error containing the word)
+        // must NOT tear the window down — that was the "a new window opened"
+        // surprise during a resumed chat. We re-open the SAME context instead.
+        if (
+          /target page, context or browser has been closed|page.*has been closed/i.test(
+            (e as Error).message,
+          )
+        ) {
           console.error(theme.warn(this._t('ds.ask_restart_browser')))
           try {
             await this.restart()
@@ -1475,6 +1494,22 @@ export class DeepSeekBrowser {
     }
     // Wait for the upload to finish (the attach preview to appear).
     await this.page.waitForTimeout(2000)
+  }
+
+  // Wait out a rate-limit pause, showing an animated countdown through
+  // onSendPause so the operator sees the agent is alive (not frozen). Returns
+  // true when the wait was cut short by Esc/Ctrl+C.
+  async _waitRateLimit(totalSec: number): Promise<boolean> {
+    const tick = (leftMs: number) => {
+      const secs = Math.max(0, Math.ceil(leftMs / 1000))
+      if (this.onSendPause) {
+        try {
+          this.onSendPause(secs)
+        } catch {}
+      }
+    }
+    tick(totalSec * 1000)
+    return await this._sleepInterruptible(totalSec * 1000, tick)
   }
 
   // Pause between sends. Applied ONLY to agent messages

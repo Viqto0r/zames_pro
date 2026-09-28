@@ -8,10 +8,7 @@ import {
   CONTEXT_YELLOW_PCT,
   CONTEXT_RED_PCT,
 } from '../src/input.ts'
-import {
-  buildCompactPrompt,
-  buildCompactCarryover,
-} from '../src/commands.ts'
+import { buildCompactPrompt, buildCompactCarryover } from '../src/commands.ts'
 
 // ---------- token status formatting ----------
 

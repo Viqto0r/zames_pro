@@ -3,7 +3,10 @@ import assert from 'node:assert/strict'
 import { runAgentLoop } from '../src/agent-loop.ts'
 import type { ToolDef, BrowserLike } from '../src/types.ts'
 
-function makeBrowser(script: string[]): { browser: BrowserLike; asks: string[] } {
+function makeBrowser(script: string[]): {
+  browser: BrowserLike
+  asks: string[]
+} {
   let i = 0
   const asks: string[] = []
   const browser: BrowserLike = {

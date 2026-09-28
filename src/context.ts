@@ -57,10 +57,22 @@ function clipIf(name: string, content: string, budget: number): string {
   const cleaned = content.replace(CRLF_RE, NL).trim()
   if (cleaned.length <= budget) return cleaned
   const keep = Math.max(0, budget - 120)
-  return cleaned.slice(0, keep) + NL + NL + '[... ' + name + ' truncated (' + (cleaned.length - keep) + ' chars omitted) ...]'
+  return (
+    cleaned.slice(0, keep) +
+    NL +
+    NL +
+    '[... ' +
+    name +
+    ' truncated (' +
+    (cleaned.length - keep) +
+    ' chars omitted) ...]'
+  )
 }
 
-async function readIfFile(p: string, budget: number): Promise<ContextFile | null> {
+async function readIfFile(
+  p: string,
+  budget: number,
+): Promise<ContextFile | null> {
   try {
     const st = await fs.stat(p)
     if (!st.isFile()) return null
@@ -76,7 +88,10 @@ async function readIfFile(p: string, budget: number): Promise<ContextFile | null
 const AGENT_NAMES = ['AGENTS.md', 'agents.md', 'Agents.md']
 const MEMORY_NAMES = ['MEMORY.md', 'memory.md', 'Memory.md']
 
-async function findNamedFile(dir: string, names: string[]): Promise<string | null> {
+async function findNamedFile(
+  dir: string,
+  names: string[],
+): Promise<string | null> {
   for (const n of names) {
     const p = path.join(dir, n)
     const st = await fs.stat(p).catch(() => null)
@@ -106,7 +121,12 @@ interface FrontMatter {
   userInvokable?: boolean
 }
 
-const PROJECT_SKILL_DIRS = ['.zames/skills', '.claude/skills', '.agents/skills', 'skills']
+const PROJECT_SKILL_DIRS = [
+  '.zames/skills',
+  '.claude/skills',
+  '.agents/skills',
+  'skills',
+]
 
 function parseFrontmatter(raw: string): FrontMatter {
   const norm = raw.replace(CRLF_RE, NL)
@@ -128,7 +148,10 @@ function parseFrontmatter(raw: string): FrontMatter {
         lastKey = key
         continue
       }
-      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      if (
+        (val.startsWith('"') && val.endsWith('"')) ||
+        (val.startsWith("'") && val.endsWith("'"))
+      ) {
         val = val.slice(1, -1)
       }
       out[key] = val
@@ -139,13 +162,21 @@ function parseFrontmatter(raw: string): FrontMatter {
   }
   const allowedTools =
     typeof out['allowed-tools'] === 'string'
-      ? out['allowed-tools'].split(/,/).map((s) => s.trim()).filter(Boolean)
+      ? out['allowed-tools']
+          .split(/,/)
+          .map((s) => s.trim())
+          .filter(Boolean)
       : undefined
   const userInvokable =
     typeof out['user-invokable'] === 'string'
       ? out['user-invokable'].toLowerCase() !== 'false'
       : undefined
-  return { name: out.name, description: out.description, allowedTools, userInvokable }
+  return {
+    name: out.name,
+    description: out.description,
+    allowedTools,
+    userInvokable,
+  }
 }
 
 export function skillBody(raw: string): string {
@@ -182,8 +213,14 @@ export async function loadSkills(workdir: string): Promise<SkillInfo[]> {
   for (const rel of PROJECT_SKILL_DIRS) {
     roots.push({ dir: path.join(workdir, rel), source: 'project' })
   }
-  roots.push({ dir: path.join(os.homedir(), '.zames', 'skills'), source: 'global' })
-  roots.push({ dir: path.join(os.homedir(), '.claude', 'skills'), source: 'global' })
+  roots.push({
+    dir: path.join(os.homedir(), '.zames', 'skills'),
+    source: 'global',
+  })
+  roots.push({
+    dir: path.join(os.homedir(), '.claude', 'skills'),
+    source: 'global',
+  })
   for (const root of roots) {
     const files = await findSkillFiles(root.dir)
     for (const f of files) {
@@ -197,14 +234,26 @@ export async function loadSkills(workdir: string): Promise<SkillInfo[]> {
       if (seen.has(key)) continue
       seen.add(key)
       const description = (fm.description || '').replace(/\s+/g, ' ').trim()
-      found.push({ name, description, path: f, dir, allowedTools: fm.allowedTools, source: root.source, userInvokable: fm.userInvokable !== false })
+      found.push({
+        name,
+        description,
+        path: f,
+        dir,
+        allowedTools: fm.allowedTools,
+        source: root.source,
+        userInvokable: fm.userInvokable !== false,
+      })
     }
   }
   found.sort((a, b) => a.name.localeCompare(b.name))
   return found
 }
 
-const PROJECT_COMMAND_DIRS = ['.zames/commands', '.claude/commands', '.agents/commands']
+const PROJECT_COMMAND_DIRS = [
+  '.zames/commands',
+  '.claude/commands',
+  '.agents/commands',
+]
 
 async function loadCommandsFromDir(dir: string): Promise<CustomCommand[]> {
   const out: CustomCommand[] = []
@@ -224,7 +273,12 @@ async function loadCommandsFromDir(dir: string): Promise<CustomCommand[]> {
     const fm = parseFrontmatter(raw)
     const name = path.basename(e, '.md').trim()
     if (!name) continue
-    out.push({ name, description: (fm.description || '').replace(/\s+/g, ' ').trim(), path: full, body: skillBody(raw) })
+    out.push({
+      name,
+      description: (fm.description || '').replace(/\s+/g, ' ').trim(),
+      path: full,
+      body: skillBody(raw),
+    })
   }
   return out
 }
@@ -250,7 +304,10 @@ export async function loadCommands(workdir: string): Promise<CustomCommand[]> {
 async function loadAgentsChain(workdir: string): Promise<ContextFile[]> {
   const out: ContextFile[] = []
   const seen = new Set<string>()
-  for (const p of [path.join(os.homedir(), '.zames', 'AGENTS.md'), path.join(os.homedir(), '.claude', 'CLAUDE.md')]) {
+  for (const p of [
+    path.join(os.homedir(), '.zames', 'AGENTS.md'),
+    path.join(os.homedir(), '.claude', 'CLAUDE.md'),
+  ]) {
     const f = await readIfFile(p, MAX_FILE_BASE)
     if (f && !seen.has(f.path)) {
       seen.add(f.path)
@@ -273,7 +330,10 @@ async function loadAgentsChain(workdir: string): Promise<ContextFile[]> {
 async function loadMemoryChain(workdir: string): Promise<ContextFile[]> {
   const out: ContextFile[] = []
   const seen = new Set<string>()
-  for (const p of [path.join(os.homedir(), '.zames', 'MEMORY.md'), path.join(os.homedir(), '.claude', 'MEMORY.md')]) {
+  for (const p of [
+    path.join(os.homedir(), '.zames', 'MEMORY.md'),
+    path.join(os.homedir(), '.claude', 'MEMORY.md'),
+  ]) {
     const f = await readIfFile(p, MAX_FILE_BASE)
     if (f && !seen.has(f.path)) {
       seen.add(f.path)
@@ -293,7 +353,9 @@ async function loadMemoryChain(workdir: string): Promise<ContextFile[]> {
   return out
 }
 
-export async function loadProjectContext(workdir: string): Promise<LoadedContext> {
+export async function loadProjectContext(
+  workdir: string,
+): Promise<LoadedContext> {
   const [agents, memory, skills, commands] = await Promise.all([
     loadAgentsChain(workdir).catch(() => []),
     loadMemoryChain(workdir).catch(() => []),
@@ -310,5 +372,10 @@ export async function loadProjectContext(workdir: string): Promise<LoadedContext
     }
     return kept
   }
-  return { agents: withinBudget(agents), memory: withinBudget(memory), skills, commands }
+  return {
+    agents: withinBudget(agents),
+    memory: withinBudget(memory),
+    skills,
+    commands,
+  }
 }

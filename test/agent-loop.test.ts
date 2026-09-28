@@ -55,7 +55,8 @@ test('агент выполняет tool-call и передаёт результ
       name: 'Read',
       description: 'read',
       parameters: { path: 'string' },
-      fn: async (args) => fs.readFile(path.join(dir, String(args['path'])), 'utf-8'),
+      fn: async (args) =>
+        fs.readFile(path.join(dir, String(args['path'])), 'utf-8'),
     },
     {
       name: 'respond',
@@ -84,7 +85,9 @@ test('агент выполняет tool-call и передаёт результ
 })
 
 test('respond завершает задачу и возвращает сообщение оператору', async () => {
-  const { browser } = makeBrowser([jsonCall('respond', { message: 'финальный ответ' })])
+  const { browser } = makeBrowser([
+    jsonCall('respond', { message: 'финальный ответ' }),
+  ])
   const result = await runAgentLoop({
     browser,
     tools: [],
@@ -107,24 +110,27 @@ test('битый tool-call, похожий на вызов, не останав�
   })
   assert.equal(result, 'ok')
   assert.equal(asks.length, 2, 'должен быть второй запрос после битого ответа')
-  assert.ok(/не распознан|JSON/i.test(asks[1]) || asks[1].includes('respond'), asks[1])
+  assert.ok(
+    /не распознан|JSON/i.test(asks[1]) || asks[1].includes('respond'),
+    asks[1],
+  )
 })
 
 test('обычный текст без вызова переспрашивается, завершает только respond', async () => {
- // STRICT MODE: plain text is not a final answer. The agent re-asks for a
- // tool call; only respond finishes the task.
- const { browser, asks } = makeBrowser([
- 'Просто ответ без вызова',
- jsonCall('respond', { message: 'ok' }),
- ])
- const result = await runAgentLoop({
- browser,
- tools: [],
- task: 'x',
- workdir: process.cwd(),
- })
- assert.equal(result, 'ok')
- assert.ok(asks.length >= 2, 'должен быть переспрос после обычного текста')
+  // STRICT MODE: plain text is not a final answer. The agent re-asks for a
+  // tool call; only respond finishes the task.
+  const { browser, asks } = makeBrowser([
+    'Просто ответ без вызова',
+    jsonCall('respond', { message: 'ok' }),
+  ])
+  const result = await runAgentLoop({
+    browser,
+    tools: [],
+    task: 'x',
+    workdir: process.cwd(),
+  })
+  assert.equal(result, 'ok')
+  assert.ok(asks.length >= 2, 'должен быть переспрос после обычного текста')
 })
 
 test('onChatReady получает реальный chat id сразу после первой отправки', async () => {
@@ -246,7 +252,10 @@ test('первое сообщение идёт без agent, последующ�
   ]
   await runAgentLoop({ browser, tools, task: 'задача', workdir: dir })
   // The first ask — the user's task: agent is not set (falsy).
-  assert.ok(!calls[0].opts || calls[0].opts.agent !== true, 'первое сообщение не должно быть agent')
+  assert.ok(
+    !calls[0].opts || calls[0].opts.agent !== true,
+    'первое сообщение не должно быть agent',
+  )
   // The second ask — the agent's tool-result: agent: true.
   assert.equal(calls[1].opts?.agent, true)
 })

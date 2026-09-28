@@ -7,7 +7,10 @@ test('browser: deepThinking/webSearch come from options, defaults are sane', () 
   assert.equal(def.deepThinking, false)
   assert.equal(def.webSearch, true)
 
-  const custom = new DeepSeekBrowser({ deepThinking: true, webSearch: false } as any)
+  const custom = new DeepSeekBrowser({
+    deepThinking: true,
+    webSearch: false,
+  } as any)
   assert.equal(custom.deepThinking, true)
   assert.equal(custom.webSearch, false)
 })

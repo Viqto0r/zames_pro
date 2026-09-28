@@ -59,7 +59,10 @@ function htmlToText(html: string): string {
 // fetch with redirects and a timeout
 async function httpFetch(
   url: string,
-  { timeout = DEFAULT_TIMEOUT, headers = {} }: { timeout?: number; headers?: Record<string, string> } = {},
+  {
+    timeout = DEFAULT_TIMEOUT,
+    headers = {},
+  }: { timeout?: number; headers?: Record<string, string> } = {},
 ): Promise<{ status: number; url: string; contentType: string; body: string }> {
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), timeout)
@@ -256,7 +259,12 @@ export function createWebTools(): ToolDef[] {
   ]
 }
 
-function formatResult(status: number, url: string, text: string, limit: number): string {
+function formatResult(
+  status: number,
+  url: string,
+  text: string,
+  limit: number,
+): string {
   let out = text
   let truncated = false
   if (out.length > limit) {

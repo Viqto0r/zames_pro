@@ -23,13 +23,17 @@ test('чистый JSON распознаётся', () => {
 })
 
 test('JSON в markdown-блоке распознаётся', () => {
-  const res = parseToolCall('`json' + NL + call('Read', { path: 'a.js' }) + NL + '`')
+  const res = parseToolCall(
+    '`json' + NL + call('Read', { path: 'a.js' }) + NL + '`',
+  )
   assert.ok(res)
   assert.equal(first(res).tool, 'Read')
 })
 
 test('JSON в прозе распознаётся', () => {
-  const res = parseToolCall('Сейчас прочитаю. ' + call('Read', { path: 'a.js' }) + ' Готово.')
+  const res = parseToolCall(
+    'Сейчас прочитаю. ' + call('Read', { path: 'a.js' }) + ' Готово.',
+  )
   assert.ok(res)
   assert.equal(first(res).tool, 'Read')
 })
@@ -60,8 +64,31 @@ test('Write с многострочным content распознаётся', () 
 
 test('Bash с кавычками внутри команды распознаётся', () => {
   const text =
-    '{' + Q + 'tool' + Q + ': ' + Q + 'Bash' + Q + ', ' + Q + 'args' + Q + ': {' +
-    Q + 'command' + Q + ': ' + Q + 'echo ' + Q + 'hi' + Q + ' && ls' + Q + '}}'
+    '{' +
+    Q +
+    'tool' +
+    Q +
+    ': ' +
+    Q +
+    'Bash' +
+    Q +
+    ', ' +
+    Q +
+    'args' +
+    Q +
+    ': {' +
+    Q +
+    'command' +
+    Q +
+    ': ' +
+    Q +
+    'echo ' +
+    Q +
+    'hi' +
+    Q +
+    ' && ls' +
+    Q +
+    '}}'
   const res = parseToolCall(text)
   assert.ok(res)
   assert.equal(first(res).tool, 'Bash')
@@ -70,10 +97,45 @@ test('Bash с кавычками внутри команды распознаё�
 
 test('Edit с сырым переводом строки в new_string распознаётся', () => {
   const text =
-    '{' + Q + 'tool' + Q + ': ' + Q + 'Edit' + Q + ', ' + Q + 'args' + Q + ': {' +
-    Q + 'path' + Q + ': ' + Q + 'x.js' + Q + ', ' +
-    Q + 'old_string' + Q + ': ' + Q + 'foo' + Q + ', ' +
-    Q + 'new_string' + Q + ': ' + Q + 'line1' + NL + 'line2' + Q + '}}'
+    '{' +
+    Q +
+    'tool' +
+    Q +
+    ': ' +
+    Q +
+    'Edit' +
+    Q +
+    ', ' +
+    Q +
+    'args' +
+    Q +
+    ': {' +
+    Q +
+    'path' +
+    Q +
+    ': ' +
+    Q +
+    'x.js' +
+    Q +
+    ', ' +
+    Q +
+    'old_string' +
+    Q +
+    ': ' +
+    Q +
+    'foo' +
+    Q +
+    ', ' +
+    Q +
+    'new_string' +
+    Q +
+    ': ' +
+    Q +
+    'line1' +
+    NL +
+    'line2' +
+    Q +
+    '}}'
   const res = parseToolCall(text)
   assert.ok(res)
   assert.equal(first(res).tool, 'Edit')
@@ -84,8 +146,27 @@ test('Edit с сырым переводом строки в new_string расп�
 test('одинарные кавычки в псевдо-JSON распознаются', () => {
   const SQ = String.fromCharCode(39)
   const text =
-    '{' + SQ + 'tool' + SQ + ': ' + SQ + 'Read' + SQ + ', ' +
-    SQ + 'args' + SQ + ': {' + SQ + 'path' + SQ + ': ' + SQ + 'src/undo.ts' + SQ + '}}'
+    '{' +
+    SQ +
+    'tool' +
+    SQ +
+    ': ' +
+    SQ +
+    'Read' +
+    SQ +
+    ', ' +
+    SQ +
+    'args' +
+    SQ +
+    ': {' +
+    SQ +
+    'path' +
+    SQ +
+    ': ' +
+    SQ +
+    'src/undo.ts' +
+    SQ +
+    '}}'
   const res = parseToolCall(text)
   assert.ok(res, 'должен распознаться вызов, а не финальный текст')
   assert.equal(first(res).tool, 'Read')
@@ -93,7 +174,20 @@ test('одинарные кавычки в псевдо-JSON распознаю�
 })
 
 test('ключи без кавычек в псевдо-JSON распознаются', () => {
-  const text = '{tool: ' + Q + 'Read' + Q + ', args: {' + Q + 'path' + Q + ': ' + Q + 'a.ts' + Q + '}}'
+  const text =
+    '{tool: ' +
+    Q +
+    'Read' +
+    Q +
+    ', args: {' +
+    Q +
+    'path' +
+    Q +
+    ': ' +
+    Q +
+    'a.ts' +
+    Q +
+    '}}'
   const res = parseToolCall(text)
   assert.ok(res)
   assert.equal(first(res).tool, 'Read')
@@ -102,8 +196,16 @@ test('ключи без кавычек в псевдо-JSON распознают
 
 test('XML/DSML-вызов распознаётся', () => {
   const text =
-    '<|DSML|invoke name=' + Q + 'Read' + Q + '>' +
-    '<|DSML|parameter name=' + Q + 'path' + Q + '>c.js</|DSML|parameter>' +
+    '<|DSML|invoke name=' +
+    Q +
+    'Read' +
+    Q +
+    '>' +
+    '<|DSML|parameter name=' +
+    Q +
+    'path' +
+    Q +
+    '>c.js</|DSML|parameter>' +
     '</|DSML|invoke>'
   const res = parseToolCall(text)
   assert.ok(res)
@@ -113,8 +215,20 @@ test('XML/DSML-вызов распознаётся', () => {
 
 test('XML-вызов с одним parameter args разворачивается', () => {
   const text =
-    '<invoke name=' + Q + 'Read' + Q + '>' +
-    '<parameter name=' + Q + 'args' + Q + ' string=' + Q + 'false' + Q + '>' +
+    '<invoke name=' +
+    Q +
+    'Read' +
+    Q +
+    '>' +
+    '<parameter name=' +
+    Q +
+    'args' +
+    Q +
+    ' string=' +
+    Q +
+    'false' +
+    Q +
+    '>' +
     JSON.stringify({ path: 'd.js' }) +
     '</parameter></invoke>'
   const res = parseToolCall(text)
@@ -124,11 +238,27 @@ test('XML-вызов с одним parameter args разворачивается
 
 test('несколько XML-вызовов возвращаются массивом', () => {
   const one =
-    '<invoke name=' + Q + 'Read' + Q + '>' +
-    '<parameter name=' + Q + 'path' + Q + '>a.js</parameter></invoke>'
+    '<invoke name=' +
+    Q +
+    'Read' +
+    Q +
+    '>' +
+    '<parameter name=' +
+    Q +
+    'path' +
+    Q +
+    '>a.js</parameter></invoke>'
   const two =
-    '<invoke name=' + Q + 'Read' + Q + '>' +
-    '<parameter name=' + Q + 'path' + Q + '>b.js</parameter></invoke>'
+    '<invoke name=' +
+    Q +
+    'Read' +
+    Q +
+    '>' +
+    '<parameter name=' +
+    Q +
+    'path' +
+    Q +
+    '>b.js</parameter></invoke>'
   const res = parseToolCall(one + two)
   assert.ok(Array.isArray(res))
   assert.equal((res as unknown[]).length, 2)

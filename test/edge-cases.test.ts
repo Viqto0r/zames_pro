@@ -21,22 +21,34 @@ function tool(tools: ToolDef[], name: string): ToolDef {
 test('Bash с командной подстановкой (...) распознаётся целиком', () => {
   const cmd = 'echo ' + Q + 'total: ' + Q + '(ls | wc -l)' + Q
   const text = JSON.stringify({ tool: 'Bash', args: { command: cmd } })
-  const res = parseToolCall(text) as { tool: string; args: Record<string, unknown> }
+  const res = parseToolCall(text) as {
+    tool: string
+    args: Record<string, unknown>
+  }
   assert.ok(res, 'вызов должен распознаться')
   assert.equal(res.tool, 'Bash')
   assert.equal(res.args['command'], cmd)
 })
 
 test('Write с content, содержащим фигурные скобки и , распознаётся', () => {
-  const content = 'function f() { return 1 }' + NL + 'const x = ' + Q + '{y}' + Q
-  const text = JSON.stringify({ tool: 'Write', args: { path: 'a.js', content } })
+  const content =
+    'function f() { return 1 }' + NL + 'const x = ' + Q + '{y}' + Q
+  const text = JSON.stringify({
+    tool: 'Write',
+    args: { path: 'a.js', content },
+  })
   const res = parseToolCall(text) as { args: Record<string, unknown> }
   assert.ok(res)
   assert.equal(res.args['content'], content)
 })
 
 test('Edit с $ и обратными слэшами в new_string распознаётся', () => {
-  const newStr = 'path = C:' + String.fromCharCode(92) + 'dir' + String.fromCharCode(92) + 'file'
+  const newStr =
+    'path = C:' +
+    String.fromCharCode(92) +
+    'dir' +
+    String.fromCharCode(92) +
+    'file'
   const text = JSON.stringify({
     tool: 'Edit',
     args: { path: 'x.txt', old_string: 'a', new_string: newStr },

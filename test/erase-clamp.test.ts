@@ -44,11 +44,14 @@ test('_eraseBlock clamps the up-move to the terminal height', () => {
 test('printAbove stops the spinner before writing', () => {
   const e = new LineEditor()
   let stopCalled = 0
-  ;(e as unknown as { _stopDots: () => void })._stopDots = () => { stopCalled++ }
+  ;(e as unknown as { _stopDots: () => void })._stopDots = () => {
+    stopCalled++
+  }
   ;(e as unknown as { _eraseBlock: () => void })._eraseBlock = () => {}
   ;(e as unknown as { _writeBlock: () => void })._writeBlock = () => {}
   const orig = process.stdout.write.bind(process.stdout)
-  ;(process.stdout as unknown as { write: (s: string) => boolean }).write = () => true
+  ;(process.stdout as unknown as { write: (s: string) => boolean }).write =
+    () => true
   try {
     e.printAbove('hello')
   } finally {

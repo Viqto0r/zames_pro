@@ -9,7 +9,12 @@ import { DeepSeekBrowser } from './browser.js'
 import { createTools } from './tools.js'
 import { runAgentLoop } from './agent-loop.js'
 import { createSpinner } from './spinner.js'
-import { LineEditor, expandPastes, pasteReplacement, type PasteBlock } from './input.js'
+import {
+  LineEditor,
+  expandPastes,
+  pasteReplacement,
+  type PasteBlock,
+} from './input.js'
 import {
   parseImagePaste,
   extForMime,
@@ -20,8 +25,8 @@ import {
   looksLikeFilePath,
   readClipboardImageDetailed,
   sniffMime,
- readWindowsClipboardFiles,
- hasClipboardTool,
+  readWindowsClipboardFiles,
+  hasClipboardTool,
 } from './attachments.js'
 import {
   loadConfig,
@@ -47,22 +52,22 @@ import { Transcript } from './transcript.js'
 import { UndoStore } from './undo.js'
 import { selfReview, selfDiff, selfApply, selfList } from './self-review.js'
 import {
- formatDiff,
- diffGitArgs,
- parseTranscript,
- summarizeTranscript,
- renderCost,
- formatExport,
- defaultExportPath,
- renderDoctor,
- renderPermissions,
- resolveExtraDir,
- buildReviewPrompt,
- trimRestoredMessages,
- RESTORED_HISTORY_LIMIT,
- buildCompactPrompt,
- buildCompactCarryover,
- type RestoredMessage,
+  formatDiff,
+  diffGitArgs,
+  parseTranscript,
+  summarizeTranscript,
+  renderCost,
+  formatExport,
+  defaultExportPath,
+  renderDoctor,
+  renderPermissions,
+  resolveExtraDir,
+  buildReviewPrompt,
+  trimRestoredMessages,
+  RESTORED_HISTORY_LIMIT,
+  buildCompactPrompt,
+  buildCompactCarryover,
+  type RestoredMessage,
 } from './commands.js'
 import { renderMarkdown } from './markdown.js'
 import { closeWeb } from './web.js'
@@ -155,8 +160,7 @@ const headless = hasFlag('--headed')
 const debug = hasFlag('--debug') || config.debug
 const calibrate = hasFlag('--calibrate')
 const maxIterArg = getArg('--max-iter', null)
-const maxIter =
- maxIterArg !== null ? Number(maxIterArg) : config.maxIterations
+const maxIter = maxIterArg !== null ? Number(maxIterArg) : config.maxIterations
 
 const positional = getPositional()
 const task = getArg('--task', positional.join(' ').trim() || null)
@@ -286,10 +290,7 @@ async function reloadModules(): Promise<{ count: number; errors: string[] }> {
     ) as ModBag['createSpinner']
 
   if (pick('mcp', 'createMcpPool'))
-    mod.createMcpPool = pick(
-      'mcp',
-      'createMcpPool',
-    ) as ModBag['createMcpPool']
+    mod.createMcpPool = pick('mcp', 'createMcpPool') as ModBag['createMcpPool']
 
   return { count: loaded.size, errors }
 }
@@ -416,14 +417,14 @@ const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
   { name: '/undo', key: 'help.cmd.undo' },
   { name: '/undo-list', key: 'help.cmd.undo_list' },
   { name: '/transcript', key: 'help.cmd.transcript' },
- { name: '/diff', key: 'help.cmd.diff' },
- { name: '/cost', key: 'help.cmd.cost' },
- { name: '/export', key: 'help.cmd.export' },
- { name: '/doctor', key: 'help.cmd.doctor' },
- { name: '/permissions', key: 'help.cmd.permissions' },
- { name: '/add-dir', key: 'help.cmd.add_dir' },
- { name: '/review', key: 'help.cmd.review' },
- { name: '/compact', key: 'help.cmd.compact' },
+  { name: '/diff', key: 'help.cmd.diff' },
+  { name: '/cost', key: 'help.cmd.cost' },
+  { name: '/export', key: 'help.cmd.export' },
+  { name: '/doctor', key: 'help.cmd.doctor' },
+  { name: '/permissions', key: 'help.cmd.permissions' },
+  { name: '/add-dir', key: 'help.cmd.add_dir' },
+  { name: '/review', key: 'help.cmd.review' },
+  { name: '/compact', key: 'help.cmd.compact' },
   { name: '/config', key: 'help.cmd.config' },
   { name: '/skills', key: 'help.cmd.skills' },
   { name: '/memory', key: 'help.cmd.memory' },
@@ -480,7 +481,9 @@ async function expandSlashTarget(
   try {
     const { loadSkills, loadCommands, skillBody } = await import('./context.js')
     const commands = await loadCommands(workdir)
-    const cmd = commands.find((c) => c.name.toLowerCase() === name.toLowerCase())
+    const cmd = commands.find(
+      (c) => c.name.toLowerCase() === name.toLowerCase(),
+    )
     if (cmd) {
       let body = cmd.body.replace(/\{\{args\}\}/g, rest)
       body = body.replace(/\$ARGUMENTS/g, rest)
@@ -498,8 +501,11 @@ async function expandSlashTarget(
       } catch {
         body = ''
       }
-      const header = 'Follow the skill "' + skill.name + '" (from ' + skill.path + ').'
-      const extra = rest ? '\n\nAdditional instructions from the operator: ' + rest : ''
+      const header =
+        'Follow the skill "' + skill.name + '" (from ' + skill.path + ').'
+      const extra = rest
+        ? '\n\nAdditional instructions from the operator: ' + rest
+        : ''
       return header + '\n\n' + body + extra
     }
   } catch {
@@ -529,10 +535,16 @@ const TMP_DIR = path.join(__dirname, '..', 'tmp')
 // Resolve a pasted string into a path to an existing file. Handles quoted
 // paths (drag&drop from some file managers adds quotes) and paths relative to
 // the working directory.
-async function resolveAttachPath(workdir: string, raw: string): Promise<string | null> {
+async function resolveAttachPath(
+  workdir: string,
+  raw: string,
+): Promise<string | null> {
   let s = String(raw || '').trim()
   if (!s) return null
-  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+  if (
+    (s.startsWith('"') && s.endsWith('"')) ||
+    (s.startsWith("'") && s.endsWith("'"))
+  ) {
     s = s.slice(1, -1)
   }
   s = s.replace(/\\ /g, ' ')
@@ -1071,7 +1083,10 @@ async function runTask(
       })
 
   try {
-    let next: PendingMessage & { freshChat: boolean; sendSystemPrompt: boolean } = {
+    let next: PendingMessage & {
+      freshChat: boolean
+      sendSystemPrompt: boolean
+    } = {
       text: taskText,
       attachments,
       freshChat,
@@ -1196,10 +1211,7 @@ async function main(): Promise<void> {
     // Sandbox root: the agent cannot go above the launch directory.
     sandboxRoot = currentWorkdir
   } catch (e) {
-    console.error(
-      theme.error(t('msg.workdir_error')),
-      (e as Error).message,
-    )
+    console.error(theme.error(t('msg.workdir_error')), (e as Error).message)
     process.exit(1)
   }
 
@@ -1222,11 +1234,23 @@ async function main(): Promise<void> {
     mcpPool = await mod.createMcpPool({ workdir: currentWorkdir })
     const st = mcpPool.status()
     if (st.toolCount > 0) {
-      const names = st.servers.filter((x) => !x.error).map((x) => x.name).join(', ')
-      console.log(theme.system(t('mcp.loaded', { n: String(st.toolCount), servers: names })))
+      const names = st.servers
+        .filter((x) => !x.error)
+        .map((x) => x.name)
+        .join(', ')
+      console.log(
+        theme.system(
+          t('mcp.loaded', { n: String(st.toolCount), servers: names }),
+        ),
+      )
     }
     for (const srv of st.servers) {
-      if (srv.error) console.error(theme.warn(t('mcp.server_error', { name: srv.name, error: srv.error })))
+      if (srv.error)
+        console.error(
+          theme.warn(
+            t('mcp.server_error', { name: srv.name, error: srv.error }),
+          ),
+        )
     }
   } catch (e) {
     console.error(theme.warn(t('mcp.load_failed', { v: (e as Error).message })))
@@ -1259,10 +1283,7 @@ async function main(): Promise<void> {
     await browser.waitForLogin()
   } catch (e) {
     bootSpinner.stop()
-    console.error(
-      theme.error(t('msg.browser_error')),
-      (e as Error).message,
-    )
+    console.error(theme.error(t('msg.browser_error')), (e as Error).message)
     if (debug) console.error((e as Error).stack)
     await browser.close().catch(() => {})
     transcript.close()
@@ -1331,8 +1352,6 @@ async function main(): Promise<void> {
   // Messages the user typed while the agent worked. runTask takes them one
   // by one after the current task finishes.
   const pendingQueue: PendingMessage[] = []
-  // Attachments for the next submit (filled by the editor's onAttachments).
-  let pendingAttachments: Array<{ path: string; name: string; mime: string }> = []
   // Show the "no clipboard image" hint only once per session.
   let clipboardWarned = false
 
@@ -1381,7 +1400,11 @@ async function main(): Promise<void> {
       freshChatNext = false
       sendSystemPromptNext = resendPrompt
       saveLastChat(resumeId, currentWorkdir)
-      console.log(theme.system(t('msg.chat_opened') + ' ' + resumeId + String.fromCharCode(10)))
+      console.log(
+        theme.system(
+          t('msg.chat_opened') + ' ' + resumeId + String.fromCharCode(10),
+        ),
+      )
       await printRestoredHistory(browser, null, resumeId)
     } catch (e) {
       console.error(
@@ -1398,7 +1421,8 @@ async function main(): Promise<void> {
   let editor: LineEditor | null = null
   let waiter: ((v: PendingMessage | null) => void) | null = null
   const takeInput = (): Promise<PendingMessage | null> => {
-    if (pendingQueue.length) return Promise.resolve(pendingQueue.shift() ?? null)
+    if (pendingQueue.length)
+      return Promise.resolve(pendingQueue.shift() ?? null)
     return new Promise<PendingMessage | null>((resolve) => {
       waiter = resolve
     })
@@ -1408,7 +1432,9 @@ async function main(): Promise<void> {
     let tail
     if (reviewMode) {
       tail =
-        theme.warn(t('prompt.review')) + theme.dim(':') + theme.dir(reviewMode.snapName)
+        theme.warn(t('prompt.review')) +
+        theme.dim(':') +
+        theme.dir(reviewMode.snapName)
     } else {
       tail = theme.dir(dirLabel(currentWorkdir))
     }
@@ -1443,7 +1469,10 @@ async function main(): Promise<void> {
         })
         ed.printAbove(
           theme.system(
-            t('msg.attached_image', { marker: att.marker, size: formatSize(image.data.length) }),
+            t('msg.attached_image', {
+              marker: att.marker,
+              size: formatSize(image.data.length),
+            }),
           ),
         )
         return att
@@ -1463,7 +1492,11 @@ async function main(): Promise<void> {
       })
       ed.printAbove(
         theme.system(
-          t('msg.attached_file', { marker: att.marker, name, size: formatSize(data.length) }),
+          t('msg.attached_file', {
+            marker: att.marker,
+            name,
+            size: formatSize(data.length),
+          }),
         ),
       )
       return att
@@ -1472,37 +1505,37 @@ async function main(): Promise<void> {
       const res = await readClipboardImageDetailed()
       if (!res.data || !res.data.length) {
         // On WSL the user may have copied a FILE in Windows (not an image):
- // the Windows clipboard holds its path - attach it directly.
- for (const fp of readWindowsClipboardFiles()) {
- const data = await fs.readFile(fp).catch(() => null)
- if (!data) continue
- const nm = path.basename(fp)
- const att = ed.attachments.add({
- path: fp,
- name: nm,
- mime: guessMime(nm),
- size: data.length,
- })
- ed.printAbove(
- theme.system(
- t('msg.attached_file', {
- marker: att.marker,
- name: nm,
- size: formatSize(data.length),
- }) + theme.dim(' (windows-clipboard)'),
- ),
- )
- return att
- }
- if (!clipboardWarned) {
+        // the Windows clipboard holds its path - attach it directly.
+        for (const fp of readWindowsClipboardFiles()) {
+          const data = await fs.readFile(fp).catch(() => null)
+          if (!data) continue
+          const nm = path.basename(fp)
+          const att = ed.attachments.add({
+            path: fp,
+            name: nm,
+            mime: guessMime(nm),
+            size: data.length,
+          })
+          ed.printAbove(
+            theme.system(
+              t('msg.attached_file', {
+                marker: att.marker,
+                name: nm,
+                size: formatSize(data.length),
+              }) + theme.dim(' (windows-clipboard)'),
+            ),
+          )
+          return att
+        }
+        if (!clipboardWarned) {
           clipboardWarned = true
           ed.printAbove(
             theme.warn(
               t('msg.clip_empty', { via: res.via }) +
                 String.fromCharCode(10) +
                 (process.platform === 'linux' && !hasClipboardTool()
- ? t('msg.clip_container')
- : t('msg.clip_hint')),
+                  ? t('msg.clip_container')
+                  : t('msg.clip_hint')),
             ),
           )
         }
@@ -1598,7 +1631,10 @@ async function main(): Promise<void> {
   // (list/get/set/reset/lang/path) — for scripts and non-TTY.
   function setConfigRuntime(path: string, value: unknown): void {
     const segs = path.split('.')
-    let obj: Record<string, unknown> = config as unknown as Record<string, unknown>
+    let obj: Record<string, unknown> = config as unknown as Record<
+      string,
+      unknown
+    >
     for (let i = 0; i < segs.length - 1; i++) {
       obj = obj[segs[i]] as Record<string, unknown>
     }
@@ -1809,7 +1845,7 @@ async function main(): Promise<void> {
           t('cfg.saved', {
             v: key,
             value: JSON.stringify(getByPath(config, key)),
- file: CONFIG_PATHS.HOME_CONFIG,
+            file: CONFIG_PATHS.HOME_CONFIG,
           }),
         ),
       )
@@ -1842,7 +1878,8 @@ async function main(): Promise<void> {
 
   while (running) {
     let input: string | null
-    let inputAttachments: Array<{ path: string; name: string; mime: string }> = []
+    let inputAttachments: Array<{ path: string; name: string; mime: string }> =
+      []
     try {
       if (editor) {
         editor.setPrompt(buildPrompt())
@@ -1887,7 +1924,9 @@ async function main(): Promise<void> {
         currentChatId = await browser.getCurrentChatId()
         saveLastChat(currentChatId, currentWorkdir)
         transcript.log('new_chat')
-        console.log(theme.system(t('msg.new_chat_ok') + String.fromCharCode(10)))
+        console.log(
+          theme.system(t('msg.new_chat_ok') + String.fromCharCode(10)),
+        )
       } catch (e) {
         console.error(
           theme.error(t('msg.new_chat_error', { v: (e as Error).message })),
@@ -1934,9 +1973,7 @@ async function main(): Promise<void> {
         saveLastChat(currentChatId, currentWorkdir)
 
         console.log(
-          theme.user(
-            t('self.review_hint', { name: reviewMode.snapName }),
-          ),
+          theme.user(t('self.review_hint', { name: reviewMode.snapName })),
         )
       } catch (e) {
         console.error(
@@ -1963,7 +2000,9 @@ async function main(): Promise<void> {
       const snapRoot = path.join(ZAMES_HOME, 'snapshots', name)
       const stat = await fs.stat(snapRoot).catch(() => null)
       if (!stat || !stat.isDirectory()) {
-        console.error(theme.error(t('self.snapshot_not_found', { v: snapRoot })))
+        console.error(
+          theme.error(t('self.snapshot_not_found', { v: snapRoot })),
+        )
         continue
       }
 
@@ -2019,16 +2058,9 @@ async function main(): Promise<void> {
         currentChatId = await browser.getCurrentChatId()
         saveLastChat(currentChatId, currentWorkdir)
 
-        console.log(
-          theme.user(
-t('self.fix_hint', { name }),
-          ),
-        )
+        console.log(theme.user(t('self.fix_hint', { name })))
       } catch (e) {
-        console.error(
-          theme.error(t('self.enter_failed')),
-          (e as Error).message,
-        )
+        console.error(theme.error(t('self.enter_failed')), (e as Error).message)
       }
       continue
     }
@@ -2044,11 +2076,7 @@ t('self.fix_hint', { name }),
       // Since the chat is busy with the review context, we'll create a new one for regular work
       freshChatNext = true
       sendSystemPromptNext = true
-      console.log(
-        theme.system(
-t('self.done_hint', { v: back }),
-        ),
-      )
+      console.log(theme.system(t('self.done_hint', { v: back })))
       continue
     }
 
@@ -2112,16 +2140,11 @@ t('self.done_hint', { v: back }),
               `  ${theme.user(n)}. ${c.title}  ${theme.system('(' + c.id.slice(0, 8) + '…)')}`,
             )
           })
-          console.log(
-            theme.system(t('chats.use_resume')),
-          )
+          console.log(theme.system(t('chats.use_resume')))
         }
       } catch (e) {
         spin.stop()
-        console.error(
-          theme.error(t('chats.fetch_error')),
-          (e as Error).message,
-        )
+        console.error(theme.error(t('chats.fetch_error')), (e as Error).message)
       } finally {
         if (editor) editor.unlock()
       }
@@ -2131,9 +2154,7 @@ t('self.done_hint', { v: back }),
     if (lower === '/resume' || lower.startsWith('/resume ')) {
       const arg = trimmed.slice(7).trim()
       if (!arg) {
-        console.error(
-          theme.error(t('chats.resume_usage')),
-        )
+        console.error(theme.error(t('chats.resume_usage')))
         continue
       }
       const n = Number(arg)
@@ -2193,7 +2214,9 @@ t('self.done_hint', { v: back }),
       } else {
         const id = await browser.getCurrentChatId()
         console.log(
-          theme.system(id ? t('chats.current_id', { v: id }) : t('chats.not_created')),
+          theme.system(
+            id ? t('chats.current_id', { v: id }) : t('chats.not_created'),
+          ),
         )
       }
       continue
@@ -2203,11 +2226,7 @@ t('self.done_hint', { v: back }),
       const all = listSessions()
       console.log(theme.system(t('sessions.dir', { v: sessionsDir() })))
       if (!all.length) {
-        console.log(
-          theme.system(
-            t('sessions.none'),
-          ),
-        )
+        console.log(theme.system(t('sessions.none')))
       } else {
         all.forEach((s, i) => {
           const n = String(i + 1).padStart(2, ' ')
@@ -2218,11 +2237,7 @@ t('self.done_hint', { v: back }),
             `  ${theme.user(n)}. ${s.id.slice(0, 8)}…${title}${wd}${mark}`,
           )
         })
-        console.log(
-          theme.system(
-            t('sessions.restore_hint'),
-          ),
-        )
+        console.log(theme.system(t('sessions.restore_hint')))
       }
       continue
     }
@@ -2273,9 +2288,19 @@ t('self.done_hint', { v: back }),
       console.log(theme.system(t('mcp.title', { n: String(st.toolCount) })))
       for (const srv of st.servers) {
         if (srv.error) {
-          console.log('  ' + theme.user(srv.name) + ' ' + theme.dim(t('mcp.status_error', { v: srv.error })))
+          console.log(
+            '  ' +
+              theme.user(srv.name) +
+              ' ' +
+              theme.dim(t('mcp.status_error', { v: srv.error })),
+          )
         } else {
-          console.log('  ' + theme.user(srv.name) + ' ' + theme.dim('(' + String(srv.tools.length) + ')'))
+          console.log(
+            '  ' +
+              theme.user(srv.name) +
+              ' ' +
+              theme.dim('(' + String(srv.tools.length) + ')'),
+          )
         }
       }
       continue
@@ -2286,7 +2311,9 @@ t('self.done_hint', { v: back }),
       if (!skills.length) {
         console.log(theme.dim(t('skills.none')))
       } else {
-        console.log(theme.system(t('skills.title', { n: String(skills.length) })))
+        console.log(
+          theme.system(t('skills.title', { n: String(skills.length) })),
+        )
         for (const s of skills) {
           console.log(
             '  ' +
@@ -2436,9 +2463,7 @@ t('self.done_hint', { v: back }),
       )
       if (reviewMode) {
         console.log(
-          theme.system(
-            t('status.orig_dir', { v: reviewMode.originalWorkdir }),
-          ),
+          theme.system(t('status.orig_dir', { v: reviewMode.originalWorkdir })),
         )
       }
       console.log(
@@ -2473,7 +2498,9 @@ t('self.done_hint', { v: back }),
         ),
       )
       console.log(theme.system(t('status.max_iter', { v: maxIter })))
-      console.log(theme.system(t('status.headless', { v: headless ? yes : no })))
+      console.log(
+        theme.system(t('status.headless', { v: headless ? yes : no })),
+      )
       console.log(theme.system(t('status.debug', { v: debug ? yes : no })))
       console.log(
         theme.system(
@@ -2522,136 +2549,146 @@ t('self.done_hint', { v: back }),
       continue
     }
 
- if (lower === '/diff' || lower.startsWith('/diff ')) {
- const staged = lower.indexOf("--staged") !== -1
- const { runGit } = await import('./gitTools.js')
- const probe = await runGit('git rev-parse --is-inside-work-tree', currentWorkdir, 5000)
- if (probe.trim() !== 'true') {
- console.error(theme.error(t('diff.not_repo')))
- continue
- }
- const out = await runGit(diffGitArgs(staged), currentWorkdir, 20_000)
- console.log(theme.system(formatDiff(out, { maxLines: 400 })))
- continue
- }
+    if (lower === '/diff' || lower.startsWith('/diff ')) {
+      const staged = lower.indexOf('--staged') !== -1
+      const { runGit } = await import('./gitTools.js')
+      const probe = await runGit(
+        'git rev-parse --is-inside-work-tree',
+        currentWorkdir,
+        5000,
+      )
+      if (probe.trim() !== 'true') {
+        console.error(theme.error(t('diff.not_repo')))
+        continue
+      }
+      const out = await runGit(diffGitArgs(staged), currentWorkdir, 20_000)
+      console.log(theme.system(formatDiff(out, { maxLines: 400 })))
+      continue
+    }
 
- if (lower === '/cost' || lower === '/usage') {
- let stats = summarizeTranscript([])
- if (transcript.file) {
- try {
- const body = await fs.readFile(transcript.file, 'utf-8')
- stats = summarizeTranscript(parseTranscript(body))
- } catch {
- // best-effort
- }
- }
- console.log(
- theme.system(
- renderCost(stats, transcript.file, browser.getLastTokenUsage()),
- ),
- )
- continue
- }
+    if (lower === '/cost' || lower === '/usage') {
+      let stats = summarizeTranscript([])
+      if (transcript.file) {
+        try {
+          const body = await fs.readFile(transcript.file, 'utf-8')
+          stats = summarizeTranscript(parseTranscript(body))
+        } catch {
+          // best-effort
+        }
+      }
+      console.log(
+        theme.system(
+          renderCost(stats, transcript.file, browser.getLastTokenUsage()),
+        ),
+      )
+      continue
+    }
 
- if (lower === '/export' || lower.startsWith('/export ')) {
- const arg = trimmed.slice('/export'.length).trim()
- const target = arg
- ? path.resolve(currentWorkdir, arg)
- : defaultExportPath(currentWorkdir)
- const rel = path.relative(sandboxRoot, target)
- if (rel.startsWith('..') || path.isAbsolute(rel)) {
- console.error(theme.error(t('export.outside')))
- continue
- }
- let entries: ReturnType<typeof parseTranscript> = []
- if (transcript.file) {
- try {
- entries = parseTranscript(await fs.readFile(transcript.file, 'utf-8'))
- } catch {
- entries = []
- }
- }
- const md = formatExport(entries, {
- chatId: currentChatId,
- workdir: currentWorkdir,
- })
- await fs.writeFile(target, md, 'utf-8')
- console.log(theme.assistant(t('export.done', { v: target })))
- continue
- }
+    if (lower === '/export' || lower.startsWith('/export ')) {
+      const arg = trimmed.slice('/export'.length).trim()
+      const target = arg
+        ? path.resolve(currentWorkdir, arg)
+        : defaultExportPath(currentWorkdir)
+      const rel = path.relative(sandboxRoot, target)
+      if (rel.startsWith('..') || path.isAbsolute(rel)) {
+        console.error(theme.error(t('export.outside')))
+        continue
+      }
+      let entries: ReturnType<typeof parseTranscript> = []
+      if (transcript.file) {
+        try {
+          entries = parseTranscript(await fs.readFile(transcript.file, 'utf-8'))
+        } catch {
+          entries = []
+        }
+      }
+      const md = formatExport(entries, {
+        chatId: currentChatId,
+        workdir: currentWorkdir,
+      })
+      await fs.writeFile(target, md, 'utf-8')
+      console.log(theme.assistant(t('export.done', { v: target })))
+      continue
+    }
 
- if (lower === '/doctor') {
- const { runGit } = await import('./gitTools.js')
- let gitOk = false
- let gitBranch: string | null = null
- try {
- const probe = await runGit('git rev-parse --is-inside-work-tree', currentWorkdir, 5000)
- gitOk = probe.trim() === 'true'
- if (gitOk) {
- gitBranch = (await runGit('git branch --show-current', currentWorkdir, 5000)).trim()
- }
- } catch {
- gitOk = false
- }
- let clipboardTool: string | null = null
- try {
- clipboardTool = hasClipboardTool() ? 'available' : null
- } catch {
- clipboardTool = null
- }
- const mcpStatus = mcpPool
- ? mcpPool.status()
- : { servers: [], toolCount: 0 }
- console.log(
- theme.system(
- renderDoctor({
- nodeVersion: process.version,
- platform: process.platform,
- workdir: currentWorkdir,
- gitOk,
- gitBranch,
- configOk: true,
- browserChannel: config.browserChannel,
- clipboardTool,
- mcpServers: mcpStatus.servers.length,
- mcpTools: mcpStatus.toolCount,
- transcriptOk: !!transcript.file,
- authSaved: authMarkerExists(),
- }),
- ),
- )
- continue
- }
+    if (lower === '/doctor') {
+      const { runGit } = await import('./gitTools.js')
+      let gitOk = false
+      let gitBranch: string | null = null
+      try {
+        const probe = await runGit(
+          'git rev-parse --is-inside-work-tree',
+          currentWorkdir,
+          5000,
+        )
+        gitOk = probe.trim() === 'true'
+        if (gitOk) {
+          gitBranch = (
+            await runGit('git branch --show-current', currentWorkdir, 5000)
+          ).trim()
+        }
+      } catch {
+        // git is not available here; gitOk stays false.
+      }
+      let clipboardTool: string | null = null
+      try {
+        clipboardTool = hasClipboardTool() ? 'available' : null
+      } catch {
+        // not available; clipboardTool stays null
+      }
+      const mcpStatus = mcpPool
+        ? mcpPool.status()
+        : { servers: [], toolCount: 0 }
+      console.log(
+        theme.system(
+          renderDoctor({
+            nodeVersion: process.version,
+            platform: process.platform,
+            workdir: currentWorkdir,
+            gitOk,
+            gitBranch,
+            configOk: true,
+            browserChannel: config.browserChannel,
+            clipboardTool,
+            mcpServers: mcpStatus.servers.length,
+            mcpTools: mcpStatus.toolCount,
+            transcriptOk: !!transcript.file,
+            authSaved: authMarkerExists(),
+          }),
+        ),
+      )
+      continue
+    }
 
- if (lower === '/permissions' || lower === '/allowed-tools') {
- console.log(
- theme.system(
- renderPermissions({
- write: config.confirmation.write,
- edit: config.confirmation.edit,
- bash: config.confirmation.bash,
- alwaysConfirm: config.confirmation.alwaysConfirm,
- }),
- ),
- )
- continue
- }
+    if (lower === '/permissions' || lower === '/allowed-tools') {
+      console.log(
+        theme.system(
+          renderPermissions({
+            write: config.confirmation.write,
+            edit: config.confirmation.edit,
+            bash: config.confirmation.bash,
+            alwaysConfirm: config.confirmation.alwaysConfirm,
+          }),
+        ),
+      )
+      continue
+    }
 
- if (lower === '/add-dir' || lower.startsWith('/add-dir ')) {
- const arg = trimmed.slice('/add-dir'.length).trim()
- const res = resolveExtraDir(arg, currentWorkdir)
- if ('error' in res) {
- console.error(theme.warn(res.error))
- continue
- }
- const stat = await fs.stat(res.path).catch(() => null)
- if (!stat || !stat.isDirectory()) {
- console.error(theme.error(t('adddir.not_dir', { v: res.path })))
- continue
- }
- console.log(theme.system(t('adddir.note', { v: res.path })))
- continue
- }
+    if (lower === '/add-dir' || lower.startsWith('/add-dir ')) {
+      const arg = trimmed.slice('/add-dir'.length).trim()
+      const res = resolveExtraDir(arg, currentWorkdir)
+      if ('error' in res) {
+        console.error(theme.warn(res.error))
+        continue
+      }
+      const stat = await fs.stat(res.path).catch(() => null)
+      if (!stat || !stat.isDirectory()) {
+        console.error(theme.error(t('adddir.not_dir', { v: res.path })))
+        continue
+      }
+      console.log(theme.system(t('adddir.note', { v: res.path })))
+      continue
+    }
 
     if (lower === '/compact') {
       // Compaction: ask DeepSeek (in the CURRENT chat) to compress the
@@ -2680,7 +2717,9 @@ t('self.done_hint', { v: back }),
           })
         } catch (e) {
           console.error(
-            theme.error(t('compact.summary_failed', { v: (e as Error).message })),
+            theme.error(
+              t('compact.summary_failed', { v: (e as Error).message }),
+            ),
           )
           continue
         }
@@ -2690,7 +2729,9 @@ t('self.done_hint', { v: back }),
         if (!summary || /^\(прервано пользователем\)$/.test(summary)) {
           console.error(
             theme.error(
-              t('compact.summary_failed', { v: summary || t('common.unknown') }),
+              t('compact.summary_failed', {
+                v: summary || t('common.unknown'),
+              }),
             ),
           )
           continue
@@ -2753,36 +2794,38 @@ t('self.done_hint', { v: back }),
     }
 
     if (lower === '/review' || lower.startsWith('/review ')) {
- const rest = trimmed.slice('/review'.length).trim()
- const staged = rest.indexOf("--staged") !== -1
- const focus = rest.replace(/--staged/g, '').trim()
- const reviewTask = buildReviewPrompt(focus, staged)
- const reviewTools = mod.createTools(currentWorkdir, { undo })
- if (editor) editor.busy = true
- try {
- await runTask(browser, reviewTools, reviewTask, currentWorkdir, {
- transcript,
- freshChat: false,
- sendSystemPrompt: false,
- ui: editor || null,
- onChatReady: (chatId) => {
- if (chatId) {
- currentChatId = chatId
- saveLastChat(chatId, currentWorkdir)
- }
- },
- })
- } finally {
- if (editor) editor.busy = false
- }
- continue
- }
+      const rest = trimmed.slice('/review'.length).trim()
+      const staged = rest.indexOf('--staged') !== -1
+      const focus = rest.replace(/--staged/g, '').trim()
+      const reviewTask = buildReviewPrompt(focus, staged)
+      const reviewTools = mod.createTools(currentWorkdir, { undo })
+      if (editor) editor.busy = true
+      try {
+        await runTask(browser, reviewTools, reviewTask, currentWorkdir, {
+          transcript,
+          freshChat: false,
+          sendSystemPrompt: false,
+          ui: editor || null,
+          onChatReady: (chatId) => {
+            if (chatId) {
+              currentChatId = chatId
+              saveLastChat(chatId, currentWorkdir)
+            }
+          },
+        })
+      } finally {
+        if (editor) editor.busy = false
+      }
+      continue
+    }
 
     if (lower === '/undo') {
       const result = await undo.undoLast()
       if (result.ok && result.record) {
         console.log(
-          theme.assistant(t('undo.reverted', { v: result.record.originalPath })) +
+          theme.assistant(
+            t('undo.reverted', { v: result.record.originalPath }),
+          ) +
             theme.system(
               result.record.existed ? t('undo.restored') : t('undo.deleted'),
             ),
@@ -2819,10 +2862,7 @@ t('self.done_hint', { v: back }),
         console.log(theme.system(t('dom.selectors')))
         console.log(JSON.stringify(result.selectors, null, 2))
       } catch (e) {
-        console.error(
-          theme.error(t('dom.save_error')),
-          (e as Error).message,
-        )
+        console.error(theme.error(t('dom.save_error')), (e as Error).message)
       }
       continue
     }
@@ -2858,9 +2898,7 @@ t('self.done_hint', { v: back }),
         if (editor) editor.setCommands(buildSlashCommands())
         console.log(theme.system(t('cd.changed', { v: newDir })))
       } catch (e) {
-        console.error(
-          theme.error(t('cd.failed', { v: (e as Error).message })),
-        )
+        console.error(theme.error(t('cd.failed', { v: (e as Error).message })))
       }
       continue
     }
@@ -2876,9 +2914,7 @@ t('self.done_hint', { v: back }),
     }
 
     if (lower.startsWith('/') && expandedTask === null) {
-      console.error(
-        theme.error(t('msg.unknown_cmd', { v: trimmed })),
-      )
+      console.error(theme.error(t('msg.unknown_cmd', { v: trimmed })))
       continue
     }
 
@@ -2895,22 +2931,29 @@ t('self.done_hint', { v: back }),
     if (mcpPool) tools.push(...mcpPool.tools)
     if (editor) editor.busy = true
     try {
-      await runTask(browser, tools, taskText, currentWorkdir, {
-        transcript,
-        freshChat: freshChatNext,
-        sendSystemPrompt: sendSystemPromptNext,
-        queue: pendingQueue,
-        ui: editor || null,
-        onChatReady: (chatId) => {
-          // Save the session right at the start of the dialog, without waiting
-          // for the task to finish. Otherwise a long/aborted task would not
-          // get the chat into ~/.zames/.sessions and it would be lost after a restart.
-          if (chatId) {
-            currentChatId = chatId
-            saveLastChat(chatId, currentWorkdir)
-          }
+      await runTask(
+        browser,
+        tools,
+        taskText,
+        currentWorkdir,
+        {
+          transcript,
+          freshChat: freshChatNext,
+          sendSystemPrompt: sendSystemPromptNext,
+          queue: pendingQueue,
+          ui: editor || null,
+          onChatReady: (chatId) => {
+            // Save the session right at the start of the dialog, without waiting
+            // for the task to finish. Otherwise a long/aborted task would not
+            // get the chat into ~/.zames/.sessions and it would be lost after a restart.
+            if (chatId) {
+              currentChatId = chatId
+              saveLastChat(chatId, currentWorkdir)
+            }
+          },
         },
-      }, inputAttachments)
+        inputAttachments,
+      )
     } finally {
       if (editor) editor.busy = false
     }

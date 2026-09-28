@@ -154,6 +154,8 @@ export interface BrowserLike {
   // Optional: read the whole visible dialogue of the open chat so /resume can
   // print it. Optional so test doubles / self-review do not have to implement
   // it.
-  readChatMessages?: () => Promise<Array<{ role: 'user' | 'assistant'; text: string }>>
+  readChatMessages?: () => Promise<
+    Array<{ role: 'user' | 'assistant'; text: string }>
+  >
   close: () => Promise<void>
 }

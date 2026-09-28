@@ -13,14 +13,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // source directory: either nearby (running from src/ via tsx), or in ../src
 // (running the built dist/ from the repo root).
 function resolveSrcDir(): string {
-const candidates = [__dirname, path.join(__dirname, '..', 'src')]
-for (const dir of candidates) {
-try {
-const entries = require('fs').readdirSync(dir)
-if (entries.some((e: string) => e.endsWith('.ts'))) return dir
-} catch {}
-}
-return __dirname
+  const candidates = [__dirname, path.join(__dirname, '..', 'src')]
+  for (const dir of candidates) {
+    try {
+      const entries = require('fs').readdirSync(dir)
+      if (entries.some((e: string) => e.endsWith('.ts'))) return dir
+    } catch {}
+  }
+  return __dirname
 }
 
 const SRC_DIR = resolveSrcDir()
@@ -59,10 +59,18 @@ async function copyDirJsFiles(from: string, to: string): Promise<string[]> {
   return copied
 }
 
-
 // ---------- /self-review ----------
 
-export async function selfReview({ browser, focus, transcript }: { browser: BrowserLike; focus?: string; transcript?: TranscriptLike | null; config?: unknown }): Promise<{ snapDir: string; reportPath: string; changed: string[] }> {
+export async function selfReview({
+  browser,
+  focus,
+  transcript,
+}: {
+  browser: BrowserLike
+  focus?: string
+  transcript?: TranscriptLike | null
+  config?: unknown
+}): Promise<{ snapDir: string; reportPath: string; changed: string[] }> {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
   const snapRoot = path.join(SNAP_ROOT)
   const snapDir = path.join(snapRoot, `run-${stamp}`)
@@ -116,7 +124,9 @@ export async function selfReview({ browser, focus, transcript }: { browser: Brow
     },
     onToolResult: (r: unknown) => {
       const t = typeof r === 'string' ? r : JSON.stringify(r)
-      console.log(theme.system(`   → ${t.slice(0, 200).replace(/\n/g, ' ↵ ')}\n`))
+      console.log(
+        theme.system(`   → ${t.slice(0, 200).replace(/\n/g, ' ↵ ')}\n`),
+      )
     },
     onAssistantMessage: (msg: string) => {
       finalMessage = msg
@@ -163,7 +173,12 @@ export async function selfReview({ browser, focus, transcript }: { browser: Brow
 
 // ---------- /self-diff ----------
 
-export async function selfDiff({ name }: { name: string; config?: unknown }): Promise<void> {
+export async function selfDiff({
+  name,
+}: {
+  name: string
+  config?: unknown
+}): Promise<void> {
   const snapDir = path.join(SNAP_ROOT, name)
   const snapStat = await fs.stat(snapDir).catch(() => null)
   if (!snapStat) throw new Error(`Снапшот не найден: ${snapDir}`)
@@ -195,17 +210,19 @@ export async function selfDiff({ name }: { name: string; config?: unknown }): Pr
 
 // ---------- /self-apply ----------
 
-export async function selfApply({ name }: { name: string; config?: unknown }): Promise<void> {
+export async function selfApply({
+  name,
+}: {
+  name: string
+  config?: unknown
+}): Promise<void> {
   const snapDir = path.join(SNAP_ROOT, name)
   const snapStat = await fs.stat(snapDir).catch(() => null)
   if (!snapStat) throw new Error(`Снапшот не найден: ${snapDir}`)
 
   // Back up the current src before overwriting
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
-  const backupDir = path.join(
-    SNAP_ROOT,
-    `backup-before-apply-${stamp}`,
-  )
+  const backupDir = path.join(SNAP_ROOT, `backup-before-apply-${stamp}`)
   await copyDirJsFiles(SRC_DIR, backupDir)
 
   const files = await fs.readdir(snapDir)
@@ -234,9 +251,11 @@ export async function selfApply({ name }: { name: string; config?: unknown }): P
 
 // ---------- /self-list ----------
 
-export async function selfList({ config }: { config?: unknown } = {}): Promise<void> {
+export async function selfList({
+  config: _config,
+}: { config?: unknown } = {}): Promise<void> {
   const snapRoot = path.join(SNAP_ROOT)
-  let entries = []
+  let entries: string[]
   try {
     entries = await fs.readdir(snapRoot)
   } catch {
@@ -285,7 +304,13 @@ async function diffFiles(origDir: string, newDir: string): Promise<string[]> {
   return changed
 }
 
-function buildReviewPrompt({ focus, snapDir }: { focus?: string; snapDir: string }): string {
+function buildReviewPrompt({
+  focus,
+  snapDir,
+}: {
+  focus?: string
+  snapDir: string
+}): string {
   const focusLine = focus
     ? `\nThe user asked you to focus especially on: ${focus}\n`
     : ''

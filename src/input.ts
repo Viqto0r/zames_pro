@@ -6,8 +6,7 @@ import {
   AttachmentStore,
   parseImagePaste,
   looksLikeFilePath,
- extractPathToken,
- type Attachment,
+  type Attachment,
 } from './attachments.js'
 
 // A permanent input line at the bottom of the terminal + a status/output area above it.
@@ -51,7 +50,11 @@ export interface PasteBlock {
 
 // Number of lines in a pasted block (the trailing newline doesn't add a line).
 export function countPasteLines(raw: string): number {
-  const normalized = String(raw).split(CR + NL).join(NL).split(CR).join(NL)
+  const normalized = String(raw)
+    .split(CR + NL)
+    .join(NL)
+    .split(CR)
+    .join(NL)
   const trimmed = normalized.replace(/\n+$/, '')
   if (trimmed === '') return 1
   return trimmed.split(NL).length
@@ -65,7 +68,11 @@ export function formatPasteMarker(lines: number): string {
 // otherwise { marker, text }: the marker goes into the input line, and the
 // original text is expanded back on submit.
 export function pasteReplacement(raw: string): PasteBlock | null {
-  const text = String(raw).split(CR + NL).join(NL).split(CR).join(NL)
+  const text = String(raw)
+    .split(CR + NL)
+    .join(NL)
+    .split(CR)
+    .join(NL)
   const lines = countPasteLines(text)
   if (lines < PASTE_MIN_LINES) return null
   return { marker: formatPasteMarker(lines), text }
@@ -260,7 +267,9 @@ export function formatTokenStatus(
     compact = (Number.isInteger(m) ? String(m) : m.toFixed(1)) + 'M'
   } else if (n >= 1_000) {
     const k = n / 1_000
-    compact = (k >= 100 ? String(Math.round(k)) : k.toFixed(1).replace(/\.0$/, '')) + 'k'
+    compact =
+      (k >= 100 ? String(Math.round(k)) : k.toFixed(1).replace(/\.0$/, '')) +
+      'k'
   } else {
     compact = String(n)
   }
@@ -288,6 +297,13 @@ export class LineEditor {
   _animating: boolean
   _dotPhase: number
   _thinkBase: string
+  // The last rendered status row(s) (status + right-aligned context). Cached so
+  // a re-render driven by TYPING (the buffer changed, the status did not) can
+  // skip erasing and re-printing the status line entirely. On terminals like
+  // Tabby a full erase+rewrite on every keystroke makes the whole screen blink;
+  // keeping the status untouched removes that flicker. Cleared whenever the
+  // status genuinely changes so the cache can never go stale.
+  _lastStatusBlock: string
   _wasRaw: boolean
   _onData: (b: Buffer) => void
   // History of sent messages (for the up/down arrows).
@@ -305,7 +321,8 @@ export class LineEditor {
   _tmpDir: string
   // Insert callback: receives a pasted image/file from the terminal. Returns
   // the attachment if it was saved, so the editor can show a marker.
-  onAttach: ((raw: string) => Attachment | null | Promise<Attachment | null>) | null
+  onAttach:
+    ((raw: string) => Attachment | null | Promise<Attachment | null>) | null
   // Clipboard callback: tries to read an image from the OS clipboard when the
   // terminal itself sends no usable data (Ctrl+V, right-click, empty paste).
   onClipboard: (() => Promise<Attachment | null>) | null
@@ -327,7 +344,11 @@ export class LineEditor {
   // status render, so the status line stays fresh without the caller polling.
   onContextQuery: (() => number | null) | null
 
-  constructor({ prompt = '> ', commands = [], locale = 'ru' }: LineEditorOptions = {}) {
+  constructor({
+    prompt = '> ',
+    commands = [],
+    locale = 'ru',
+  }: LineEditorOptions = {}) {
     this.locale = locale
     this.promptStr = prompt
     this.buf = ''
@@ -345,6 +366,7 @@ export class LineEditor {
     this._animating = false
     this._dotPhase = 0
     this._thinkBase = ''
+    this._lastStatusBlock = ''
     this._wasRaw = false
     this._onData = (b: Buffer) => this._handle(b)
     this.history = []
@@ -538,22 +560,34 @@ export class LineEditor {
 
   // ---------- rendering ----------
 
+  _eraseBlock() {
+    if (!this.rendered) return
+    const rows = process.stdout.rows || 24
+    const up = Math.min(this.cursorRowFromTop, Math.max(0, rows - 1))
+    if (up > 0) {
+      process.stdout.write(ESC + '[' + up + 'A')
+    }
+    process.stdout.write(CR + ESC + '[J')
+    this.rendered = false
+    this._lastStatusBlock = ''
+  }
 
- _eraseBlock() {
- if (!this.rendered) return
- const rows = process.stdout.rows || 24
- const up = Math.min(this.cursorRowFromTop, Math.max(0, rows - 1))
- if (up > 0) {
- process.stdout.write(ESC + '[' + up + 'A')
- }
- process.stdout.write(CR + ESC + '[J')
- this.rendered = false
- }
+  // Erase ONLY the input rows (leave the status block untouched). Used when a
+  // keystroke re-renders the line but the status/context did not change: the
+  // status stays on screen, only the input area is redrawn. This removes the
+  // full-screen flicker on terminals like Tabby, where erasing the whole block
+  // on every character made the display blink.
+  _eraseInputOnly(inputRows: number) {
+    if (!this.rendered) return
+    const rows = process.stdout.rows || 24
+    const up = Math.min(Math.max(0, inputRows - 1), Math.max(0, rows - 1))
+    if (up > 0) process.stdout.write(ESC + '[' + up + 'A')
+    process.stdout.write(CR + ESC + '[J')
+    this.rendered = false
+  }
 
- _writeBlock() {
+  _writeBlock() {
     const cols = process.stdout.columns || 80
-    let out = ''
-    let top = 0
     // Status line above the input: the spinner/answer text on the left and the
     // token context right-aligned on the SAME row (10k · 12%). The context is
     // refreshed from onContextQuery() on every render, so it follows the live
@@ -569,6 +603,8 @@ export class LineEditor {
     // total width, so at certain widths `top` disagreed with the printed rows.
     // Both branches below now derive `top` from the exact string they print.
     const ctxText = this._contextText()
+    let statusOut = ''
+    let top = 0
     if (this.statusText) {
       if (ctxText) {
         // Right-align the context on the SAME row as the status. When the
@@ -578,18 +614,18 @@ export class LineEditor {
         const space = cols - visLen(this.statusText) - visLen(ctxText)
         if (space >= 2) {
           const row = this.statusText + ' '.repeat(space) + ctxText
-          out += row + NL
+          statusOut = row + NL
           top = visRows(row, cols)
         } else {
-          out += this.statusText + NL
+          statusOut = this.statusText + NL
           top = visRows(this.statusText, cols)
           const ctxRow =
             ' '.repeat(Math.max(0, cols - visLen(ctxText))) + ctxText
-          out += ctxRow + NL
+          statusOut += ctxRow + NL
           top += visRows(ctxRow, cols)
         }
       } else {
-        out += this.statusText + NL
+        statusOut = this.statusText + NL
         // The status may wrap onto several lines — we account for this,
         // otherwise the block erase misses and statuses pile up.
         top = visRows(this.statusText, cols)
@@ -598,9 +634,59 @@ export class LineEditor {
       // Idle: no spinner, but the context still belongs on its own line just
       // above the input, right-aligned.
       const ctxRow = ' '.repeat(Math.max(0, cols - visLen(ctxText))) + ctxText
-      out += ctxRow + NL
+      statusOut = ctxRow + NL
       top = visRows(ctxRow, cols)
     }
+    // Incremental re-render: when the status block is byte-identical to what is
+    // already on screen (the common case while typing — the buffer changes, the
+    // spinner/context does not) we redraw ONLY the input rows. Erasing and
+    // re-printing the whole block on every keystroke is what made the display
+    // flicker on terminals like Tabby. `top` is recovered from the cache so the
+    // cursor math stays correct.
+    const statusBlock = statusOut
+    const statusUnchanged =
+      this.rendered && statusBlock === this._lastStatusBlock
+    if (statusUnchanged) {
+      // Count the real input rows via layout (wrapping aware).
+      const layOnly = layoutInput(this.promptStr, this.buf, this.cursor, cols)
+      const inputLineRows = layOnly.rows.length
+      const suggOnly = this._suggestions()
+      const shownOnly = suggOnly.slice(0, 8)
+      const linesBelowOnly = shownOnly.length
+        ? shownOnly.length + (suggOnly.length > shownOnly.length ? 1 : 0)
+        : 0
+      this._eraseInputOnly(inputLineRows + linesBelowOnly)
+      let outOnly = ''
+      outOnly += layOnly.rows.map((r) => r.prefix + r.text).join(NL)
+      if (shownOnly.length) {
+        const maxName = Math.max(...shownOnly.map((c) => c.name.length))
+        const lines = shownOnly.map((c) => {
+          const name = theme.prompt(c.name.padEnd(maxName))
+          const desc = theme.dim('  ' + c.description)
+          return '   ' + name + desc
+        })
+        outOnly += NL + lines.join(NL)
+        const hidden = suggOnly.length - shownOnly.length
+        if (hidden > 0)
+          outOnly +=
+            NL +
+            theme.dim(
+              '   ' + translate(this.locale)('editor.more', { n: hidden }),
+            )
+      }
+      process.stdout.write(outOnly)
+      const upOnly =
+        layOnly.rows.length - 1 - layOnly.cursorRow + linesBelowOnly
+      if (upOnly > 0) process.stdout.write(ESC + '[' + upOnly + 'A')
+      process.stdout.write(CR)
+      if (layOnly.cursorCol > 0)
+        process.stdout.write(ESC + '[' + layOnly.cursorCol + 'C')
+      this.rendered = true
+      this.cursorRowFromTop = top + layOnly.cursorRow
+      return
+    }
+    let out = statusOut
+    this._lastStatusBlock = statusBlock
     const lay = layoutInput(this.promptStr, this.buf, this.cursor, cols)
     out += lay.rows.map((r) => r.prefix + r.text).join(NL)
 
@@ -618,14 +704,21 @@ export class LineEditor {
       })
       out += NL + lines.join(NL)
       const hidden = sugg.length - shown.length
-      if (hidden > 0) out += NL + theme.dim('   ' + translate(this.locale)('editor.more', { n: hidden }))
+      if (hidden > 0)
+        out +=
+          NL +
+          theme.dim(
+            '   ' + translate(this.locale)('editor.more', { n: hidden }),
+          )
     }
 
     process.stdout.write(out)
     const lastRow = lay.rows.length - 1
     // Move the cursor up: first to the input line within lay, then further by
     // the hint lines (if any) — the cursor must sit on the input.
-    const linesBelow = shown.length ? shown.length + (sugg.length > shown.length ? 1 : 0) : 0
+    const linesBelow = shown.length
+      ? shown.length + (sugg.length > shown.length ? 1 : 0)
+      : 0
     const up = lastRow - lay.cursorRow + linesBelow
     if (up > 0) process.stdout.write(ESC + '[' + up + 'A')
     process.stdout.write(CR)
@@ -641,7 +734,7 @@ export class LineEditor {
 
   // Print a block ABOVE the input line and put the input line back.
   printAbove(text: unknown): void {
- this._stopDots()
+    this._stopDots()
     this._eraseBlock()
     process.stdout.write(String(text) + NL)
     this._writeBlock()
@@ -692,7 +785,9 @@ export class LineEditor {
     this._stopDots()
     this._dotTimer = setInterval(() => {
       this._dotPhase = (this._dotPhase + 1) % DOTS.length
-      this.setStatus(this._thinkBase + this._dots(this._dotPhase) + this._hint())
+      this.setStatus(
+        this._thinkBase + this._dots(this._dotPhase) + this._hint(),
+      )
     }, 400)
     this._animating = true
     if (this._dotTimer.unref) this._dotTimer.unref()
@@ -712,7 +807,9 @@ export class LineEditor {
     const label = translate(this.locale)('spinner.pause', { n: seconds })
     if (this._animating && this._dotTimer) {
       this._thinkBase = theme.brown(stripEllipsis(label))
-      this.setStatus(this._thinkBase + this._dots(this._dotPhase) + this._hint())
+      this.setStatus(
+        this._thinkBase + this._dots(this._dotPhase) + this._hint(),
+      )
       return
     }
     this._startAnimated(label)
@@ -748,7 +845,12 @@ export class LineEditor {
     this.stop()
     const rendered = renderMarkdown(msg)
     this.printAbove(
-      NL + theme.assistant(translate(this.locale)('editor.answer')) + NL + rendered + NL + theme.dim('─'.repeat(60)),
+      NL +
+        theme.assistant(translate(this.locale)('editor.answer')) +
+        NL +
+        rendered +
+        NL +
+        theme.dim('─'.repeat(60)),
     )
   }
 
@@ -796,7 +898,9 @@ export class LineEditor {
   _insert(text: string): void {
     const chars = Array.from(this.buf)
     const ins = Array.from(String(text))
-    const next = chars.slice(0, this.cursor).concat(ins, chars.slice(this.cursor))
+    const next = chars
+      .slice(0, this.cursor)
+      .concat(ins, chars.slice(this.cursor))
     this.buf = next.join('')
     this.cursor += ins.length
   }
@@ -841,7 +945,11 @@ export class LineEditor {
   _insertFallback(raw: string): void {
     const rep = pasteReplacement(raw)
     if (!rep) {
-      const text = String(raw).split(CR + NL).join(NL).split(CR).join(NL)
+      const text = String(raw)
+        .split(CR + NL)
+        .join(NL)
+        .split(CR)
+        .join(NL)
       this._insert(text)
       return
     }
@@ -1003,8 +1111,14 @@ export class LineEditor {
     if (this.locked) {
       if (s.length === 1) {
         const c = s.charCodeAt(0)
-        if (c === 3) { if (this.onCtrlC) this.onCtrlC(); return }
-        if (c === 4) { if (this.onCtrlC) this.onCtrlC(); return }
+        if (c === 3) {
+          if (this.onCtrlC) this.onCtrlC()
+          return
+        }
+        if (c === 4) {
+          if (this.onCtrlC) this.onCtrlC()
+          return
+        }
       }
       return
     }
@@ -1053,11 +1167,36 @@ export class LineEditor {
 
       // Shift+Enter, Ctrl+Enter in terminals with the extended protocol
       // and Alt+Enter — insert a newline.
-      if (s.startsWith(ESC + '[13;2u')) { this._insertNewline(); s = s.slice(7); this._render(); continue }
-      if (s.startsWith(ESC + '[13;5u')) { this._insertNewline(); s = s.slice(7); this._render(); continue }
-      if (s.startsWith(ESC + '[27;2;13~')) { this._insertNewline(); s = s.slice(10); this._render(); continue }
-      if (s.startsWith(ESC + '[27;5;13~')) { this._insertNewline(); s = s.slice(10); this._render(); continue }
-      if (s.startsWith(ESC + NL)) { this._insertNewline(); s = s.slice(2); this._render(); continue }
+      if (s.startsWith(ESC + '[13;2u')) {
+        this._insertNewline()
+        s = s.slice(7)
+        this._render()
+        continue
+      }
+      if (s.startsWith(ESC + '[13;5u')) {
+        this._insertNewline()
+        s = s.slice(7)
+        this._render()
+        continue
+      }
+      if (s.startsWith(ESC + '[27;2;13~')) {
+        this._insertNewline()
+        s = s.slice(10)
+        this._render()
+        continue
+      }
+      if (s.startsWith(ESC + '[27;5;13~')) {
+        this._insertNewline()
+        s = s.slice(10)
+        this._render()
+        continue
+      }
+      if (s.startsWith(ESC + NL)) {
+        this._insertNewline()
+        s = s.slice(2)
+        this._render()
+        continue
+      }
 
       const ch = s[0]
       const code = s.charCodeAt(0)
@@ -1068,17 +1207,51 @@ export class LineEditor {
       // Ctrl+J (code 10) always inserts a newline; Ctrl+Enter
       // (ESC[13;5u) and Shift+Enter too.
       if (ch === CR) {
-        const before = this.cursor > 0 ? Array.from(this.buf)[this.cursor - 1] : ''
-        if (before === '\\') { this._insertNewline(); this._render(); continue }
-        this._submit(); continue
+        const before =
+          this.cursor > 0 ? Array.from(this.buf)[this.cursor - 1] : ''
+        if (before === '\\') {
+          this._insertNewline()
+          this._render()
+          continue
+        }
+        this._submit()
+        continue
       }
-      if (code === 10) { this._insertNewline(); this._render(); continue }
-      if (code === 3) { if (this.onCtrlC) this.onCtrlC(); continue }
-      if (code === 4) { if (!this.buf && this.onCtrlC) this.onCtrlC(); continue }
-      if (code === 1) { this._home(); this._render(); continue }
-      if (code === 5) { this._end(); this._render(); continue }
-      if (code === 9) { this._completeCommand(); this._render(); continue }
-      if (code === 21) { this.buf = ''; this.cursor = 0; this.pastes = []; this._render(); continue }
+      if (code === 10) {
+        this._insertNewline()
+        this._render()
+        continue
+      }
+      if (code === 3) {
+        if (this.onCtrlC) this.onCtrlC()
+        continue
+      }
+      if (code === 4) {
+        if (!this.buf && this.onCtrlC) this.onCtrlC()
+        continue
+      }
+      if (code === 1) {
+        this._home()
+        this._render()
+        continue
+      }
+      if (code === 5) {
+        this._end()
+        this._render()
+        continue
+      }
+      if (code === 9) {
+        this._completeCommand()
+        this._render()
+        continue
+      }
+      if (code === 21) {
+        this.buf = ''
+        this.cursor = 0
+        this.pastes = []
+        this._render()
+        continue
+      }
       if (code === 22) {
         // Ctrl+V: terminals rarely deliver an image as text here, so we try the
         // OS clipboard first; if there is no image we fall back to reading the
@@ -1086,7 +1259,11 @@ export class LineEditor {
         void this._tryClipboard()
         continue
       }
-      if (code === 23) { this._deleteWordLeft(); this._render(); continue }
+      if (code === 23) {
+        this._deleteWordLeft()
+        this._render()
+        continue
+      }
       if (code === 11) {
         // Ctrl+K — delete from the cursor to the end of the line.
         const arr = Array.from(this.buf)
@@ -1094,38 +1271,88 @@ export class LineEditor {
         while (e < arr.length && arr[e] !== NL) e++
         arr.splice(this.cursor, e - this.cursor)
         this.buf = arr.join('')
-        this._render(); continue
+        this._render()
+        continue
       }
-      if (code === 127 || code === 8) { this._backspace(); this._render(); continue }
+      if (code === 127 || code === 8) {
+        this._backspace()
+        this._render()
+        continue
+      }
 
       if (code === 27) {
         // Ctrl+Left / Ctrl+Right (xterm: ESC [1;5D / ESC [1;5C;
         // some terminals: ESC [5D / ESC [5C).
         if (s.startsWith('[1;5D') || s.startsWith('[5D')) {
-          this._wordLeft(); s = s.slice(s.startsWith('[1;5D') ? 5 : 3); this._render(); continue
+          this._wordLeft()
+          s = s.slice(s.startsWith('[1;5D') ? 5 : 3)
+          this._render()
+          continue
         }
         if (s.startsWith('[1;5C') || s.startsWith('[5C')) {
-          this._wordRight(); s = s.slice(s.startsWith('[1;5C') ? 5 : 3); this._render(); continue
+          this._wordRight()
+          s = s.slice(s.startsWith('[1;5C') ? 5 : 3)
+          this._render()
+          continue
         }
-        if (s.startsWith('[D')) { this._left(); s = s.slice(2); this._render(); continue }
-        if (s.startsWith('[C')) { this._right(); s = s.slice(2); this._render(); continue }
+        if (s.startsWith('[D')) {
+          this._left()
+          s = s.slice(2)
+          this._render()
+          continue
+        }
+        if (s.startsWith('[C')) {
+          this._right()
+          s = s.slice(2)
+          this._render()
+          continue
+        }
         if (s.startsWith('[A')) {
           // Up: on the first visual line — history, otherwise — the line above.
           if (this._onFirstVisualLine()) this._historyUp()
           else this._up()
-          s = s.slice(2); this._render(); continue
+          s = s.slice(2)
+          this._render()
+          continue
         }
         if (s.startsWith('[B')) {
           if (this._onLastVisualLine()) this._historyDown()
           else this._down()
-          s = s.slice(2); this._render(); continue
+          s = s.slice(2)
+          this._render()
+          continue
         }
-        if (s.startsWith('[H') || s.startsWith('[1~')) { this._home(); s = s.slice(s.startsWith('[1~') ? 3 : 2); this._render(); continue }
-        if (s.startsWith('[F') || s.startsWith('[4~')) { this._end(); s = s.slice(s.startsWith('[4~') ? 3 : 2); this._render(); continue }
-        if (s.startsWith('[3~')) { this._delete(); s = s.slice(3); this._render(); continue }
+        if (s.startsWith('[H') || s.startsWith('[1~')) {
+          this._home()
+          s = s.slice(s.startsWith('[1~') ? 3 : 2)
+          this._render()
+          continue
+        }
+        if (s.startsWith('[F') || s.startsWith('[4~')) {
+          this._end()
+          s = s.slice(s.startsWith('[4~') ? 3 : 2)
+          this._render()
+          continue
+        }
+        if (s.startsWith('[3~')) {
+          this._delete()
+          s = s.slice(3)
+          this._render()
+          continue
+        }
         // Alt+B / Alt+F — word movement.
-        if (s.startsWith('b') || s.startsWith('B')) { this._wordLeft(); s = s.slice(1); this._render(); continue }
-        if (s.startsWith('f') || s.startsWith('F')) { this._wordRight(); s = s.slice(1); this._render(); continue }
+        if (s.startsWith('b') || s.startsWith('B')) {
+          this._wordLeft()
+          s = s.slice(1)
+          this._render()
+          continue
+        }
+        if (s.startsWith('f') || s.startsWith('F')) {
+          this._wordRight()
+          s = s.slice(1)
+          this._render()
+          continue
+        }
         let j = 0
         while (j < s.length && !/[A-Za-z~]/.test(s[j])) j++
         s = s.slice(j + 1)
@@ -1149,10 +1376,20 @@ export function selftest() {
   ]
   for (const t of cases) {
     const r = layoutInput(t.p, t.b, t.c, t.w)
-    console.log(JSON.stringify({ rows: r.rows.length, row: r.cursorRow, col: r.cursorCol }))
+    console.log(
+      JSON.stringify({
+        rows: r.rows.length,
+        row: r.cursorRow,
+        col: r.cursorCol,
+      }),
+    )
   }
 }
 
-if (process.argv[1] && process.argv[1].endsWith('input.js') && process.argv.includes('--selftest')) {
+if (
+  process.argv[1] &&
+  process.argv[1].endsWith('input.js') &&
+  process.argv.includes('--selftest')
+) {
   selftest()
 }

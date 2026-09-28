@@ -38,9 +38,14 @@ test('SSE: сохраняет доллар и экранированный пе�
     tool: 'Write',
     args: { path: 'a.js', content },
   })
-  const out = extractFromSse(sseChunk({ choices: [{ delta: { content: payload } }] }))
+  const out = extractFromSse(
+    sseChunk({ choices: [{ delta: { content: payload } }] }),
+  )
   assert.ok(out.includes(D + '{x}'), 'доллар должен сохраниться: ' + out)
-  assert.ok(out.includes(literalN), 'экранированный перевод строки должен сохраниться')
+  assert.ok(
+    out.includes(literalN),
+    'экранированный перевод строки должен сохраниться',
+  )
 })
 
 test('JSON: достаёт content из простого ответа', () => {
@@ -66,13 +71,26 @@ test('extractAnswer: SSE имеет приоритет, иначе JSON', () => 
   assert.equal(extractAnswer(JSON.stringify({ content: 'json' })), 'json')
 })
 
-
 test('SSE: reasoning (THINK-фрагмент) не попадает в ответ', () => {
   const body =
-    sseChunk({ v: { response: { fragments: [{ id: 2, type: 'THINK', content: 'REASONING_START' }] } } }) +
-    sseChunk({ p: 'response/fragments/-1/content', o: 'APPEND', v: '_SECRET_REASONING' }) +
+    sseChunk({
+      v: {
+        response: {
+          fragments: [{ id: 2, type: 'THINK', content: 'REASONING_START' }],
+        },
+      },
+    }) +
+    sseChunk({
+      p: 'response/fragments/-1/content',
+      o: 'APPEND',
+      v: '_SECRET_REASONING',
+    }) +
     sseChunk({ v: '_MORE_REASONING' }) +
-    sseChunk({ p: 'response/fragments', o: 'APPEND', v: [{ id: 3, type: 'RESPONSE', content: 'REAL_ANSWER' }] }) +
+    sseChunk({
+      p: 'response/fragments',
+      o: 'APPEND',
+      v: [{ id: 3, type: 'RESPONSE', content: 'REAL_ANSWER' }],
+    }) +
     sseChunk({ p: 'response/fragments/-1/content', o: 'APPEND', v: '_PART2' }) +
     sseChunk({ v: '_END' })
   const out = extractFromSse(body)
@@ -83,7 +101,9 @@ test('extractAnswer: сохраняет tool-call с шаблонной стро
     tool: 'Bash',
     args: { command: 'echo ' + D + '{HOME}' },
   })
-  const out = extractAnswer(sseChunk({ choices: [{ delta: { content: call } }] }))
+  const out = extractAnswer(
+    sseChunk({ choices: [{ delta: { content: call } }] }),
+  )
   assert.equal(out, call)
 })
 
@@ -118,6 +138,8 @@ test('extractTokenUsage: no counter -> null (not 0)', () => {
 })
 
 test('extractTokenUsage: ignores non-numbers', () => {
-  const body = sseChunk({ v: { response: { accumulated_token_usage: 'nope' } } })
+  const body = sseChunk({
+    v: { response: { accumulated_token_usage: 'nope' } },
+  })
   assert.equal(extractTokenUsage(body), null)
 })

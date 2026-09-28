@@ -24,7 +24,8 @@ export function colorDiff(diffText: string): string {
   return diffText
     .split(String.fromCharCode(10))
     .map((line: string) => {
-      if (line.startsWith('+++') || line.startsWith('---')) return theme.bold(line)
+      if (line.startsWith('+++') || line.startsWith('---'))
+        return theme.bold(line)
       if (line.startsWith('+')) return theme.assistant(line)
       if (line.startsWith('-')) return theme.error(line)
       if (line.startsWith('...')) return theme.system(line)

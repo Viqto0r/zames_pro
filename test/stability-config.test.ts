@@ -8,20 +8,20 @@ import { DeepSeekBrowser } from '../src/browser.ts'
 // They are the real knobs now: verify the defaults are fast AND that the
 // constructor honors explicit values.
 test('stability defaults are fast (2 checks x 400ms)', () => {
- assert.equal(DEFAULTS.browser.stabilityChecks, 2)
- assert.equal(DEFAULTS.browser.stabilityDelayMs, 400)
+  assert.equal(DEFAULTS.browser.stabilityChecks, 2)
+  assert.equal(DEFAULTS.browser.stabilityDelayMs, 400)
 })
 
 test('DeepSeekBrowser stores stabilityChecks/stabilityDelayMs', () => {
- const b = new DeepSeekBrowser({
- stabilityChecks: 5,
- stabilityDelayMs: 123,
- })
- assert.equal(b.stabilityChecks, 5)
- assert.equal(b.stabilityDelayMs, 123)
+  const b = new DeepSeekBrowser({
+    stabilityChecks: 5,
+    stabilityDelayMs: 123,
+  })
+  assert.equal(b.stabilityChecks, 5)
+  assert.equal(b.stabilityDelayMs, 123)
 })
 
 test('stabilityChecks below 1 is still at least 1 tick', () => {
- const b = new DeepSeekBrowser({ stabilityChecks: 1 })
- assert.ok(b.stabilityChecks >= 1)
+  const b = new DeepSeekBrowser({ stabilityChecks: 1 })
+  assert.ok(b.stabilityChecks >= 1)
 })

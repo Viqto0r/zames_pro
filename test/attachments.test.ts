@@ -70,9 +70,24 @@ test('formatSize читаемый', () => {
 
 test('AttachmentStore нумерует картинки и файлы раздельно', () => {
   const s = new AttachmentStore()
-  const a1 = s.add({ path: '/tmp/a.png', name: 'a.png', mime: 'image/png', size: 10 })
-  const a2 = s.add({ path: '/tmp/b.txt', name: 'b.txt', mime: 'text/plain', size: 20 })
-  const a3 = s.add({ path: '/tmp/c.jpg', name: 'c.jpg', mime: 'image/jpeg', size: 30 })
+  const a1 = s.add({
+    path: '/tmp/a.png',
+    name: 'a.png',
+    mime: 'image/png',
+    size: 10,
+  })
+  const a2 = s.add({
+    path: '/tmp/b.txt',
+    name: 'b.txt',
+    mime: 'text/plain',
+    size: 20,
+  })
+  const a3 = s.add({
+    path: '/tmp/c.jpg',
+    name: 'c.jpg',
+    mime: 'image/jpeg',
+    size: 30,
+  })
   assert.equal(a1.marker, '[image#1]')
   assert.equal(a2.marker, '[file#1]')
   assert.equal(a3.marker, '[image#2]')

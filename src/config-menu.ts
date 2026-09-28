@@ -40,7 +40,8 @@ function displayValue(
   t: TranslateFn,
 ): string {
   if (value === undefined) return t('cfg.menu.default')
-  if (typeof value === 'boolean') return value ? t('common.on') : t('common.off')
+  if (typeof value === 'boolean')
+    return value ? t('common.on') : t('common.off')
   // Never print a password in clear text: show a fixed mask when set.
   if (/password/i.test(field.path) && String(value).length > 0) {
     return '********'
@@ -94,7 +95,9 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
       }
       const selected = i === cursor
       const marker = selected ? theme.prompt('\u276f ') : '  '
-      const label = selected ? theme.prompt(f.labelKey ? t(f.labelKey) : f.path) : t(f.labelKey || f.path)
+      const label = selected
+        ? theme.prompt(f.labelKey ? t(f.labelKey) : f.path)
+        : t(f.labelKey || f.path)
       const val = displayValue(f, get(f.path), t)
       const valText = selected ? theme.assistant(val) : theme.dim(val)
       const pathText = selected ? theme.dim('  ' + f.path) : ''

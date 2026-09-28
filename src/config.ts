@@ -132,31 +132,164 @@ export interface ConfigField {
 }
 
 export const CONFIG_SCHEMA: ConfigField[] = [
-  { path: 'ui.locale', type: 'enum', values: ['ru', 'en'], labelKey: 'cfg.f.ui_locale', groupKey: 'cfg.group.ui' },
- { path: 'maxIterations', type: 'number', min: 0, max: 100000, labelKey: 'cfg.f.maxIterations', groupKey: 'cfg.group.agent' },
-  { path: 'headless', type: 'boolean', labelKey: 'cfg.f.headless', groupKey: 'cfg.group.agent' },
-  { path: 'browser.auth.username', type: 'string', labelKey: 'cfg.f.browser_authUsername', groupKey: 'cfg.group.browser' },
-  { path: 'browser.auth.password', type: 'string', labelKey: 'cfg.f.browser_authPassword', groupKey: 'cfg.group.browser' },
-  { path: 'browser.auth.saveSession', type: 'boolean', labelKey: 'cfg.f.browser_authSaveSession', groupKey: 'cfg.group.browser' },
-  { path: 'debug', type: 'boolean', labelKey: 'cfg.f.debug', groupKey: 'cfg.group.agent' },
-  { path: 'hotReload', type: 'boolean', labelKey: 'cfg.f.hotReload', groupKey: 'cfg.group.agent' },
-  { path: 'confirmation.write', type: 'boolean', labelKey: 'cfg.f.confirmation_write', groupKey: 'cfg.group.confirmation' },
-  { path: 'confirmation.edit', type: 'boolean', labelKey: 'cfg.f.confirmation_edit', groupKey: 'cfg.group.confirmation' },
-  { path: 'confirmation.bash', type: 'boolean', labelKey: 'cfg.f.confirmation_bash', groupKey: 'cfg.group.confirmation' },
-  { path: 'undo.enabled', type: 'boolean', labelKey: 'cfg.f.undo_enabled', groupKey: 'cfg.group.undo' },
-  { path: 'undo.maxBackups', type: 'number', min: 1, max: 100000, labelKey: 'cfg.f.undo_maxBackups', groupKey: 'cfg.group.undo' },
-  { path: 'transcript.enabled', type: 'boolean', labelKey: 'cfg.f.transcript_enabled', groupKey: 'cfg.group.transcript' },
-  { path: 'browser.answerTimeoutMs', type: 'number', min: 1000, max: 3600000, labelKey: 'cfg.f.browser_answerTimeoutMs', groupKey: 'cfg.group.browser' },
-  { path: 'browser.askRetries', type: 'number', min: 1, max: 100, labelKey: 'cfg.f.browser_askRetries', groupKey: 'cfg.group.browser' },
-  { path: 'browser.stabilityChecks', type: 'number', min: 1, max: 100, labelKey: 'cfg.f.browser_stabilityChecks', groupKey: 'cfg.group.browser' },
-  { path: 'browser.stabilityDelayMs', type: 'number', min: 0, max: 60000, labelKey: 'cfg.f.browser_stabilityDelayMs', groupKey: 'cfg.group.browser' },
-  { path: 'browser.minSendIntervalMs', type: 'number', min: 0, max: 600000, labelKey: 'cfg.f.browser_minSendIntervalMs', groupKey: 'cfg.group.browser' },
-  { path: 'browser.rateLimitWaitMs', type: 'number', min: 0, max: 3600000, labelKey: 'cfg.f.browser_rateLimitWaitMs', groupKey: 'cfg.group.browser' },
-  { path: 'browser.maxRateLimitRetries', type: 'number', min: 0, max: 100, labelKey: 'cfg.f.browser_maxRateLimitRetries', groupKey: 'cfg.group.browser' },
-  { path: 'browser.deepThinking', type: 'boolean', labelKey: 'cfg.f.browser_deepThinking', groupKey: 'cfg.group.browser' },
-  { path: 'browser.webSearch', type: 'boolean', labelKey: 'cfg.f.browser_webSearch', groupKey: 'cfg.group.browser' },
+  {
+    path: 'ui.locale',
+    type: 'enum',
+    values: ['ru', 'en'],
+    labelKey: 'cfg.f.ui_locale',
+    groupKey: 'cfg.group.ui',
+  },
+  {
+    path: 'maxIterations',
+    type: 'number',
+    min: 0,
+    max: 100000,
+    labelKey: 'cfg.f.maxIterations',
+    groupKey: 'cfg.group.agent',
+  },
+  {
+    path: 'headless',
+    type: 'boolean',
+    labelKey: 'cfg.f.headless',
+    groupKey: 'cfg.group.agent',
+  },
+  {
+    path: 'browser.auth.username',
+    type: 'string',
+    labelKey: 'cfg.f.browser_authUsername',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'browser.auth.password',
+    type: 'string',
+    labelKey: 'cfg.f.browser_authPassword',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'browser.auth.saveSession',
+    type: 'boolean',
+    labelKey: 'cfg.f.browser_authSaveSession',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'debug',
+    type: 'boolean',
+    labelKey: 'cfg.f.debug',
+    groupKey: 'cfg.group.agent',
+  },
+  {
+    path: 'hotReload',
+    type: 'boolean',
+    labelKey: 'cfg.f.hotReload',
+    groupKey: 'cfg.group.agent',
+  },
+  {
+    path: 'confirmation.write',
+    type: 'boolean',
+    labelKey: 'cfg.f.confirmation_write',
+    groupKey: 'cfg.group.confirmation',
+  },
+  {
+    path: 'confirmation.edit',
+    type: 'boolean',
+    labelKey: 'cfg.f.confirmation_edit',
+    groupKey: 'cfg.group.confirmation',
+  },
+  {
+    path: 'confirmation.bash',
+    type: 'boolean',
+    labelKey: 'cfg.f.confirmation_bash',
+    groupKey: 'cfg.group.confirmation',
+  },
+  {
+    path: 'undo.enabled',
+    type: 'boolean',
+    labelKey: 'cfg.f.undo_enabled',
+    groupKey: 'cfg.group.undo',
+  },
+  {
+    path: 'undo.maxBackups',
+    type: 'number',
+    min: 1,
+    max: 100000,
+    labelKey: 'cfg.f.undo_maxBackups',
+    groupKey: 'cfg.group.undo',
+  },
+  {
+    path: 'transcript.enabled',
+    type: 'boolean',
+    labelKey: 'cfg.f.transcript_enabled',
+    groupKey: 'cfg.group.transcript',
+  },
+  {
+    path: 'browser.answerTimeoutMs',
+    type: 'number',
+    min: 1000,
+    max: 3600000,
+    labelKey: 'cfg.f.browser_answerTimeoutMs',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'browser.askRetries',
+    type: 'number',
+    min: 1,
+    max: 100,
+    labelKey: 'cfg.f.browser_askRetries',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'browser.stabilityChecks',
+    type: 'number',
+    min: 1,
+    max: 100,
+    labelKey: 'cfg.f.browser_stabilityChecks',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'browser.stabilityDelayMs',
+    type: 'number',
+    min: 0,
+    max: 60000,
+    labelKey: 'cfg.f.browser_stabilityDelayMs',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'browser.minSendIntervalMs',
+    type: 'number',
+    min: 0,
+    max: 600000,
+    labelKey: 'cfg.f.browser_minSendIntervalMs',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'browser.rateLimitWaitMs',
+    type: 'number',
+    min: 0,
+    max: 3600000,
+    labelKey: 'cfg.f.browser_rateLimitWaitMs',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'browser.maxRateLimitRetries',
+    type: 'number',
+    min: 0,
+    max: 100,
+    labelKey: 'cfg.f.browser_maxRateLimitRetries',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'browser.deepThinking',
+    type: 'boolean',
+    labelKey: 'cfg.f.browser_deepThinking',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'browser.webSearch',
+    type: 'boolean',
+    labelKey: 'cfg.f.browser_webSearch',
+    groupKey: 'cfg.group.browser',
+  },
 ]
-
 
 export function getConfigField(path: string): ConfigField | undefined {
   return CONFIG_SCHEMA.find((f) => f.path === path)
@@ -174,7 +307,11 @@ export function getByPath(obj: unknown, path: string): unknown {
   return cur
 }
 
-export function setByPath(obj: Record<string, unknown>, path: string, value: unknown): void {
+export function setByPath(
+  obj: Record<string, unknown>,
+  path: string,
+  value: unknown,
+): void {
   const parts = path.split('.')
   let cur: Record<string, unknown> = obj
   for (let i = 0; i < parts.length - 1; i++) {
@@ -190,7 +327,8 @@ function parseConfigValue(field: ConfigField, raw: string): unknown {
     case 'boolean': {
       const s = raw.trim().toLowerCase()
       if (['true', '1', 'yes', 'y', 'on', 'да', 'вкл'].includes(s)) return true
-      if (['false', '0', 'no', 'n', 'off', 'нет', 'выкл'].includes(s)) return false
+      if (['false', '0', 'no', 'n', 'off', 'нет', 'выкл'].includes(s))
+        return false
       throw new Error('boolean')
     }
     case 'number': {

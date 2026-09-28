@@ -40,7 +40,9 @@ export function createTools(
       const target = path.resolve(root, raw)
       const rel = path.relative(root, target)
       if (rel.startsWith('..') || path.isAbsolute(rel)) {
-        throw new Error('Sandbox: leaving ' + root + ' is forbidden (cd ' + raw + ')')
+        throw new Error(
+          'Sandbox: leaving ' + root + ' is forbidden (cd ' + raw + ')',
+        )
       }
     }
   }
@@ -93,10 +95,7 @@ export function createTools(
   // channel that delivers the model's answer may corrupt characters ($,
   // backslashes, newlines). base64 consists only of [A-Za-z0-9+/=] and is not
   // subject to corruption.
-  const decodeContent = (
-    content: unknown,
-    contentBase64: unknown,
-  ): string => {
+  const decodeContent = (content: unknown, contentBase64: unknown): string => {
     if (typeof contentBase64 === 'string' && contentBase64.length) {
       return Buffer.from(contentBase64, 'base64').toString('utf-8')
     }
@@ -184,7 +183,13 @@ export function createTools(
         old_base64: 'string?',
         new_base64: 'string?',
       },
-      fn: async ({ path: p, old_string, new_string, old_base64, new_base64 }: ToolArgs) => {
+      fn: async ({
+        path: p,
+        old_string,
+        new_string,
+        old_base64,
+        new_base64,
+      }: ToolArgs) => {
         const file = safe(req(p, 'path'))
         const oldStr = decodeContent(old_string, old_base64)
         const newStr = decodeContent(new_string, new_base64)
@@ -268,11 +273,7 @@ export function createTools(
           return runShell(`findstr /s /n /r /c:"${escaped}" ` + scope)
         }
         const flags =
-          mode === 'files_only'
-            ? '-rlE'
-            : mode === 'count'
-              ? '-rcE'
-              : '-rnE'
+          mode === 'files_only' ? '-rlE' : mode === 'count' ? '-rcE' : '-rnE'
         const includeArg = inc ? ' --include=' + JSON.stringify(inc) : ''
         return runShell(
           `grep ${flags}${includeArg} ${JSON.stringify(pat)} ` +

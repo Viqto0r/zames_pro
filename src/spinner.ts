@@ -125,7 +125,10 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
       // so the countdown refreshes without resetting the dots.
       if (animating && dotTimer && spinner) {
         animBase = theme.brown(stripEllipsis(label))
-        spinner.text = animBase + theme.brown(DOTS[dotPhase] + DOTS_PAD.slice(DOTS[dotPhase].length)) + HINT
+        spinner.text =
+          animBase +
+          theme.brown(DOTS[dotPhase] + DOTS_PAD.slice(DOTS[dotPhase].length)) +
+          HINT
         return
       }
       startAnimated(label)
@@ -148,7 +151,10 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
     toolResult: (result: unknown) => {
       stop()
       const text = typeof result === 'string' ? result : JSON.stringify(result)
-      const preview = text.slice(0, 200).split(String.fromCharCode(10)).join(' ↵ ')
+      const preview = text
+        .slice(0, 200)
+        .split(String.fromCharCode(10))
+        .join(' ↵ ')
       console.log(theme.toolResult('   → ' + preview + String.fromCharCode(10)))
     },
 

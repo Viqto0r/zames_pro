@@ -5,7 +5,10 @@ import type { ToolDef, BrowserLike } from '../src/types.ts'
 
 const Q = String.fromCharCode(34)
 
-function makeBrowser(script: string[]): { browser: BrowserLike; asks: string[] } {
+function makeBrowser(script: string[]): {
+  browser: BrowserLike
+  asks: string[]
+} {
   let i = 0
   const asks: string[] = []
   const browser: BrowserLike = {
@@ -17,10 +20,18 @@ function makeBrowser(script: string[]): { browser: BrowserLike; asks: string[] }
       return r
     },
     async newChat() {},
-    async getCurrentChatId() { return 'chat-xyz' },
-    async stopGeneration() { return true },
-    async listChats() { return [] },
-    async openChat() { return true },
+    async getCurrentChatId() {
+      return 'chat-xyz'
+    },
+    async stopGeneration() {
+      return true
+    },
+    async listChats() {
+      return []
+    },
+    async openChat() {
+      return true
+    },
     async close() {},
   }
   return { browser, asks }

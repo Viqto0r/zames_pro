@@ -58,7 +58,9 @@ function quoteArgs(input: string | string[]): string {
 }
 
 // Checks whether the directory is a git repository and gathers the context.
-export async function getGitContext(workdir: string): Promise<GitContext | null> {
+export async function getGitContext(
+  workdir: string,
+): Promise<GitContext | null> {
   const probe = await runGit(
     'git rev-parse --is-inside-work-tree',
     workdir,
@@ -88,7 +90,9 @@ export async function getGitContext(workdir: string): Promise<GitContext | null>
 
   let ahead = 0
   let behind = 0
-  const m = aheadR.match(new RegExp('^(' + BS + 'd+)' + BS + 's+(' + BS + 'd+)'))
+  const m = aheadR.match(
+    new RegExp('^(' + BS + 'd+)' + BS + 's+(' + BS + 'd+)'),
+  )
   if (m) {
     behind = Number(m[1])
     ahead = Number(m[2])

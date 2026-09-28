@@ -74,7 +74,8 @@ export function extractFromSse(body: string): string {
         }
       }
       const lastFrag = frags[frags.length - 1]
-      if (lastFrag && typeof lastFrag.type === 'string') lastType = lastFrag.type
+      if (lastFrag && typeof lastFrag.type === 'string')
+        lastType = lastFrag.type
       continue
     }
 
@@ -89,7 +90,8 @@ export function extractFromSse(body: string): string {
         }
       }
       const lastFrag = frags[frags.length - 1]
-      if (lastFrag && typeof lastFrag.type === 'string') lastType = lastFrag.type
+      if (lastFrag && typeof lastFrag.type === 'string')
+        lastType = lastFrag.type
       continue
     }
 
@@ -219,6 +221,10 @@ export async function dumpNetBody(url: string, body: string): Promise<void> {
     await fs.mkdir(dir, { recursive: true })
     const stamp = new Date().toISOString().replace(/[:.]/g, '-')
     const safe = url.replace(/[^a-zA-Z0-9_.-]/g, '_').slice(0, 80)
-    await fs.writeFile(path.join(dir, stamp + '_' + safe + '.txt'), body, 'utf-8')
+    await fs.writeFile(
+      path.join(dir, stamp + '_' + safe + '.txt'),
+      body,
+      'utf-8',
+    )
   } catch {}
 }

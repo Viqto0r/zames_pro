@@ -21,7 +21,8 @@ test('unifiedDiff на одинаковых строках пуст', () => {
 })
 
 test('visLen игнорирует ANSI-последовательности', () => {
-  const red = String.fromCharCode(27) + '[31m' + 'abc' + String.fromCharCode(27) + '[0m'
+  const red =
+    String.fromCharCode(27) + '[31m' + 'abc' + String.fromCharCode(27) + '[0m'
   assert.equal(visLen(red), 3)
   assert.equal(visLen('abc'), 3)
 })
@@ -44,19 +45,34 @@ test('layoutInput учитывает переводы строк во вводе
 
 test('buildSystemPrompt включает описания инструментов и рабочую директорию', () => {
   const tools: ToolDef[] = [
-    { name: 'Read', description: 'прочитать', parameters: { path: 'string' }, fn: async () => '' },
+    {
+      name: 'Read',
+      description: 'прочитать',
+      parameters: { path: 'string' },
+      fn: async () => '',
+    },
   ]
-  const sp = buildSystemPrompt({ workdir: '/work/dir', tools, gitContext: 'ctx' })
+  const sp = buildSystemPrompt({
+    workdir: '/work/dir',
+    tools,
+    gitContext: 'ctx',
+  })
   assert.ok(sp.includes('/work/dir'), 'workdir должен быть в промпте')
-  assert.ok(sp.includes('### Read'), 'описание инструмента должно быть в промпте')
+  assert.ok(
+    sp.includes('### Read'),
+    'описание инструмента должно быть в промпте',
+  )
   assert.ok(sp.includes('SILENT OPERATION'), 'правила должны быть в промпте')
 })
 
 test('buildSystemPrompt добавляет git-контекст, если он есть', () => {
-  const sp = buildSystemPrompt({ workdir: '/w', tools: [], gitContext: 'BRANCH-INFO' })
+  const sp = buildSystemPrompt({
+    workdir: '/w',
+    tools: [],
+    gitContext: 'BRANCH-INFO',
+  })
   assert.ok(sp.includes('BRANCH-INFO'), sp)
 })
-
 
 import { isRateLimitText, RateLimitError } from '../src/browser.ts'
 
@@ -128,8 +144,12 @@ test('lock блокирует ввод и submit, Ctrl+C проходит', () =
   // hint, otherwise "operation in progress" stays on screen forever.
   let submitted = ''
   let aborted = 0
-  e.onSubmit = (t) => { submitted = t }
-  e.onCtrlC = () => { aborted++ }
+  e.onSubmit = (t) => {
+    submitted = t
+  }
+  e.onCtrlC = () => {
+    aborted++
+  }
   const CRc = String.fromCharCode(13)
   const CTRL_C = String.fromCharCode(3)
 
@@ -164,7 +184,9 @@ test('Enter после «\\» удаляет «\\» и переносит стр
   e._render = () => {}
   e.printAbove = () => {}
   let submitted = ''
-  e.onSubmit = (t) => { submitted = t }
+  e.onSubmit = (t) => {
+    submitted = t
+  }
   const CRc = String.fromCharCode(13)
 
   // A plain Enter — submit.
@@ -219,7 +241,10 @@ test('buildSystemPrompt локализует инструкцию о языке 
 test('buildSystemPrompt содержит жёсткий блок ONLY TOOL CALLS', () => {
   const sp = buildSystemPrompt({ workdir: '/w', tools: [] })
   // Default locale is ru; the English heading appears with locale: 'en'.
-  assert.ok(sp.includes('ТОЛЬКО ВЫЗОВЫ ИНСТРУМЕНТОВ'), 'блок должен присутствовать')
+  assert.ok(
+    sp.includes('ТОЛЬКО ВЫЗОВЫ ИНСТРУМЕНТОВ'),
+    'блок должен присутствовать',
+  )
   // The block must explicitly forbid plain prose between calls.
   assert.ok(/ТОЛЬКО через вызовы инструментов/.test(sp))
   assert.ok(/respond/.test(sp))

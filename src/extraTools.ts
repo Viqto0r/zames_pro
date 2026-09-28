@@ -89,7 +89,10 @@ export function parsePatch(text: string): { ops: PatchOp[]; error?: string } {
   const beginIdx = raw.indexOf('*** Begin Patch')
   const endIdx = raw.lastIndexOf('*** End Patch')
   const beginLineEnd = raw.indexOf(NL, beginIdx)
-  const body = raw.slice(beginLineEnd === -1 ? beginIdx : beginLineEnd + 1, endIdx)
+  const body = raw.slice(
+    beginLineEnd === -1 ? beginIdx : beginLineEnd + 1,
+    endIdx,
+  )
 
   const ops: PatchOp[] = []
   let current: PatchOp | null = null
@@ -101,7 +104,10 @@ export function parsePatch(text: string): { ops: PatchOp[]; error?: string } {
       const file = header[2].trim()
       if (!file) return { ops: [], error: 'Patch header has an empty path.' }
       if (path.isAbsolute(file) || /(^|[\\/])\.\.([\\/]|$)/.test(file)) {
-        return { ops: [], error: 'Patch path must stay inside the project: ' + file }
+        return {
+          ops: [],
+          error: 'Patch path must stay inside the project: ' + file,
+        }
       }
       current = { op: kind as PatchOp['op'], file, lines: [] }
       ops.push(current)
@@ -110,7 +116,8 @@ export function parsePatch(text: string): { ops: PatchOp[]; error?: string } {
     if (current) current.lines.push(line)
   }
 
-  if (!ops.length) return { ops: [], error: 'Patch contains no file operations.' }
+  if (!ops.length)
+    return { ops: [], error: 'Patch contains no file operations.' }
   return { ops }
 }
 
@@ -148,7 +155,10 @@ export function applyUpdateHunk(
   }
 
   if (!oldLines.length) {
-    return { ok: false, error: 'Hunk has no context or removed lines to anchor on.' }
+    return {
+      ok: false,
+      error: 'Hunk has no context or removed lines to anchor on.',
+    }
   }
 
   const norm = (s: string, mode: string): string => {
@@ -170,7 +180,9 @@ export function applyUpdateHunk(
       if (!match) continue
       const before = fileLines.slice(0, i)
       const after = fileLines.slice(i + anchor.length)
-      const joined = [...before, ...newLines, ...after].join(hasCRLF ? '\r\n' : NL)
+      const joined = [...before, ...newLines, ...after].join(
+        hasCRLF ? '\r\n' : NL,
+      )
       return { ok: true, content: joined }
     }
   }
@@ -271,7 +283,9 @@ export function createExtraTools(
           replace_all?: boolean
         }>
         if (typeof edits_base64 === 'string' && edits_base64.length) {
-          list = JSON.parse(Buffer.from(edits_base64, 'base64').toString('utf-8'))
+          list = JSON.parse(
+            Buffer.from(edits_base64, 'base64').toString('utf-8'),
+          )
         } else if (Array.isArray(edits)) {
           list = edits as typeof list
         } else {
@@ -321,7 +335,9 @@ export function createExtraTools(
       fn: async ({ todos, todos_base64 }: ToolArgs) => {
         let list: unknown[]
         if (typeof todos_base64 === 'string' && todos_base64.length) {
-          list = JSON.parse(Buffer.from(todos_base64, 'base64').toString('utf-8'))
+          list = JSON.parse(
+            Buffer.from(todos_base64, 'base64').toString('utf-8'),
+          )
         } else if (Array.isArray(todos)) {
           list = todos
         } else {

@@ -14,21 +14,29 @@ export interface BuildSystemPromptOptions {
 }
 
 /** Render the AGENTS.md / MEMORY / skills / commands blocks of the prompt. */
-export function renderContextSection(context: LoadedContext | null | undefined): string {
+export function renderContextSection(
+  context: LoadedContext | null | undefined,
+): string {
   if (!context) return ''
   let out = ''
 
   for (const f of context.agents) {
     out +=
-      '\n## Project instructions (' + f.path + ')\n\n' +
-      'The following come from ' + f.path + '. Follow them for this project unless the operator explicitly overrides them.\n\n' +
+      '\n## Project instructions (' +
+      f.path +
+      ')\n\n' +
+      'The following come from ' +
+      f.path +
+      '. Follow them for this project unless the operator explicitly overrides them.\n\n' +
       f.content +
       '\n'
   }
 
   for (const f of context.memory) {
     out +=
-      '\n## Memory (' + f.path + ')\n\n' +
+      '\n## Memory (' +
+      f.path +
+      ')\n\n' +
       'Durable notes accumulated across sessions. Treat as background knowledge; update this file when you learn something worth remembering.\n\n' +
       f.content +
       '\n'
@@ -36,16 +44,27 @@ export function renderContextSection(context: LoadedContext | null | undefined):
   if (context.memory.length) {
     out +=
       '\nWhen you learn a durable fact about this project or the operator preferences (build quirks, ' +
-      'conventions, gotchas), append a short bullet to ' + context.memory[0].path + ' via Edit/Write so it survives ' +
+      'conventions, gotchas), append a short bullet to ' +
+      context.memory[0].path +
+      ' via Edit/Write so it survives ' +
       'into future sessions. Keep entries concise.\n'
   }
 
   if (context.skills.length) {
     const lines = context.skills.map((s) => {
-      const tools = s.allowedTools && s.allowedTools.length
-        ? ' [tools: ' + s.allowedTools.join(', ') + ']'
-        : ''
-      return '- ' + s.name + tools + ': ' + (s.description || '(no description)') + '\n  file: ' + s.path
+      const tools =
+        s.allowedTools && s.allowedTools.length
+          ? ' [tools: ' + s.allowedTools.join(', ') + ']'
+          : ''
+      return (
+        '- ' +
+        s.name +
+        tools +
+        ': ' +
+        (s.description || '(no description)') +
+        '\n  file: ' +
+        s.path
+      )
     })
     out +=
       '\n## Skills\n\n' +

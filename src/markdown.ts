@@ -53,8 +53,7 @@ export function renderMarkdown(text: string): string {
     return render(String(text), {
       width: Math.min(process.stdout.columns || 80, 100),
       theme: theme as unknown as Parameters<typeof render>[1] extends
-        | { theme?: infer T }
-        | undefined
+        { theme?: infer T } | undefined
         ? T
         : never,
       highlighter,

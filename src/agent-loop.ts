@@ -101,7 +101,7 @@ export async function runAgentLoop({
     try {
       id = await browser.getCurrentChatId()
     } catch {
-      id = null
+      // keep id = null
     }
     if (id && id !== lastReportedChatId) {
       lastReportedChatId = id
@@ -111,7 +111,7 @@ export async function runAgentLoop({
   await reportChat()
 
   if (sendSystemPrompt) {
-    let gitText = null
+    let gitText: string
     try {
       const ctx = await getGitContext(workdir)
       gitText = formatGitContext(ctx)
@@ -119,7 +119,7 @@ export async function runAgentLoop({
       gitText = `(git context error: ${(e as Error).message})`
     }
 
-    let context = null
+    let context: Awaited<ReturnType<typeof loadProjectContext>> | null
     try {
       context = await loadProjectContext(workdir)
     } catch {
@@ -201,36 +201,36 @@ export async function runAgentLoop({
   let looksDoneRetries = 0
   const MAX_LOOKSDONE_RETRIES = 3
 
- // Watchdog against the agent emitting a tool call and then going silent.
- // After a tool result the expected next answer is a fresh tool call; if we
- // instead get an EMPTY answer or the EXACT same answer as the previous turn
- // (a sign the new message was not sent), we nudge instead of stopping.
- let lastRaw = ''
- // True when the PREVIOUS turn actually executed a tool. This is what
- // makes a repeated answer "stale": the tool already ran, so running it
- // again would duplicate side effects. If the previous answer looked like a
- // call but was not recognized (e.g. a DSML/XML form the strict parser
- // missed), the tool did NOT run and the echo is the only copy of the
- // call — it must be executed, not discarded as stale.
- // const ranToolLastTurn follows the previous turn's actual effect.
- let lastTurnRanTool = false
- let justRanTool = false
- let watchdogRetries = 0
- const MAX_WATCHDOG_RETRIES = 3
+  // Watchdog against the agent emitting a tool call and then going silent.
+  // After a tool result the expected next answer is a fresh tool call; if we
+  // instead get an EMPTY answer or the EXACT same answer as the previous turn
+  // (a sign the new message was not sent), we nudge instead of stopping.
+  let lastRaw = ''
+  // True when the PREVIOUS turn actually executed a tool. This is what
+  // makes a repeated answer "stale": the tool already ran, so running it
+  // again would duplicate side effects. If the previous answer looked like a
+  // call but was not recognized (e.g. a DSML/XML form the strict parser
+  // missed), the tool did NOT run and the echo is the only copy of the
+  // call — it must be executed, not discarded as stale.
+  // const ranToolLastTurn follows the previous turn's actual effect.
+  let lastTurnRanTool = false
+  let justRanTool = false
+  let watchdogRetries = 0
+  const MAX_WATCHDOG_RETRIES = 3
 
- // Retry budget for a browser.ask() TIMEOUT (not for content): the send did
- // not come back in time. This is separate from unparsedRetries because a
- // timeout is an infrastructure failure, not a model protocol violation.
- let afterToolRetries = 0
- // toolsRanInTask: how many tools actually ran in THIS task. The protocol
- // guard uses it to tell "started, then slipped into chat mode" (a reasoning
- // paragraph that is neither a tool call nor a real respond) from a genuine
- // short answer. We key on the STRUCTURE (work already started), not words.
- let toolsRanInTask = 0
- const MAX_AFTER_TOOL_RETRIES = 6
+  // Retry budget for a browser.ask() TIMEOUT (not for content): the send did
+  // not come back in time. This is separate from unparsedRetries because a
+  // timeout is an infrastructure failure, not a model protocol violation.
+  let afterToolRetries = 0
+  // toolsRanInTask: how many tools actually ran in THIS task. The protocol
+  // guard uses it to tell "started, then slipped into chat mode" (a reasoning
+  // paragraph that is neither a tool call nor a real respond) from a genuine
+  // short answer. We key on the STRUCTURE (work already started), not words.
+  let toolsRanInTask = 0
+  const MAX_AFTER_TOOL_RETRIES = 6
 
-  const iterCap = maxIterations > 0 ? maxIterations : 100000;
- for (let i = 0; i < iterCap; i++) {
+  const iterCap = maxIterations > 0 ? maxIterations : 100000
+  for (let i = 0; i < iterCap; i++) {
     // NOTE: the spinner is NOT started here. browser.onSendStart fires it
     // right when the message is actually typed/sent (after the send-pause),
     // so no spinner runs during the pre-send phase.
@@ -284,7 +284,8 @@ export async function runAgentLoop({
         continue
       }
       transcript?.log('ask_timeout_exhausted', {
-        message: 'ask() did not return an answer and the retry limit is exhausted',
+        message:
+          'ask() did not return an answer and the retry limit is exhausted',
       })
       safeWarning(translate(locale)('ds.answer_timeout_give_up'))
       return 'ask() watchdog: no model answer received'
@@ -297,7 +298,6 @@ export async function runAgentLoop({
       transcript?.log('user_aborted')
       return rawResponse
     }
-
 
     // Watchdog: after a tool result we expect a FRESH tool call. DeepSeek
     // regularly stops right here; the answer may be (a) empty, (b) an exact
@@ -337,7 +337,11 @@ export async function runAgentLoop({
     // A stale answer is discarded only when it does NOT parse as a tool
     // call (see wdStale above); an echo of a call that never ran is a real
     // call and must be executed, not dropped.
-    if (!isFirst && (wdEmpty || wdStale || wdNoCall) && watchdogRetries < MAX_WATCHDOG_RETRIES) {
+    if (
+      !isFirst &&
+      (wdEmpty || wdStale || wdNoCall) &&
+      watchdogRetries < MAX_WATCHDOG_RETRIES
+    ) {
       watchdogRetries++
       transcript?.log('watchdog_nudge', {
         attempt: watchdogRetries,
@@ -399,15 +403,15 @@ export async function runAgentLoop({
               ')',
           )
         }
- const large = String(rawResponse || '').length > 3000
- const truncHint = large
-  ? 'Your call was too long and got cut off. Do NOT resend the same huge call: split it. For a large file use Write with small content_base64 pieces, or write several smaller files. Keep each tool call under about 2000 characters.'
-  : 'For example: a small JSON tool-call object'
+        const large = String(rawResponse || '').length > 3000
+        const truncHint = large
+          ? 'Your call was too long and got cut off. Do NOT resend the same huge call: split it. For a large file use Write with small content_base64 pieces, or write several smaller files. Keep each tool call under about 2000 characters.'
+          : 'For example: a small JSON tool-call object'
         message =
           'Your previous answer was not recognized as a tool call. ' +
           'Reply with EXACTLY one JSON tool-call object, no text before or after. ' +
           'Do NOT use XML/DSML tags — plain JSON only. ' +
- truncHint
+          truncHint
         continue
       }
 
@@ -424,7 +428,7 @@ export async function runAgentLoop({
           trimmed,
         ) ||
         (trimmed.length <= 200 &&
- /(messages? too frequent|too many requests|rate limit|server (is )?busy|service (is )?unavailable|слишком часто|try again later)/i.test(
+          /(messages? too frequent|too many requests|rate limit|server (is )?busy|service (is )?unavailable|слишком часто|try again later)/i.test(
             trimmed,
           ))
       if (looksService && stallRetries < MAX_STALL_RETRIES) {
@@ -455,7 +459,10 @@ export async function runAgentLoop({
       // README…" or "Let me run the tests…" and goes silent. If this is taken
       // as final, the agent stalls without doing the work. We ask it to
       // continue and to actually call a tool this time (or respond if truly done).
-      if (looksLikeUnfinishedWork(trimmed) && looksDoneRetries < MAX_LOOKSDONE_RETRIES) {
+      if (
+        looksLikeUnfinishedWork(trimmed) &&
+        looksDoneRetries < MAX_LOOKSDONE_RETRIES
+      ) {
         looksDoneRetries++
         unparsedRetries++
         transcript?.log('unfinished_retry', {
@@ -537,18 +544,19 @@ export async function runAgentLoop({
       // match words here - the STRUCTURE (toolsRanInTask > 0) is the signal.
       if (toolsRanInTask > 0) {
         transcript?.log('protocol_violation_final', {
-        response: rawResponse.slice(0, 500),
+          response: rawResponse.slice(0, 500),
         })
         safeWarning(translate(locale)('msg.suspicious_stop'))
         // The model stopped calling tools mid-task. Surface the last text as
         // a READABLE report, but say explicitly that the task may be incomplete:
         // never let a reasoning paragraph masquerade as a finished result.
         const lastText = (rawResponse || '').trim()
-        return (
-        lastText
-        ? lastText + String.fromCharCode(10) + String.fromCharCode(10) + '(The model stopped calling tools before finishing. The task may be incomplete - check the DeepSeek chat.)'
-        : 'The model stopped calling tools before finishing the task.'
-        )
+        return lastText
+          ? lastText +
+              String.fromCharCode(10) +
+              String.fromCharCode(10) +
+              '(The model stopped calling tools before finishing. The task may be incomplete - check the DeepSeek chat.)'
+          : 'The model stopped calling tools before finishing the task.'
       }
       const suspiciousFinal =
         responseLooksLikeToolCall(rawResponse) ||
@@ -662,23 +670,23 @@ export async function runAgentLoop({
     }
 
     // A tool just ran — the next answer is expected to be a fresh tool call.
- // Reset the watchdog so the next empty/repeated answer is nudged.
- justRanTool = true
- toolsRanInTask++
- // The tool really executed on this turn. The NEXT iteration will treat
- // a repeat of this answer as stale only because of this flag (see NEXT,
- // not the current, justRanTool check).
- lastTurnRanTool = true
- watchdogRetries = 0
- // A fresh tool call just ran: reset the per-tool-result nudge budget so
- // a long chain of tools is not cut off by an earlier bad turn.
- afterToolRetries = 0
- // Real progress was made, so the "unparsed answer" budget is replenished:
- // a long chain of tools must not run out of it because of earlier hiccups.
- unparsedRetries = 0
- finalRespondAsked = false
+    // Reset the watchdog so the next empty/repeated answer is nudged.
+    justRanTool = true
+    toolsRanInTask++
+    // The tool really executed on this turn. The NEXT iteration will treat
+    // a repeat of this answer as stale only because of this flag (see NEXT,
+    // not the current, justRanTool check).
+    lastTurnRanTool = true
+    watchdogRetries = 0
+    // A fresh tool call just ran: reset the per-tool-result nudge budget so
+    // a long chain of tools is not cut off by an earlier bad turn.
+    afterToolRetries = 0
+    // Real progress was made, so the "unparsed answer" budget is replenished:
+    // a long chain of tools must not run out of it because of earlier hiccups.
+    unparsedRetries = 0
+    finalRespondAsked = false
 
- if (results.length === 1) {
+    if (results.length === 1) {
       const r = results[0]
       const resultStr =
         typeof r.result === 'string' ? r.result : JSON.stringify(r.result)
@@ -721,10 +729,10 @@ export function responseLooksLikeToolCall(rawResponse: string): boolean {
     // argument key (args/command/path/...). We require the opening bracket at
     // the start (after spaces/prefix) so we don't catch ordinary prose with
     // colons like "path: ...".
-    /^\s*[\[\{]/.test(raw) &&
+    (/^\s*[\[\{]/.test(raw) &&
       /["']?(?:tool|args|command|path|old_string|content|content_base64)["']?\s*:/.test(
         raw,
-      ) ||
+      )) ||
     /<\s*\|?\s*(DSML|invoke|parameter)/i.test(raw) ||
     /^\s*\[?\s*\{[^}]*$/.test(raw.trim())
   )
@@ -945,7 +953,7 @@ function parseArgsPermissive(str: string): ToolArgs | null {
     if (i >= str.length || str[i] === '}') break
 
     if (str[i] !== '"') return null
-    let keyEnd = str.indexOf('"', i + 1)
+    const keyEnd = str.indexOf('"', i + 1)
     if (keyEnd === -1) return null
     const key = str.slice(i + 1, keyEnd)
     i = keyEnd + 1
@@ -1092,7 +1100,9 @@ function parseToolCallPermissive(
     if (braceIdx === -1) return null
     const endBrace = findMatching(text, braceIdx, '{', '}')
     const objText =
-      endBrace === -1 ? text.slice(braceIdx) : text.slice(braceIdx, endBrace + 1)
+      endBrace === -1
+        ? text.slice(braceIdx)
+        : text.slice(braceIdx, endBrace + 1)
     const inlineArgs = parseArgsPermissive(objText) || parseArgsGreedy(objText)
     if (!inlineArgs) return null
     delete inlineArgs.tool
@@ -1270,7 +1280,9 @@ function normalizePseudoJson(str: string): string {
 // balance the key quotes.
 function repairToolCallPreamble(text: string): string | null {
   const t = (text || '').trim()
-  const m = t.match(/(?:^|[^A-Za-z0-9_])(?:\*\*)?(tool)(?:\*\*)?["'`\u2018\u2019\u201c\u201d]*\s*:/)
+  const m = t.match(
+    /(?:^|[^A-Za-z0-9_])(?:\*\*)?(tool)(?:\*\*)?["'`\u2018\u2019\u201c\u201d]*\s*:/,
+  )
   if (!m || m.index === undefined) return null
   // We look for the start from the first quote/bracket around the key, otherwise from the word tool.
   let start = m.index

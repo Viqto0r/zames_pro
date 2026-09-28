@@ -5,16 +5,33 @@ import type { ToolDef, BrowserLike } from '../src/types.ts'
 
 const NL = String.fromCharCode(10)
 
-function makeBrowser(script: string[]): { browser: BrowserLike; asks: string[] } {
+function makeBrowser(script: string[]): {
+  browser: BrowserLike
+  asks: string[]
+} {
   let i = 0
   const asks: string[] = []
   const browser: BrowserLike = {
-    async ask(text: string) { asks.push(text); const r = script[i]; i++; if (r === undefined) throw new Error('script exhausted'); return r },
+    async ask(text: string) {
+      asks.push(text)
+      const r = script[i]
+      i++
+      if (r === undefined) throw new Error('script exhausted')
+      return r
+    },
     async newChat() {},
-    async getCurrentChatId() { return 'chat-xyz' },
-    async stopGeneration() { return true },
-    async listChats() { return [] },
-    async openChat() { return true },
+    async getCurrentChatId() {
+      return 'chat-xyz'
+    },
+    async stopGeneration() {
+      return true
+    },
+    async listChats() {
+      return []
+    },
+    async openChat() {
+      return true
+    },
     async close() {},
   }
   return { browser, asks }
@@ -38,8 +55,11 @@ const respondTool: ToolDef = {
 test('large truncated tool call -> nudge says to split the call', async () => {
   const big = 'x'.repeat(4000)
   const truncated =
-    'Now let me write the file.' + NL + NL +
-    '{"tool":"Write","args":{"path":"src/big.ts","content":"' + big
+    'Now let me write the file.' +
+    NL +
+    NL +
+    '{"tool":"Write","args":{"path":"src/big.ts","content":"' +
+    big
   const { browser, asks } = makeBrowser([
     truncated,
     jsonCall('respond', { message: 'done' }),
@@ -53,7 +73,10 @@ test('large truncated tool call -> nudge says to split the call', async () => {
   assert.equal(result, 'done')
   const nudge = asks[1]
   assert.ok(/split/i.test(nudge), 'nudge should mention splitting: ' + nudge)
-  assert.ok(/content_base64/.test(nudge), 'nudge should mention content_base64: ' + nudge)
+  assert.ok(
+    /content_base64/.test(nudge),
+    'nudge should mention content_base64: ' + nudge,
+  )
 })
 
 // A SHORT malformed call keeps the generic example nudge (no split advice).
@@ -62,7 +85,15 @@ test('short malformed tool call -> generic nudge, no split advice', async () => 
     '{"tool": "Bash", "args": {"comm',
     jsonCall('respond', { message: 'ok' }),
   ])
-  await runAgentLoop({ browser, tools: [respondTool], task: 'x', workdir: process.cwd() })
+  await runAgentLoop({
+    browser,
+    tools: [respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+  })
   const nudge = asks[1]
-  assert.ok(!/content_base64/.test(nudge), 'short call should not get the split advice: ' + nudge)
+  assert.ok(
+    !/content_base64/.test(nudge),
+    'short call should not get the split advice: ' + nudge,
+  )
 })

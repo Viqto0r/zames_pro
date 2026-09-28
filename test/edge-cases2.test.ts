@@ -21,7 +21,11 @@ test('Edit корректно заменяет многострочный фра
   const tools = createTools(dir, {})
   const oldStr = ['b', 'c'].join(NL)
   const newStr = ['B', 'C', 'X'].join(NL)
-  await tool(tools, 'Edit').fn({ path: 'f.txt', old_string: oldStr, new_string: newStr })
+  await tool(tools, 'Edit').fn({
+    path: 'f.txt',
+    old_string: oldStr,
+    new_string: newStr,
+  })
   const after = await fs.readFile(path.join(dir, 'f.txt'), 'utf-8')
   assert.equal(after, ['a', 'B', 'C', 'X', 'd'].join(NL))
   await fs.rm(dir, { recursive: true, force: true })
@@ -31,7 +35,9 @@ test('Read с offset за пределами файла возвращает п�
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-off-'))
   await fs.writeFile(path.join(dir, 'f.txt'), 'a' + NL + 'b', 'utf-8')
   const tools = createTools(dir, {})
-  const out = String(await tool(tools, 'Read').fn({ path: 'f.txt', offset: 100, limit: 5 }))
+  const out = String(
+    await tool(tools, 'Read').fn({ path: 'f.txt', offset: 100, limit: 5 }),
+  )
   assert.equal(out, '')
   await fs.rm(dir, { recursive: true, force: true })
 })
@@ -45,6 +51,9 @@ test('Glob не возвращает файлы выше рабочей дире
   const tools = createTools(sub, {})
   // a pattern trying to go one level up
   const out = String(await tool(tools, 'Glob').fn({ pattern: '../*.txt' }))
-  assert.ok(!out.includes('top.txt'), 'не должен показывать файлы выше root: ' + out)
+  assert.ok(
+    !out.includes('top.txt'),
+    'не должен показывать файлы выше root: ' + out,
+  )
   await fs.rm(dir, { recursive: true, force: true })
 })

@@ -15,7 +15,10 @@ test('rate limit and server busy are classified independently', () => {
   assert.equal(isServerBusyText('Server busy. Try again later.'), true)
   // A rate-limit text must NOT be classified as server-busy (the long wait
   // is the correct response), and vice versa.
-  assert.equal(isServerBusyText('Messages too frequent. Try again later.'), false)
+  assert.equal(
+    isServerBusyText('Messages too frequent. Try again later.'),
+    false,
+  )
   assert.equal(isRateLimitText('Server busy. Try again later.'), false)
 })
 
