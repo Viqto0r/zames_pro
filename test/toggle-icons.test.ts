@@ -1,47 +1,54 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { LineEditor } from '../src/input.ts'
+import { theme } from '../src/theme.ts'
 
 // Icons for the DeepSeek toggles: 🧠 (deep thinking) and 🌐 (smart search),
-// shown before the context counter. BOTH icons are always visible so the
-// states can be compared. The state is encoded STRUCTURALLY, not only by
-// color (many terminals ignore ANSI color on emoji):
-//   🧠   plain    -> ON
-//   (🧠) bracketed -> OFF
+// shown before the context counter. Only the ENABLED toggle is shown, in
+// green; a hidden icon means OFF. This does not rely on the terminal honoring
+// the ANSI color (it ignores it for emoji), so there is no ambiguity.
 
-const BRAIN = '🧠'
-const GLOBE = '🌐'
+function withColorSpy(fn: () => void): string[] {
+  const seen: string[] = []
+  const orig = theme.toggleOn
+  theme.toggleOn = ((s: string) => {
+    seen.push(s)
+    return s
+  }) as typeof theme.toggleOn
+  try {
+    fn()
+  } finally {
+    theme.toggleOn = orig
+  }
+  return seen
+}
 
-test('both icons are always shown', () => {
-  const e = new LineEditor()
-  e.thinkingEnabled = false
-  e.searchEnabled = false
-  const icons = e._toggleIcons()
-  assert.ok(icons.includes(BRAIN), 'brain icon must always be present')
-  assert.ok(icons.includes(GLOBE), 'globe icon must always be present')
-})
-
-test('an OFF toggle is bracketed, an ON one is not', () => {
+test('only the enabled toggle is shown', () => {
   const e = new LineEditor()
   e.thinkingEnabled = true
   e.searchEnabled = false
   const icons = e._toggleIcons()
-  // ON brain: present but NOT wrapped in parentheses.
-  assert.ok(icons.includes('🧠'))
-  // OFF globe: wrapped in parentheses (the variation selector sits between the
-  // emoji and ')', so check the leading '(' + emoji).
-  assert.ok(icons.includes('(🌐'), 'the OFF globe must be bracketed')
-  assert.ok(icons.includes(')'), 'the OFF globe must be bracketed')
+  assert.ok(icons.includes('🧠'), 'the ON brain must be shown')
+  assert.ok(!icons.includes('🌐'), 'the OFF globe must be hidden')
 })
 
-test('on/off differ for the same toggle', () => {
-  const on = new LineEditor()
-  on.thinkingEnabled = true
-  on.searchEnabled = false
-  const off = new LineEditor()
-  off.thinkingEnabled = false
-  off.searchEnabled = false
-  assert.notEqual(on._toggleIcons(), off._toggleIcons())
+test('both icons are shown when both toggles are on', () => {
+  const e = new LineEditor()
+  e.thinkingEnabled = true
+  e.searchEnabled = true
+  const seen = withColorSpy(() => {
+    const icons = e._toggleIcons()
+    assert.ok(icons.includes('🧠'))
+    assert.ok(icons.includes('🌐'))
+  })
+  assert.equal(seen.length, 2, 'both icons must use the green (ON) formatter')
+})
+
+test('no icons when both toggles are off', () => {
+  const e = new LineEditor()
+  e.thinkingEnabled = false
+  e.searchEnabled = false
+  assert.equal(e._toggleIcons(), '')
 })
 
 test('onToggleQuery refreshes the states before a render', () => {

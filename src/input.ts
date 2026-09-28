@@ -447,21 +447,17 @@ export class LineEditor {
   }
 
   // Icons for the DeepSeek toggles: 🧠 "Deep thinking" and 🌐 "Smart search",
-  // shown before the context counter. BOTH icons are always visible so the
-  // operator can compare states; the state is encoded STRUCTURALLY (not only
-  // by color, which many terminals ignore for emoji):
-  //   🧠  (green, plain)  — the toggle is ON
-  //   (🧠) (dim, brackets) — the toggle is OFF
-  // The brackets are a reliable, color-independent cue that the toggle is off.
+  // shown before the context counter. Only the ENABLED toggle is shown, in
+  // green. A hidden icon means OFF — this does not rely on the terminal
+  // honoring the ANSI color (it ignores it for emoji), so there is no
+  // ambiguity. U+FE0E forces the monochrome TEXT presentation so the green is
+  // actually visible.
   _toggleIcons(): string {
     const TEXT = '\uFE0E'
-    const mark = (onState: boolean, glyph: string): string => {
-      const g = glyph + TEXT
-      return onState ? theme.toggleOn(g) : theme.toggleOff('(' + g + ')')
-    }
-    const brain = mark(this.thinkingEnabled, '🧠')
-    const globe = mark(this.searchEnabled, '🌐')
-    return brain + ' ' + globe + ' '
+    const parts: string[] = []
+    if (this.thinkingEnabled) parts.push(theme.toggleOn('🧠' + TEXT))
+    if (this.searchEnabled) parts.push(theme.toggleOn('🌐' + TEXT))
+    return parts.length ? parts.join(' ') + ' ' : ''
   }
 
   // Read the OS clipboard for an image and insert its marker. Used when the
