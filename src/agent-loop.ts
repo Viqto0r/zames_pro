@@ -188,6 +188,9 @@ export async function runAgentLoop({
   let unparsedRetries = 0
   const MAX_UNPARSED_RETRIES = 4
   let finalRespondAsked = false
+  // The operator is told ONCE that the agent is re-asking the model for a
+  // proper tool call (not on every retry — that would spam the terminal).
+  let toolRetryWarned = false
 
   // Guard against "the agent stalled": DeepSeek sometimes sends a final text
   // that merely DESCRIBES the next tool call (or cuts the answer off
@@ -271,9 +274,9 @@ export async function runAgentLoop({
         error: (e as Error).message,
       })
       safeWarning(
-        'browser.ask() did not return an answer within ' +
-          Math.round(askDeadlineMs / 1000) +
-          's — retrying the request.',
+        translate(locale)('ds.answer_timeout', {
+          sec: Math.round(askDeadlineMs / 1000),
+        }),
       )
       if (afterToolRetries < MAX_AFTER_TOOL_RETRIES) {
         afterToolRetries++
@@ -283,10 +286,7 @@ export async function runAgentLoop({
       transcript?.log('ask_timeout_exhausted', {
         message: 'ask() did not return an answer and the retry limit is exhausted',
       })
-      safeWarning(
-        'browser.ask() stopped responding; retry limit exhausted, ' +
-          'stopping. No model answer — check the DeepSeek chat manually.',
-      )
+      safeWarning(translate(locale)('ds.answer_timeout_give_up'))
       return 'ask() watchdog: no model answer received'
     }
     await reportChat()
@@ -490,6 +490,18 @@ export async function runAgentLoop({
           attempt: unparsedRetries,
           response: rawResponse.slice(0, 500),
         })
+        // Tell the operator WHY nothing is happening: the model wrote text
+        // instead of a tool call and the agent is asking it to continue. Only
+        // once per task, otherwise the retry budget spams the terminal.
+        if (!toolRetryWarned) {
+          toolRetryWarned = true
+          safeWarning(
+            translate(locale)('ds.tool_retry', {
+              attempt: unparsedRetries,
+              max: MAX_UNPARSED_RETRIES,
+            }),
+          )
+        }
         message =
           (justRanTool
             ? 'You stopped after a tool call and wrote plain text. '

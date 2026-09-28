@@ -226,6 +226,84 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   'msg.abort_gen_short': { ru: '⏹ Esc — прерываю генерацию...', en: '⏹ Esc — aborting generation...' },
   'msg.abort_ctrlc_short': { ru: '⏹ Ctrl+C — прерываю генерацию...', en: '⏹ Ctrl+C — aborting generation...' },
 
+  // ---------- DeepSeek-side problems (what is happening right now) ----------
+  // The operator must understand WHY the agent is waiting or stopped: a rate
+  // limit, a server hiccup, a refused send, a login problem. These strings are
+  // printed around the moment they happen (browser.ts / agent-loop.ts), not as
+  // a bare error at the end of the run.
+  'ds.rate_limit_wait': {
+    ru: '⏳ DeepSeek: «слишком часто». Жду {min} мин ({attempt}/{max}) и повторю отправку...',
+    en: '⏳ DeepSeek: "too frequent". Waiting {min} min ({attempt}/{max}), then resending...',
+  },
+  'ds.rate_limit_give_up': {
+    ru: '✖ DeepSeek не принял сообщение после {attempt} пауз по {min} мин. Подожди и попробуй снова.',
+    en: '✖ DeepSeek refused the message after {attempt} waits of {min} min. Wait and try again.',
+  },
+  'ds.server_busy_wait': {
+    ru: '⏳ DeepSeek: сервер занят. Жду {sec}с ({attempt}/{max}) и повторю...',
+    en: '⏳ DeepSeek: server busy. Waiting {sec}s ({attempt}/{max}), then retrying...',
+  },
+  'ds.server_busy_give_up': {
+    ru: '✖ DeepSeek: сервер не ответил после {attempt} повторов. Попробуй позже.',
+    en: '✖ DeepSeek: the server did not respond after {attempt} retries. Try again later.',
+  },
+  'ds.ask_retry': {
+    ru: '⚠ Ответ не получен ({attempt}/{max}): {error} — повторяю...',
+    en: '⚠ No answer yet ({attempt}/{max}): {error} — retrying...',
+  },
+  'ds.ask_restart_browser': {
+    ru: '⚠ Браузер потерял страницу — перезапускаю и вхожу заново...',
+    en: '⚠ The browser lost the page — restarting and signing in again...',
+  },
+  'ds.ask_restart_failed': {
+    ru: '⚠ Не удалось перезапустить браузер: {error}',
+    en: '⚠ Could not restart the browser: {error}',
+  },
+  'ds.ask_failed': {
+    ru: '✖ Не удалось получить ответ от DeepSeek после {max} попыток: {error}',
+    en: '✖ Could not get an answer from DeepSeek after {max} attempts: {error}',
+  },
+  'ds.input_missing': {
+    ru: '✖ Не найдено поле ввода на странице DeepSeek. Запусти /debug-dom и поправь INPUT_SELECTORS.',
+    en: '✖ The DeepSeek input field was not found. Run /debug-dom and fix INPUT_SELECTORS.',
+  },
+  'ds.input_partial': {
+    ru: '✖ Не удалось вставить текст в поле ввода целиком ({got} из {want} символов). Сообщение не отправлено, чтобы не отправить обрезанный текст. Попробуй ещё раз или разбей сообщение.',
+    en: '✖ Could not paste the whole text into the input ({got} of {want} chars). The message was not sent to avoid sending a truncated text. Retry or split the message.',
+  },
+  'ds.send_no_start': {
+    ru: '✖ Ответ не начал генерироваться за 35с даже после повторной отправки. Проверь чат DeepSeek вручную (возможно, кнопка отправки не нажимается или сессия разлогинилась).',
+    en: '✖ The answer did not start generating within 35s even after resending. Check the DeepSeek chat manually (the send button may not be clickable or the session may have expired).',
+  },
+  'ds.send_no_new_answer': {
+    ru: '✖ Новый ответ не получен — на странице остался прежний текст. Возможно, сообщение не отправилось. Проверь чат DeepSeek вручную.',
+    en: '✖ No new answer received — the page still shows the previous text. The message may not have been sent. Check the DeepSeek chat manually.',
+  },
+  'ds.answer_timeout': {
+    ru: '⏳ DeepSeek не ответил за {sec}с — повторяю запрос...',
+    en: '⏳ DeepSeek did not answer within {sec}s — retrying the request...',
+  },
+  'ds.answer_timeout_give_up': {
+    ru: '✖ DeepSeek перестал отвечать, лимит повторов исчерпан. Модель не дала ответа — проверь чат DeepSeek вручную.',
+    en: '✖ DeepSeek stopped responding, retry limit exhausted. The model gave no answer — check the DeepSeek chat manually.',
+  },
+  'ds.tool_retry': {
+    ru: '⏳ Агент не распознал ответ модели — прошу продолжить ({attempt}/{max})...',
+    en: '⏳ The agent did not recognize the model answer — asking it to continue ({attempt}/{max})...',
+  },
+  'ds.stalled': {
+    ru: '⚠ Агент остановился, не завершив задачу (модель перестала вызывать инструменты). Проверь чат DeepSeek — задача может быть не выполнена.',
+    en: '⚠ The agent stopped before finishing (the model stopped calling tools). Check the DeepSeek chat — the task may be incomplete.',
+  },
+  'ds.not_launched': {
+    ru: '✖ Браузер не запущен.',
+    en: '✖ The browser is not launched.',
+  },
+  'ds.open_chat_failed': {
+    ru: '✖ Не удалось открыть чат {id}: {error}',
+    en: '✖ Could not open chat {id}: {error}',
+  },
+
   // ---------- self-review ----------
   'self.review_failed': { ru: 'Самообзор провалился:', en: 'Self-review failed:' },
   'self.fix_usage': { ru: 'Использование: /self-fix <name> [фокус]', en: 'Usage: /self-fix <name> [focus]' },

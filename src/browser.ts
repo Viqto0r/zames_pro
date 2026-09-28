@@ -1169,14 +1169,21 @@ export class DeepSeekBrowser {
           if (rateLimitRetries > this.maxRateLimitRetries) {
             console.error(
               theme.error(
-                `✖ DeepSeek не принял сообщение после ${rateLimitRetries} пауз по ${Math.ceil(this.rateLimitWaitMs / 60000)} мин.`,
+                this._t('ds.rate_limit_give_up', {
+                  attempt: rateLimitRetries,
+                  min: Math.ceil(this.rateLimitWaitMs / 60000),
+                }),
               ),
             )
             throw e
           }
           console.error(
             theme.warn(
-              `⏳ DeepSeek: «слишком часто». Жду ${Math.ceil(this.rateLimitWaitMs / 60000)} мин (${rateLimitRetries}/${this.maxRateLimitRetries}) и повторю...`,
+              this._t('ds.rate_limit_wait', {
+                min: Math.ceil(this.rateLimitWaitMs / 60000),
+                attempt: rateLimitRetries,
+                max: this.maxRateLimitRetries,
+              }),
             ),
           )
           // Interruptible: Esc/Ctrl+C must cancel this long wait too,
@@ -1186,18 +1193,59 @@ export class DeepSeekBrowser {
           continue
         }
 
+        // Server busy / overloaded: clear in seconds, so we retry quickly
+        // (unlike the rate limit). Without this branch the error fell into the
+        // generic ask() retry and the operator saw a bare message with no
+        // explanation of what DeepSeek is doing.
+        if (e instanceof ServerBusyError) {
+          serverBusyRetries++
+          if (serverBusyRetries > this.maxServerBusyRetries) {
+            console.error(
+              theme.error(
+                this._t('ds.server_busy_give_up', {
+                  attempt: serverBusyRetries,
+                }),
+              ),
+            )
+            throw e
+          }
+          console.error(
+            theme.warn(
+              this._t('ds.server_busy_wait', {
+                sec: Math.ceil(this.serverBusyWaitMs / 1000),
+                attempt: serverBusyRetries,
+                max: this.maxServerBusyRetries,
+              }),
+            ),
+          )
+          const aborted = await this._sleepInterruptible(this.serverBusyWaitMs)
+          if (aborted) return '(прервано пользователем)'
+          continue
+        }
+
         console.error(
-          `\n⚠ ask() попытка ${attempt}/${this.askRetries} провалилась: ${(e as Error).message}`,
+          '\n' +
+            theme.warn(
+              this._t('ds.ask_retry', {
+                attempt,
+                max: this.askRetries,
+                error: (e as Error).message,
+              }),
+            ),
         )
 
         if (/closed|crash|Target page|browser/i.test((e as Error).message)) {
-          console.error('⚠ перезапускаю браузер...')
+          console.error(theme.warn(this._t('ds.ask_restart_browser')))
           try {
             await this.restart()
             await this.waitForLogin()
           } catch (re) {
             console.error(
-              `⚠ не удалось перезапустить: ${(re as Error).message}`,
+              theme.warn(
+                this._t('ds.ask_restart_failed', {
+                  error: (re as Error).message,
+                }),
+              ),
             )
           }
         }
@@ -1209,7 +1257,10 @@ export class DeepSeekBrowser {
     }
 
     throw new Error(
-      `ask() провалился после ${this.askRetries} попыток: ${lastErr?.message}`,
+      this._t('ds.ask_failed', {
+        max: this.askRetries,
+        error: lastErr?.message || '',
+      }),
     )
   }
 
@@ -1274,7 +1325,10 @@ export class DeepSeekBrowser {
       })
       if (norm(got2) !== norm(text)) {
         throw new Error(
-          "Не удалось вставить текст в поле ввода DeepSeek целиком (вставлено " + norm(got2).length + " из " + norm(text).length + " символов). Сообщение не отправлено, чтобы не отправить обрезанный текст.",
+          this._t('ds.input_partial', {
+            got: norm(got2).length,
+            want: norm(text).length,
+          }),
         )
       }
     }
@@ -1443,9 +1497,7 @@ export class DeepSeekBrowser {
     if (this._stopped) return '(прервано пользователем)'
     const input = await this._findVisible(INPUT_SELECTORS, 10_000)
     if (!input) {
-      throw new Error(
-        'Не найдено поле ввода. Запустите /debug-dom и поправьте INPUT_SELECTORS.',
-      )
+      throw new Error(this._t('ds.input_missing'))
     }
 
     const beforeText = await this._readLastAnswerTextClean().catch(() => '')
@@ -1610,10 +1662,7 @@ return this._netCapture
       }
     }
     if (!started) {
-      throw new Error(
-        'Ответ не начал генерироваться за 35с даже после повторной отправки. ' +
-          'Проверьте чат DeepSeek вручную.',
-      )
+      throw new Error(this._t('ds.send_no_start'))
     }
 
     // Wait until the answer stops changing. We check the "not generating"
@@ -1684,16 +1733,13 @@ return this._netCapture
       return this._netCapture
     }
     this._askDebug('THROW no-new-answer lastLen=' + last.length + ' beforeLen=' + beforeText.length)
-    throw new Error(
-      'Новый ответ не получен (на странице остался прежний текст). ' +
-        'Возможно, сообщение не отправилось.',
-    )
+    throw new Error(this._t('ds.send_no_new_answer'))
   }
 
   async dumpDom(
     filePath: string,
   ): Promise<{ file: string; selectors: unknown }> {
-    if (!this.page) throw new Error('браузер не запущен')
+    if (!this.page) throw new Error(this._t('ds.not_launched'))
     const html = await this.page.content()
     await fs.writeFile(filePath, html, 'utf-8')
 
@@ -1793,7 +1839,7 @@ return this._netCapture
       await this.page.waitForTimeout(1500)
       return true
     } catch (e) {
-      throw new Error(`Не удалось открыть чат ${id}: ${(e as Error).message}`)
+      throw new Error(this._t('ds.open_chat_failed', { id, error: (e as Error).message }))
     }
   }
 
