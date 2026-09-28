@@ -148,6 +148,11 @@ export interface BrowserLike {
   onSendPause?: ((seconds: number) => void) | null
   newChat: () => Promise<void>
   stopGeneration: () => Promise<boolean>
+  // Set by stopGeneration() (Esc/Ctrl+C). Optional so test doubles do not
+  // have to provide them. The agent loop checks them after each tool so a
+  // long-running tool can be interrupted without sending its result back.
+  _abort?: boolean
+  _stopped?: boolean
   getCurrentChatId: () => Promise<string | null>
   listChats: (limit?: number) => Promise<Array<{ id: string; title: string }>>
   openChat: (id: string) => Promise<boolean>

@@ -1061,6 +1061,11 @@ async function runTask(
   browser._abort = false
 
   const ui = editor || mod.createSpinner(currentLocale)
+  // Mark the editor busy for the WHOLE task, not only for /init and /self-fix.
+  // Esc / Ctrl+C abort the current generation only while busy; without this a
+  // long-running tool (Bash, npm, MCP) could not be interrupted — Esc did
+  // nothing. Cleared in the finally below.
+  if (editor) editor.busy = true
   const stopWatching = editor
     ? () => {}
     : watchInput({
@@ -1175,6 +1180,7 @@ async function runTask(
   } finally {
     stopWatching()
     ui.stop()
+    if (editor) editor.busy = false
     // Detach the send hooks so a later browser.ask() outside this task cannot
     // start a stale spinner.
     browser.onSendStart = null

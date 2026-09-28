@@ -667,6 +667,16 @@ export async function runAgentLoop({
         result: String(result),
       })
       results.push({ tool: call.tool, result })
+
+      // The operator pressed Esc/Ctrl+C while the tool was running. The tool
+      // itself has finished (we cannot kill an arbitrary child process from
+      // here), but we must NOT feed its result back to the model and must NOT
+      // run the remaining calls in this batch — that would keep the agent
+      // going after an explicit stop.
+      if (browser._abort || browser._stopped) {
+        transcript?.log('user_aborted')
+        return '(прервано пользователем)'
+      }
     }
 
     // A tool just ran — the next answer is expected to be a fresh tool call.
