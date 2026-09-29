@@ -226,9 +226,10 @@ export function createGitTools(workdir: string): ToolDef[] {
           workdir,
           10_000,
         )
+        const stagedTrimmed = staged.trim()
         const hasStaged =
-          !/^\s*/.test(staged) &&
-          staged.trim() !== '(command produced no output)'
+          stagedTrimmed !== '' &&
+          stagedTrimmed !== '(command produced no output)'
         const addResult = hasStaged
           ? '(index is not empty — add -A skipped)'
           : await runGit('git add -A', workdir, 20_000)
