@@ -288,6 +288,10 @@ export class LineEditor {
   pendingText: string | null
   rendered: boolean
   cursorRowFromTop: number
+  // Number of rows occupied by the status/spinner block above the input line,
+  // as computed by the last _writeBlock(). _renderInputOnly() uses it to keep
+  // cursorRowFromTop correct without repainting the status.
+  _statusTop: number
   busy: boolean
   onSubmit: ((text: string, attachments: Attachment[]) => void) | null
   onEscape: (() => void) | null
@@ -371,6 +375,7 @@ export class LineEditor {
     this.pendingText = null
     this.rendered = false
     this.cursorRowFromTop = 0
+    this._statusTop = 0
     this.busy = false
     this.onSubmit = null
     this.onEscape = null
@@ -702,6 +707,7 @@ export class LineEditor {
     // re-printing the whole block on every keystroke is what made the display
     // flicker on terminals like Tabby. `top` is recovered from the cache so the
     // cursor math stays correct.
+    this._statusTop = top
     const statusBlock = statusOut
     const statusUnchanged =
       this.rendered && statusBlock === this._lastStatusBlock
@@ -795,6 +801,53 @@ export class LineEditor {
   _render() {
     this._eraseBlock()
     this._writeBlock()
+  }
+
+  // Repaint ONLY the input rows, leaving the status/spinner block untouched.
+  // Used for buffer/cursor changes (typing, arrows, backspace, …): the status
+  // line has its OWN animation timer, and repainting it on every keystroke
+  // made the whole block blink on terminals like Tabby. When nothing is drawn
+  // yet (rendered === false) fall back to a full render so the very first
+  // paint is correct.
+  _renderInputOnly() {
+    if (!this.rendered) {
+      this._render()
+      return
+    }
+    const cols = process.stdout.columns || 80
+    const lay = layoutInput(this.promptStr, this.buf, this.cursor, cols)
+    const inputRows = lay.rows.length
+    const sugg = this._suggestions()
+    const shown = sugg.slice(0, 8)
+    this._suggestCount = shown.length
+    const linesBelow = shown.length
+      ? shown.length + (sugg.length > shown.length ? 1 : 0)
+      : 0
+    this._eraseInputOnly(inputRows + linesBelow)
+    let out = lay.rows.map((r) => r.prefix + r.text).join(NL)
+    if (shown.length) {
+      const maxName = Math.max(...shown.map((c) => c.name.length))
+      const lines = shown.map((c) => {
+        const name = theme.prompt(c.name.padEnd(maxName))
+        const desc = theme.dim('  ' + c.description)
+        return '   ' + name + desc
+      })
+      out += NL + lines.join(NL)
+      const hidden = sugg.length - shown.length
+      if (hidden > 0)
+        out +=
+          NL +
+          theme.dim(
+            '   ' + translate(this.locale)('editor.more', { n: hidden }),
+          )
+    }
+    process.stdout.write(out)
+    const up = lay.rows.length - 1 - lay.cursorRow + linesBelow
+    if (up > 0) process.stdout.write(ESC + '[' + up + 'A')
+    process.stdout.write(CR)
+    if (lay.cursorCol > 0) process.stdout.write(ESC + '[' + lay.cursorCol + 'C')
+    this.rendered = true
+    this.cursorRowFromTop = this._statusTop + lay.cursorRow
   }
 
   // Print a block ABOVE the input line and put the input line back.
@@ -1271,7 +1324,7 @@ export class LineEditor {
           }
           this._pasteBuf = ''
         }
-        this._render()
+        this._renderInputOnly()
         continue
       }
 
@@ -1283,7 +1336,7 @@ export class LineEditor {
         this._pasteBuf = ''
         if (before) {
           this._insert(before)
-          this._render()
+          this._renderInputOnly()
         }
         continue
       }
@@ -1293,31 +1346,31 @@ export class LineEditor {
       if (s.startsWith(ESC + '[13;2u')) {
         this._insertNewline()
         s = s.slice(7)
-        this._render()
+        this._renderInputOnly()
         continue
       }
       if (s.startsWith(ESC + '[13;5u')) {
         this._insertNewline()
         s = s.slice(7)
-        this._render()
+        this._renderInputOnly()
         continue
       }
       if (s.startsWith(ESC + '[27;2;13~')) {
         this._insertNewline()
         s = s.slice(10)
-        this._render()
+        this._renderInputOnly()
         continue
       }
       if (s.startsWith(ESC + '[27;5;13~')) {
         this._insertNewline()
         s = s.slice(10)
-        this._render()
+        this._renderInputOnly()
         continue
       }
       if (s.startsWith(ESC + NL)) {
         this._insertNewline()
         s = s.slice(2)
-        this._render()
+        this._renderInputOnly()
         continue
       }
 
@@ -1334,7 +1387,7 @@ export class LineEditor {
           this.cursor > 0 ? Array.from(this.buf)[this.cursor - 1] : ''
         if (before === '\\') {
           this._insertNewline()
-          this._render()
+          this._renderInputOnly()
           continue
         }
         this._submit()
@@ -1342,7 +1395,7 @@ export class LineEditor {
       }
       if (code === 10) {
         this._insertNewline()
-        this._render()
+        this._renderInputOnly()
         continue
       }
       if (code === 3) {
@@ -1355,24 +1408,24 @@ export class LineEditor {
       }
       if (code === 1) {
         this._home()
-        this._render()
+        this._renderInputOnly()
         continue
       }
       if (code === 5) {
         this._end()
-        this._render()
+        this._renderInputOnly()
         continue
       }
       if (code === 9) {
         this._completeCommand()
-        this._render()
+        this._renderInputOnly()
         continue
       }
       if (code === 21) {
         this.buf = ''
         this.cursor = 0
         this.pastes = []
-        this._render()
+        this._renderInputOnly()
         continue
       }
       if (code === 22) {
@@ -1384,7 +1437,7 @@ export class LineEditor {
       }
       if (code === 23) {
         this._deleteWordLeft()
-        this._render()
+        this._renderInputOnly()
         continue
       }
       if (code === 11) {
@@ -1394,12 +1447,12 @@ export class LineEditor {
         while (e < arr.length && arr[e] !== NL) e++
         arr.splice(this.cursor, e - this.cursor)
         this.buf = arr.join('')
-        this._render()
+        this._renderInputOnly()
         continue
       }
       if (code === 127 || code === 8) {
         this._backspace()
-        this._render()
+        this._renderInputOnly()
         continue
       }
 
@@ -1409,25 +1462,25 @@ export class LineEditor {
         if (s.startsWith('[1;5D') || s.startsWith('[5D')) {
           this._wordLeft()
           s = s.slice(s.startsWith('[1;5D') ? 5 : 3)
-          this._render()
+          this._renderInputOnly()
           continue
         }
         if (s.startsWith('[1;5C') || s.startsWith('[5C')) {
           this._wordRight()
           s = s.slice(s.startsWith('[1;5C') ? 5 : 3)
-          this._render()
+          this._renderInputOnly()
           continue
         }
         if (s.startsWith('[D')) {
           this._left()
           s = s.slice(2)
-          this._render()
+          this._renderInputOnly()
           continue
         }
         if (s.startsWith('[C')) {
           this._right()
           s = s.slice(2)
-          this._render()
+          this._renderInputOnly()
           continue
         }
         if (s.startsWith('[A')) {
@@ -1435,45 +1488,45 @@ export class LineEditor {
           if (this._onFirstVisualLine()) this._historyUp()
           else this._up()
           s = s.slice(2)
-          this._render()
+          this._renderInputOnly()
           continue
         }
         if (s.startsWith('[B')) {
           if (this._onLastVisualLine()) this._historyDown()
           else this._down()
           s = s.slice(2)
-          this._render()
+          this._renderInputOnly()
           continue
         }
         if (s.startsWith('[H') || s.startsWith('[1~')) {
           this._home()
           s = s.slice(s.startsWith('[1~') ? 3 : 2)
-          this._render()
+          this._renderInputOnly()
           continue
         }
         if (s.startsWith('[F') || s.startsWith('[4~')) {
           this._end()
           s = s.slice(s.startsWith('[4~') ? 3 : 2)
-          this._render()
+          this._renderInputOnly()
           continue
         }
         if (s.startsWith('[3~')) {
           this._delete()
           s = s.slice(3)
-          this._render()
+          this._renderInputOnly()
           continue
         }
         // Alt+B / Alt+F — word movement.
         if (s.startsWith('b') || s.startsWith('B')) {
           this._wordLeft()
           s = s.slice(1)
-          this._render()
+          this._renderInputOnly()
           continue
         }
         if (s.startsWith('f') || s.startsWith('F')) {
           this._wordRight()
           s = s.slice(1)
-          this._render()
+          this._renderInputOnly()
           continue
         }
         let j = 0
@@ -1484,7 +1537,7 @@ export class LineEditor {
 
       if (code < 32) continue
       this._insert(ch)
-      this._render()
+      this._renderInputOnly()
     }
   }
 }

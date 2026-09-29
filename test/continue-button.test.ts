@@ -46,3 +46,22 @@ test('autoContinue defaults to true and can be turned off', () => {
   assert.equal(new DeepSeekBrowser().autoContinue, true)
   assert.equal(new DeepSeekBrowser({ autoContinue: false }).autoContinue, false)
 })
+
+test('_continueButtonVisible returns the page decision', async () => {
+  const b = new DeepSeekBrowser()
+  ;(b as unknown as { page: unknown }).page = fakePage(true)
+  assert.equal(await b._continueButtonVisible(), true)
+  const b2 = new DeepSeekBrowser()
+  ;(b2 as unknown as { page: unknown }).page = fakePage(false)
+  assert.equal(await b2._continueButtonVisible(), false)
+})
+
+test('_continueButtonVisible survives a page error', async () => {
+  const b = new DeepSeekBrowser()
+  ;(b as unknown as { page: unknown }).page = {
+    async evaluate() {
+      throw new Error('page gone')
+    },
+  }
+  assert.equal(await b._continueButtonVisible(), false)
+})

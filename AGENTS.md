@@ -400,6 +400,16 @@ the first line. Current logic:
 - the input line is ALWAYS visible; the status/spinner and the agent's answers
   are printed ABOVE it (`printAbove`), so the typed text is not overwritten by output;
 - redraw accounts for wrapping by terminal width (`layoutInput`);
+- typing repaints ONLY the input rows (`_renderInputOnly()`), never the
+  status/spinner block above it. Every buffer/cursor change in `_handle()` used
+  to call the full `_render()` (erase the whole block + rewrite status + input).
+  While the spinner animates (a redraw every ~100ms) that made the WHOLE screen
+  blink on every keystroke — the "при вводе текста мигает весь терминал"
+  symptom. The status line has its own animation timer and is repainted by
+  `printAbove()` / `refreshStatus()`; keystrokes must not touch it.
+  `_statusTop` (set by `_writeBlock()`) keeps `cursorRowFromTop` correct
+  without repainting the status. `_render()` is still used for status changes
+  (locale, commands, lock hint, context counter).
 - while a long operation runs (chat resume/open `/resume` `/resume-id` `/new`
   `/chats` fetch, `/self-review`) the editor is LOCKED (`editor.lock()` /
   `editor.unlock()`): text input and Enter are swallowed, so a message typed
@@ -689,10 +699,23 @@ NOT resume by itself, so the turn used to sit idle until the operator pressed
 Continue by hand. `_clickContinueIfVisible()` (src/browser.ts) is polled in BOTH
 `_askOnce()` loops; it scans every `div[role=button]`/`button` and clicks only a
 button whose WHOLE label is `Continue`/`Продолжить`/`Продолжение` (a short exact
-label, so a "Continue" inside rendered prose is never clicked). This is a
-different case from `GenerationIncompleteError`: here the generation is still
-alive, just paused, so we click instead of resending. Set
+label, so a "Continue" inside rendered prose is never clicked). The click is a
+full pointer/mouse sequence (`pointerdown`→`mousedown`→`pointerup`→`mouseup`→
+`click`), because DeepSeek's button is a React component that ignores a bare
+`e.click()`. This is a different case from `GenerationIncompleteError`: here the
+generation is still alive, just paused, so we click instead of resending. Set
 `browser.autoContinue: false` to disable the auto-click.
+
+IMPORTANT: a PAUSED generation also looks "settled" (the answer text stops
+changing while Continue is on screen), so the finish loop's stability check
+(`stable >= stabilityChecks - 1`) used to RETURN the partial answer right there —
+the "agent stopped with a Continue button" symptom survived the first
+`_clickContinueIfVisible` fix because the early-return fired before the click
+mattered. `_continueButtonVisible()` is therefore checked BEFORE the settled
+return in the finish loop and in the start-wait's SETTLED branch: while Continue
+is visible the answer is NOT accepted — the loop clicks Continue and keeps
+waiting. When the start-wait sees Continue it clicks it (the button appears
+before any RESPONSE text, so the wait would otherwise spin to the deadline).
 
 ## Headless by default + login (src/browser.ts)
 

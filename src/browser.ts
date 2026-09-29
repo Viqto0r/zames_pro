@@ -1205,6 +1205,36 @@ export class DeepSeekBrowser {
     return await this._stopButtonVisible()
   }
 
+  // Is DeepSeek's "Continue" button currently visible? Used to BLOCK the
+  // "answer settled" early-return in the finish loop: while Continue is on
+  // screen the generation is PAUSED, not finished, so returning the partial
+  // text there is exactly the "agent stopped with a Continue button" bug.
+  async _continueButtonVisible(): Promise<boolean> {
+    try {
+      return await this.page.evaluate(() => {
+        const labelOf = (b: HTMLElement): string =>
+          ((b.textContent || '') + ' ' + (b.getAttribute('aria-label') || ''))
+            .replace(/\s+/g, ' ')
+            .trim()
+        const isExact = (t: string): boolean =>
+          /^(continue|продолжить|продолжение)\s*[.!…]?$/i.test(t)
+        const cands = Array.from(
+          document.querySelectorAll('div[role="button"], button'),
+        ) as HTMLElement[]
+        for (const e of cands) {
+          if (!isExact(labelOf(e))) continue
+          const st = getComputedStyle(e)
+          if (st.display === 'none' || st.visibility === 'hidden') continue
+          if (!e.offsetParent && st.position !== 'fixed') continue
+          return true
+        }
+        return false
+      })
+    } catch {
+      return false
+    }
+  }
+
   // Click the DeepSeek "Continue" button when it is visible (reasoning/answer
   // paused by the server). Returns true when a click happened.
   //
@@ -1234,6 +1264,26 @@ export class DeepSeekBrowser {
           const st = getComputedStyle(e)
           if (st.display === 'none' || st.visibility === 'hidden') continue
           if (!e.offsetParent && st.position !== 'fixed') continue
+          // DeepSeek's button is a React component listening for POINTER/mouse
+          // events, not just a bare click(). A plain e.click() sometimes does
+          // nothing; dispatching the full sequence is what a real press does.
+          const rect = e.getBoundingClientRect()
+          const cx = rect.left + rect.width / 2
+          const cy = rect.top + rect.height / 2
+          const opts = {
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+            clientX: cx,
+            clientY: cy,
+            button: 0,
+          } as MouseEventInit
+          try {
+            e.dispatchEvent(new PointerEvent('pointerdown', opts))
+            e.dispatchEvent(new MouseEvent('mousedown', opts))
+            e.dispatchEvent(new PointerEvent('pointerup', opts))
+            e.dispatchEvent(new MouseEvent('mouseup', opts))
+          } catch {}
           e.click()
           return true
         }
@@ -1932,7 +1982,10 @@ export class DeepSeekBrowser {
       // capture proves a new answer exists. If it stays equal, keep waiting.
       const notGenerating = !(await this._isGenerating())
       const differs = !!cur && normText(cur) !== normText(beforeText)
-      if (differs && cur === lastStartCur && notGenerating) {
+      // Do NOT accept a "settled" answer while Continue is on screen — that
+      // is a paused generation, not a finished one.
+      const paused = this.autoContinue && (await this._continueButtonVisible())
+      if (differs && cur === lastStartCur && notGenerating && !paused) {
         settledTicks++
         if (settledTicks >= 2) {
           this._askDebug('SETTLED-differs return len=' + cur.length)
@@ -2084,7 +2137,16 @@ export class DeepSeekBrowser {
         // so the FIN-loop always cost ~1.6s per answer. Defaults are now
         // 2 checks x 400ms (~0.8s saved per turn) and the values are honored.
         if (stable >= Math.max(1, this.stabilityChecks - 1)) {
-          if (isNew || !(await this._isGenerating())) {
+          // A PAUSED generation also looks "stable" (the text stops changing
+          // while Continue is on screen), so the old check returned the
+          // partial answer here — the "agent stopped with a Continue button"
+          // symptom. Click Continue and keep waiting instead.
+          if (this.autoContinue && (await this._continueButtonVisible())) {
+            if (await this._clickContinueIfVisible()) {
+              this._askDebug('CLICKED Continue (before early return)')
+            }
+            stable = 0
+          } else if (isNew || !(await this._isGenerating())) {
             this._askDebug('RETURN stable curLen=' + cur.length)
             return cur
           }
@@ -2111,6 +2173,9 @@ export class DeepSeekBrowser {
     }
 
     if (last && (normText(last) !== normText(beforeText) || this._netCapture)) {
+      // If Continue is STILL on screen, the turn is paused, not finished:
+      // click once more and report what we have rather than silently stopping.
+      if (this.autoContinue) await this._clickContinueIfVisible()
       this._askDebug('RETURN last len=' + last.length)
       return last
     }
