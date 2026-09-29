@@ -1170,6 +1170,7 @@ async function runTask(
         transcript,
         onThinking: () => ui.thinking(),
         onSendPause: (seconds) => ui.sendPause(seconds),
+        onNotice: (msg) => ui.warning(msg),
         onToolCall: (name, toolArgs) => ui.toolCall(name, toolArgs),
         onToolResult: (result) => ui.toolResult(result),
         onAssistantMessage: (msg) => ui.assistant(msg),
@@ -1235,6 +1236,7 @@ async function runTask(
     // start a stale spinner.
     browser.onSendStart = null
     browser.onSendPause = null
+    browser.onNotice = null
   }
 }
 

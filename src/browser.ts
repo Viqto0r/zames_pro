@@ -457,6 +457,13 @@ export class DeepSeekBrowser {
   // remaining seconds. Lets the UI animate the pause status instead of
   // printing a static line (the dots used to be frozen during the pause).
   onSendPause: ((seconds: number) => void) | null
+  // A service notice for the OPERATOR (rate limit, server busy, resend, …).
+  // IMPORTANT: these must NOT go through `console.error` directly — while a
+  // LineEditor is active it repaints its own status line and the raw stderr
+  // write is overwritten, so the operator saw only the spinner and no reason
+  // (the "агент завис на спиннере" symptom after "Messages too frequent").
+  // When set, the UI prints the notice ABOVE the input line.
+  onNotice: ((text: string) => void) | null
   // User-Agent sent by the browser. In headless mode the "Headless" marker
   // must be stripped (DeepSeek's CDN answers 403 to it); computed in the
   // constructor, overridable by an explicit UA in the options/config.
@@ -528,6 +535,7 @@ export class DeepSeekBrowser {
     this._netHookInstalled = false
     this.onSendStart = null
     this.onSendPause = null
+    this.onNotice = null
     // An explicit UA (config/options) is respected as-is. Otherwise it stays
     // empty here and is derived from the real engine UA after launch — see
     // _fixHeadlessUserAgent (a headless "HeadlessChrome/..." UA gets 403 from
@@ -538,6 +546,19 @@ export class DeepSeekBrowser {
   /** Translation bound to this browser's locale. */
   _t(key: string, params?: Record<string, string | number>): string {
     return translate(this.locale)(key, params)
+  }
+
+  // A service notice for the operator. When a UI hook is wired (LineEditor is
+  // active during a task) the notice goes ABOVE the input line so it is not
+  // overwritten by the editor's repaint; otherwise it falls back to stderr.
+  _notice(text: string): void {
+    if (this.onNotice) {
+      try {
+        this.onNotice(text)
+        return
+      } catch {}
+    }
+    console.error(text)
   }
 
   async launch(): Promise<void> {
@@ -1540,9 +1561,9 @@ export class DeepSeekBrowser {
         if (e instanceof RateLimitError) {
           rateLimitRetries++
           if (rateLimitRetries > this.maxRateLimitRetries) {
-            console.error(
-              theme.error(
-                this._t('ds.rate_limit_give_up', {
+            this._notice(
+               theme.error(
+                 this._t('ds.rate_limit_give_up', {
                   attempt: rateLimitRetries,
                   min: Math.ceil(this.rateLimitWaitMs / 60000),
                 }),
@@ -1550,9 +1571,9 @@ export class DeepSeekBrowser {
             )
             throw e
           }
-          console.error(
-            theme.warn(
-              this._t('ds.rate_limit_wait', {
+          this._notice(
+             theme.warn(
+               this._t('ds.rate_limit_wait', {
                 min: Math.ceil(this.rateLimitWaitMs / 60000),
                 attempt: rateLimitRetries,
                 max: this.maxRateLimitRetries,
@@ -1577,18 +1598,18 @@ export class DeepSeekBrowser {
         if (e instanceof ServerBusyError) {
           serverBusyRetries++
           if (serverBusyRetries > this.maxServerBusyRetries) {
-            console.error(
-              theme.error(
-                this._t('ds.server_busy_give_up', {
+            this._notice(
+               theme.error(
+                 this._t('ds.server_busy_give_up', {
                   attempt: serverBusyRetries,
                 }),
               ),
             )
             throw e
           }
-          console.error(
-            theme.warn(
-              this._t('ds.server_busy_wait', {
+          this._notice(
+             theme.warn(
+               this._t('ds.server_busy_wait', {
                 sec: Math.ceil(this.serverBusyWaitMs / 1000),
                 attempt: serverBusyRetries,
                 max: this.maxServerBusyRetries,
@@ -1608,18 +1629,18 @@ export class DeepSeekBrowser {
         if (e instanceof GenerationIncompleteError) {
           incompleteRetries++
           if (incompleteRetries > this.maxIncompleteRetries) {
-            console.error(
-              theme.error(
-                this._t('ds.incomplete_give_up', {
+            this._notice(
+               theme.error(
+                 this._t('ds.incomplete_give_up', {
                   attempt: incompleteRetries,
                 }),
               ),
             )
             throw e
           }
-          console.error(
-            theme.warn(
-              this._t('ds.incomplete_retry', {
+          this._notice(
+             theme.warn(
+               this._t('ds.incomplete_retry', {
                 attempt: incompleteRetries,
                 max: this.maxIncompleteRetries,
               }),
@@ -1632,15 +1653,14 @@ export class DeepSeekBrowser {
           continue
         }
 
-        console.error(
-          '\n' +
-            theme.warn(
-              this._t('ds.ask_retry', {
-                attempt,
-                max: this.askRetries,
-                error: (e as Error).message,
-              }),
-            ),
+        this._notice(
+          theme.warn(
+            this._t('ds.ask_retry', {
+              attempt,
+              max: this.askRetries,
+              error: (e as Error).message,
+            }),
+          ),
         )
 
         // Only a genuinely LOST page justifies a restart. "Target page,
@@ -1653,14 +1673,14 @@ export class DeepSeekBrowser {
             (e as Error).message,
           )
         ) {
-          console.error(theme.warn(this._t('ds.ask_restart_browser')))
+          this._notice(theme.warn(this._t('ds.ask_restart_browser')))
           try {
             await this.restart()
             await this.waitForLogin()
           } catch (re) {
-            console.error(
-              theme.warn(
-                this._t('ds.ask_restart_failed', {
+            this._notice(
+               theme.warn(
+                 this._t('ds.ask_restart_failed', {
                   error: (re as Error).message,
                 }),
               ),
@@ -1768,12 +1788,12 @@ export class DeepSeekBrowser {
         const buffer = await fs.readFile(f.path)
         bufPayload.push({ name: f.name, mimeType: f.mime, buffer })
       } catch (e) {
-        console.error(
+        this._notice(
           theme.warn(
-            '⚠ не удалось прочитать вложение ' +
-              f.name +
-              ': ' +
-              (e as Error).message,
+            this._t('ds.attach_read_failed', {
+              name: f.name,
+              error: (e as Error).message,
+            }),
           ),
         )
       }
@@ -1809,18 +1829,16 @@ export class DeepSeekBrowser {
     // Fallback: set the files directly on the hidden <input type=file>.
     const input = this.page.locator('input[type="file"]').first()
     if ((await input.count()) === 0) {
-      console.error(
-        theme.warn(
-          '⚠ не найдено поле загрузки файлов на странице — вложения не прикреплены',
-        ),
-      )
+      this._notice(theme.warn(this._t('ds.attach_no_input')))
       return
     }
     try {
       await input.setInputFiles(bufPayload, { timeout: 15_000 })
     } catch (e) {
-      console.error(
-        theme.warn('⚠ не удалось прикрепить файлы: ' + (e as Error).message),
+      this._notice(
+        theme.warn(
+          this._t('ds.attach_failed', { error: (e as Error).message }),
+        ),
       )
       return
     }

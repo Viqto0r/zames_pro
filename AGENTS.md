@@ -364,6 +364,22 @@ The editor's own labels (`spinner.hint`, `spinner.pause`, `editor.more`,
 There must be NO hardcoded Russian in src/input.ts or src/spinner.ts — the
 interface strings live in the i18n `CATALOG`.
 
+### Service notices must go through the UI (onNotice)
+
+`ask()` prints user-facing notices (rate limit, server busy, resend, restart)
+via `this._notice(text)`, NOT `console.error`. While a `LineEditor` is active it
+repaints its own status line, so a raw stderr write is OVERWRITTEN — the
+operator saw only the spinner ("агент завис на спиннере") and not the reason
+after "Messages too frequent". `_notice()` routes the text through the
+`browser.onNotice` hook, which `runAgentLoop()` wires to the UI (`ui.warning()`
+→ printed ABOVE the input line); without a hook it falls back to stderr. The
+same applies to the attachment warnings. `browser.onNotice` is cleared in
+`runTask()`'s `finally`, alongside `onSendStart`/`onSendPause`.
+
+`browser.minSendIntervalMs` default is now **20000** (was 15000): real DeepSeek
+sessions hit "Messages too frequent" at 15s, and the interval is the LOWER
+bound between two sends (long reasoning only makes it larger).
+
 ### A run that ends without a model answer is surfaced
 
 `runAgentLoop()` can end without any model answer: the iteration limit

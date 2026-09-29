@@ -25,6 +25,8 @@ export interface RunAgentLoopOptions {
   onThinking?: () => void
   /** Fired during the send-interval pause with the remaining seconds. */
   onSendPause?: (seconds: number) => void
+  /** Service notice for the operator (rate limit, server busy, resend). */
+  onNotice?: (text: string) => void
   onAssistantThought?: (text: string) => void
   onToolCall?: (name: string, args: ToolArgs) => void
   onToolResult?: (result: unknown) => void
@@ -50,6 +52,7 @@ export async function runAgentLoop({
   attachments = [],
   onThinking = () => {},
   onSendPause = () => {},
+  onNotice = () => {},
   onAssistantThought = () => {},
   onToolCall = () => {},
   onToolResult = () => {},
@@ -83,6 +86,11 @@ export async function runAgentLoop({
   // seconds, the UI shows an animated status instead of a frozen line.
   const safeSendPause = safe(onSendPause)
   browser.onSendPause = safeSendPause
+  // Service notices (rate limit, server busy, resend) must reach the OPERATOR.
+  // While a LineEditor is active a raw console.error is overwritten by the
+  // editor's repaint, so the operator only saw the spinner. `onNotice` prints
+  // the notice ABOVE the input line.
+  browser.onNotice = safe(onNotice)
   const safeAssistantThought = safe(onAssistantThought)
   const safeToolCall = safe(onToolCall)
   const safeToolResult = safe(onToolResult)

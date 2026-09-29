@@ -554,6 +554,18 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: '⏳ DeepSeek оборвал ответ и кнопки Continue нет — переотправляю задачу ({attempt}/{max})...',
     en: '⏳ DeepSeek truncated the answer and there is no Continue button — resending the task ({attempt}/{max})...',
   },
+  'ds.attach_read_failed': {
+    ru: '⚠ не удалось прочитать вложение {name}: {error}',
+    en: '⚠ could not read the attachment {name}: {error}',
+  },
+  'ds.attach_no_input': {
+    ru: '⚠ не найдено поле загрузки файлов — вложения не прикреплены',
+    en: '⚠ file upload field not found — the attachments were not attached',
+  },
+  'ds.attach_failed': {
+    ru: '⚠ не удалось прикрепить файлы: {error}',
+    en: '⚠ could not attach the files: {error}',
+  },
   'ds.incomplete_give_up': {
     ru: '✖ DeepSeek {attempt} раз подряд оборвал ответ, не дойдя до конца. Возможно, включён режим размышления — попробуй выключить его (browser.deepThinking) или повтори позже.',
     en: '✖ DeepSeek truncated the answer {attempt} times in a row. The reasoning mode (deep thinking) may be on — try turning it off (browser.deepThinking) or retry later.',

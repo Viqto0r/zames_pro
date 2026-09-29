@@ -161,6 +161,10 @@ export interface BrowserLike {
   // Optional hook: called when the agent starts waiting out the send-interval
   // pause, with the remaining seconds. Lets the UI animate the pause status.
   onSendPause?: ((seconds: number) => void) | null
+  // Optional hook: a service notice for the operator (rate limit, server busy,
+  // resend). While a LineEditor is active a raw console.error is overwritten by
+  // its repaint, so these must be routed through the UI.
+  onNotice?: ((text: string) => void) | null
   newChat: () => Promise<void>
   stopGeneration: () => Promise<boolean>
   // Set by stopGeneration() (Esc/Ctrl+C). Optional so test doubles do not
