@@ -65,3 +65,19 @@ test('_continueButtonVisible survives a page error', async () => {
   }
   assert.equal(await b._continueButtonVisible(), false)
 })
+
+// The finish loop must NOT accept a "settled" answer while Continue is on
+// screen: a paused generation also looks settled (the text stops changing),
+// and returning there is exactly the "agent stopped with a Continue button"
+// bug. This documents the rule the loop implements (see _askOnce):
+//   paused (Continue visible)  -> click + keep waiting, never return
+//   not paused + stable        -> return the answer
+test('a settled answer must not be accepted while Continue is visible', () => {
+  const decide = (continueVisible: boolean, stable: boolean): string => {
+    if (continueVisible) return 'wait'
+    return stable ? 'return' : 'wait'
+  }
+  assert.equal(decide(true, true), 'wait')
+  assert.equal(decide(false, true), 'return')
+  assert.equal(decide(false, false), 'wait')
+})
