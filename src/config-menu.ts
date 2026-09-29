@@ -134,10 +134,25 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
     lastRows = lines.reduce((n, l) => n + rowsOf(l), 0)
   }
 
-  const cleanup = (): void => {
+  // Erase the rendered menu block from the screen. Used on exit so the config
+  // list does not stay in the terminal history / scrollback (the operator
+  // asked for the menu to disappear after Esc).
+  const clearBlock = (): void => {
+    if (lastRows > 0) {
+      output.write(ESC + '[' + lastRows + 'A')
+      for (let i = 0; i < lastRows; i++) {
+        output.write(ESC + '[2K' + ESC + '[1B')
+      }
+      output.write(ESC + '[' + lastRows + 'A')
+      lastRows = 0
+    }
+  }
+
+  const cleanup = (clearOnExit = false): void => {
     if (exited) return
     exited = true
     input.removeListener('data', onData)
+    if (clearOnExit) clearBlock()
     if (input.setRawMode) input.setRawMode(wasRaw || false)
     output.write(ESC + '[?25h') // restore the cursor
     if (resolveDone) resolveDone()
@@ -195,13 +210,14 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
           break
         }
         if (ch === ESC) {
+          // Cancel the edit (do NOT exit the menu) — Esc in the field is
+          // "abandon this value", not "close the config".
           editing = false
           editBuf = ''
           break
         }
         if (ch === '\x03') {
-          cleanup()
-          output.write('\n')
+          cleanup(true)
           return
         }
         if (ch === '\x7f' || ch === '\b') {
@@ -233,8 +249,9 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
       }
       const ch = s[i]
       if (ch === 'q' || ch === 'Q' || ch === '\x03' || ch === ESC) {
-        cleanup()
-        output.write('\n')
+        // Erase the menu block from the screen so the config list does not
+        // linger in the terminal history after Esc.
+        cleanup(true)
         return
       }
       if (ch === 'k') {
