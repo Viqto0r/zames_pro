@@ -5,6 +5,7 @@ import {
   GenerationIncompleteError,
   isGenerationIncompleteText,
 } from '../src/browser.ts'
+import { extractAnswer } from '../src/net-capture.ts'
 
 // Regression for "the send stops and a Continue button appears" when the
 // DeepSeek "Deep thinking" (reasoning) toggle is ON.
@@ -98,4 +99,26 @@ test('an unfinished (INCOMPLETE) body is not "finished without answer"', () => {
     false,
   )
   assert.equal(isFinishedWithoutAnswer(''), false)
+})
+
+// REGRESSION (live hang): a truncated body (generation_err / INCOMPLETE) has
+// NO RESPONSE fragment, so extractAnswer() returns '' and `_netCapture` stays
+// empty. The incomplete check guarded on `this._netCapture &&` therefore NEVER
+// fired — the agent hung on "Stopped" until the timeout. The detectors must be
+// callable on the RAW body even when there is no answer text.
+
+test('a truncated body has no answer text but IS detected as truncated', () => {
+  const body = [
+    'data: {"v":{"response":{"status":"WIP","thinking_enabled":true,"fragments":[{"type":"THINK","content":"Let"}]}}}',
+    'data: {"v":" me think"}',
+    'data: {"p":"response","o":"BATCH","v":[{"p":"quasi_status","v":"INCOMPLETE"}]}',
+    'data: {"p":"response/status","o":"SET","v":"INCOMPLETE"}',
+    'event: hint',
+    'data: {"type":"error","content":"Server is temporarily unavailable.","clear_response":false,"finish_reason":"generation_err"}',
+  ].join('\n')
+  // No RESPONSE fragment -> extractAnswer is empty (this is why the old
+  // `_netCapture &&` guard was dead code).
+  assert.equal(extractAnswer(body), '')
+  // But the raw body must still be recognized as a truncated turn.
+  assert.equal(isGenerationIncompleteText(body), true)
 })

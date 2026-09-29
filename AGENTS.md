@@ -741,6 +741,23 @@ captures: exactly the one body that hung the live agent is flagged, with zero
 false positives across 2118 bodies. Covered by
 `test/generation-incomplete.test.ts`.
 
+#### CRITICAL: the detectors must read the RAW body, not `_netCapture`
+
+The incomplete/no-answer detectors were guarded on `this._netCapture &&` — but
+BOTH failure modes (generation_err/INCOMPLETE, and FINISHED-with-only-reasoning)
+have NO RESPONSE fragment, so `extractAnswer()` returns `''` and `_netCapture`
+is EMPTY. The guard was therefore dead code: the check never fired, and the
+agent hung on "Stopped" until the timeout (this is exactly why the earlier
+2.29.2/2.29.3 fixes did not help the live agent).
+
+Fix: `_onResponse` stores the RAW SSE body of the current answer in
+`browser._netBody` (completion/continue URLs only, kept even when there is no
+RESPONSE text) and refreshes `_netCaptureAt`. All four detector call sites
+(start-wait + finish-loop, incomplete + no-answer) now run on `_netBody` /
+`_netNoAnswer` and are NOT gated on `_netCapture`. `_netBody` is reset before
+every send alongside the other capture fields. A regression test feeds a real
+truncated body (extractAnswer() === '') and asserts the detector still fires.
+
 ## Headless by default + login (src/browser.ts)
 
 `headless` is **true by default** (DEFAULTS in config.ts). `--headed` (or

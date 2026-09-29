@@ -434,6 +434,13 @@ export class DeepSeekBrowser {
   _lastHistoryError: string
   _netSniff: Array<{ url: string; contentType: string; body: string }>
   _netSniffLimit: number
+  // The RAW SSE body of the LAST answer response. Unlike `_netCapture`, this
+  // is kept even when the body carries no RESPONSE text (a truncated turn:
+  // generation_err / INCOMPLETE, or FINISHED-with-only-reasoning). The
+  // incomplete/no-answer detectors MUST run on the raw body — guarding them on
+  // `_netCapture` (which is '' in exactly those cases) made them dead code and
+  // the agent hung until the timeout.
+  _netBody: string
   _netHookInstalled: boolean
   // Fired right when a message is actually typed/sent (AFTER the send-pause
   // and attachments). Used to start the "agent is working" spinner only when
@@ -510,6 +517,7 @@ export class DeepSeekBrowser {
     this._lastHistoryError = ''
     this._netSniff = []
     this._netSniffLimit = 5
+    this._netBody = ''
     this._netHookInstalled = false
     this.onSendStart = null
     this.onSendPause = null
@@ -676,20 +684,33 @@ export class DeepSeekBrowser {
         )
         if (cid) this._netChatId = cid[0]
         this._netCaptureAt = Date.now()
-      } else if (
-        /chat\/(completion|continue)/i.test(url) &&
-        isFinishedWithoutAnswer(body)
-      ) {
-        // A FINISHED turn with NO RESPONSE fragment (only reasoning): the UI
-        // shows a Continue button. Record it with a fresh timestamp so the
-        // ask() loops do not wait out the timeout — they click Continue.
-        this._netNoAnswer = true
-        this._netCapture = ''
+      }
+      // Store the RAW body for the CURRENT answer (completion/continue) so the
+      // truncated/no-answer detectors can inspect it even when there is no
+      // RESPONSE text (extractAnswer() returns '' for those bodies).
+      if (/chat\/(completion|continue)/i.test(url)) {
+        this._netBody = body
         const cid = url.match(
           /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/,
         )
         if (cid) this._netChatId = cid[0]
-        this._netCaptureAt = Date.now()
+        if (!extracted) {
+          if (isFinishedWithoutAnswer(body)) {
+            // A FINISHED turn with NO RESPONSE fragment (only reasoning): the
+            // UI shows Stopped + Continue. Record it with a fresh timestamp
+            // so the ask() loops do not wait out the timeout — they click
+            // Continue / resend.
+            this._netNoAnswer = true
+            this._netCapture = ''
+          }
+          // A truncated turn (generation_err / INCOMPLETE) also has no
+          // RESPONSE; make the body visible to the incomplete check by
+          // refreshing the timestamp.
+          if (isGenerationIncompleteText(body)) {
+            this._netCapture = ''
+          }
+          this._netCaptureAt = Date.now()
+        }
       }
     } catch {}
   }
@@ -1897,6 +1918,7 @@ export class DeepSeekBrowser {
     this._netCapture = ''
     this._netCaptureAt = 0
     this._netNoAnswer = false
+    this._netBody = ''
 
     // Align the DeepSeek chat toggles (deep thinking / web search) with the
     // configured state BEFORE typing. Doing it here (after the send-pause) it
@@ -1957,12 +1979,15 @@ export class DeepSeekBrowser {
       // The turn was truncated by the server: the SSE body carries
       // finish_reason=generation_err / quasi_status=INCOMPLETE and the UI
       // shows "Continue". Retry instead of waiting out the whole timeout.
+      // NOTE: the check runs on the RAW `_netBody`, not on `_netCapture`: a
+      // truncated body has NO RESPONSE fragment, so extractAnswer() returned
+      // '' and `_netCapture` was empty — guarding on it made this branch dead
+      // code and the agent hung on "Stopped" until the timeout.
       if (
-        this._netCapture &&
         this._netCaptureAt >= this._lastSentAt &&
-        isGenerationIncompleteText(this._netCapture)
+        isGenerationIncompleteText(this._netBody)
       ) {
-        throw new GenerationIncompleteError(this._netCapture.slice(-300))
+        throw new GenerationIncompleteError(this._netBody.slice(-300))
       }
       // A FINISHED turn with NO answer (only reasoning): the UI shows a
       // Continue button. Click it (or, if autoContinue is off, keep waiting)
@@ -2057,6 +2082,16 @@ export class DeepSeekBrowser {
       // previous tool call.
       const cur = await this._readLastAnswerTextCleanDom().catch(() => '')
       const fresh = !!this._netCapture && this._netCaptureAt >= this._lastSentAt
+      // The turn was truncated / produced no answer (generation_err,
+      // INCOMPLETE, or FINISHED-with-only-reasoning): the message WAS sent,
+      // the server just cut the turn. Resend (ask() handles it) instead of
+      // treating this as "send failed" and hammering Enter.
+      if (
+        this._netCaptureAt >= this._lastSentAt &&
+        (isGenerationIncompleteText(this._netBody) || this._netNoAnswer)
+      ) {
+        throw new GenerationIncompleteError(this._netBody.slice(-300))
+      }
       if (
         cur &&
         cur.trim() &&
@@ -2133,12 +2168,13 @@ export class DeepSeekBrowser {
       // keeps the partial answer, so without this check the loop waits out the
       // whole timeout and throws ds.send_no_new_answer — the operator sees the
       // agent "stop" with a Continue button in the chat. Retry the send.
+      // Runs on the RAW `_netBody` (a truncated body has no RESPONSE, so
+      // `_netCapture` is empty and the old guard was dead code).
       if (
-        this._netCapture &&
         this._netCaptureAt >= this._lastSentAt &&
-        isGenerationIncompleteText(this._netCapture)
+        isGenerationIncompleteText(this._netBody)
       ) {
-        throw new GenerationIncompleteError(this._netCapture.slice(-300))
+        throw new GenerationIncompleteError(this._netBody.slice(-300))
       }
       // A FINISHED turn with NO answer (only reasoning): the UI shows a
       // Continue button. Click it and keep waiting — otherwise the loop spins
