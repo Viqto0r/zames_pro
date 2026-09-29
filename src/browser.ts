@@ -192,9 +192,10 @@ const STOP_SELECTORS = [
 // The agent must click it so the reasoning/answer keeps flowing, otherwise the
 // turn sits idle until the operator presses Continue by hand.
 //
-// The button is found by scanning every div[role=button]/button and matching
-// an EXACT short label ("Continue" / "Продолжить"), because the class names
-// change and :has-text is not valid in a page-side querySelectorAll.
+// The button is found by Playwright's accessible name (getByRole) with an
+// EXACT match, falling back to a raw DOM scan. The class names change between
+// builds, so we do not rely on them.
+const CONTINUE_NAMES = ['Continue', 'Продолжить', 'Продолжение']
 
 // DeepSeek UI service statuses that are NOT the model's answer.
 // Otherwise the agent takes a status (Reading...) for an answer and breaks parsing.
@@ -1257,7 +1258,16 @@ export class DeepSeekBrowser {
   // text there is exactly the "agent stopped with a Continue button" bug.
   async _continueButtonVisible(): Promise<boolean> {
     try {
-      return await this.page.evaluate(() => {
+      for (const name of CONTINUE_NAMES) {
+        const loc = this.page.getByRole('button', { name }).first()
+        if ((await loc.count().catch(() => 0)) === 0) continue
+        if (await loc.isVisible().catch(() => false)) return true
+      }
+    } catch {}
+    // Fallback: the raw DOM scan (older/newer DeepSeek builds where the role
+    // is absent).
+    return this.page
+      .evaluate(() => {
         const labelOf = (b: HTMLElement): string =>
           ((b.textContent || '') + ' ' + (b.getAttribute('aria-label') || ''))
             .replace(/\s+/g, ' ')
@@ -1271,14 +1281,12 @@ export class DeepSeekBrowser {
           if (!isExact(labelOf(e))) continue
           const st = getComputedStyle(e)
           if (st.display === 'none' || st.visibility === 'hidden') continue
-          if (!e.offsetParent && st.position !== 'fixed') continue
-          return true
+          const r = e.getBoundingClientRect()
+          if (r.width > 0 && r.height > 0) return true
         }
         return false
       })
-    } catch {
-      return false
-    }
+      .catch(() => false)
   }
 
   // Click the DeepSeek "Continue" button when it is visible (reasoning/answer
@@ -1290,15 +1298,27 @@ export class DeepSeekBrowser {
   // only act on an EXACT short label so a random "Continue" in prose (a button
   // inside a rendered answer, etc.) is never clicked.
   async _clickContinueIfVisible(): Promise<boolean> {
+    // 1) Playwright's OWN click on the accessible name — this is a TRUSTED
+    //    event and reliably triggers React handlers. The old in-page
+    //    dispatchEvent/click often did nothing, which is exactly why the
+    //    operator saw the button and the "жму Continue" message but no resume.
+    for (const name of CONTINUE_NAMES) {
+      try {
+        const loc = this.page.getByRole('button', { name }).first()
+        if ((await loc.count().catch(() => 0)) === 0) continue
+        if (!(await loc.isVisible().catch(() => false))) continue
+        await loc.click({ timeout: 2000 })
+        return true
+      } catch {}
+    }
+    // 2) Fallback: raw DOM scan + full pointer/mouse event sequence (an older
+    //    build without a proper role, or a click intercepted by an overlay).
     try {
       const clicked = await this.page.evaluate(() => {
-        // Normalize a label: textContent + aria-label, whitespace collapsed.
         const labelOf = (b: HTMLElement): string =>
           ((b.textContent || '') + ' ' + (b.getAttribute('aria-label') || ''))
             .replace(/\s+/g, ' ')
             .trim()
-        // The button must be a SHORT exact label, otherwise a paragraph or a
-        // rendered "Continue" inside the answer could be clicked by mistake.
         const isExact = (t: string): boolean =>
           /^(continue|продолжить|продолжение)\s*[.!…]?$/i.test(t)
         const cands = Array.from(
@@ -1309,11 +1329,8 @@ export class DeepSeekBrowser {
           if (!isExact(t)) continue
           const st = getComputedStyle(e)
           if (st.display === 'none' || st.visibility === 'hidden') continue
-          if (!e.offsetParent && st.position !== 'fixed') continue
-          // DeepSeek's button is a React component listening for POINTER/mouse
-          // events, not just a bare click(). A plain e.click() sometimes does
-          // nothing; dispatching the full sequence is what a real press does.
           const rect = e.getBoundingClientRect()
+          if (rect.width === 0 || rect.height === 0) continue
           const cx = rect.left + rect.width / 2
           const cy = rect.top + rect.height / 2
           const opts = {

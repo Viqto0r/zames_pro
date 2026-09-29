@@ -700,9 +700,13 @@ Continue by hand. `_clickContinueIfVisible()` (src/browser.ts) is polled in BOTH
 `_askOnce()` loops; it scans every `div[role=button]`/`button` and clicks only a
 button whose WHOLE label is `Continue`/`Продолжить`/`Продолжение` (a short exact
 label, so a "Continue" inside rendered prose is never clicked). The click is a
-full pointer/mouse sequence (`pointerdown`→`mousedown`→`pointerup`→`mouseup`→
-`click`), because DeepSeek's button is a React component that ignores a bare
-`e.click()`.
+TRUSTED Playwright click (`getByRole('button', { name: 'Continue' }).click()`),
+with a raw-DOM fallback (`pointerdown`→`mousedown`→`pointerup`→`mouseup`→
+`click`) for a build without a proper role. The OLD code only did the in-page
+`e.click()`/dispatchEvent, which DeepSeek's React button IGNORED — the operator
+saw the button and the "жму Continue" message, but the turn never resumed. A
+live fixture check confirmed `getByRole('button')` matches DeepSeek's
+`div[role=button]` and the trusted click fires the handler.
 
 ORDER MATTERS: the Continue button RESUMES the SAME turn (a `chat/continue`
 request); resending the prompt creates a NEW turn and duplicates the work. So
