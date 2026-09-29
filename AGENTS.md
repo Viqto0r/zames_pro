@@ -717,6 +717,15 @@ saw the button and the "жму Continue" message, but the turn never resumed. A
 live fixture check confirmed `getByRole('button')` matches DeepSeek's
 `div[role=button]` and the trusted click fires the handler.
 
+THROTTLE: a Continue click sends a `chat/continue` request and hits the rate
+limit just like a normal send, so it must NOT fire back-to-back. A run that
+keeps getting truncated could otherwise hammer it. `_clickContinueIfVisible()`
+now clicks AT MOST once per `minSendIntervalMs`, measured from the LATEST of
+`_lastSentAt` and `_lastContinueAt` (a new field). The button is looked up
+FIRST and the slot is waited out only when it is actually present, so probing
+every tick stays cheap. A normal send updates `_lastSentAt`; a Continue click
+updates `_lastContinueAt`.
+
 ORDER MATTERS: the Continue button RESUMES the SAME turn (a `chat/continue`
 request); resending the prompt creates a NEW turn and duplicates the work. So
 whenever a truncated turn (`generation_err` / `INCOMPLETE`) or a

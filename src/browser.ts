@@ -403,6 +403,11 @@ export class DeepSeekBrowser {
   // credentials into the user config (the browser does not write config).
   onAuthSave: ((username: string, password: string) => void) | null
   _lastSentAt: number
+  // Timestamp of the last Continue click. Clicks send a `chat/continue`
+  // request and used to bypass `_waitForSendSlot()` entirely — a run that
+  // keeps getting truncated could fire them back-to-back and hammer the
+  // rate limit. The click path now respects `minSendIntervalMs` like a send.
+  _lastContinueAt: number
   _abort: boolean
   // The user pressed Esc/Ctrl+C — a "stop" for the WHOLE current batch of
   // tasks (including the queue). Unlike _abort (reset on every send), this
@@ -505,6 +510,7 @@ export class DeepSeekBrowser {
     this.locale = locale || DEFAULT_LOCALE
     this.onAuthSave = onAuthSave || null
     this._lastSentAt = 0
+    this._lastContinueAt = 0
     this._abort = false
     this._stopped = false
     this._netCapture = ''
@@ -1302,12 +1308,42 @@ export class DeepSeekBrowser {
     //    event and reliably triggers React handlers. The old in-page
     //    dispatchEvent/click often did nothing, which is exactly why the
     //    operator saw the button and the "жму Continue" message but no resume.
+    //
+    //    We LOOK for the button first and only then wait out the send slot:
+    //    probing this every tick must stay cheap, and there is no point
+    //    throttling a click that will not happen.
+    let found: Locator | null = null
     for (const name of CONTINUE_NAMES) {
       try {
         const loc = this.page.getByRole('button', { name }).first()
         if ((await loc.count().catch(() => 0)) === 0) continue
         if (!(await loc.isVisible().catch(() => false))) continue
-        await loc.click({ timeout: 2000 })
+        found = loc
+        break
+      } catch {}
+    }
+    if (found) {
+      // One Continue click per `minSendIntervalMs`: a `chat/continue` request
+      // hits the rate limit like a send, and a run that keeps getting
+      // truncated could otherwise fire clicks back-to-back. The gap counts
+      // from the LATEST of the last send and the last Continue click.
+      const since = Math.max(this._lastSentAt, this._lastContinueAt)
+      if (since) {
+        const gap = this.minSendIntervalMs - (Date.now() - since)
+        if (gap > 0) {
+          const aborted = await this._sleepInterruptible(gap, (leftMs) => {
+            if (this.onSendPause) {
+              try {
+                this.onSendPause(Math.max(0, Math.ceil(leftMs / 1000)))
+              } catch {}
+            }
+          })
+          if (aborted) return false
+        }
+      }
+      try {
+        await found.click({ timeout: 2000 })
+        this._lastContinueAt = Date.now()
         return true
       } catch {}
     }
