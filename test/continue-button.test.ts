@@ -88,14 +88,14 @@ test('a settled answer must not be accepted while Continue is visible', () => {
 test('sendIntervalMs adds thinkingExtraMs only in thinking mode', () => {
   const b = new DeepSeekBrowser({
     minSendIntervalMs: 15000,
-    thinkingExtraMs: 5000,
+    thinkingExtraMs: 2000,
     deepThinking: false,
   })
   assert.equal(b.sendIntervalMs(), 15000)
   const t = new DeepSeekBrowser({
     minSendIntervalMs: 15000,
-    thinkingExtraMs: 5000,
+    thinkingExtraMs: 2000,
     deepThinking: true,
   })
-  assert.equal(t.sendIntervalMs(), 20000)
+  assert.equal(t.sendIntervalMs(), 17000)
 })

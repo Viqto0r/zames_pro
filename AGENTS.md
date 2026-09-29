@@ -378,7 +378,7 @@ same applies to the attachment warnings. `browser.onNotice` is cleared in
 
 `browser.minSendIntervalMs` (default **15000**) — the minimum pause between
 agent sends (tool-result / resend). `browser.thinkingExtraMs` (default
-**5000**) is ADDED to it when Deep thinking is ON: reasoning turns add extra
+**2000**) is ADDED to it when Deep thinking is ON: reasoning turns add extra
 requests (`chat/continue` clicks, truncation retries), so a small extra margin
 reduces the chance of "Messages too frequent". The effective interval is
 `sendIntervalMs() = minSendIntervalMs + (deepThinking ? thinkingExtraMs : 0)`,

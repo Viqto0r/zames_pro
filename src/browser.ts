@@ -484,7 +484,7 @@ export class DeepSeekBrowser {
     stabilityChecks = 2,
     stabilityDelayMs = 400,
     minSendIntervalMs = 15000,
-    thinkingExtraMs = 5000,
+    thinkingExtraMs = 2000,
     rateLimitWaitMs = 300000,
     maxRateLimitRetries = 6,
     maxServerBusyRetries = 5,
@@ -1880,7 +1880,7 @@ export class DeepSeekBrowser {
   // delayed by the remaining seconds, and the stop request only took effect
   // after the pause. This is the main "Esc does not cancel the pause" bug.
   // The effective minimum interval between two sends. When Deep thinking is on
-  // we add `thinkingExtraMs` (default +5s): reasoning turns add extra requests
+  // we add `thinkingExtraMs` (default +2s): reasoning turns add extra requests
   // (`chat/continue` clicks, truncation retries), so a small margin reduces the
   // chance of hitting the rate limit. `deepThinking` is the DESIRED state read
   // from the config (set in the constructor / on /config change).
