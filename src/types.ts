@@ -101,6 +101,13 @@ import type { Locale } from './i18n.js'
 export interface UiConfig {
   /** Language of the interface and the agent's answers. */
   locale: Locale
+  /**
+   * The context window size (tokens) used to render the status-bar fill
+   * percentage and to color it. DeepSeek's web context is advertised around
+   * 1M; the counter itself (accumulated_token_usage) is the truth, this is
+   * only the denominator. Configurable so it can be tuned per build.
+   */
+  contextLimit: number
 }
 
 export interface ZamesConfig {

@@ -863,6 +863,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   'cfg.group.transcript': { ru: 'Транскрипт', en: 'Transcript' },
   'cfg.group.browser': { ru: 'Браузер / DeepSeek', en: 'Browser / DeepSeek' },
 
+  'cfg.f.ui_contextLimit': {
+    ru: 'Размер контекста (токены)',
+    en: 'Context window (tokens)',
+  },
   'cfg.f.ui_locale': {
     ru: 'Язык интерфейса и ответов агента',
     en: 'Interface and agent reply language',

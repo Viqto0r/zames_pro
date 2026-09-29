@@ -361,6 +361,10 @@ export class LineEditor {
   // A callback the editor calls to fetch the CURRENT token count before every
   // status render, so the status line stays fresh without the caller polling.
   onContextQuery: (() => number | null) | null
+  // The context window size used for the fill percentage and its color. Kept
+  // as a mutable field (set from config.ui.contextLimit) so the status bar
+  // reflects the real limit instead of a hardcoded constant.
+  contextLimit: number
 
   constructor({
     prompt = '> ',
@@ -405,6 +409,7 @@ export class LineEditor {
     this.contextTokens = null
     this.thinkingEnabled = false
     this.searchEnabled = false
+    this.contextLimit = CONTEXT_LIMIT
     this.onToggleQuery = null
     this.onContextQuery = null
   }
@@ -432,7 +437,9 @@ export class LineEditor {
         const n = this.onContextQuery()
         this.contextTokens = typeof n === 'number' ? n : null
         this.contextStatus =
-          n === null || n === undefined ? null : formatTokenStatus(n) || null
+          n === null || n === undefined
+            ? null
+            : formatTokenStatus(n, this.contextLimit) || null
       } catch {
         // A broken callback must never break the render.
       }
@@ -445,7 +452,7 @@ export class LineEditor {
   _contextText(): string {
     const ctx = this._contextForRender()
     if (!ctx) return ''
-    const level = tokenStatusLevel(this.contextTokens)
+    const level = tokenStatusLevel(this.contextTokens, this.contextLimit)
     if (level === 'high') return theme.error(ctx)
     if (level === 'warn') return theme.warn(ctx)
     return theme.success(ctx)
@@ -587,8 +594,16 @@ export class LineEditor {
   setContextStatus(tokens: number | null | undefined): void {
     this.contextTokens =
       typeof tokens === 'number' && Number.isFinite(tokens) ? tokens : null
-    this.contextStatus = formatTokenStatus(tokens) || null
+    this.contextStatus = formatTokenStatus(tokens, this.contextLimit) || null
     this._render()
+  }
+
+  // Update the context window size (from config.ui.contextLimit). The next
+  // render recomputes the percentage and its color with the new limit.
+  setContextLimit(limit: number): void {
+    if (typeof limit === 'number' && Number.isFinite(limit) && limit > 0) {
+      this.contextLimit = limit
+    }
   }
 
   // Update the interface language (labels: hint, answer marker, pause).

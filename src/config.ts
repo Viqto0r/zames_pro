@@ -67,6 +67,7 @@ export const DEFAULTS: ZamesConfig = {
 
   ui: {
     locale: DEFAULT_LOCALE,
+    contextLimit: 1_000_000,
   },
 }
 
@@ -338,6 +339,14 @@ export const CONFIG_SCHEMA: ConfigField[] = [
     type: 'boolean',
     labelKey: 'cfg.f.browser_webSearch',
     groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'ui.contextLimit',
+    type: 'number',
+    min: 10_000,
+    max: 10_000_000,
+    labelKey: 'cfg.f.ui_contextLimit',
+    groupKey: 'cfg.group.ui',
   },
 ]
 

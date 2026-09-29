@@ -1533,6 +1533,8 @@ async function main(): Promise<void> {
     // The editor pulls the number on every render, so it follows the live
     // DeepSeek counter (accumulated_token_usage) without a polling timer.
     ed.onContextQuery = () => browser.getLastTokenUsage()
+    // Use the configured context window for the fill percentage/color.
+    ed.setContextLimit(config.ui.contextLimit)
     // Toggle icons (🧠 deep thinking, 🌐 web search) before the context
     // counter. The editor pulls the live state on every render.
     ed.onToggleQuery = () => browser.getToggleStatesSync()
@@ -1751,6 +1753,15 @@ async function main(): Promise<void> {
         webSearch: b.webSearch,
       })
       if (editor) editor.refreshStatus()
+    }
+    // The context window size feeds the status-bar percentage and its color.
+    // Apply it to the live editor immediately (the value is a plain number,
+    // no restart needed).
+    if (path === 'ui.contextLimit' && typeof value === 'number') {
+      if (editor) {
+        editor.setContextLimit(value)
+        editor.refreshStatus()
+      }
     }
   }
 
