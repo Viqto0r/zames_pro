@@ -702,9 +702,15 @@ button whose WHOLE label is `Continue`/`Продолжить`/`Продолже�
 label, so a "Continue" inside rendered prose is never clicked). The click is a
 full pointer/mouse sequence (`pointerdown`→`mousedown`→`pointerup`→`mouseup`→
 `click`), because DeepSeek's button is a React component that ignores a bare
-`e.click()`. This is a different case from `GenerationIncompleteError`: here the
-generation is still alive, just paused, so we click instead of resending. Set
-`browser.autoContinue: false` to disable the auto-click.
+`e.click()`.
+
+ORDER MATTERS: the Continue button RESUMES the SAME turn (a `chat/continue`
+request); resending the prompt creates a NEW turn and duplicates the work. So
+whenever a truncated turn (`generation_err` / `INCOMPLETE`) or a
+finished-without-answer turn is detected, the code FIRST tries
+`_clickContinueIfVisible()` and only throws `GenerationIncompleteError` (which
+makes `ask()` resend) when there is no button to click (or `autoContinue` is
+off). Set `browser.autoContinue: false` to disable the auto-click.
 
 IMPORTANT: a PAUSED generation also looks "settled" (the answer text stops
 changing while Continue is on screen), so the finish loop's stability check

@@ -1987,6 +1987,17 @@ export class DeepSeekBrowser {
         this._netCaptureAt >= this._lastSentAt &&
         isGenerationIncompleteText(this._netBody)
       ) {
+        // PREFER the Continue button: it RESUMES the same truncated turn (a
+        // `chat/continue` request). Resending the prompt creates a NEW turn and
+        // duplicates the work. Only resend when there is no button to click.
+        if (this.autoContinue && (await this._clickContinueIfVisible())) {
+          this._askDebug('CLICKED Continue (incomplete, start-loop)')
+          this._netBody = ''
+          this._netCaptureAt = 0
+          this._netNoAnswer = false
+          await this.page.waitForTimeout(500)
+          continue
+        }
         throw new GenerationIncompleteError(this._netBody.slice(-300))
       }
       // A FINISHED turn with NO answer (only reasoning): the UI shows a
@@ -2090,7 +2101,19 @@ export class DeepSeekBrowser {
         this._netCaptureAt >= this._lastSentAt &&
         (isGenerationIncompleteText(this._netBody) || this._netNoAnswer)
       ) {
-        throw new GenerationIncompleteError(this._netBody.slice(-300))
+        // Prefer Continue (resumes the same turn); resend only if unavailable.
+        if (this.autoContinue && (await this._clickContinueIfVisible())) {
+          this._askDebug('CLICKED Continue (incomplete, pre-loop)')
+          this._netBody = ''
+          this._netCaptureAt = 0
+          this._netNoAnswer = false
+          await this.page.waitForTimeout(500)
+          started = true
+          // fall through to the finish loop by NOT returning here
+          lastStartCur = cur
+        } else {
+          throw new GenerationIncompleteError(this._netBody.slice(-300))
+        }
       }
       if (
         cur &&
@@ -2164,33 +2187,35 @@ export class DeepSeekBrowser {
           throw new ServerBusyError(pageText.slice(0, 300))
         }
       }
-      // The server truncated the turn (generation_err / INCOMPLETE). The DOM
-      // keeps the partial answer, so without this check the loop waits out the
-      // whole timeout and throws ds.send_no_new_answer — the operator sees the
-      // agent "stop" with a Continue button in the chat. Retry the send.
-      // Runs on the RAW `_netBody` (a truncated body has no RESPONSE, so
-      // `_netCapture` is empty and the old guard was dead code).
-      if (
+      // The server truncated the turn (generation_err / INCOMPLETE) or ended
+      // it with only reasoning. PREFER the Continue button: it RESUMES the
+      // same turn (`chat/continue`). Resending the prompt creates a NEW turn
+      // and duplicates the work — only do that when there is no button to
+      // click. Runs on the RAW `_netBody` (a truncated body has no RESPONSE,
+      // so `_netCapture` is empty and the old guard was dead code).
+      const truncated =
         this._netCaptureAt >= this._lastSentAt &&
         isGenerationIncompleteText(this._netBody)
-      ) {
-        throw new GenerationIncompleteError(this._netBody.slice(-300))
-      }
-      // A FINISHED turn with NO answer (only reasoning): the UI shows a
-      // Continue button. Click it and keep waiting — otherwise the loop spins
-      // to the deadline on an empty answer and the operator sees "Stopped".
-      if (
-        this._netNoAnswer &&
-        this._netCaptureAt >= this._lastSentAt &&
-        this.autoContinue
-      ) {
+      const noAnswer =
+        this._netNoAnswer && this._netCaptureAt >= this._lastSentAt
+      if ((truncated || noAnswer) && this.autoContinue) {
         if (await this._clickContinueIfVisible()) {
-          this._askDebug('CLICKED Continue (net-no-answer, finish-loop)')
+          this._askDebug(
+            'CLICKED Continue (finish-loop, truncated=' +
+              truncated +
+              ' noAnswer=' +
+              noAnswer +
+              ')',
+          )
+          this._netBody = ''
           this._netNoAnswer = false
           this._netCaptureAt = 0
           await this.page.waitForTimeout(500)
           continue
         }
+      }
+      if (truncated) {
+        throw new GenerationIncompleteError(this._netBody.slice(-300))
       }
       // Reasoning-mode pause: DeepSeek caps the THINK phase and shows a
       // Continue button; the model does not resume by itself. Click it so the
