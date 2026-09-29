@@ -77,8 +77,10 @@ async function readIfFile(
     const st = await fs.stat(p)
     if (!st.isFile()) return null
     const raw = await fs.readFile(p, 'utf-8')
+    // An EXISTING but empty file is still present: keep it so the prompt
+    // shows an (empty) AGENTS.md/MEMORY.md section instead of silently
+    // dropping the file. Only a read failure returns null.
     const content = clipIf(path.basename(p), raw, budget)
-    if (!content) return null
     return { path: p, content }
   } catch {
     return null
