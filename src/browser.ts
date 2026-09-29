@@ -431,6 +431,12 @@ export class DeepSeekBrowser {
   // rate limit. The click path now respects `minSendIntervalMs` like a send.
   _lastContinueAt: number
   _abort: boolean
+  // Set by cancelPendingAsk(): the agent loop's watchdog raced ask() against a
+  // deadline and the timer won. The underlying ask() may still be inside a
+  // rate-limit wait or the finish loop; this flag makes it bail out so the
+  // next iteration does not run TWO asks against the same page (two sends /
+  // two Continue clicks). Reset at the start of every _askOnce.
+  _askCancelled: boolean
   // The user pressed Esc/Ctrl+C — a "stop" for the WHOLE current batch of
   // tasks (including the queue). Unlike _abort (reset on every send), this
   // flag lives until a new task is explicitly started from the prompt.
@@ -545,6 +551,7 @@ export class DeepSeekBrowser {
     this._lastSentAt = 0
     this._lastContinueAt = 0
     this._abort = false
+    this._askCancelled = false
     this._stopped = false
     this._netCapture = ''
     this._netCaptureAt = 0
@@ -1601,8 +1608,11 @@ export class DeepSeekBrowser {
     // (deep thinking) mode, where the long THINK phase gets cut off.
     let incompleteRetries = 0
 
+    // NOTE: `attempt` counts only GENUINE failures. The three retryable
+    // classes below (rate limit / server busy / truncated turn) have their OWN
+    // budgets and must NOT consume an ask() attempt — otherwise a rate limit at
+    // the start burns the whole askRetries budget and ask() gives up early.
     while (attempt < this.askRetries) {
-      attempt++
       try {
         return await this._askOnce(prompt, { timeout, agent, attachments })
       } catch (e) {
@@ -1752,6 +1762,16 @@ export class DeepSeekBrowser {
         error: lastErr?.message || '',
       }),
     )
+  }
+
+  // Cancel an in-flight ask() whose caller (the agent-loop watchdog) already
+  // gave up on it. WITHOUT this the abandoned ask() kept running — it could
+  // still be inside `_waitRateLimit` (up to 300s) or the finish loop — while
+  // the NEXT iteration started a second ask() against the same page. Two asks
+  // then both send / both click Continue: a duplicate message and possible
+  // rate-limit hammering. The flag is reset at the start of every _askOnce.
+  cancelPendingAsk(): void {
+    this._askCancelled = true
   }
 
   async _setInputText(input: Locator, text: string): Promise<void> {
@@ -1971,6 +1991,9 @@ export class DeepSeekBrowser {
     let sinceTick = 0
     while (left > 0) {
       if (this._abort) return true
+      // The watchdog abandoned this ask(): stop sleeping so the next ask()
+      // can start without two asks competing for the same page.
+      if (this._askCancelled) return true
       const chunk = Math.min(step, left)
       await this.page.waitForTimeout(chunk)
       left -= chunk
@@ -2014,6 +2037,8 @@ export class DeepSeekBrowser {
     // set while a previous send was waiting in the pause. If it is set, the
     // user asked to stop and we must not start a new generation at all.
     this._abort = false
+    // A fresh send clears a stale cancellation from a previous, abandoned ask.
+    this._askCancelled = false
     if (this._stopped) return '(прервано пользователем)'
     const input = await this._findVisible(INPUT_SELECTORS, 10_000)
     if (!input) {
@@ -2102,7 +2127,8 @@ export class DeepSeekBrowser {
     let settledTicks = 0
     let lastStartCur = ''
     while (Date.now() < startDeadline) {
-      if (this._abort) return '(прервано пользователем)'
+      if (this._abort || this._askCancelled)
+        return '(прервано пользователем)'
       const pageText = await this._readPageText()
       if (isRateLimitText(pageText)) {
         throw new RateLimitError(pageText.slice(0, 300))
@@ -2269,7 +2295,8 @@ export class DeepSeekBrowser {
       this._lastSentAt = Date.now()
       const retryDeadline = Date.now() + 20_000
       while (Date.now() < retryDeadline) {
-        if (this._abort) return '(прервано пользователем)'
+        if (this._abort || this._askCancelled)
+          return '(прервано пользователем)'
         const cur2 = await this._readLastAnswerTextCleanDom().catch(() => '')
         const net2 =
           !!this._netCapture && this._netCaptureAt >= this._lastSentAt
@@ -2301,7 +2328,7 @@ export class DeepSeekBrowser {
     let last = ''
     let stable = 0
     while (Date.now() < deadline) {
-      if (this._abort) {
+      if (this._abort || this._askCancelled) {
         return last || '(прервано пользователем)'
       }
       // Rate-limit / server-busy toast. The old code only read the toasts
