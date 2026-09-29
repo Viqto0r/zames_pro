@@ -729,8 +729,13 @@ export class DeepSeekBrowser {
       const usage = extractTokenUsage(body)
       if (usage !== null) this._lastTokenUsage = usage
 
+      // Only a completion/continue turn carries a real answer. Gate the
+      // capture assignment to those URLs: a future endpoint returning a
+      // `content`/`text`/`response` string must not clobber the answer and
+      // look fresh (it would be returned as the final answer).
+      const isAnswerUrl = /chat\/(completion|continue)/i.test(url)
       const extracted = extractAnswer(body)
-      if (extracted) {
+      if (extracted && isAnswerUrl) {
         this._netCapture = extracted
         this._netNoAnswer = false
         const cid = url.match(
@@ -742,7 +747,7 @@ export class DeepSeekBrowser {
       // Store the RAW body for the CURRENT answer (completion/continue) so the
       // truncated/no-answer detectors can inspect it even when there is no
       // RESPONSE text (extractAnswer() returns '' for those bodies).
-      if (/chat\/(completion|continue)/i.test(url)) {
+      if (isAnswerUrl) {
         this._netBody = body
         const cid = url.match(
           /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/,
