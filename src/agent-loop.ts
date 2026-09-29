@@ -751,6 +751,14 @@ export async function runAgentLoop({
     // Real progress was made, so the "unparsed answer" budget is replenished:
     // a long chain of tools must not run out of it because of earlier hiccups.
     unparsedRetries = 0
+    // A9: reset ALL per-task retry counters after a successful tool, not just
+    // the three above. stallRetries/looksDoneRetries/malformedRetries used to
+    // live for the WHOLE task, so over a long chain of tools their budgets
+    // could be exhausted by earlier hiccups and the guards silently stopped
+    // protecting against "stopped after a tool call".
+    stallRetries = 0
+    looksDoneRetries = 0
+    malformedRetries = 0
     finalRespondAsked = false
 
     if (results.length === 1) {

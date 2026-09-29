@@ -466,8 +466,6 @@ export class DeepSeekBrowser {
   // Last error from fetchChatMessages ('' on success). Surfaced under --debug
   // so a missing restored history can be diagnosed.
   _lastHistoryError: string
-  _netSniff: Array<{ url: string; contentType: string; body: string }>
-  _netSniffLimit: number
   // The RAW SSE body of the LAST answer response. Unlike `_netCapture`, this
   // is kept even when the body carries no RESPONSE text (a truncated turn:
   // generation_err / INCOMPLETE, or FINISHED-with-only-reasoning). The
@@ -562,8 +560,6 @@ export class DeepSeekBrowser {
     this._apiAuth = ''
     this._apiPow = ''
     this._lastHistoryError = ''
-    this._netSniff = []
-    this._netSniffLimit = 5
     this._netBody = ''
     this._netHookInstalled = false
     this.onSendStart = null
@@ -726,8 +722,6 @@ export class DeepSeekBrowser {
       const body = await resp.text().catch(() => '')
       if (!body) return
 
-      this._netSniff.push({ url, contentType: ct, body })
-      if (this._netSniff.length > this._netSniffLimit) this._netSniff.shift()
       void dumpNetBody(url, body)
 
       // Context size (tokens) reported by DeepSeek for this answer. Kept
@@ -1259,14 +1253,9 @@ export class DeepSeekBrowser {
       .catch(() => '')
   }
 
-  async _readLastAnswerTextClean(): Promise<string> {
-    const raw = await this._readLastAnswerText().catch(() => '')
-    return this._cleanAnswer(raw)
-  }
-
-  // The same "clean" filter as _readLastAnswerTextClean, but read from the
-  // DOM only. Used by _askOnce for the before/after comparison: the network
-  // capture must not be compared against itself (see _readLastAnswerTextDom).
+  // The "clean" filter, but read from the DOM only. Used by _askOnce for the
+  // before/after comparison: the network capture must not be compared against
+  // itself (see _readLastAnswerTextDom).
   async _readLastAnswerTextCleanDom(): Promise<string> {
     const raw = await this._readLastAnswerTextDom().catch(() => '')
     return this._cleanAnswer(raw)
