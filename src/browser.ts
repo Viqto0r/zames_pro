@@ -185,6 +185,11 @@ const STOP_SELECTORS = [
   'button[aria-label*="Stop" i]',
 ]
 
+// Accessible name of the Stop button, for a TRUSTED Playwright click. It is a
+// bare stop word (optionally with a short suffix), anchored and length-limited
+// so a "Stop" inside rendered prose is never clicked.
+export const STOP_NAME_RE = /^(?:stop|остановить)(?:\s+\S{0,20})?\s*[.!…]?$/i
+
 // DeepSeek's "Continue" button. With the reasoning ("Deep thinking") toggle
 // on, the server caps the THINK phase: the reasoning stops mid-way and the UI
 // offers a Continue button (this is NOT the same as a truncated turn with
@@ -1541,9 +1546,30 @@ export class DeepSeekBrowser {
     }
   }
 
+  // Stop the current generation. Used by Esc/Ctrl+C. Prefers a TRUSTED
+  // Playwright click on the Stop button (matched by its accessible name, the
+  // same technique as _clickContinueIfVisible): an in-page `e.click()` /
+  // dispatchEvent is IGNORED by DeepSeek's React button, so the old DOM-only
+  // path often did not stop anything. Falls back to a raw DOM scan and finally
+  // to Escape.
   async stopGeneration(): Promise<boolean> {
     this._abort = true
     this._stopped = true
+
+    // 1) Trusted click on the accessible name.
+    try {
+      const loc = this.page.getByRole('button', { name: STOP_NAME_RE })
+      const n = await loc.count().catch(() => 0)
+      for (let i = 0; i < n; i++) {
+        const b = loc.nth(i)
+        if (await b.isVisible().catch(() => false)) {
+          await b.click({ timeout: 2000 })
+          return true
+        }
+      }
+    } catch {}
+
+    // 2) Legacy selector path.
     const btn = await this._findVisible(STOP_SELECTORS, 500)
     if (btn) {
       try {
@@ -1551,6 +1577,9 @@ export class DeepSeekBrowser {
         return true
       } catch {}
     }
+
+    // 3) Raw DOM scan + the full pointer/mouse sequence (older builds without
+    //    a proper role, or a click intercepted by an overlay).
     const clicked = await this.page
       .evaluate(() => {
         const btns = Array.from(
@@ -1561,6 +1590,17 @@ export class DeepSeekBrowser {
           if (!/ds-button--(circle|primary|filled)/i.test(cls)) continue
           const svg = b.querySelector('svg')
           if (svg && svg.querySelector('rect')) {
+            for (const type of [
+              'pointerdown',
+              'mousedown',
+              'pointerup',
+              'mouseup',
+              'click',
+            ]) {
+              b.dispatchEvent(
+                new MouseEvent(type, { bubbles: true, cancelable: true }),
+              )
+            }
             b.click()
             return true
           }
@@ -2418,7 +2458,11 @@ export class DeepSeekBrowser {
               this._askDebug('CLICKED Continue (before early return)')
             }
             stable = 0
-          } else if (isNew || !(await this._isGenerating())) {
+          } else if (!(await this._isGenerating())) {
+            // B3: only return when the generation has REALLY ended — no Stop
+            // button AND no Continue button (checked above). The old condition
+            // `isNew || !_isGenerating()` returned a still-streaming answer
+            // merely because it looked "new", cutting a long answer short.
             this._askDebug('RETURN stable curLen=' + cur.length)
             return cur
           }
