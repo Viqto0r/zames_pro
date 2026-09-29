@@ -4,7 +4,12 @@ import {
   type Page,
   type Locator,
 } from 'playwright'
-import { extractAnswer, extractTokenUsage, dumpNetBody } from './net-capture.js'
+import {
+  extractAnswer,
+  extractTokenUsage,
+  dumpNetBody,
+  isFinishedWithoutAnswer,
+} from './net-capture.js'
 import path from 'path'
 import os from 'os'
 import fs from 'fs/promises'
@@ -406,6 +411,10 @@ export class DeepSeekBrowser {
   page!: Page
   _netCapture: string
   _netCaptureAt: number
+  // True when the LAST response body was a FINISHED turn with NO answer text
+  // (only reasoning). The DOM keeps showing reasoning/old text, so the loop
+  // must not wait it out — it clicks Continue / resends. Reset before a send.
+  _netNoAnswer: boolean
   _netChatId: string | null
   // The latest CONTEXT size (in tokens) DeepSeek reported in the current
   // chat. It is the `accumulated_token_usage` counter taken from the SSE
@@ -492,6 +501,7 @@ export class DeepSeekBrowser {
     this._stopped = false
     this._netCapture = ''
     this._netCaptureAt = 0
+    this._netNoAnswer = false
     this._netChatId = null
     this._lastTokenUsage = null
     this._toggles = { deepThinking, webSearch }
@@ -660,6 +670,21 @@ export class DeepSeekBrowser {
       const extracted = extractAnswer(body)
       if (extracted) {
         this._netCapture = extracted
+        this._netNoAnswer = false
+        const cid = url.match(
+          /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/,
+        )
+        if (cid) this._netChatId = cid[0]
+        this._netCaptureAt = Date.now()
+      } else if (
+        /chat\/(completion|continue)/i.test(url) &&
+        isFinishedWithoutAnswer(body)
+      ) {
+        // A FINISHED turn with NO RESPONSE fragment (only reasoning): the UI
+        // shows a Continue button. Record it with a fresh timestamp so the
+        // ask() loops do not wait out the timeout — they click Continue.
+        this._netNoAnswer = true
+        this._netCapture = ''
         const cid = url.match(
           /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/,
         )
@@ -1871,6 +1896,7 @@ export class DeepSeekBrowser {
     }
     this._netCapture = ''
     this._netCaptureAt = 0
+    this._netNoAnswer = false
 
     // Align the DeepSeek chat toggles (deep thinking / web search) with the
     // configured state BEFORE typing. Doing it here (after the send-pause) it
@@ -1937,6 +1963,19 @@ export class DeepSeekBrowser {
         isGenerationIncompleteText(this._netCapture)
       ) {
         throw new GenerationIncompleteError(this._netCapture.slice(-300))
+      }
+      // A FINISHED turn with NO answer (only reasoning): the UI shows a
+      // Continue button. Click it (or, if autoContinue is off, keep waiting)
+      // instead of spinning to the deadline on an empty answer.
+      if (this._netNoAnswer && this._netCaptureAt >= this._lastSentAt) {
+        this._askDebug('START-loop net-no-answer')
+        if (this.autoContinue && (await this._clickContinueIfVisible())) {
+          this._askDebug('CLICKED Continue (net-no-answer, start-loop)')
+          this._netNoAnswer = false
+          this._netCaptureAt = 0
+          await this.page.waitForTimeout(500)
+          continue
+        }
       }
       // Reasoning-mode pause during the THINK phase: click Continue so the
       // generation resumes (the button appears before any RESPONSE text, so
@@ -2101,6 +2140,22 @@ export class DeepSeekBrowser {
       ) {
         throw new GenerationIncompleteError(this._netCapture.slice(-300))
       }
+      // A FINISHED turn with NO answer (only reasoning): the UI shows a
+      // Continue button. Click it and keep waiting — otherwise the loop spins
+      // to the deadline on an empty answer and the operator sees "Stopped".
+      if (
+        this._netNoAnswer &&
+        this._netCaptureAt >= this._lastSentAt &&
+        this.autoContinue
+      ) {
+        if (await this._clickContinueIfVisible()) {
+          this._askDebug('CLICKED Continue (net-no-answer, finish-loop)')
+          this._netNoAnswer = false
+          this._netCaptureAt = 0
+          await this.page.waitForTimeout(500)
+          continue
+        }
+      }
       // Reasoning-mode pause: DeepSeek caps the THINK phase and shows a
       // Continue button; the model does not resume by itself. Click it so the
       // answer keeps flowing instead of waiting for the operator.
@@ -2172,6 +2227,18 @@ export class DeepSeekBrowser {
       await this.page.waitForTimeout(Math.max(0, this.stabilityDelayMs))
     }
 
+    // A FINISHED turn with NO answer text (only reasoning) must NOT be
+    // returned as a final answer, and must not hang until the timeout either.
+    // Treat it like a truncated turn: ask() resends the prompt (the same thing
+    // the Continue button does). Only if a real capture arrived in the
+    // meantime do we fall through to return it.
+    if (
+      this._netNoAnswer &&
+      this._netCaptureAt >= this._lastSentAt &&
+      !this._netCapture
+    ) {
+      throw new GenerationIncompleteError('finished without answer')
+    }
     if (last && (normText(last) !== normText(beforeText) || this._netCapture)) {
       // If Continue is STILL on screen, the turn is paused, not finished:
       // click once more and report what we have rather than silently stopping.

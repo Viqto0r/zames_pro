@@ -717,6 +717,30 @@ is visible the answer is NOT accepted — the loop clicks Continue and keeps
 waiting. When the start-wait sees Continue it clicks it (the button appears
 before any RESPONSE text, so the wait would otherwise spin to the deadline).
 
+### "Stopped" in the browser: a FINISHED turn with no answer
+
+A SECOND Continue case, distinct from `generation_err`: DeepSeek can END a
+reasoning turn with `quasi_status: FINISHED` but produce **only a THINK
+fragment and no RESPONSE fragment at all**. The web UI shows the status
+**Stopped** plus a Continue button, while the DOM keeps the reasoning/previous
+text. `extractAnswer()` returns `''` (it only collects RESPONSE fragments), so
+`_netCapture` stayed empty, `_netCaptureAt` was NOT refreshed, and the finish
+loop waited out the whole `answerTimeoutMs` and threw `ds.send_no_new_answer` —
+the operator saw the agent hang on "Stopped" with a spinning terminal.
+`isGenerationIncompleteText()` does NOT catch this (status is FINISHED, not
+INCOMPLETE), which is why the earlier fix missed it.
+
+Fix: `isFinishedWithoutAnswer(body)` (src/net-capture.ts) detects
+`quasi_status: FINISHED` with no non-empty RESPONSE fragment; `_onResponse`
+sets `browser._netNoAnswer` (with a fresh `_netCaptureAt`) for such a body from
+a `chat/(completion|continue)` URL. Both `_askOnce` loops then CLICK Continue
+and keep waiting (and, if Continue cannot be clicked, the finish loop throws
+`GenerationIncompleteError` so `ask()` resends the prompt — the same thing the
+button does). The flag is reset before every send. Verified against real
+captures: exactly the one body that hung the live agent is flagged, with zero
+false positives across 2118 bodies. Covered by
+`test/generation-incomplete.test.ts`.
+
 ## Headless by default + login (src/browser.ts)
 
 `headless` is **true by default** (DEFAULTS in config.ts). `--headed` (or

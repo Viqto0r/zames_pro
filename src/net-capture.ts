@@ -162,6 +162,30 @@ export function extractAnswer(body: string): string {
   return extractFromJson(body)
 }
 
+// True when the SSE body shows a turn that ENDED (`quasi_status: FINISHED`)
+// but produced NO answer text — the reasoning (THINK fragment) was generated
+// and then the model stopped WITHOUT writing a RESPONSE fragment.
+//
+// This is the "Stopped + Continue button" case: DeepSeek finishes the turn
+// with only reasoning, the UI shows a Continue button, and extractAnswer()
+// returns '' (it only collects RESPONSE fragments). The old code then saw an
+// empty capture, ignored it, and the finish loop waited out the whole timeout
+// and threw ds.send_no_new_answer — to the operator the agent "hung on Stopped".
+// Unlike generation_err, `quasi_status` here is FINISHED, so
+// isGenerationIncompleteText() does NOT catch it.
+//
+export function isFinishedWithoutAnswer(body: string): boolean {
+  const b = String(body || '')
+  if (!b) return false
+  const finished = /"quasi_status","v":"FINISHED"/i.test(b)
+  if (!finished) return false
+  // A RESPONSE fragment with actual content means the model DID answer.
+  if (/"type":"RESPONSE","content":"[^"]/.test(b)) return false
+  // The turn carried reasoning (THINK) or was truncated mid-way; treat the
+  // absence of response content as "no answer produced".
+  return true
+}
+
 // The CONTEXT size (in tokens) DeepSeek reports for the current answer.
 //
 // chat.deepseek.com does not expose prompt_tokens/completion_tokens the way

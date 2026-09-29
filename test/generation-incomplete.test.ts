@@ -61,3 +61,41 @@ test('DeepSeekBrowser honors maxIncompleteRetries/incompleteWaitMs', () => {
   assert.equal(b.maxIncompleteRetries, 7)
   assert.equal(b.incompleteWaitMs, 123)
 })
+
+// A FINISHED turn that produced NO answer text (only reasoning) is the real
+// "Stopped + Continue" case: quasi_status is FINISHED, so the generation_err
+// detector does not see it, extractAnswer() returns '', and the old finish
+// loop waited out the whole timeout — the operator saw the agent hang on
+// "Stopped" with a Continue button.
+import { isFinishedWithoutAnswer } from '../src/net-capture.ts'
+
+const FINISHED_THINK_ONLY = [
+  'data: {"v":{"response":{"status":"WIP","thinking_enabled":true,"fragments":[{"type":"THINK","content":"Let me think..."}]}}}',
+  'data: {"v":" more reasoning"}',
+  'data: {"p":"response","o":"BATCH","v":[{"p":"quasi_status","v":"FINISHED"}]}',
+  'data: {"p":"response/status","o":"SET","v":"FINISHED"}',
+].join('\n')
+
+const FINISHED_WITH_RESPONSE = [
+  'data: {"v":{"response":{"status":"WIP","fragments":[{"type":"THINK","content":"reasoning"}]}}}',
+  'data: {"p":"response/fragments","o":"APPEND","v":[{"type":"RESPONSE","content":"{\\"tool\\": \\"Read\\"}"}]}',
+  'data: {"p":"response","o":"BATCH","v":[{"p":"quasi_status","v":"FINISHED"}]}',
+].join('\n')
+
+test('a FINISHED turn with only reasoning has no answer', () => {
+  assert.equal(isFinishedWithoutAnswer(FINISHED_THINK_ONLY), true)
+})
+
+test('a FINISHED turn with a RESPONSE fragment is a real answer', () => {
+  assert.equal(isFinishedWithoutAnswer(FINISHED_WITH_RESPONSE), false)
+})
+
+test('an unfinished (INCOMPLETE) body is not "finished without answer"', () => {
+  assert.equal(
+    isFinishedWithoutAnswer(
+      'data: {"p":"response","o":"BATCH","v":[{"p":"quasi_status","v":"INCOMPLETE"}]}',
+    ),
+    false,
+  )
+  assert.equal(isFinishedWithoutAnswer(''), false)
+})
