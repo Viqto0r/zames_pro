@@ -1069,6 +1069,12 @@ export class LineEditor {
     this.pastes = []
     this.attachments.reset()
     if (this.onSubmit) this.onSubmit(text, attached)
+    // When a message is queued DURING a running task (`busy`), keep the
+    // "agent is working" indicator alive: `_stopDots()` above cleared the
+    // status, and nothing would restart it until the next send/tool — so the
+    // operator saw the spinner vanish and could not tell whether the agent
+    // was still working. Restart the animated status unless we are idle.
+    if (this.busy) this._startThinking()
   }
 
   _insert(text: string): void {

@@ -517,6 +517,12 @@ in its buffer. On Enter, `LineEditor.onSubmit` puts the text into `pendingQueue`
 
 - **Esc / Ctrl+C** — abort the current generation (`browser.stopGeneration()`);
   `Ctrl+C` while idle — exit the agent.
+- Queuing a message WHILE the agent runs must NOT kill the "agent is
+  working" indicator. `_doSubmit()` calls `_stopDots()`/clears the status and
+  then (for a queued message) starts nothing, so the spinner vanished and the
+  operator could not tell whether the agent was still working. Fix:
+  `_doSubmit()` restarts the animated status when `this.busy` is true (a task is
+  in flight). The spinner then stays until the queued task actually begins.
 - **type + Enter** — put a message into the queue; it goes to the agent right
   after the current task finishes (like "send during generation" in the
   DeepSeek web version).
