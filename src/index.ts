@@ -991,6 +991,12 @@ async function printRestoredHistory(
     all = await browser.readChatMessages().catch(() => [])
     domCount = all.length
   }
+  // `all` is the raw history (mostly protocol noise). `displayable` is what
+  // survives normalization; `messages` is the last RESTORED_HISTORY_LIMIT of
+  // those. The "truncated" note must compare the DISPLAYABLE count with the
+  // limit (comparing `all.length` always fired, because tool-calls are
+  // dropped and the raw history is always longer).
+  const displayable = trimRestoredMessages(all, 0)
   const messages = trimRestoredMessages(all)
   // Always surface the diagnostic line when the history could not be turned
   // into anything printable — otherwise "the dialogue is empty" is a dead end
@@ -1036,7 +1042,7 @@ async function printRestoredHistory(
       )
     }
   }
-  if (all.length > messages.length) {
+  if (displayable.length > messages.length) {
     out(
       theme.dim(
         t('chats.history_truncated', { n: String(RESTORED_HISTORY_LIMIT) }),

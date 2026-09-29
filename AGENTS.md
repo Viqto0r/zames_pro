@@ -861,10 +861,24 @@ The rendering is split in two: `trimRestoredMessages()` and
 `test/commands.test.ts`), while `printRestoredHistory()` (src/index.ts) does
 the actual output via `editor.printAbove()` (or `console.log` before the
 editor exists) and `renderMarkdown()`. Only the last
-`RESTORED_HISTORY_LIMIT` (20) messages are shown. `readChatMessages` /
-`fetchChatMessages` are optional in `BrowserLike`, so test doubles and
-self-review are unaffected. The feature is best-effort: a fetch/scraping
-failure never breaks the restore. When nothing is printed,
+`RESTORED_HISTORY_LIMIT` (20) messages are shown.
+
+IMPORTANT: DeepSeek stores each assistant turn VERBATIM — either a raw
+tool-call JSON (`{"tool":"Read","args":{...}}`, often dirty/truncated) or a
+`respond` call carrying the real message for the operator
+(`{"tool":"respond","args":{"message":"..."}}`). Before, the filter simply
+dropped anything matching `"tool":` — which dropped the REAL answers too, while
+tool-call noise leaked through, so the restored dialogue showed garbage.
+`normalizeRestoredMessage()` (src/commands.ts) now: for USER, drops the
+protocol noise (system-prompt, `Tool result for …`, nudges); for ASSISTANT,
+UNWRAPS a `respond` call to its `message` (via `parseAssistantToolCall()`,
+tolerant of dirty JSON — a stray `}}`, a broken head), DROPS any other
+tool-call, keeps plain-text answers, and drops the model's `<ds_safety>` block.
+`trimRestoredMessages()` applies this and keeps the last 20 messages.
+`isDisplayableMessage()` is now a thin wrapper over `normalizeRestoredMessage()`.
+`readChatMessages` / `fetchChatMessages` are optional in `BrowserLike`, so test
+doubles and self-review are unaffected. The feature is best-effort: a
+fetch/scraping failure never breaks the restore. When nothing is printed,
 `fetchChatMessages` stores its failure reason in `browser._lastHistoryError`,
 which `printRestoredHistory()` shows (and `--debug` prints the
 `[history] chat=... raw=... shown=... err=...` line). A chat that contains

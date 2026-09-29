@@ -285,64 +285,116 @@ export function resolveExtraDir(
 
 // ---------- restored dialogue ----------
 
-/** One message of a restored chat, as read from the DeepSeek DOM. */
+/** One message of a restored chat, as read from the DeepSeek DOM/API. */
 export interface RestoredMessage {
   role: 'user' | 'assistant'
   text: string
 }
 
-/** How many characters of the dialogue are printed by default. */
+/** How many messages of the dialogue are printed by default. */
 export const RESTORED_HISTORY_LIMIT = 20
 
 /**
- * Is this message worth showing to the operator as part of the dialogue?
+ * DeepSeek stores the assistant turn VERBATIM: either a raw tool-call JSON
+ * ({"tool":"Read","args":{...}}, frequently dirty/truncated) or a `respond`
+ * call that carries the real message for the operator
+ * ({"tool":"respond","args":{"message":"..."}}). The operator only wants the
+ * `respond` message (and plain-text answers) — a tool-call is protocol noise.
  *
- * The chat history contains a lot of protocol noise that is meaningless in
- * the terminal: the system-prompt (a huge REQUEST), tool results
- * ("Tool result for ..."), the agent's raw tool-calls (JSON / DSML), the
- * "You stopped after a tool result..." nudges, and the agent's <system> notes.
- * We keep only real user turns and real assistant answers.
+ * Returns the tool name and, for `respond`, the unwrapped message. Tolerant on
+ * purpose: the stored JSON is often dirty (a stray `}}`, a missing "args"
+ * wrapper), so a bare JSON.parse is not enough.
  */
-export function isDisplayableMessage(m: RestoredMessage): boolean {
-  const text = String((m && m.text) || '').trim()
-  if (!text) return false
-  if (text.length > 100_000) return false // the system-prompt / a giant blob
-  if (m.role === 'user') {
-    // Tool output, the system-prompt and the corrective nudges are not the
-    // operator's words.
-    if (/^Tool result for /.test(text)) return false
-    if (/^You are a coding agent running in a terminal/.test(text)) return false
-    if (/^You stopped after a tool result/.test(text)) return false
-    if (/^\[system\]/.test(text)) return false
-    if (/^The user ran \//.test(text)) return false
-    return true
+export function parseAssistantToolCall(
+  text: string,
+): { tool: string; message?: string } | null {
+  const t = String(text || '').trim()
+  if (!t) return null
+  // Broken heads like `<|tool": ...` or `tool": "Bash"` are tolerated.
+  const m = t.match(/tool"?\s*:\s*"([^"\s]+)"/)
+  if (!m) return null
+  const tool = m[1]
+  if (tool !== 'respond') return { tool }
+  const greedy = t.match(/"message"\s*:\s*"([\s\S]*)"\s*\}*\s*$/)
+  let raw = greedy ? greedy[1] : ''
+  if (!greedy) {
+    const idx = t.indexOf('"message"')
+    if (idx >= 0) raw = t.slice(idx + 9).replace(/^\s*:\s*"/, '')
   }
-  // Assistant: a tool-call (JSON or DSML) is not an answer to show. The
-  // DSML markers use FULL-WIDTH vertical bars (｜｜DSML), so the regex must
-  // match them, not the ASCII pipe.
-  if (/DSML/i.test(text)) return false
-  if (/^<system>/i.test(text)) return false
-  if (/"tool"\s*:/.test(text.slice(0, 600))) {
-    return false
-  }
-  if (/^\s*[\[{]/.test(text) && /"args"\s*:/.test(text.slice(0, 600))) {
-    return false
-  }
-  return true
+  return { tool, message: unescapeJsonString(raw) }
+}
+
+/** Decode the JSON escape sequences that appear inside a captured string. */
+export function unescapeJsonString(s: string): string {
+  return String(s || '')
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_x, h: string) =>
+      String.fromCharCode(parseInt(h, 16)),
+    )
+    .replace(/\\n/g, NL)
+    .replace(/\\r/g, String.fromCharCode(13))
+    .replace(/\\t/g, String.fromCharCode(9))
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, '\\')
 }
 
 /**
- * Keep only the last `limit` messages and drop empties/service noise. The
- * source (network history or DOM) may contain protocol messages; they are
- * filtered out here so the terminal output stays readable.
+ * Normalize one restored message for display:
+ *  - USER: drop the protocol noise (system-prompt, tool results, nudges) — it
+ *    is not the operator's words.
+ *  - ASSISTANT: unwrap a `respond` call to its message; drop any other
+ *    tool-call (protocol noise); keep plain-text answers.
+ * Returns null when the message must not be shown.
+ */
+export function normalizeRestoredMessage(
+  m: RestoredMessage,
+): RestoredMessage | null {
+  const text = String((m && m.text) || '').trim()
+  if (!text) return null
+  if (text.length > 100_000) return null // the system-prompt / a giant blob
+  if (m.role === 'user') {
+    if (/^Tool result for /.test(text)) return null
+    if (/^You are a coding agent running in a terminal/.test(text)) return null
+    if (/^You stopped after a tool result/.test(text)) return null
+    if (/^\[system\]/.test(text)) return null
+    if (/^The user ran \//.test(text)) return null
+    return { role: 'user', text }
+  }
+  if (/DSML/i.test(text)) return null
+  if (/^<system>/i.test(text)) return null
+  // The model sometimes emits its own safety-classification block as a plain
+  // "answer"; it is not for the operator.
+  if (/<ds_safety>/i.test(text)) return null
+  if (/^Safe$/i.test(text)) return null
+  const call = parseAssistantToolCall(text)
+  if (call) {
+    if (call.tool !== 'respond') return null
+    const msg = (call.message || '').trim()
+    if (!msg) return null
+    return { role: 'assistant', text: msg }
+  }
+  // A plain-text answer (written without the respond wrapper) — show as-is.
+  return { role: 'assistant', text }
+}
+
+/** Back-compat predicate: is the message worth showing at all? */
+export function isDisplayableMessage(m: RestoredMessage): boolean {
+  return normalizeRestoredMessage(m) !== null
+}
+
+/**
+ * Keep only the last `limit` messages, dropping protocol noise and UNWRAPPING
+ * the assistant `respond` calls to their operator-facing text.
  */
 export function trimRestoredMessages(
   messages: RestoredMessage[],
   limit = RESTORED_HISTORY_LIMIT,
 ): RestoredMessage[] {
-  const clean = (messages || []).filter(
-    (m) => m && typeof m.text === 'string' && isDisplayableMessage(m),
-  )
+  const clean: RestoredMessage[] = []
+  for (const m of messages || []) {
+    if (!m || typeof m.text !== 'string') continue
+    const n = normalizeRestoredMessage(m)
+    if (n) clean.push(n)
+  }
   if (limit > 0 && clean.length > limit)
     return clean.slice(clean.length - limit)
   return clean
@@ -368,7 +420,6 @@ export function formatRestoredHistory(
   }
   return out.join(NL + NL)
 }
-
 // ---------- /compact ----------
 
 /**

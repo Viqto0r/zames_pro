@@ -298,3 +298,62 @@ test('isDisplayableMessage drops the protocol noise', () => {
     assert.equal(isDisplayableMessage(m), false, JSON.stringify(m).slice(0, 60))
   }
 })
+
+// ---------- respond unwrapping (restored history) ----------
+
+import { parseAssistantToolCall } from '../src/commands.ts'
+
+test('trimRestoredMessages unwraps a respond call to its message', () => {
+  const respond = JSON.stringify({
+    tool: 'respond',
+    args: { message: 'Готово, поправил ask().' },
+  })
+  const out = trimRestoredMessages([
+    { role: 'user', text: 'исправь баг' },
+    { role: 'assistant', text: respond },
+  ])
+  assert.equal(out.length, 2)
+  assert.equal(out[1].role, 'assistant')
+  assert.equal(out[1].text, 'Готово, поправил ask().')
+})
+
+test('trimRestoredMessages drops a non-respond tool call', () => {
+  const call = JSON.stringify({
+    tool: 'Read',
+    args: { path: 'src/browser.ts' },
+  })
+  const out = trimRestoredMessages([
+    { role: 'user', text: 'вопрос' },
+    { role: 'assistant', text: call },
+  ])
+  assert.equal(out.length, 1)
+  assert.equal(out[0].role, 'user')
+})
+
+test('trimRestoredMessages unwraps a respond call with escaped newlines', () => {
+  const respond =
+    '{"tool": "respond", "args": {"message": "Первая строка\\nВторая строка"}}'
+  const out = trimRestoredMessages([{ role: 'assistant', text: respond }])
+  assert.equal(out.length, 1)
+  const NL = String.fromCharCode(10)
+  assert.equal(out[0].text, 'Первая строка' + NL + 'Вторая строка')
+})
+
+test('trimRestoredMessages tolerates a dirty respond call (stray braces)', () => {
+  const respond = '{"tool": "respond", "args": {"message": "ок"}}}'
+  const out = trimRestoredMessages([{ role: 'assistant', text: respond }])
+  assert.equal(out.length, 1)
+  assert.equal(out[0].text, 'ок')
+})
+
+test('parseAssistantToolCall returns the tool name and the message', () => {
+  assert.deepEqual(parseAssistantToolCall('{"tool":"Read","args":{}}'), {
+    tool: 'Read',
+  })
+  const r = parseAssistantToolCall(
+    '{"tool":"respond","args":{"message":"привет"}}',
+  )
+  assert.equal(r?.tool, 'respond')
+  assert.equal(r?.message, 'привет')
+  assert.equal(parseAssistantToolCall('просто текст'), null)
+})
