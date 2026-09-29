@@ -36,6 +36,12 @@ export interface RunAgentLoopOptions {
   onWarning?: (text: string) => void
   debugLog?: boolean
   locale?: Locale
+  /**
+   * Hard deadline for one browser.ask() before the watchdog gives up on it
+   * (ms). Defaults to 240s. Exposed so tests can drive the watchdog without
+   * waiting four minutes.
+   */
+  askDeadlineMs?: number
   /** Files/images to attach to the FIRST message (the task). */
   attachments?: Array<{ path: string; name: string; mime: string }>
 }
@@ -61,6 +67,7 @@ export async function runAgentLoop({
   onWarning = () => {},
   debugLog = false,
   locale = 'ru',
+  askDeadlineMs = 240_000,
 }: RunAgentLoopOptions): Promise<string> {
   // UI callbacks must NEVER break the agent loop. A rendering error (a huge
   // tool result, a broken markdown frame, a closed terminal) used to throw
@@ -266,15 +273,20 @@ export async function runAgentLoop({
     // block the whole loop and look like a silent stop. We race it against a
     // hard deadline and treat a timeout as a nudge (re-ask), never as a
     // final answer. The deadline is generous enough for real long answers.
-    const askDeadlineMs = 240_000
     let rawResponse: string
     let askTimer: ReturnType<typeof setTimeout> | null = null
+    // Kept OUTSIDE the race so we can cancel it and wait for it to settle if
+    // the watchdog timer wins. Before, the losing ask() kept running (up to a
+    // 300s rate-limit wait or the finish loop) while the next iteration
+    // started a SECOND ask() against the same page — two sends / two Continue
+    // clicks. See A1.
+    const askPromise = browser.ask(message, {
+      agent: !isFirst,
+      attachments: isFirst ? attachments : [],
+    })
     try {
       rawResponse = await Promise.race([
-        browser.ask(message, {
-          agent: !isFirst,
-          attachments: isFirst ? attachments : [],
-        }),
+        askPromise,
         new Promise<string>((_, reject) => {
           askTimer = setTimeout(
             () => reject(new Error('ask() watchdog timeout')),
@@ -288,6 +300,16 @@ export async function runAgentLoop({
       if (askTimer) clearTimeout(askTimer)
     } catch (e) {
       if (askTimer) clearTimeout(askTimer)
+      // The timer won: cancel the still-running ask() and AWAIT its settle
+      // before the next iteration starts another one. Without this the two
+      // asks race on the same page. The settle is bounded: a page stuck in a
+      // 30s Playwright evaluate must not hang the loop forever.
+      browser.cancelPendingAsk?.()
+      const settleTimer = new Promise<void>((r) => {
+        const t = setTimeout(r, 60_000)
+        if (typeof t.unref === 'function') t.unref()
+      })
+      await Promise.race([askPromise.catch(() => {}), settleTimer])
       transcript?.log('ask_timeout', {
         attempt: afterToolRetries,
         error: (e as Error).message,

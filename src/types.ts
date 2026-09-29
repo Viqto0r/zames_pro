@@ -174,6 +174,10 @@ export interface BrowserLike {
   // resend). While a LineEditor is active a raw console.error is overwritten by
   // its repaint, so these must be routed through the UI.
   onNotice?: ((text: string) => void) | null
+  // Optional: cancel an in-flight ask() whose caller (the agent-loop
+  // watchdog) already gave up on it, and wait for it to settle. Optional so
+  // test doubles do not have to implement it.
+  cancelPendingAsk?: () => void
   newChat: () => Promise<void>
   stopGeneration: () => Promise<boolean>
   // Set by stopGeneration() (Esc/Ctrl+C). Optional so test doubles do not

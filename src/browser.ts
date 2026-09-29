@@ -1707,7 +1707,7 @@ export class DeepSeekBrowser {
         this._notice(
           theme.warn(
             this._t('ds.ask_retry', {
-              attempt,
+              attempt: attempt + 1,
               max: this.askRetries,
               error: (e as Error).message,
             }),
@@ -1739,9 +1739,10 @@ export class DeepSeekBrowser {
           }
         }
 
-        if (attempt < this.askRetries) {
-          await new Promise((r) => setTimeout(r, 2000 * attempt))
+        if (attempt < this.askRetries - 1) {
+          await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)))
         }
+        attempt++
       }
     }
 
