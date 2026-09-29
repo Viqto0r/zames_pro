@@ -2011,7 +2011,6 @@ async function main(): Promise<void> {
     }
 
     if (['/new', '/clear', 'new'].includes(lower)) {
-      console.log(theme.system(t('msg.new_chat')))
       if (editor) editor.lock(t('msg.input_locked'))
       try {
         await browser.newChat()
@@ -2020,6 +2019,9 @@ async function main(): Promise<void> {
         currentChatId = await browser.getCurrentChatId()
         saveLastChat(currentChatId, currentWorkdir)
         transcript.log('new_chat')
+        // Start the new chat on a clean screen (like /clear in a shell).
+        if (editor) editor.clearScreen()
+        console.log(theme.system(t('msg.new_chat')))
         console.log(
           theme.system(t('msg.new_chat_ok') + String.fromCharCode(10)),
         )
@@ -2266,7 +2268,6 @@ async function main(): Promise<void> {
         continue
       }
 
-      console.log(theme.system(t('chats.opening', { v: pick.title })))
       if (editor) editor.lock(t('msg.input_locked'))
       try {
         await browser.openChat(pick.id)
@@ -2275,6 +2276,9 @@ async function main(): Promise<void> {
         sendSystemPromptNext = promptOnResume()
         saveLastChat(pick.id, currentWorkdir, pick.title)
         transcript.log('resume_chat', { id: pick.id, title: pick.title })
+        // Resume on a clean screen so the restored dialogue is readable.
+        if (editor) editor.clearScreen()
+        console.log(theme.system(t('chats.opening', { v: pick.title })))
         console.log(
           theme.assistant(t('msg.chat_opened')) +
             theme.system(
@@ -2342,6 +2346,7 @@ async function main(): Promise<void> {
       }
       if (editor) editor.lock(t('msg.input_locked'))
       try {
+        if (editor) editor.clearScreen()
         console.log(theme.system(t('msg.opening_chat', { id })))
         await browser.openChat(id)
         currentChatId = id

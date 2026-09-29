@@ -803,6 +803,18 @@ export class LineEditor {
     this._writeBlock()
   }
 
+  // Full-screen clear (like /clear in a shell) followed by a fresh repaint of
+  // the status + input block. Used by /new and /resume so a new/resumed chat
+  // starts on a clean terminal instead of under pages of the previous chat.
+  // We do NOT clear the scrollback here: the operator may still want it.
+  clearScreen(): void {
+    this._eraseBlock()
+    process.stdout.write(ESC + '[2J' + ESC + '[H')
+    this.rendered = false
+    this._lastStatusBlock = ''
+    this._writeBlock()
+  }
+
   // Repaint ONLY the input rows, leaving the status/spinner block untouched.
   // Used for buffer/cursor changes (typing, arrows, backspace, …): the status
   // line has its OWN animation timer, and repainting it on every keystroke
