@@ -376,9 +376,14 @@ after "Messages too frequent". `_notice()` routes the text through the
 same applies to the attachment warnings. `browser.onNotice` is cleared in
 `runTask()`'s `finally`, alongside `onSendStart`/`onSendPause`.
 
-`browser.minSendIntervalMs` default is now **20000** (was 15000): real DeepSeek
-sessions hit "Messages too frequent" at 15s, and the interval is the LOWER
-bound between two sends (long reasoning only makes it larger).
+`browser.minSendIntervalMs` (default **15000**) — the minimum pause between
+agent sends (tool-result / resend). `browser.thinkingExtraMs` (default
+**5000**) is ADDED to it when Deep thinking is ON: reasoning turns add extra
+requests (`chat/continue` clicks, truncation retries), so a small extra margin
+reduces the chance of "Messages too frequent". The effective interval is
+`sendIntervalMs() = minSendIntervalMs + (deepThinking ? thinkingExtraMs : 0)`,
+used by BOTH `_waitForSendSlot()` and the Continue-click throttle. It is the
+LOWER bound between two sends — long reasoning only makes the real gap larger.
 
 ### A run that ends without a model answer is surfaced
 

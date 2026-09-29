@@ -324,6 +324,8 @@ export interface DeepSeekBrowserOptions {
   stabilityChecks?: number
   stabilityDelayMs?: number
   minSendIntervalMs?: number
+  /** Extra pause added when Deep thinking is ON (ms). */
+  thinkingExtraMs?: number
   rateLimitWaitMs?: number
   maxRateLimitRetries?: number
   maxServerBusyRetries?: number
@@ -377,6 +379,10 @@ export class DeepSeekBrowser {
   stabilityChecks: number
   stabilityDelayMs: number
   minSendIntervalMs: number
+  // Extra pause added to minSendIntervalMs when Deep thinking is ON. Reasoning
+  // turns are longer, but they also add `chat/continue` clicks and truncation
+  // retries — more requests, so a small extra margin helps.
+  thinkingExtraMs: number
   rateLimitWaitMs: number
   maxRateLimitRetries: number
   maxServerBusyRetries: number
@@ -478,6 +484,7 @@ export class DeepSeekBrowser {
     stabilityChecks = 2,
     stabilityDelayMs = 400,
     minSendIntervalMs = 15000,
+    thinkingExtraMs = 5000,
     rateLimitWaitMs = 300000,
     maxRateLimitRetries = 6,
     maxServerBusyRetries = 5,
@@ -500,6 +507,7 @@ export class DeepSeekBrowser {
     this.stabilityChecks = stabilityChecks
     this.stabilityDelayMs = stabilityDelayMs
     this.minSendIntervalMs = minSendIntervalMs
+    this.thinkingExtraMs = thinkingExtraMs
     this.rateLimitWaitMs = rateLimitWaitMs
     this.maxRateLimitRetries = maxRateLimitRetries
     this.maxServerBusyRetries = maxServerBusyRetries
@@ -1344,13 +1352,13 @@ export class DeepSeekBrowser {
       } catch {}
     }
     if (found) {
-      // One Continue click per `minSendIntervalMs`: a `chat/continue` request
-      // hits the rate limit like a send, and a run that keeps getting
+      // One Continue click per effective send interval: a `chat/continue`
+      // request hits the rate limit like a send, and a run that keeps getting
       // truncated could otherwise fire clicks back-to-back. The gap counts
       // from the LATEST of the last send and the last Continue click.
       const since = Math.max(this._lastSentAt, this._lastContinueAt)
       if (since) {
-        const gap = this.minSendIntervalMs - (Date.now() - since)
+        const gap = this.sendIntervalMs() - (Date.now() - since)
         if (gap > 0) {
           const aborted = await this._sleepInterruptible(gap, (leftMs) => {
             if (this.onSendPause) {
@@ -1871,10 +1879,19 @@ export class DeepSeekBrowser {
   // during this pause did nothing to the pause itself — the send was still
   // delayed by the remaining seconds, and the stop request only took effect
   // after the pause. This is the main "Esc does not cancel the pause" bug.
+  // The effective minimum interval between two sends. When Deep thinking is on
+  // we add `thinkingExtraMs` (default +5s): reasoning turns add extra requests
+  // (`chat/continue` clicks, truncation retries), so a small margin reduces the
+  // chance of hitting the rate limit. `deepThinking` is the DESIRED state read
+  // from the config (set in the constructor / on /config change).
+  sendIntervalMs(): number {
+    return this.minSendIntervalMs + (this.deepThinking ? this.thinkingExtraMs : 0)
+  }
+
   async _waitForSendSlot(agent: boolean): Promise<void> {
     if (!agent) return
     if (!this._lastSentAt) return
-    const gap = this.minSendIntervalMs - (Date.now() - this._lastSentAt)
+    const gap = this.sendIntervalMs() - (Date.now() - this._lastSentAt)
     if (gap <= 0) return
     // Report the pause to the UI as an ANIMATED status (with the remaining
     // seconds) instead of the old static console line — the dots used to be

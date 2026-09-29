@@ -81,3 +81,21 @@ test('a settled answer must not be accepted while Continue is visible', () => {
   assert.equal(decide(false, true), 'return')
   assert.equal(decide(false, false), 'wait')
 })
+
+// The effective send interval is base + extra when Deep thinking is ON.
+// Reasoning turns add extra requests (chat/continue clicks, truncation
+// retries), so a small margin reduces the rate-limit risk.
+test('sendIntervalMs adds thinkingExtraMs only in thinking mode', () => {
+  const b = new DeepSeekBrowser({
+    minSendIntervalMs: 15000,
+    thinkingExtraMs: 5000,
+    deepThinking: false,
+  })
+  assert.equal(b.sendIntervalMs(), 15000)
+  const t = new DeepSeekBrowser({
+    minSendIntervalMs: 15000,
+    thinkingExtraMs: 5000,
+    deepThinking: true,
+  })
+  assert.equal(t.sendIntervalMs(), 20000)
+})

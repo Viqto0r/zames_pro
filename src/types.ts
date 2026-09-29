@@ -69,6 +69,8 @@ export interface BrowserConfig {
   stabilityChecks: number
   stabilityDelayMs: number
   minSendIntervalMs: number
+  /** Extra pause added to minSendIntervalMs when Deep thinking is ON (ms). */
+  thinkingExtraMs: number
   rateLimitWaitMs: number
   maxRateLimitRetries: number
   /** Retries for a turn the server truncated (`generation_err`/INCOMPLETE). */

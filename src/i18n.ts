@@ -898,6 +898,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: 'Мин. пауза между отправками, мс',
     en: 'Min pause between sends, ms',
   },
+  'cfg.f.browser_thinkingExtraMs': {
+    ru: 'Доп. пауза в режиме размышления, мс',
+    en: 'Extra pause in thinking mode, ms',
+  },
   'cfg.f.browser_rateLimitWaitMs': {
     ru: 'Пауза при лимите частоты, мс',
     en: 'Wait on rate limit, ms',
