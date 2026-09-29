@@ -975,6 +975,18 @@ If you change a tool or the tool-call format — sync the types there.
 Hot-reload (`/reload`, `--dev`) dynamically imports modules with `?t=timestamp`.
 In prod mode these are `dist/*.js`, in dev — `src/*.ts` via tsx (tsx resolves `.js`→`.ts`).
 
+IMPORTANT: only the modules in `RELOADABLE` (src/index.ts) are hot-reloaded —
+`agent-loop`, `system-prompt`, `tools`, `extraTools`, `config`, `gitTools`,
+`web`, `self-review`, `diff`, `undo`, `confirm`, `transcript`, `spinner`, `mcp`.
+**`browser.ts` is NOT in the list and is imported statically ONCE**: the live
+`DeepSeekBrowser` instance owns the Playwright context/page/timers, so a hot
+swap is unsafe. Consequence: in dev mode (`npm run dev` = tsx over `src/`) an
+edit to `browser.ts` does NOT take effect until the process is RESTARTED — a
+fix can silently "not work" while an old copy runs in memory. To make this
+non-silent, dev mode watches `browser.ts`'s mtime and prints a ONE-TIME warning
+(`reload.browser_restart`) when it changes. `dist` does not need rebuilding for
+dev (tsx reads `src/`), but the process must be restarted.
+
 Self-review looks for the directory with the `.ts` sources: in dev it is `src/`,
 in the built `dist/` — `../src` (`resolveSrcDir()` in self-review.ts). The
 published package contains only `dist/`, so /self-review will not work there.

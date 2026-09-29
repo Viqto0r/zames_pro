@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import path from 'path'
 import fs from 'fs/promises'
-import { existsSync } from 'fs'
+import { existsSync, statSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { theme } from './theme.js'
 
@@ -311,6 +311,39 @@ async function autoReload(): Promise<void> {
     console.error(theme.warn(t('reload.auto_partial')))
     for (const e of errors) console.error(theme.warn('  ' + e))
   }
+  warnIfBrowserChanged()
+}
+
+// `browser.ts` is NOT in RELOADABLE: it is imported statically (once) and the
+// live DeepSeekBrowser instance owns the Playwright context/page/timers, so a
+// hot swap is unsafe. In dev mode (`npm run dev` = tsx over src/) the operator
+// therefore keeps running the OLD browser code after editing it, and a fix
+// "does not work" until the process is restarted. We detect the mtime change
+// and print a ONE-TIME hint so this is never a silent trap again.
+let browserMtime = 0
+let browserChangedWarned = false
+function browserSourcePath(): string {
+  // In dev the running file is src/index.ts; in the built dist — dist/index.js
+  // with the sources next to it (../src). Either way we look for browser.ts.
+  const srcDir = /[.]ts$/.test(new URL(import.meta.url).pathname)
+    ? path.dirname(fileURLToPath(import.meta.url))
+    : path.join(__dirname, '..', 'src')
+  return path.join(srcDir, 'browser.ts')
+}
+function warnIfBrowserChanged(): void {
+  if (!devMode) return
+  try {
+    const p = browserSourcePath()
+    const st = statSync(p)
+    if (!browserMtime) {
+      browserMtime = st.mtimeMs
+      return
+    }
+    if (st.mtimeMs !== browserMtime && !browserChangedWarned) {
+      browserChangedWarned = true
+      console.error(theme.warn(t('reload.browser_restart')))
+    }
+  } catch {}
 }
 
 // ---------- helpers ----------
