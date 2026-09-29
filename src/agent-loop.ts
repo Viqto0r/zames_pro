@@ -757,19 +757,32 @@ export async function runAgentLoop({
       const r = results[0]
       const resultStr =
         typeof r.result === 'string' ? r.result : JSON.stringify(r.result)
-      message = `Tool result for ${r.tool}:\n${resultStr.slice(0, 12_000)}`
+      message = `Tool result for ${r.tool}:\n${truncateToolResult(resultStr, 12_000)}`
     } else {
       message = results
         .map((r) => {
           const resultStr =
             typeof r.result === 'string' ? r.result : JSON.stringify(r.result)
-          return `Tool result for ${r.tool}:\n${resultStr.slice(0, 8000)}`
+          return `Tool result for ${r.tool}:\n${truncateToolResult(resultStr, 8000)}`
         })
         .join('\n\n')
     }
   }
 
   return 'Iteration limit reached.'
+}
+
+// Cap a tool result for the model, but make the truncation EXPLICIT: a bare
+// slice() silently hid the tail and the model had no idea it was looking at a
+// partial output (it would act on a half-read file/log).
+export function truncateToolResult(text: string, limit: number): string {
+  if (text.length <= limit) return text
+  const omitted = text.length - limit
+  return (
+    text.slice(0, limit) +
+    String.fromCharCode(10) +
+    `[...truncated ${omitted} chars]`
+  )
 }
 
 // The answer looks like a tool call, but parseToolCall() did not recognize it.
