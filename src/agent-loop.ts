@@ -314,9 +314,13 @@ export async function runAgentLoop({
         attempt: afterToolRetries,
         error: (e as Error).message,
       })
+      // Show how many watchdog retries remain, so the operator can tell a
+      // single hiccup from a genuine stall (the budget used to be invisible).
       safeWarning(
         translate(locale)('ds.answer_timeout', {
           sec: Math.round(askDeadlineMs / 1000),
+          attempt: Math.min(afterToolRetries + 1, MAX_AFTER_TOOL_RETRIES),
+          max: MAX_AFTER_TOOL_RETRIES,
         }),
       )
       if (afterToolRetries < MAX_AFTER_TOOL_RETRIES) {

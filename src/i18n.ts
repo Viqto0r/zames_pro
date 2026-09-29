@@ -617,8 +617,8 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     en: '✖ No new answer received — the page still shows the previous text. The message may not have been sent. Check the DeepSeek chat manually.',
   },
   'ds.answer_timeout': {
-    ru: '⏳ DeepSeek не ответил за {sec}с — повторяю запрос...',
-    en: '⏳ DeepSeek did not answer within {sec}s — retrying the request...',
+    ru: '⏳ DeepSeek не ответил за {sec}с ({attempt}/{max}) — повторяю запрос...',
+    en: '⏳ DeepSeek did not answer within {sec}s ({attempt}/{max}) — retrying the request...',
   },
   'ds.answer_timeout_give_up': {
     ru: '✖ DeepSeek перестал отвечать, лимит повторов исчерпан. Модель не дала ответа — проверь чат DeepSeek вручную.',
