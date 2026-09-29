@@ -902,6 +902,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: 'Автонажатие кнопки Continue (режим размышления)',
     en: 'Auto-click Continue (reasoning mode)',
   },
+  'cfg.f.browser_resendPromptOnResume': {
+    ru: 'Пересылать системный промпт при возобновлении чата',
+    en: 'Resend the system prompt on chat resume',
+  },
   'cfg.f.browser_deepThinking': {
     ru: 'Глубокое мышление (долго; размышления не выводятся)',
     en: 'Deep thinking (slow; reasoning is hidden)',

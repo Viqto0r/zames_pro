@@ -1337,7 +1337,8 @@ async function main(): Promise<void> {
         console.log(theme.system(t('msg.opening_chat', { id: resumeId })))
         await browser.openChat(resumeId)
         freshChat = false
-        sendSystemPrompt = resendPrompt
+        sendSystemPrompt =
+          resendPrompt || config.browser.resendPromptOnResume === true
         saveLastChat(resumeId, currentWorkdir)
       } catch (e) {
         console.error(
@@ -1368,6 +1369,12 @@ async function main(): Promise<void> {
 
   let freshChatNext = true
   let sendSystemPromptNext = true
+  // Resuming an existing chat already has the system-prompt at its start, so
+  // resending it is wasteful and pollutes the context. Default: do NOT resend.
+  // `--resend-prompt` or `browser.resendPromptOnResume` forces it (e.g. when
+  // the prompt/tools changed).
+  const promptOnResume = (): boolean =>
+    resendPrompt || config.browser.resendPromptOnResume === true
   let lastChats: ChatInfo[] = []
   let currentChatId: string | null = null
   let running = true
@@ -1421,7 +1428,7 @@ async function main(): Promise<void> {
       await browser.openChat(resumeId)
       currentChatId = resumeId
       freshChatNext = false
-      sendSystemPromptNext = true
+      sendSystemPromptNext = promptOnResume()
       saveLastChat(resumeId, currentWorkdir)
       console.log(
         theme.system(
@@ -2221,13 +2228,17 @@ async function main(): Promise<void> {
         await browser.openChat(pick.id)
         currentChatId = pick.id
         freshChatNext = false
-        sendSystemPromptNext = true
+        sendSystemPromptNext = promptOnResume()
         saveLastChat(pick.id, currentWorkdir, pick.title)
         transcript.log('resume_chat', { id: pick.id, title: pick.title })
         console.log(
           theme.assistant(t('msg.chat_opened')) +
             theme.system(
-              ' Системный промпт будет переслан на следующей задаче (чтобы модель видела инструменты).\n',
+              sendSystemPromptNext
+                ? String.fromCharCode(10) +
+                    ' Системный промпт будет переслан на следующей задаче.\n'
+                : String.fromCharCode(10) +
+                    ' Системный промпт НЕ пересылается (он уже в начале чата). Включить: /config set browser.resendPromptOnResume true.\n',
             ),
         )
         await printRestoredHistory(browser, editor, pick.id)
@@ -2293,7 +2304,7 @@ async function main(): Promise<void> {
         await browser.openChat(id)
         currentChatId = id
         freshChatNext = false
-        sendSystemPromptNext = true
+        sendSystemPromptNext = promptOnResume()
         saveLastChat(id, currentWorkdir)
         transcript.log('resume_chat', { id })
         console.log(

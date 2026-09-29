@@ -833,6 +833,17 @@ API: `saveSession`, `loadLastSession(workdir)`, `readSession(id)`,
 `listSessions()`, `sessionsDir()`. Saving is called from `saveLastChat()` in
 `index.ts` after every task, new chat and `/resume`.
 
+### System-prompt on resume (`browser.resendPromptOnResume`)
+
+When a chat is resumed, its start already contains the system-prompt, so
+resending it is WASTEFUL and pollutes the context (a resumed chat grew a
+system-prompt every `--resume-last`/`/resume`, ~65k chars each — the history
+dump had NINE copies). By default the system-prompt is therefore NOT resent on
+resume: `promptOnResume()` (src/index.ts) returns `false` unless
+`--resend-prompt` is passed or `browser.resendPromptOnResume` is true (set it
+when the prompt/tools changed and the model must see them). This matches the
+one-shot path, which already defaulted to not resending.
+
 ### Printing the restored dialogue
 
 When a chat is restored (`/resume <n>`, `/resume-id <id>`, or the automatic

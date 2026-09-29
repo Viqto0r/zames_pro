@@ -77,6 +77,8 @@ export interface BrowserConfig {
   incompleteWaitMs: number
   /** Auto-click DeepSeek's "Continue" button (reasoning pause). */
   autoContinue: boolean
+  /** Resend the full system-prompt when a chat is resumed (default off). */
+  resendPromptOnResume: boolean
   /** DeepSeek Deep thinking toggle (reasoning; slow, hidden). */
   deepThinking: boolean
   /** DeepSeek Smart search (web search) toggle. */

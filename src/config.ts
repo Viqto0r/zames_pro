@@ -53,6 +53,7 @@ export const DEFAULTS: ZamesConfig = {
     maxIncompleteRetries: 4,
     incompleteWaitMs: 2000,
     autoContinue: true,
+    resendPromptOnResume: false,
     deepThinking: false,
     webSearch: true,
     auth: {
@@ -300,6 +301,12 @@ export const CONFIG_SCHEMA: ConfigField[] = [
     path: 'browser.autoContinue',
     type: 'boolean',
     labelKey: 'cfg.f.browser_autoContinue',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'browser.resendPromptOnResume',
+    type: 'boolean',
+    labelKey: 'cfg.f.browser_resendPromptOnResume',
     groupKey: 'cfg.group.browser',
   },
   {
