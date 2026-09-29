@@ -1,6 +1,7 @@
 import * as readlinePromises from 'readline/promises'
 import { theme } from './theme.js'
 import { unifiedDiff, colorDiff } from './diff.js'
+import { translate, DEFAULT_LOCALE, type Locale } from './i18n.js'
 
 export interface ConfirmConfig {
   write?: boolean
@@ -13,15 +14,28 @@ export class ConfirmManager {
   settings: { write: boolean; edit: boolean; bash: boolean }
   alwaysConfirm: RegExp[]
   allowedForSession: Set<string>
+  locale: Locale
 
-  constructor({ config }: { config?: ConfirmConfig } = {}) {
+  constructor({
+    config,
+    locale = DEFAULT_LOCALE,
+  }: { config?: ConfirmConfig; locale?: Locale } = {}) {
     const c = config || {}
+    this.locale = locale
     this.settings = {
       write: c.write !== false,
       edit: c.edit !== false,
       bash: c.bash !== false,
     }
-    this.alwaysConfirm = (c.alwaysConfirm || []).map((p) => new RegExp(p, 'i'))
+    // An invalid operator-supplied regex must NEVER crash the run. Fall back to
+    // a literal substring match (case-insensitive) for that pattern.
+    this.alwaysConfirm = (c.alwaysConfirm || []).map((p) => {
+      try {
+        return new RegExp(p, 'i')
+      } catch {
+        return new RegExp(escapeRegExp(p), 'i')
+      }
+    })
     this.allowedForSession = new Set()
   }
 
@@ -55,16 +69,18 @@ export class ConfirmManager {
       console.log(preview)
     }
 
-    const label = message || `Разрешить ${kind}?`
+    const t = translate(this.locale)
+    const label =
+      message || t('confirm.ask_label') + ' ' + kind + '?'
     const question =
       theme.warn(`${label} `) +
       theme.system('[') +
       theme.assistant('y') +
-      theme.system(' = да, ') +
+      theme.system(' = ' + t('common.yes') + ', ') +
       theme.error('n') +
-      theme.system(' = нет, ') +
+      theme.system(' = ' + t('common.no') + ', ') +
       theme.user('a') +
-      theme.system(' = всегда для этого типа] ')
+      theme.system(' = ' + t('confirm.hint') + '] ')
 
     const answer = await this._prompt(question)
 
@@ -98,6 +114,13 @@ export class ConfirmManager {
       rl.close()
     }
   }
+}
+
+// Escape a string so it can be used as a literal regex (used when an
+// operator-supplied alwaysConfirm pattern is invalid and we fall back to a
+// substring match).
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, (m) => '\\' + m)
 }
 
 export function formatDiffPreview(

@@ -1003,7 +1003,7 @@ async function resolveWorkdir(): Promise<string> {
   const dir = explicitDir ? path.resolve(explicitDir) : process.cwd()
   const stat = await fs.stat(dir).catch(() => null)
   if (!stat || !stat.isDirectory()) {
-    throw new Error('Не директория: ' + dir)
+    throw new Error(t('msg.not_dir', { v: dir }))
   }
   return dir
 }
@@ -1462,7 +1462,9 @@ async function main(): Promise<void> {
       resumeId = last.id
       console.log(
         theme.system(
-          `Восстанавливаю сессию ${last.id}${last.title ? ` (${last.title})` : ''}...`,
+          t('msg.resuming', {
+            id: last.id + (last.title ? ` (${last.title})` : ''),
+          }),
         ),
       )
     }
@@ -2178,7 +2180,7 @@ async function main(): Promise<void> {
       try {
         await mod.selfList({ config })
       } catch (e) {
-        console.error(theme.error('Ошибка:'), (e as Error).message)
+        console.error(theme.error(t('msg.error')), (e as Error).message)
       }
       continue
     }
@@ -2192,7 +2194,7 @@ async function main(): Promise<void> {
       try {
         await mod.selfDiff({ config, name })
       } catch (e) {
-        console.error(theme.error('Ошибка:'), (e as Error).message)
+        console.error(theme.error(t('msg.error')), (e as Error).message)
       }
       continue
     }
@@ -2206,7 +2208,7 @@ async function main(): Promise<void> {
       try {
         await mod.selfApply({ config, name })
       } catch (e) {
-        console.error(theme.error('Ошибка:'), (e as Error).message)
+        console.error(theme.error(t('msg.error')), (e as Error).message)
       }
       continue
     }
@@ -2221,11 +2223,7 @@ async function main(): Promise<void> {
         lastChats = await browser.listChats(30)
         spin.stop()
         if (!lastChats.length) {
-          console.log(
-            theme.system(
-              'Чатов не найдено. Возможно, сайдбар свёрнут или селекторы устарели.',
-            ),
-          )
+          console.log(theme.system(t('chats.none_hint')))
         } else {
           console.log(theme.system(t('chats.recent')))
           lastChats.forEach((c, i) => {
@@ -2281,10 +2279,8 @@ async function main(): Promise<void> {
           theme.assistant(t('msg.chat_opened')) +
             theme.system(
               sendSystemPromptNext
-                ? String.fromCharCode(10) +
-                    ' Системный промпт будет переслан на следующей задаче.\n'
-                : String.fromCharCode(10) +
-                    ' Системный промпт НЕ пересылается (он уже в начале чата). Включить: /config set browser.resendPromptOnResume true.\n',
+                ? String.fromCharCode(10) + t('chats.prompt_will_resend')
+                : String.fromCharCode(10) + t('chats.prompt_no_resend'),
             ),
         )
         await printRestoredHistory(browser, editor, pick.id)
@@ -2354,7 +2350,7 @@ async function main(): Promise<void> {
         saveLastChat(id, currentWorkdir)
         transcript.log('resume_chat', { id })
         console.log(
-          theme.assistant('Чат открыт.') +
+          theme.assistant(t('msg.chat_opened')) +
             theme.system(String.fromCharCode(10)),
         )
         await printRestoredHistory(browser, editor, id)
@@ -2531,11 +2527,7 @@ async function main(): Promise<void> {
           console.error(theme.error(t('msg.reload_partial')))
           for (const e of errors) console.error(theme.error('  ' + e))
         } else {
-          console.log(
-            theme.assistant(
-              `Перезагружено модулей: ${count}. Браузер и чат не тронуты.`,
-            ),
-          )
+          console.log(theme.assistant(t('msg.reloaded', { n: count })))
         }
       } catch (e) {
         console.error(theme.error(t('msg.reload_error')), (e as Error).message)

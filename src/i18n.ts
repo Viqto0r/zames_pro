@@ -493,6 +493,16 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     en: 'the agent seems to have stopped without recognizing a tool call. The response is saved in the transcript (suspicious_final event). You can ask it to continue or resend the task.',
   },
   'msg.critical': { ru: 'Критическая ошибка:', en: 'Critical error:' },
+  'msg.error': { ru: 'Ошибка:', en: 'Error:' },
+  'confirm.hint': {
+    ru: 'всегда для этого типа',
+    en: 'always for this kind',
+  },
+  'confirm.ask_label': { ru: 'Разрешить', en: 'Allow' },
+  'msg.reloaded': {
+    ru: 'Перезагружено модулей: {n}. Браузер и чат не тронуты.',
+    en: 'Modules reloaded: {n}. Browser and chat untouched.',
+  },
   'msg.not_dir': { ru: 'Не директория: {v}', en: 'Not a directory: {v}' },
   'prompt.review': { ru: 'REVIEW', en: 'REVIEW' },
   'msg.workdir_error': {
@@ -687,9 +697,17 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     en: '\nUse /resume <n> to continue.\n',
   },
   'chats.none': { ru: 'Чатов не найдено.', en: 'No chats found.' },
+  'chats.none_hint': {
+    ru: 'Чатов не найдено. Возможно, сайдбар свёрнут или селекторы устарели.',
+    en: 'No chats found. The sidebar may be collapsed or the selectors are outdated.',
+  },
   'chats.fetch_error': {
     ru: 'Не удалось получить список:',
     en: 'Failed to fetch the list:',
+  },
+  'chats.prompt_no_resend': {
+    ru: ' Системный промпт НЕ пересылается (он уже в начале чата). Включить: /config set browser.resendPromptOnResume true.\n',
+    en: ' The system prompt is NOT resent (it is already at the start of the chat). Enable: /config set browser.resendPromptOnResume true.\n',
   },
   'chats.resume_usage': {
     ru: 'Использование: /resume <n>  (или /chats для списка)',
