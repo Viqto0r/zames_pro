@@ -91,3 +91,22 @@ test('watchdog: повтор прежнего ответа после инстр
   assert.equal(result, 'done')
   assert.ok(asks.length >= 3, 'ask calls: ' + asks.length)
 })
+
+// A <ds_safety> block is DeepSeek's own safety-classification text, not an
+// answer. It must be treated as a service answer (re-ask), NOT as the final
+// answer — otherwise the agent stops on it.
+test('watchdog: ответ <ds_safety> не завершает задачу', async () => {
+  const { browser, asks } = makeBrowser([
+    jsonCall('Echo', { v: '1' }),
+    '<ds_safety>[x]</ds_safety>Safe',
+    jsonCall('respond', { message: 'done' }),
+  ])
+  const result = await runAgentLoop({
+    browser,
+    tools: [echoTool, respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+  })
+  assert.equal(result, 'done')
+  assert.ok(asks.length >= 3, 'ask calls: ' + asks.length)
+})

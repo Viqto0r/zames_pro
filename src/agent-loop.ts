@@ -438,6 +438,11 @@ export async function runAgentLoop({
         /^(reading|thinking|searching|analyzing|generating|stop|остановить|читаю|думаю|поиск|анализ)[\s.…]*$/i.test(
           trimmed,
         ) ||
+        // DeepSeek sometimes returns its OWN safety-classification block
+        // ("<ds_safety>…</ds_safety>Safe") INSTEAD of an answer. It is not a
+        // tool-call and not a real final answer — treat it as a service
+        // answer so the loop re-asks instead of stopping on it.
+        /<ds_safety>|<\/ds_safety>/i.test(trimmed) ||
         (trimmed.length <= 200 &&
           /(messages? too frequent|too many requests|rate limit|server (is )?busy|service (is )?unavailable|слишком часто|try again later)/i.test(
             trimmed,

@@ -551,8 +551,8 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     en: '⚠ No answer yet ({attempt}/{max}): {error} — retrying...',
   },
   'ds.incomplete_retry': {
-    ru: '⏳ DeepSeek оборвал ответ — жму «Continue», чтобы продолжить (повтор {attempt}/{max})...',
-    en: '⏳ DeepSeek truncated the answer — clicking Continue to resume (retry {attempt}/{max})...',
+    ru: '⏳ DeepSeek оборвал ответ и кнопки Continue нет — переотправляю задачу ({attempt}/{max})...',
+    en: '⏳ DeepSeek truncated the answer and there is no Continue button — resending the task ({attempt}/{max})...',
   },
   'ds.incomplete_give_up': {
     ru: '✖ DeepSeek {attempt} раз подряд оборвал ответ, не дойдя до конца. Возможно, включён режим размышления — попробуй выключить его (browser.deepThinking) или повтори позже.',

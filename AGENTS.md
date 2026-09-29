@@ -244,6 +244,15 @@ each successful tool call. After it is exhausted the loop asks for `respond`
 exactly once (`finalRespondAsked`) and then surfaces the model's own text
 with one warning — never a stub, never a 20-iteration hang.
 
+### DeepSeek <ds_safety> blocks are not answers
+
+DeepSeek sometimes returns its OWN safety-classification block
+(`<ds_safety>[用户未成年]否…</ds_safety>Safe`) INSTEAD of an answer. It is neither a
+tool-call nor a real final answer. It is now treated as a SERVICE answer in
+`runAgentLoop()` (the `looksService` check matches `<ds_safety>`), so the loop
+re-asks the model instead of stopping on it. (The restore filter in
+`normalizeRestoredMessage()` also drops it from the printed history.)
+
 ### Structural guard against "slipped into chat mode"
 
 Old guards keyed on WORDS (responseLooksLikeToolCall — looks like a call,
@@ -750,6 +759,16 @@ button does). The flag is reset before every send. Verified against real
 captures: exactly the one body that hung the live agent is flagged, with zero
 false positives across 2118 bodies. Covered by
 `test/generation-incomplete.test.ts`.
+
+#### "Stopped" with NO Continue button
+
+DeepSeek can also show **Stopped without any Continue button**. In that case
+there is nothing to click, so waiting out the timeout is pointless. Both
+`_askOnce` loops now treat a truncated (`generation_err`/`INCOMPLETE`) OR a
+finished-without-answer turn as "dead" the moment Continue is absent (or
+`autoContinue` is off): they throw `GenerationIncompleteError` immediately and
+`ask()` resends the prompt. Previously only the INCOMPLETE case threw; the
+finished-without-answer case spun until the full timeout.
 
 #### CRITICAL: the detectors must read the RAW body, not `_netCapture`
 

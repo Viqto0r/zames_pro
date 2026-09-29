@@ -2231,8 +2231,14 @@ export class DeepSeekBrowser {
           continue
         }
       }
-      if (truncated) {
-        throw new GenerationIncompleteError(this._netBody.slice(-300))
+      // No Continue button to click (DeepSeek shows "Stopped" without one) OR
+      // autoContinue is off. Do NOT wait out the whole timeout — the turn is
+      // dead (truncated / finished with no answer), so tell ask() to RESEND
+      // the prompt right away (that is the only remaining way to continue).
+      if (truncated || noAnswer) {
+        throw new GenerationIncompleteError(
+          (this._netBody || 'finished without answer').slice(-300),
+        )
       }
       // Reasoning-mode pause: DeepSeek caps the THINK phase and shows a
       // Continue button; the model does not resume by itself. Click it so the
