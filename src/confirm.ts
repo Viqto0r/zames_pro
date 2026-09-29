@@ -52,6 +52,12 @@ export class ConfirmManager {
     return true
   }
 
+  // Hot-update the language (from /config lang). The manager holds the locale
+  // so its prompt follows the interface language without a restart.
+  setLocale(locale: Locale): void {
+    this.locale = locale
+  }
+
   async ask({
     kind,
     target,

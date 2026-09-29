@@ -1226,9 +1226,12 @@ export class DeepSeekBrowser {
     }, ANSWER_SELECTORS)
   }
 
-  // We read ONLY visible toasts/notifications/errors, not the whole page
-  // text. Otherwise we catch "try again later" from service/hidden blocks
-  // and go into a false 5-minute rate-limit wait.
+  // We read ONLY visible toasts/notifications, not the whole page text.
+  // Otherwise we catch "try again later" from service/hidden blocks and go
+  // into a false 5-minute rate-limit wait. The old list also matched a broad
+  // `[class*="error" i]` / `[class*="alert" i]`, which picked up leftover
+  // text from the page and produced a FALSE rate limit (the agent stopped
+  // while the chat had no error). Keep only real toast/alert containers.
   async _readPageText(): Promise<string> {
     return await this.page
       .evaluate(() => {
@@ -1236,8 +1239,6 @@ export class DeepSeekBrowser {
           '[role="alert"]',
           '[class*="toast" i]',
           '[class*="notification" i]',
-          '[class*="alert" i]',
-          '[class*="error" i]',
         ]
         let out = ''
         for (const s of sels) {

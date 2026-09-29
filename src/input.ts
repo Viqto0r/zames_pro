@@ -955,7 +955,8 @@ export class LineEditor {
   }
 
   toolCall(name: string, args: unknown): void {
-    const preview = safeJson(args).slice(0, 120)
+    const full = safeJson(args)
+    const preview = full.slice(0, 120) + (full.length > 120 ? ' …' : '')
     this.printAbove(theme.tool('🔧 ' + name) + ' ' + theme.dim(preview))
     // A tool may run for a long time (Bash, npm test, MCP). Without an active
     // animation the operator sees a frozen screen and cannot tell work is in
@@ -971,7 +972,8 @@ export class LineEditor {
   toolResult(result: unknown): void {
     this.stop()
     const text = typeof result === 'string' ? result : safeJson(result)
-    const preview = text.slice(0, 200).split(NL).join(' ↵ ')
+    const preview =
+      text.slice(0, 200).split(NL).join(' ↵ ') + (text.length > 200 ? ' …' : '')
     this.printAbove(theme.toolResult('   → ' + preview))
   }
 
