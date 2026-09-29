@@ -454,6 +454,13 @@ export class DeepSeekBrowser {
   // (only reasoning). The DOM keeps showing reasoning/old text, so the loop
   // must not wait it out — it clicks Continue / resends. Reset before a send.
   _netNoAnswer: boolean
+  // True when the LAST completion/continue body carried the rate limit
+  // ("Messages too frequent", finish_reason rate_limit_reached). The toast
+  // may be missed (it is a short-lived DOM node), so we ALSO recognise the
+  // error from the SSE body — otherwise ask() waited out the deadline and
+  // threw ds.send_no_new_answer while the chat plainly showed the rate limit.
+  // Reset before a send.
+  _netRateLimited: boolean
   _netChatId: string | null
   // The latest CONTEXT size (in tokens) DeepSeek reported in the current
   // chat. It is the `accumulated_token_usage` counter taken from the SSE
@@ -559,6 +566,7 @@ export class DeepSeekBrowser {
     this._netCapture = ''
     this._netCaptureAt = 0
     this._netNoAnswer = false
+    this._netRateLimited = false
     this._netChatId = null
     this._lastTokenUsage = null
     this._toggles = { deepThinking, webSearch }
@@ -772,6 +780,15 @@ export class DeepSeekBrowser {
           // RESPONSE; make the body visible to the incomplete check by
           // refreshing the timestamp.
           if (isGenerationIncompleteText(body)) {
+            this._netCapture = ''
+          }
+          // The rate limit can arrive ONLY in the SSE body (the DOM toast is
+          // short-lived and easy to miss). Recognise it here so ask() waits
+          // instead of waiting out the deadline and throwing
+          // ds.send_no_new_answer while the chat shows "Messages too
+          // frequent".
+          if (isRateLimitText(body)) {
+            this._netRateLimited = true
             this._netCapture = ''
           }
           this._netCaptureAt = Date.now()
@@ -2107,6 +2124,7 @@ export class DeepSeekBrowser {
     this._netCapture = ''
     this._netCaptureAt = 0
     this._netNoAnswer = false
+    this._netRateLimited = false
     this._netBody = ''
 
     // Align the DeepSeek chat toggles (deep thinking / web search) with the
@@ -2165,6 +2183,14 @@ export class DeepSeekBrowser {
       }
       if (isServerBusyText(pageText)) {
         throw new ServerBusyError(pageText.slice(0, 300))
+      }
+      // The rate limit may be visible ONLY in the SSE body (the DOM toast is
+      // short-lived and easy to miss). The old code threw ds.send_no_new_answer
+      // at the deadline while the chat plainly showed "Messages too frequent".
+      if (this._netRateLimited && this._netCaptureAt >= this._lastSentAt) {
+        throw new RateLimitError(
+          this._netBody.slice(0, 300) || 'rate limit (from network)',
+        )
       }
       // The turn was truncated by the server: the SSE body carries
       // finish_reason=generation_err / quasi_status=INCOMPLETE and the UI
@@ -2376,6 +2402,14 @@ export class DeepSeekBrowser {
         if (isServerBusyText(pageText)) {
           throw new ServerBusyError(pageText.slice(0, 300))
         }
+      }
+      // The rate limit may exist only in the SSE body (the DOM toast is
+      // short-lived). Without this the loop waited out the deadline and threw
+      // ds.send_no_new_answer while the chat showed "Messages too frequent".
+      if (this._netRateLimited && this._netCaptureAt >= this._lastSentAt) {
+        throw new RateLimitError(
+          this._netBody.slice(0, 300) || 'rate limit (from network)',
+        )
       }
       // The server truncated the turn (generation_err / INCOMPLETE) or ended
       // it with only reasoning. PREFER the Continue button: it RESUMES the
