@@ -37,6 +37,7 @@ conflicted with the live agent, and the cleanup killed the agent browser.
    over one profile and the chat breaks.
 2. When testing MCP by hand, also use --isolated / a temp --user-data-dir
    and never the agent profile.
+
 ## What it is
 
 zames is a terminal coding agent. It does not use the model API directly; it
@@ -165,6 +166,7 @@ considered a tool-call, and the agent silently finishes the task — "called a
 tool and stopped". If you change the answer format — update `src/xml-toolcall.ts` too.
 
 Additional safeguards against "stalls" (verified on real transcripts):
+
 - `repairRawControlChars()` escapes raw newlines/tabs inside JSON string
   values (`old_string`, `new_string`, `content`) — otherwise `JSON.parse`
   fails and a multiline call is not recognized;
@@ -420,6 +422,7 @@ Interactive input is handled by `LineEditor` (src/input.ts) — a custom line
 editor, not readline. The reason: readline submits the message on the first
 newline, so a multiline paste (Shift+Insert) went off immediately and only as
 the first line. Current logic:
+
 - bracketed paste is enabled (`\x1b[?2004h`), the paste text comes between the
   markers `\x1b[200~` … `\x1b[201~`;
 - submission is on a single Enter; if the cursor is right after a «\», then
@@ -467,6 +470,7 @@ The user can paste an image or a file into the input line; it is saved under
 the model sees them and the browser uploads the real files to the chat.
 
 How it works:
+
 - `src/attachments.ts` — pure helpers: `parseImagePaste()` detects image data
   in a paste (a `data:` URL or a bare base64 blob with a PNG/JPEG/GIF/WEBP/BMP
   magic signature), `looksLikeFilePath()`/`resolveAttachPath()` (src/index.ts)
@@ -564,7 +568,7 @@ interactive launch.
 - `/doctor` — diagnose node, git, config, browser, clipboard, MCP
 - `/permissions` — show the confirmation settings
 - commands.ts - pure helpers for /diff, /cost, /export, /doctor,
- /permissions, /add-dir, /review (tested in test/commands.test.ts)
+  /permissions, /add-dir, /review (tested in test/commands.test.ts)
 - `/add-dir <path>` — validate an extra directory
 - `/compact` — DeepSeek compresses the current chat into a handover summary,
   then a NEW chat is opened with the system prompt resent and the summary
@@ -573,6 +577,25 @@ interactive launch.
   command itself is in src/index.ts and reuses `browser.ask()` +
   `browser.newChat()`. The OLD-chat summary call is `agent: true` (throttled),
   the two sends into the new chat are `agent: false`.
+  If the summary call fails (most often "Messages too frequent", i.e. the rate
+  limit exhausted `browser.ask()`'s own retry budget), the whole compaction used
+  to abort and the operator had to start over. Now the summary is retried
+  `COMPACT_SUMMARY_ATTEMPTS` (3) times with a growing pause, and if it still
+  fails a LOCAL fallback summary is built from the restored chat history
+  (`fetchChatMessages` + `trimRestoredMessages` + `formatRestoredHistory`, the
+  same displayable dialogue /resume prints, last `COMPACT_FALLBACK_LIMIT` = 40
+  messages). The compaction therefore ALWAYS completes — a rate limit only
+  downgrades the summary quality, it does not lose the context.
+  A SEPARATE failure mode: the summary prompt is sent into the OLD chat as a
+  normal turn, so in reasoning mode DeepSeek answered it with a Bash TOOL CALL
+  ("gather the current state") instead of prose — the answer was protocol noise
+  that would have been carried into the new chat (the new chat would re-run an
+  old command). `isUsableCompactSummary()` (src/commands.ts, pure/tested)
+  rejects tool-call JSON, DSML, `"args": {`, `<ds_safety>` and the abort
+  sentinel; an unusable answer is retried with an explicit "plain text only"
+  note appended, and if it still fails the LOCAL history fallback is used.
+  The `buildCompactPrompt()` text itself now also says "reply with the summary
+  text ONLY; do NOT call tools / output tool-call JSON or DSML".
 - `/review [focus] [--staged]` — the agent reviews uncommitted changes
 - `/config` — view and edit settings (see "Configuration")
 - `/config lang <ru|en>` — switch the interface and agent language
@@ -588,6 +611,7 @@ Custom commands and skills appear in the «/» hint list and in `/help`
 (dynamic entries from refreshDynamicCommands).
 
 Self-review:
+
 - `/self-review [focus]` — snapshot src/ + review; after this you are IN the snapshot
 - `/self-fix <name> [focus]` — return to an existing snapshot
 - `/self-done` — leave review mode
@@ -673,6 +697,7 @@ The current language is stored in `config.ui.locale`, changed by
 `/config lang <ru|en>` (and `/config set ui.locale en`).
 
 What is localized:
+
 - `printHelp()`, slash-command hints (buildSlashCommands in index.ts);
 - main-loop service messages, `/status`, `/config`;
 - spinner phrases (`createSpinner(locale)` / `randomThinkingPhrase(locale)`);
@@ -733,25 +758,36 @@ automatically. With the reasoning toggle on the server also CAPS the THINK
 phase (a long reasoning turn pauses mid-way and shows Continue); the model does
 NOT resume by itself, so the turn used to sit idle until the operator pressed
 Continue by hand. `_clickContinueIfVisible()` (src/browser.ts) is polled in BOTH
-`_askOnce()` loops; it scans every `div[role=button]`/`button` and clicks only a
-button whose WHOLE label is `Continue`/`Продолжить`/`Продолжение` (a short exact
-label, so a "Continue" inside rendered prose is never clicked). The click is a
-TRUSTED Playwright click (`getByRole('button', { name: 'Continue' }).click()`),
+`_askOnce()` loops; it matches the button's accessible name against
+`CONTINUE_NAME_RE` — a bare continue word OR the same word plus a short
+reasoning/answer suffix. In reasoning mode DeepSeek labels the button
+«Продолжить размышление» / «Continue thinking» (NOT a bare «Continue»), so the
+old EXACT list (`Continue`/`Продолжить`/`Продолжение`) MISSED it: the button was
+never found and the operator had to press it by hand. The regex is anchored and
+length-limited, so a "Continue" inside rendered prose is never clicked (the old
+non-exact `getByRole` matched any button CONTAINING the word). The click is a
+TRUSTED Playwright click (`getByRole('button', { name: CONTINUE_NAME_RE }).click()`),
 with a raw-DOM fallback (`pointerdown`→`mousedown`→`pointerup`→`mouseup`→
 `click`) for a build without a proper role. The OLD code only did the in-page
 `e.click()`/dispatchEvent, which DeepSeek's React button IGNORED — the operator
 saw the button and the "жму Continue" message, but the turn never resumed. A
 live fixture check confirmed `getByRole('button')` matches DeepSeek's
-`div[role=button]` and the trusted click fires the handler.
+`div[role=button]` and the trusted click fires the handler. `_continueButtonVisible()`
+uses the SAME regex, so the paused-turn guard is not blind in reasoning mode
+either. Covered by `test/continue-button.test.ts`.
 
 THROTTLE: a Continue click sends a `chat/continue` request and hits the rate
 limit just like a normal send, so it must NOT fire back-to-back. A run that
 keeps getting truncated could otherwise hammer it. `_clickContinueIfVisible()`
-now clicks AT MOST once per `minSendIntervalMs`, measured from the LATEST of
-`_lastSentAt` and `_lastContinueAt` (a new field). The button is looked up
-FIRST and the slot is waited out only when it is actually present, so probing
-every tick stays cheap. A normal send updates `_lastSentAt`; a Continue click
-updates `_lastContinueAt`.
+clicks AT MOST once per `continueMinGapMs` (default **1500ms**), measured from
+the LATEST of `_lastSentAt` and `_lastContinueAt` (a new field). The gap is
+DELIBERATELY smaller than `minSendIntervalMs` (15s): the reasoning button
+appears immediately when the THINK phase is capped, and waiting out the full
+send interval before each click made every resume feel sluggish (the operator
+saw a frozen turn for ~15s). Set `browser.continueMinGapMs` to tune it. The
+button is looked up FIRST and the slot is waited out only when it is actually
+present, so probing every tick stays cheap. A normal send updates
+`_lastSentAt`; a Continue click updates `_lastContinueAt`.
 
 ORDER MATTERS: the Continue button RESUMES the SAME turn (a `chat/continue`
 request); resending the prompt creates a NEW turn and duplicates the work. So
@@ -967,7 +1003,7 @@ ONLY tool-calls yields "service only" — that is expected, not a bug.
 - `markdown.ts` — rendering the model's answers
 - `confirm.ts` — confirmations for dangerous operations
 - commands.ts - pure helpers for /diff, /cost, /export, /doctor,
- /permissions, /add-dir, /review (tested in test/commands.test.ts)
+  /permissions, /add-dir, /review (tested in test/commands.test.ts)
 - `diff.ts` — showing diffs
 - `undo.ts` — backups/revert
 - `transcript.ts` — transcript writing
@@ -1026,12 +1062,12 @@ as the model's final text, and the loop ends. Therefore "stalls after a tool
 call" are almost always an unrecognized tool-call format (DSML/XML, dirty JSON,
 prose around it).
 
-The protection has three layers:
-0. `parseToolCall()` collects EVERY recognized call, not just one: if the model
-   emits several separate `{"tool": ...}` objects (or a mix with an array) in a
-   single answer, all of them are returned and executed. Returning only the
-   first used to drop the rest, leaving the agent "stalled after a tool call"
-   with pending work.
+The protection has three layers: 0. `parseToolCall()` collects EVERY recognized call, not just one: if the model
+emits several separate `{"tool": ...}` objects (or a mix with an array) in a
+single answer, all of them are returned and executed. Returning only the
+first used to drop the rest, leaving the agent "stalled after a tool call"
+with pending work.
+
 1. `parseToolCall()` tries JSON, permissive parsing, XML/DSML
    (`src/xml-toolcall.ts`) and, as the last fallback, `repairToolCallPreamble()`
    — repairing a "broken call head" (`<｜tool": ...`, `tool": ...`,
@@ -1065,6 +1101,7 @@ The release is published to npm automatically: the GitHub Actions workflow
 `npm publish`. There is no need to run `npm publish` manually.
 
 Order:
+
 1. Bump `version` in `package.json` (semver: bug fixes — patch,
    new features — minor, breaking changes — major).
 2. Commit: `chore: release X.Y.Z`.
@@ -1080,6 +1117,7 @@ To check the result: the Actions tab on GitHub and the package page on npm.
 When the operator says something like "подними версию", "выпусти версию",
 "сделай релиз", "release", "bump the version", "cut a release" — they mean the
 FULL flow above, and you must do it yourself without asking for each step:
+
 1. choose the bump (patch/minor/major) from the nature of the changes since the
    last tag (bug fix → patch, new feature → minor, breaking change → major),
 2. bump `version` in `package.json`,

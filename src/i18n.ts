@@ -226,6 +226,14 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: 'Не удалось получить резюме от модели: {v}',
     en: 'Could not get the summary from the model: {v}',
   },
+  'compact.summary_retry': {
+    ru: 'Не удалось получить резюме ({v}). Повтор {attempt}/{max}...',
+    en: 'Could not get the summary ({v}). Retry {attempt}/{max}...',
+  },
+  'compact.summary_fallback': {
+    ru: 'Модель не смогла сделать резюме — переношу последние {v} сообщений диалога как есть.',
+    en: 'The model could not produce a summary — carrying the last {v} messages over as-is.',
+  },
   'compact.done': {
     ru: '✅ История сжата, открыт новый чат с резюме.',
     en: '✅ History compacted, a new chat with the summary is open.',
@@ -921,6 +929,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   'cfg.f.browser_autoContinue': {
     ru: 'Автонажатие кнопки Continue (режим размышления)',
     en: 'Auto-click Continue (reasoning mode)',
+  },
+  'cfg.f.browser_continueMinGapMs': {
+    ru: 'Мин. пауза перед нажатием Continue, мс',
+    en: 'Min gap before a Continue click, ms',
   },
   'cfg.f.browser_resendPromptOnResume': {
     ru: 'Пересылать системный промпт при возобновлении чата',

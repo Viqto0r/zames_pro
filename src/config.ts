@@ -54,6 +54,7 @@ export const DEFAULTS: ZamesConfig = {
     maxIncompleteRetries: 4,
     incompleteWaitMs: 2000,
     autoContinue: true,
+    continueMinGapMs: 1500,
     resendPromptOnResume: false,
     deepThinking: false,
     webSearch: true,
@@ -310,6 +311,14 @@ export const CONFIG_SCHEMA: ConfigField[] = [
     path: 'browser.autoContinue',
     type: 'boolean',
     labelKey: 'cfg.f.browser_autoContinue',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'browser.continueMinGapMs',
+    type: 'number',
+    min: 0,
+    max: 600000,
+    labelKey: 'cfg.f.browser_continueMinGapMs',
     groupKey: 'cfg.group.browser',
   },
   {

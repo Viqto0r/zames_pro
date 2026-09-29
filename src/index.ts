@@ -67,6 +67,8 @@ import {
   RESTORED_HISTORY_LIMIT,
   buildCompactPrompt,
   buildCompactCarryover,
+  formatRestoredHistory,
+  isUsableCompactSummary,
   type RestoredMessage,
 } from './commands.js'
 import { renderMarkdown } from './markdown.js'
@@ -140,6 +142,15 @@ function getPositional(): string[] {
   }
   return positional
 }
+
+// /compact asks the OLD chat for a summary. If browser.ask() exhausts its own
+// rate-limit budget, aborting the whole compaction used to force the operator
+// to start over. We retry the summary call a few times instead.
+const COMPACT_SUMMARY_ATTEMPTS = 3
+// How many restored messages the LOCAL fallback summary keeps when the model
+// could not produce one (a rate limit / server error must not lose the
+// compaction).
+const COMPACT_FALLBACK_LIMIT = 40
 
 const config = loadConfig()
 
@@ -2791,32 +2802,101 @@ async function main(): Promise<void> {
         console.log(theme.system(t('compact.start')))
         // 1) Ask the OLD chat to summarize itself. agent: true - this is a
         // real back-and-forth, so the send throttle applies.
+        //
+        // The call is retried a few times: browser.ask() already retries the
+        // "Messages too frequent" rate limit internally, but if it exhausts
+        // its own budget the whole /compact used to abort and the operator
+        // had to start over. A transient server error must NOT lose the
+        // compaction, so we keep trying with a growing pause before giving up.
         let summary = ''
-        try {
-          summary = await browser.ask(buildCompactPrompt(currentLocale), {
-            agent: true,
-            timeout: Math.max(60_000, config.browser.answerTimeoutMs),
-          })
-        } catch (e) {
-          console.error(
-            theme.error(
-              t('compact.summary_failed', { v: (e as Error).message }),
-            ),
-          )
-          continue
+        let summaryErr = ''
+        for (let attempt = 1; attempt <= COMPACT_SUMMARY_ATTEMPTS; attempt++) {
+          // On a retry after an unusable answer we append an explicit
+          // "plain text only" note. In reasoning mode DeepSeek answered the
+          // /compact prompt with a Bash TOOL CALL ("gather the current state")
+          // instead of a summary — protocol noise that must NOT be carried
+          // into the new chat.
+          let prompt = buildCompactPrompt(currentLocale)
+          if (attempt > 1) {
+            prompt +=
+              currentLocale === 'en'
+                ? '\n\nIMPORTANT: reply with the summary as PLAIN TEXT only. Do NOT call any tools and do NOT output tool-call JSON/DSML.'
+                : '\n\nВАЖНО: ответь ТОЛЬКО текстом резюме. НЕ вызывай инструменты и НЕ выводи JSON/DSML вызова инструмента.'
+          }
+          let answer = ''
+          try {
+            answer = await browser.ask(prompt, {
+              agent: true,
+              timeout: Math.max(60_000, config.browser.answerTimeoutMs),
+            })
+          } catch (e) {
+            summaryErr = (e as Error).message
+          }
+          const trimmed = String(answer || '').trim()
+          // The user aborted (Esc) — do not keep retrying.
+          if (/^\(прервано пользователем\)$/.test(trimmed)) {
+            summaryErr = trimmed
+            break
+          }
+          if (!summaryErr && isUsableCompactSummary(trimmed)) {
+            summary = trimmed
+            summaryErr = ''
+            break
+          }
+          // The turn may have succeeded yet produced an unusable answer (a
+          // tool call, empty text). Record it and retry with the note.
+          if (!summaryErr) summaryErr = trimmed || t('common.unknown')
+          if (attempt < COMPACT_SUMMARY_ATTEMPTS) {
+            console.error(
+              theme.warn(
+                t('compact.summary_retry', {
+                  v: summaryErr,
+                  attempt: String(attempt),
+                  max: String(COMPACT_SUMMARY_ATTEMPTS),
+                }),
+              ),
+            )
+            await new Promise((r) => setTimeout(r, 3000 * attempt))
+          }
         }
-        summary = String(summary || '').trim()
-        // A model "answer" that is actually an error/abort sentinel is not a
-        // summary - do not carry it over.
-        if (!summary || /^\(прервано пользователем\)$/.test(summary)) {
-          console.error(
-            theme.error(
-              t('compact.summary_failed', {
-                v: summary || t('common.unknown'),
-              }),
-            ),
-          )
-          continue
+        // A model summary that never arrived (a server error, or only
+        // tool-call answers) must NOT lose the compaction: fall back to a
+        // LOCAL summary built from the restored chat history (the same
+        // displayable dialogue /resume prints).
+        if (!summary) {
+          let fallback = ''
+          try {
+            const all =
+              currentChatId && browser.fetchChatMessages
+                ? await browser.fetchChatMessages(currentChatId).catch(() => [])
+                : []
+            const msgs = trimRestoredMessages(all, 0)
+            if (msgs.length) {
+              fallback = formatRestoredHistory(msgs, {
+                limit: COMPACT_FALLBACK_LIMIT,
+              })
+            }
+          } catch {}
+          fallback = String(fallback || '').trim()
+          if (fallback) {
+            summary = fallback
+            console.error(
+              theme.warn(
+                t('compact.summary_fallback', {
+                  v: String(COMPACT_FALLBACK_LIMIT),
+                }),
+              ),
+            )
+          } else {
+            console.error(
+              theme.error(
+                t('compact.summary_failed', {
+                  v: summaryErr || t('common.unknown'),
+                }),
+              ),
+            )
+            continue
+          }
         }
         transcript.log('compact_summary', {
           chars: summary.length,

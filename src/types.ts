@@ -79,6 +79,13 @@ export interface BrowserConfig {
   incompleteWaitMs: number
   /** Auto-click DeepSeek's "Continue" button (reasoning pause). */
   autoContinue: boolean
+  /**
+   * Min gap between Continue clicks in thinking mode (ms). The `chat/continue`
+   * request can hit the rate limit, but the full `minSendIntervalMs` (15s)
+   * makes the resume feel sluggish, so a smaller dedicated gap applies to
+   * Continue clicks.
+   */
+  continueMinGapMs: number
   /** Resend the full system-prompt when a chat is resumed (default off). */
   resendPromptOnResume: boolean
   /** DeepSeek Deep thinking toggle (reasoning; slow, hidden). */

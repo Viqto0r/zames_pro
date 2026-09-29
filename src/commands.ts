@@ -440,7 +440,9 @@ export function buildCompactPrompt(locale: 'ru' | 'en' = 'ru'): string {
       '(3) the exact current state (files changed, commands run, their results); ' +
       '(4) open questions and the next concrete steps. ' +
       'Keep file paths, function/identifier names, commands and error texts verbatim. ' +
-      'Be concise but complete — no small talk, no code dumps beyond short essential snippets.'
+      'Be concise but complete — no small talk, no code dumps beyond short essential snippets. ' +
+      'Reply with the summary text ONLY. Do NOT call any tools and do NOT output tool-call ' +
+      'JSON or DSML — this is a handover summary, not a continuation of the work.'
     )
   }
   return (
@@ -450,8 +452,35 @@ export function buildCompactPrompt(locale: 'ru' | 'en' = 'ru'): string {
     '(3) точное текущее состояние (изменённые файлы, выполненные команды и их результаты); ' +
     '(4) открытые вопросы и следующие конкретные шаги. ' +
     'Пути к файлам, имена функций/идентификаторов, команды и тексты ошибок сохраняй дословно. ' +
-    'Пиши кратко, но полно — без воды и без больших дампов кода (только короткие важные фрагменты).'
+    'Пиши кратко, но полно — без воды и без больших дампов кода (только короткие важные фрагменты). ' +
+    'В ответе верни ТОЛЬКО текст резюме. НЕ вызывай инструменты и НЕ выводи JSON/DSML вызова ' +
+    'инструмента — это резюме для передачи, а не продолжение работы.'
   )
+}
+
+/**
+ * Is the model's /compact answer a usable handover summary?
+ *
+ * The summary request is sent into the OLD chat as a normal turn, so in
+ * reasoning mode the model can answer it with a TOOL CALL instead of prose
+ * (observed live: it emitted a Bash call to "gather the current state" and
+ * never produced a summary — only a THINK fragment). A tool-call JSON is
+ * protocol noise and must NOT be carried into the new chat, otherwise the new
+ * chat starts by re-running an old command. An empty answer / the abort
+ * sentinel is unusable too.
+ */
+export function isUsableCompactSummary(text: string): boolean {
+  const t = String(text || '').trim()
+  if (!t) return false
+  if (t.length < 40) return false
+  if (/^\(прервано пользователем\)$/.test(t)) return false
+  if (parseAssistantToolCall(t)) return false
+  if (/DSML/i.test(t)) return false
+  // A tool-call body without a recognizable head (a cut-off stream) still
+  // carries "args": { ... }.
+  if (/"args"\s*:\s*\{/.test(t)) return false
+  if (/<ds_safety>/i.test(t)) return false
+  return true
 }
 
 /**

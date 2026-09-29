@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { DeepSeekBrowser } from '../src/browser.ts'
+import { DeepSeekBrowser, CONTINUE_NAME_RE } from '../src/browser.ts'
 
 // With the reasoning ("Deep thinking") toggle on, DeepSeek caps the THINK
 // phase and shows a "Continue" button. The model does not resume by itself,
@@ -45,6 +45,20 @@ test('_clickContinueIfVisible survives a page error (never throws)', async () =>
 test('autoContinue defaults to true and can be turned off', () => {
   assert.equal(new DeepSeekBrowser().autoContinue, true)
   assert.equal(new DeepSeekBrowser({ autoContinue: false }).autoContinue, false)
+})
+
+// The reasoning Continue button appears IMMEDIATELY when the THINK phase is
+// capped, so waiting out the full send interval (15s) before clicking made
+// every resume feel sluggish. A dedicated, much smaller gap applies to
+// Continue clicks (still >0 so `chat/continue` is not hammered).
+test('continueMinGapMs defaults small and is configurable', () => {
+  assert.equal(new DeepSeekBrowser().continueMinGapMs, 1500)
+  assert.equal(
+    new DeepSeekBrowser({ continueMinGapMs: 300 }).continueMinGapMs,
+    300,
+  )
+  // It must be smaller than the regular send interval — that is the point.
+  assert.ok(new DeepSeekBrowser().continueMinGapMs < 15000)
 })
 
 test('_continueButtonVisible returns the page decision', async () => {
@@ -98,4 +112,38 @@ test('sendIntervalMs adds thinkingExtraMs only in thinking mode', () => {
     deepThinking: true,
   })
   assert.equal(t.sendIntervalMs(), 17000)
+})
+
+// In reasoning mode DeepSeek labels the button «Продолжить размышление» /
+// «Continue thinking», not a bare «Continue». The old EXACT list missed that
+// label, so the operator had to press the button by hand. The matcher must
+// accept the reasoning suffix, but still reject a "Continue" that is only part
+// of a longer rendered prose (a naive non-exact getByRole would click it).
+test('CONTINUE_NAME_RE matches the plain and reasoning Continue labels', () => {
+  for (const label of [
+    'Continue',
+    'Continue.',
+    'Продолжить',
+    'Продолжение',
+    'Continue thinking',
+    'Continue reasoning',
+    'Продолжить размышление',
+    'Продолжить размышления',
+    'Продолжить генерацию',
+  ]) {
+    assert.equal(CONTINUE_NAME_RE.test(label), true, label)
+  }
+})
+
+test('CONTINUE_NAME_RE rejects prose and unrelated labels', () => {
+  for (const label of [
+    'Continue with the previous conversation about pancakes',
+    'Continue reading the file',
+    'Продолжить работу над задачей',
+    'Stop',
+    'Отмена',
+    '',
+  ]) {
+    assert.equal(CONTINUE_NAME_RE.test(label), false, label)
+  }
 })

@@ -8,7 +8,11 @@ import {
   CONTEXT_YELLOW_PCT,
   CONTEXT_RED_PCT,
 } from '../src/input.ts'
-import { buildCompactPrompt, buildCompactCarryover } from '../src/commands.ts'
+import {
+  buildCompactPrompt,
+  buildCompactCarryover,
+  isUsableCompactSummary,
+} from '../src/commands.ts'
 
 // ---------- token status formatting ----------
 
@@ -114,4 +118,56 @@ test('buildCompactCarryover: no goal, empty summary is safe', () => {
   const out = buildCompactCarryover('', '')
   assert.ok(out.length > 0)
   assert.ok(!out.includes('Original task:'))
+})
+
+// ---------- /compact summary guard ----------
+//
+// The /compact prompt is sent into the OLD chat as a normal turn, so in
+// reasoning mode DeepSeek answered it with a Bash TOOL CALL ("gather the
+// current state") instead of prose — only a THINK fragment, no summary. That
+// tool-call JSON must NOT be carried into the new chat (it would make the new
+// chat re-run an old command), so an unusable answer must fall back to the
+// LOCAL history summary.
+
+test('isUsableCompactSummary: accepts real prose summaries', () => {
+  assert.equal(
+    isUsableCompactSummary(
+      'Краткое резюме: сделано то и то, следующий шаг — добить тесты.',
+    ),
+    true,
+  )
+  assert.equal(
+    isUsableCompactSummary(
+      'Summary: implemented the Continue-button fix; next step is to run the test suite and commit.',
+    ),
+    true,
+  )
+})
+
+test('isUsableCompactSummary: rejects tool-call JSON / DSML / sentinels', () => {
+  // The exact shape observed live: the model emitted a Bash tool call.
+  const toolCall =
+    '{"tool": "Bash", "args": {"command": "cd /home/viqtor/projects/zames && git log --oneline -15"}}'
+  assert.equal(isUsableCompactSummary(toolCall), false)
+  // A respond-wrapped call is still a tool call, not a summary.
+  assert.equal(
+    isUsableCompactSummary('{"tool":"respond","args":{"message":"ok"}}'),
+    false,
+  )
+  // DSML tool-call syntax.
+  assert.equal(isUsableCompactSummary('<|DSML|invoke name="Bash">'), false)
+  // A cut-off body that still carries args.
+  assert.equal(
+    isUsableCompactSummary('something "args": { "path": "x" }'),
+    false,
+  )
+  // Safety blocks and the abort sentinel are not summaries.
+  assert.equal(isUsableCompactSummary('<ds_safety>Safe</ds_safety>'), false)
+  assert.equal(isUsableCompactSummary('(прервано пользователем)'), false)
+})
+
+test('isUsableCompactSummary: rejects empty / too short answers', () => {
+  assert.equal(isUsableCompactSummary(''), false)
+  assert.equal(isUsableCompactSummary('   '), false)
+  assert.equal(isUsableCompactSummary('ok'), false)
 })

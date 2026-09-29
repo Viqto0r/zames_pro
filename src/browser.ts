@@ -195,7 +195,18 @@ const STOP_SELECTORS = [
 // The button is found by Playwright's accessible name (getByRole) with an
 // EXACT match, falling back to a raw DOM scan. The class names change between
 // builds, so we do not rely on them.
-const CONTINUE_NAMES = ['Continue', 'Продолжить', 'Продолжение']
+// Reasoning (Deep thinking) mode uses a LONGER label: the server pauses the
+// THINK phase and offers «Продолжить размышление» / «Continue thinking», NOT a
+// bare «Continue». The old exact list missed those, so with thinking ON the
+// button was never found — neither for the auto-click NOR for the "is the turn
+// paused?" guard — and the operator had to press it by hand.
+//
+// We match the accessible name with a REGEX: a bare continue word OR the same
+// word followed by a short reasoning/answer suffix. It is anchored and
+// length-limited, so a "Continue" inside rendered prose is never clicked (the
+// old non-exact `getByRole` matched any button CONTAINING the word).
+export const CONTINUE_NAME_RE =
+  /^(?:continue|продолжить|продолжение)(?:\s+(?:think(?:ing)?|reason(?:ing)?|размышлени[ея]|генераци[юя]|ответ))?\s*[.!…]?$/i
 
 // DeepSeek UI service statuses that are NOT the model's answer.
 // Otherwise the agent takes a status (Reading...) for an answer and breaks parsing.
@@ -336,6 +347,8 @@ export interface DeepSeekBrowserOptions {
   incompleteWaitMs?: number
   /** Click DeepSeek's "Continue" button automatically (reasoning pause). */
   autoContinue?: boolean
+  /** Min gap between Continue clicks in thinking mode (ms). */
+  continueMinGapMs?: number
   /** Enable DeepSeek's "Deep thinking" toggle (reasoning; slow). */
   deepThinking?: boolean
   /** Enable DeepSeek's "Smart search" (web search) toggle. */
@@ -393,6 +406,9 @@ export class DeepSeekBrowser {
   // Click DeepSeek's "Continue" button automatically when the reasoning phase
   // is paused by the server (deep thinking mode).
   autoContinue: boolean
+  // Min gap between Continue clicks in thinking mode (ms). Smaller than
+  // minSendIntervalMs so the resume does not feel sluggish.
+  continueMinGapMs: number
   // Desired state of the DeepSeek chat toggles, applied before each send.
   // deepThinking: the "Deep thinking" toggle (reasoning; the reasoning text
   // is never read/shown). webSearch: the "Smart search" toggle.
@@ -492,6 +508,7 @@ export class DeepSeekBrowser {
     maxIncompleteRetries = 4,
     incompleteWaitMs = 2000,
     autoContinue = true,
+    continueMinGapMs = 1500,
     deepThinking = false,
     webSearch = true,
     auth,
@@ -515,6 +532,7 @@ export class DeepSeekBrowser {
     this.maxIncompleteRetries = maxIncompleteRetries
     this.incompleteWaitMs = incompleteWaitMs
     this.autoContinue = autoContinue
+    this.continueMinGapMs = continueMinGapMs
     this.deepThinking = deepThinking
     this.webSearch = webSearch
     this.auth = {
@@ -1293,10 +1311,16 @@ export class DeepSeekBrowser {
   // text there is exactly the "agent stopped with a Continue button" bug.
   async _continueButtonVisible(): Promise<boolean> {
     try {
-      for (const name of CONTINUE_NAMES) {
-        const loc = this.page.getByRole('button', { name }).first()
-        if ((await loc.count().catch(() => 0)) === 0) continue
-        if (await loc.isVisible().catch(() => false)) return true
+      const loc = this.page.getByRole('button', { name: CONTINUE_NAME_RE })
+      const n = await loc.count().catch(() => 0)
+      for (let i = 0; i < n; i++) {
+        if (
+          await loc
+            .nth(i)
+            .isVisible()
+            .catch(() => false)
+        )
+          return true
       }
     } catch {}
     // Fallback: the raw DOM scan (older/newer DeepSeek builds where the role
@@ -1308,7 +1332,9 @@ export class DeepSeekBrowser {
             .replace(/\s+/g, ' ')
             .trim()
         const isExact = (t: string): boolean =>
-          /^(continue|продолжить|продолжение)\s*[.!…]?$/i.test(t)
+          /^(?:continue|продолжить|продолжение)(?:\s+(?:think(?:ing)?|reason(?:ing)?|размышлени[ея]|генераци[юя]|ответ))?\s*[.!…]?$/i.test(
+            t,
+          )
         const cands = Array.from(
           document.querySelectorAll('div[role="button"], button'),
         ) as HTMLElement[]
@@ -1342,23 +1368,35 @@ export class DeepSeekBrowser {
     //    probing this every tick must stay cheap, and there is no point
     //    throttling a click that will not happen.
     let found: Locator | null = null
-    for (const name of CONTINUE_NAMES) {
-      try {
-        const loc = this.page.getByRole('button', { name }).first()
-        if ((await loc.count().catch(() => 0)) === 0) continue
-        if (!(await loc.isVisible().catch(() => false))) continue
-        found = loc
-        break
-      } catch {}
-    }
+    try {
+      const loc = this.page.getByRole('button', { name: CONTINUE_NAME_RE })
+      const n = await loc.count().catch(() => 0)
+      for (let i = 0; i < n; i++) {
+        if (
+          await loc
+            .nth(i)
+            .isVisible()
+            .catch(() => false)
+        ) {
+          found = loc.nth(i)
+          break
+        }
+      }
+    } catch {}
     if (found) {
-      // One Continue click per effective send interval: a `chat/continue`
-      // request hits the rate limit like a send, and a run that keeps getting
+      // One Continue click per `continueMinGapMs`: a `chat/continue` request
+      // hits the rate limit like a send, and a run that keeps getting
       // truncated could otherwise fire clicks back-to-back. The gap counts
       // from the LATEST of the last send and the last Continue click.
+      //
+      // NOTE: the gap is DELIBERATELY smaller than `sendIntervalMs` (15s): the
+      // reasoning pause shows the button immediately, and waiting out the full
+      // send interval made every resume feel sluggish (the operator saw a
+      // frozen turn for ~15s before the click). 1.5s is enough to avoid
+      // hammering `chat/continue` while resuming almost immediately.
       const since = Math.max(this._lastSentAt, this._lastContinueAt)
       if (since) {
-        const gap = this.sendIntervalMs() - (Date.now() - since)
+        const gap = this.continueMinGapMs - (Date.now() - since)
         if (gap > 0) {
           const aborted = await this._sleepInterruptible(gap, (leftMs) => {
             if (this.onSendPause) {
@@ -1385,7 +1423,9 @@ export class DeepSeekBrowser {
             .replace(/\s+/g, ' ')
             .trim()
         const isExact = (t: string): boolean =>
-          /^(continue|продолжить|продолжение)\s*[.!…]?$/i.test(t)
+          /^(?:continue|продолжить|продолжение)(?:\s+(?:think(?:ing)?|reason(?:ing)?|размышлени[ея]|генераци[юя]|ответ))?\s*[.!…]?$/i.test(
+            t,
+          )
         const cands = Array.from(
           document.querySelectorAll('div[role="button"], button'),
         ) as HTMLElement[]
@@ -1570,8 +1610,8 @@ export class DeepSeekBrowser {
           rateLimitRetries++
           if (rateLimitRetries > this.maxRateLimitRetries) {
             this._notice(
-               theme.error(
-                 this._t('ds.rate_limit_give_up', {
+              theme.error(
+                this._t('ds.rate_limit_give_up', {
                   attempt: rateLimitRetries,
                   min: Math.ceil(this.rateLimitWaitMs / 60000),
                 }),
@@ -1580,8 +1620,8 @@ export class DeepSeekBrowser {
             throw e
           }
           this._notice(
-             theme.warn(
-               this._t('ds.rate_limit_wait', {
+            theme.warn(
+              this._t('ds.rate_limit_wait', {
                 min: Math.ceil(this.rateLimitWaitMs / 60000),
                 attempt: rateLimitRetries,
                 max: this.maxRateLimitRetries,
@@ -1607,8 +1647,8 @@ export class DeepSeekBrowser {
           serverBusyRetries++
           if (serverBusyRetries > this.maxServerBusyRetries) {
             this._notice(
-               theme.error(
-                 this._t('ds.server_busy_give_up', {
+              theme.error(
+                this._t('ds.server_busy_give_up', {
                   attempt: serverBusyRetries,
                 }),
               ),
@@ -1616,8 +1656,8 @@ export class DeepSeekBrowser {
             throw e
           }
           this._notice(
-             theme.warn(
-               this._t('ds.server_busy_wait', {
+            theme.warn(
+              this._t('ds.server_busy_wait', {
                 sec: Math.ceil(this.serverBusyWaitMs / 1000),
                 attempt: serverBusyRetries,
                 max: this.maxServerBusyRetries,
@@ -1638,8 +1678,8 @@ export class DeepSeekBrowser {
           incompleteRetries++
           if (incompleteRetries > this.maxIncompleteRetries) {
             this._notice(
-               theme.error(
-                 this._t('ds.incomplete_give_up', {
+              theme.error(
+                this._t('ds.incomplete_give_up', {
                   attempt: incompleteRetries,
                 }),
               ),
@@ -1647,16 +1687,14 @@ export class DeepSeekBrowser {
             throw e
           }
           this._notice(
-             theme.warn(
-               this._t('ds.incomplete_retry', {
+            theme.warn(
+              this._t('ds.incomplete_retry', {
                 attempt: incompleteRetries,
                 max: this.maxIncompleteRetries,
               }),
             ),
           )
-          const aborted = await this._sleepInterruptible(
-            this.incompleteWaitMs,
-          )
+          const aborted = await this._sleepInterruptible(this.incompleteWaitMs)
           if (aborted) return '(прервано пользователем)'
           continue
         }
@@ -1687,8 +1725,8 @@ export class DeepSeekBrowser {
             await this.waitForLogin()
           } catch (re) {
             this._notice(
-               theme.warn(
-                 this._t('ds.ask_restart_failed', {
+              theme.warn(
+                this._t('ds.ask_restart_failed', {
                   error: (re as Error).message,
                 }),
               ),
@@ -1885,7 +1923,9 @@ export class DeepSeekBrowser {
   // chance of hitting the rate limit. `deepThinking` is the DESIRED state read
   // from the config (set in the constructor / on /config change).
   sendIntervalMs(): number {
-    return this.minSendIntervalMs + (this.deepThinking ? this.thinkingExtraMs : 0)
+    return (
+      this.minSendIntervalMs + (this.deepThinking ? this.thinkingExtraMs : 0)
+    )
   }
 
   async _waitForSendSlot(agent: boolean): Promise<void> {
@@ -2198,7 +2238,6 @@ export class DeepSeekBrowser {
           await this.page.waitForTimeout(500)
           started = true
           // fall through to the finish loop by NOT returning here
-          lastStartCur = cur
         } else {
           throw new GenerationIncompleteError(this._netBody.slice(-300))
         }
