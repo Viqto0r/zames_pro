@@ -250,6 +250,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: 'Использование: /cron "<мин> <час> <день> <мес> <день недели>" <задача>',
     en: 'Usage: /cron "<min> <hour> <dom> <month> <dow>" <task>',
   },
+  'sched.loop_too_short': {
+    ru: 'Слишком часто: минимум {min} (троттлинг отправок 15с).',
+    en: 'Too frequent: minimum {min} (the send throttle is 15s).',
+  },
   'sched.added': {
     ru: '⏰ Задача #{id} добавлена ({when}): {task}',
     en: '⏰ Job #{id} added ({when}): {task}',

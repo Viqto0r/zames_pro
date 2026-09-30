@@ -135,6 +135,11 @@ interface ReviewMode {
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const NL = String.fromCharCode(10)
 
+// Floor for a /loop interval. A loop faster than the send throttle (15s)
+// cannot do anything useful and would just hammer the rate limit, so we refuse
+// it. It does NOT touch the throttle itself.
+const MIN_LOOP_MS = 15_000
+
 // True when a DeepSeek session/credentials were stored earlier (auth.json).
 // Used by /doctor to report that auto re-login is ready.
 function authMarkerExists(): boolean {
@@ -2771,6 +2776,19 @@ async function main(): Promise<void> {
       const ms = parseInterval(intervalStr)
       if (!ms || !taskStr) {
         console.error(theme.error(t('sched.loop_usage')))
+        continue
+      }
+      // A very short loop (e.g. "/loop 1s ...") would keep the agent sending
+      // back-to-back and hit the rate limit. Enforce a floor; the send throttle
+      // is 15s, so anything faster is pointless anyway.
+      if (ms < MIN_LOOP_MS) {
+        console.error(
+          theme.error(
+            t('sched.loop_too_short', {
+              min: formatInterval(MIN_LOOP_MS),
+            }),
+          ),
+        )
         continue
       }
       const job = scheduler.addLoop(ms, taskStr, Date.now())
