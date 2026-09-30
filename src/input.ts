@@ -556,8 +556,24 @@ export class LineEditor {
     // Redraw on terminal resize so the layout follows the new width instead
     // of leaving artifacts from the old one.
     process.stdout.on('resize', this._onResize)
+    // Pin the input block to the BOTTOM of the terminal. A fresh terminal
+    // starts the cursor at the top, so without this the input line sits at
+    // the top and only "descends" as output accumulates. Filling the viewport
+    // with newlines first makes the block start at the bottom, and every
+    // later printAbove() pushes content UP while the input stays put.
+    this._padToBottom()
     this._writeBlock()
     return true
+  }
+
+  // Fill the current viewport with empty lines so the next _writeBlock()
+  // lands at the BOTTOM of the terminal. Used at start and after clearScreen.
+  // We deliberately emit real newlines (not a cursor-position escape) because
+  // the block height is not known yet and scrolling keeps the block's own
+  // cursor math (`cursorRowFromTop`) correct.
+  _padToBottom(): void {
+    const rows = process.stdout.rows || 24
+    if (rows > 1) process.stdout.write(NL.repeat(rows - 1))
   }
 
   dispose() {
@@ -855,6 +871,8 @@ export class LineEditor {
     process.stdout.write(ESC + '[2J' + ESC + '[H')
     this.rendered = false
     this._lastStatusBlock = ''
+    // Re-pin the block to the bottom after the screen was cleared.
+    this._padToBottom()
     this._writeBlock()
   }
 
