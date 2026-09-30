@@ -668,6 +668,17 @@ export function parseGoalCommand(
     return { sub: 'clear' }
   return { sub: 'set', goal: rest }
 }
+
+// True when a `/config ...` line can be handled LIVE (while the agent is busy):
+// the text subcommands only touch config values, never the chat. The bare
+// `/config` and `/config menu` (which pause the editor and read keys) are NOT
+// live — they must go through the main loop, so a mid-run menu never fights
+// the running task. Pure, so the interception is unit-tested.
+export function isLiveConfigCommand(text: string): boolean {
+  return /^\/config\s+(?!menu\b|ui\b)\S+/i.test(String(text ?? '').trim())
+}
+
+// Parse a `/queue` invocation. Returns the subcommand ('list' | 'clear') or
 // null when the text is not a /queue command at all. This runs WHILE the agent
 // is busy (intercepted in the input handler), because the main command loop is
 // blocked on runTask() and a queued /queue would only run after the task —

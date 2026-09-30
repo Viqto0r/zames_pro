@@ -72,6 +72,7 @@ import {
   parseQueueCommand,
   parseLiveToggle,
   parseGoalCommand,
+  isLiveConfigCommand,
   withGoal,
   formatQueueList,
   ctrlCEscalation,
@@ -1889,6 +1890,16 @@ async function main(): Promise<void> {
         const tg = parseLiveToggle(text)
         if (tg) {
           applyLiveToggle(tg)
+          return
+        }
+        // `/config <sub>` text commands (list/get/set/reset/lang) are safe
+        // mid-run: they only touch config values, never the chat. The
+        // interactive menu (`/config` bare or `menu`) is NOT intercepted —
+        // it pauses the editor and would fight the running task, so it stays
+        // queued. `setConfigRuntime` already applies hot values (locale,
+        // toggles, context limit) to the live objects immediately.
+        if (isLiveConfigCommand(text)) {
+          void handleConfigCommand(text)
           return
         }
       }
