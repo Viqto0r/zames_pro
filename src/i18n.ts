@@ -388,6 +388,12 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: '⚙ выполняю {name}',
     en: '⚙ running {name}',
   },
+  // Send/generation lifecycle indicator in the status line. Unlike the
+  // animated thinking phrase, these say explicitly WHAT phase the send is in,
+  // so the operator can tell a throttle pause from a real generation.
+  'state.generating': { ru: '▶ генерация', en: '▶ generating' },
+  'state.paused': { ru: '⏸ пауза', en: '⏸ paused' },
+  'state.settled': { ru: '✓ готово', en: '✓ settled' },
   'editor.more': { ru: '…ещё {n}', en: '…{n} more' },
   'editor.answer': { ru: '● Ответ', en: '● Answer' },
 

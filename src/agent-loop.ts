@@ -25,6 +25,12 @@ export interface RunAgentLoopOptions {
   onThinking?: () => void
   /** Fired during the send-interval pause with the remaining seconds. */
   onSendPause?: (seconds: number) => void
+  /**
+   * Coarse lifecycle of one send ('generating' | 'paused' | 'settled') so the
+   * UI can show an explicit phase, not just an on/off spinner. Firing it does
+   * NOT change any send timing.
+   */
+  onSendState?: (state: 'generating' | 'paused' | 'settled') => void
   /** Service notice for the operator (rate limit, server busy, resend). */
   onNotice?: (text: string) => void
   onAssistantThought?: (text: string) => void
@@ -87,6 +93,7 @@ export async function runAgentLoop({
   attachments = [],
   onThinking = () => {},
   onSendPause = () => {},
+  onSendState = () => {},
   onNotice = () => {},
   onAssistantThought = () => {},
   onToolCall = () => {},
@@ -127,6 +134,9 @@ export async function runAgentLoop({
   // seconds, the UI shows an animated status instead of a frozen line.
   const safeSendPause = safe(onSendPause)
   browser.onSendPause = safeSendPause
+  // Coarse lifecycle of the send (generating/paused/settled) for the status
+  // line. Same best-effort wiring as the other hooks.
+  browser.onSendState = safe(onSendState)
   // Service notices (rate limit, server busy, resend) must reach the OPERATOR.
   // While a LineEditor is active a raw console.error is overwritten by the
   // editor's repaint, so the operator only saw the spinner. `onNotice` prints

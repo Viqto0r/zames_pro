@@ -500,6 +500,12 @@ export class DeepSeekBrowser {
   // remaining seconds. Lets the UI animate the pause status instead of
   // printing a static line (the dots used to be frozen during the pause).
   onSendPause: ((seconds: number) => void) | null
+  // Coarse lifecycle of one send: 'generating' right before the message is
+  // typed, 'paused' while waiting out a throttle/Continue gap, 'settled'
+  // once the answer stopped changing. Lets the UI show an explicit phase
+  // instead of only an on/off spinner (a long reasoning turn and a rate-limit
+  // wait looked identical). Firing this hook does not alter any send timing.
+  onSendState: ((state: 'generating' | 'paused' | 'settled') => void) | null
   // A service notice for the OPERATOR (rate limit, server busy, resend, …).
   // IMPORTANT: these must NOT go through `console.error` directly — while a
   // LineEditor is active it repaints its own status line and the raw stderr
@@ -583,6 +589,7 @@ export class DeepSeekBrowser {
     this._netHookInstalled = false
     this.onSendStart = null
     this.onSendPause = null
+    this.onSendState = null
     this.onNotice = null
     // An explicit UA (config/options) is respected as-is. Otherwise it stays
     // empty here and is derived from the real engine UA after launch — see
@@ -607,6 +614,16 @@ export class DeepSeekBrowser {
       } catch {}
     }
     console.error(text)
+  }
+
+  // Report the coarse lifecycle of one send to the UI hook (if wired).
+  // Best-effort: a broken UI callback must never break the send loop.
+  _emitSendState(state: 'generating' | 'paused' | 'settled'): void {
+    if (this.onSendState) {
+      try {
+        this.onSendState(state)
+      } catch {}
+    }
   }
 
   async launch(): Promise<void> {
@@ -1796,7 +1813,18 @@ export class DeepSeekBrowser {
       // at the start burns the whole askRetries budget and ask() gives up early.
       while (attempt < this.askRetries) {
         try {
-          return await this._askOnce(prompt, { timeout, agent, attachments })
+          const answer = await this._askOnce(prompt, {
+            timeout,
+            agent,
+            attachments,
+          })
+          // The answer has settled (the finish loop returned it): mark the
+          // lifecycle state so the status line shows "settled" instead of
+          // still looking like generation.
+          if (answer !== '(прервано пользователем)') {
+            this._emitSendState('settled')
+          }
+          return answer
         } catch (e) {
           lastErr = e as Error
 
@@ -2151,6 +2179,7 @@ export class DeepSeekBrowser {
         } catch {}
       }
     }
+    this._emitSendState('paused')
     tick(totalSec * 1000)
     return await this._sleepInterruptible(totalSec * 1000, tick)
   }
@@ -2195,6 +2224,7 @@ export class DeepSeekBrowser {
       }
     }
     report(gap)
+    this._emitSendState('paused')
     await this._sleepInterruptible(gap, report)
   }
 
@@ -2295,6 +2325,7 @@ export class DeepSeekBrowser {
         this.onSendStart()
       } catch {}
     }
+    this._emitSendState('generating')
     this._netCapture = ''
     this._netCaptureAt = 0
     this._netNoAnswer = false

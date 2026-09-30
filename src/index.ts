@@ -1214,6 +1214,9 @@ async function runTask(
         transcript,
         onThinking: () => ui.thinking(),
         onSendPause: (seconds) => ui.sendPause(seconds),
+        onSendState: (state) => {
+          if (editor) editor.setSendState(state)
+        },
         onNotice: (msg) => ui.warning(msg),
         onToolCall: (name, toolArgs) => {
           taskTools++
@@ -1315,6 +1318,7 @@ async function runTask(
     // start a stale spinner.
     browser.onSendStart = null
     browser.onSendPause = null
+    browser.onSendState = null
     browser.onNotice = null
   }
 }

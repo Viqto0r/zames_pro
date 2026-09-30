@@ -306,6 +306,12 @@ export class LineEditor {
   _showHint: boolean
   _dotPhase: number
   _thinkBase: string
+  // Explicit lifecycle state of the send ('generating' | 'paused' |
+  // 'settled' | ''). The thinking spinner already shows ACTIVITY, but it does
+  // not tell a throttle pause from a real generation — a long reasoning turn
+  // and a wait for the rate-limit slot look identical. This drives a short
+  // phase prefix in the status line so the operator can tell them apart.
+  _sendState: string
   // The last rendered status row(s) (status + right-aligned context). Cached so
   // a re-render driven by TYPING (the buffer changed, the status did not) can
   // skip erasing and re-printing the status line entirely. On terminals like
@@ -395,6 +401,7 @@ export class LineEditor {
     this._showHint = true
     this._dotPhase = 0
     this._thinkBase = ''
+    this._sendState = ''
     this._lastStatusBlock = ''
     this._wasRaw = false
     this._onData = (b: Buffer) => this._handle(b)
@@ -728,30 +735,37 @@ export class LineEditor {
     // free (effective width = cols - 1) for the right-aligned context and for
     // the padded status row.
     const usable = Math.max(1, cols - 1)
-    if (this.statusText) {
+    // An explicit lifecycle phase (generating/settled) is prefixed to the
+    // animated status, so the operator can tell a real generation from a
+    // quiet spinner. Empty when no phase is active (tool running, idle).
+    const stateLabel = this._stateLabel()
+    const statusText = stateLabel
+      ? stateLabel + ' ' + this.statusText
+      : this.statusText
+    if (statusText) {
       if (ctxText) {
         // Right-align the context on the SAME row as the status. When the
         // status is too long to leave room, do NOT cram them together (that
         // pushed the trailing `%` past the right edge and it got truncated):
         // put the context on its own line instead.
-        const space = usable - visLen(this.statusText) - visLen(ctxText)
+        const space = usable - visLen(statusText) - visLen(ctxText)
         if (space >= 2) {
-          const row = this.statusText + ' '.repeat(space) + ctxText
+          const row = statusText + ' '.repeat(space) + ctxText
           statusOut = row + NL
           top = visRows(row, cols)
         } else {
-          statusOut = this.statusText + NL
-          top = visRows(this.statusText, cols)
+          statusOut = statusText + NL
+          top = visRows(statusText, cols)
           const ctxRow =
             ' '.repeat(Math.max(0, usable - visLen(ctxText))) + ctxText
           statusOut += ctxRow + NL
           top += visRows(ctxRow, cols)
         }
       } else {
-        statusOut = this.statusText + NL
+        statusOut = statusText + NL
         // The status may wrap onto several lines — we account for this,
         // otherwise the block erase misses and statuses pile up.
-        top = visRows(this.statusText, cols)
+        top = visRows(statusText, cols)
       }
     } else if (ctxText) {
       // Idle: no spinner, but the context still belongs on its own line just
@@ -958,6 +972,32 @@ export class LineEditor {
     return theme.dim('  ·  ' + translate(this.locale)('spinner.hint'))
   }
 
+  // The lifecycle phase prefix for the status line, colored by meaning:
+  // generating (brown), settled (sage). 'paused' has NO prefix: during a
+  // pause the base status already reads "пауза Ns" (spinner.pause), so a
+  // second "пауза" would be redundant. Returns '' when no phase is active,
+  // so an idle status is not prefixed.
+  _stateLabel(): string {
+    if (this._sendState === 'generating')
+      return theme.brown(translate(this.locale)('state.generating'))
+    if (this._sendState === 'settled')
+      return theme.success(translate(this.locale)('state.settled'))
+    return ''
+  }
+
+  // Called by the browser layer at real lifecycle points: right before a
+  // send (generating), during a throttle/Continue pause (paused), and after
+  // the answer settled (settled). Any other value clears the phase.
+  setSendState(state: string): void {
+    const next =
+      state === 'generating' || state === 'paused' || state === 'settled'
+        ? state
+        : ''
+    if (next === this._sendState) return
+    this._sendState = next
+    this._render()
+  }
+
   _startThinking() {
     if (this.pendingText) {
       this.setStatus(theme.prompt('✎ ') + this.pendingText + this._hint())
@@ -1024,6 +1064,9 @@ export class LineEditor {
 
   stop() {
     this._stopDots()
+    // A finished send must not keep prefixing the NEXT status (e.g. a tool
+    // that starts right after the answer) with a stale "settled"/"generating".
+    this._sendState = ''
     this.setStatus('')
   }
 
