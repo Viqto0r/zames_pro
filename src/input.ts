@@ -1007,13 +1007,29 @@ export class LineEditor {
   assistant(msg: string): void {
     this.stop()
     const rendered = renderMarkdown(msg)
+    // C11: show the used context size at the END of the answer too. During
+    // generation it lives in the status line, but ui.stop() clears that right
+    // before this call, so the operator lost the number exactly when the
+    // answer arrived. Read it fresh via onContextQuery and append it dimmed
+    // under the answer divider.
+    let ctxLine = ''
+    if (this.onContextQuery) {
+      try {
+        const n = this.onContextQuery()
+        const txt = formatTokenStatus(n, this.contextLimit)
+        if (txt) ctxLine = NL + theme.dim(txt)
+      } catch {
+        // never break the render
+      }
+    }
     this.printAbove(
       NL +
         theme.assistant(translate(this.locale)('editor.answer')) +
         NL +
         rendered +
         NL +
-        theme.dim('─'.repeat(60)),
+        theme.dim('─'.repeat(60)) +
+        ctxLine,
     )
   }
 
