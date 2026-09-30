@@ -69,6 +69,7 @@ import {
   mergeMessages,
   isSlashCommand,
   parseQueueCommand,
+  parseLiveToggle,
   formatQueueList,
   ctrlCEscalation,
   type RestoredMessage,
@@ -421,6 +422,8 @@ ${theme.bold(t('help.commands'))}
  ${t('help.cmd.permissions')}
  ${t('help.cmd.add_dir')}
  ${t('help.cmd.review')}
+ ${t('help.cmd.thinking')}
+ ${t('help.cmd.web')}
  ${t('help.cmd.compact')}
   ${t('help.cmd.queue')}
   ${t('help.cmd.config')}
@@ -480,6 +483,8 @@ const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
   { name: '/permissions', key: 'help.cmd.permissions' },
   { name: '/add-dir', key: 'help.cmd.add_dir' },
   { name: '/review', key: 'help.cmd.review' },
+  { name: '/thinking', key: 'help.cmd.thinking' },
+  { name: '/web', key: 'help.cmd.web' },
   { name: '/compact', key: 'help.cmd.compact' },
   { name: '/queue', key: 'help.cmd.queue' },
   { name: '/config', key: 'help.cmd.config' },
@@ -1744,10 +1749,9 @@ async function main(): Promise<void> {
       return att
     }
     ed.onSubmit = (text: string, items) => {
-      // Intercept `/queue` WHILE the agent is busy. The main command loop is
-      // blocked on runTask() at this moment, so a queued /queue would only run
-      // after the task — exactly when inspecting or clearing the queue is
-      // pointless. Handling it HERE is the only moment the command is useful.
+      // While the agent is busy the main command loop is blocked on
+      // `await runTask()`, so ONLY commands that make sense without the main
+      // loop are handled here (a queued slash-command would run too late).
       if (ed.busy) {
         const q = parseQueueCommand(text)
         if (q) {
@@ -1764,6 +1768,15 @@ async function main(): Promise<void> {
             }
             ed.printAbove(theme.dim(t('msg.queue_cleared_hint')))
           }
+          return
+        }
+        // Toggle Deep thinking / Smart search LIVE. This only flips the
+        // browser's DESIRED state and the status icons; it does not touch the
+        // in-flight generation, so it is safe mid-run. The actual DeepSeek
+        // toggles are applied on the next send by _applyToggles().
+        const tg = parseLiveToggle(text)
+        if (tg) {
+          applyLiveToggle(tg)
           return
         }
       }
@@ -1909,12 +1922,52 @@ async function main(): Promise<void> {
     }
   }
 
+  // Apply `/thinking` / `/web` immediately: flip the browser's DESIRED state
+  // and the status icons, and persist to config (so it survives a restart).
+  // The DeepSeek toggles themselves are clicked on the next send by
+  // _applyToggles(), so this is safe even while a generation is in flight.
+  function applyLiveToggle(cmd: {
+    kind: 'thinking' | 'search'
+    mode: string
+  }): void {
+    const b = browser as unknown as {
+      deepThinking: boolean
+      webSearch: boolean
+      setToggleState: (s: {
+        deepThinking?: boolean
+        webSearch?: boolean
+      }) => void
+    }
+    const cur = cmd.kind === 'thinking' ? b.deepThinking : b.webSearch
+    const next = cmd.mode === 'toggle' ? !cur : cmd.mode === 'on'
+    if (cmd.kind === 'thinking') b.deepThinking = next
+    else b.webSearch = next
+    b.setToggleState({
+      deepThinking: b.deepThinking,
+      webSearch: b.webSearch,
+    })
+    const cfgPath =
+      cmd.kind === 'thinking' ? 'browser.deepThinking' : 'browser.webSearch'
+    try {
+      writeConfigValue('home', cfgPath, String(next))
+      setConfigRuntime(cfgPath, next)
+    } catch {
+      // A failed persist must not break the toggle itself.
+    }
+    if (editor) editor.refreshStatus()
+    const label =
+      cmd.kind === 'thinking' ? t('toggle.thinking') : t('toggle.search')
+    const stateText = next ? t('common.on') : t('common.off')
+    const line = t('toggle.set', { name: label, state: stateText })
+    if (editor) editor.printAbove(theme.system(line))
+    else console.log(theme.system(line))
+  }
+
   function configSetRaw(field: ConfigField, raw: string): void {
     const value = validateConfigValue(field, raw)
     writeConfigValue('home', field.path, raw)
     setConfigRuntime(field.path, value)
   }
-
   function configResetField(field: ConfigField): void {
     resetConfigValue('home', field.path)
     // Reset the runtime value to the default.
@@ -2554,6 +2607,14 @@ async function main(): Promise<void> {
       continue
     }
 
+    if (lower.startsWith('/thinking') || lower.startsWith('/web')) {
+      const tg = parseLiveToggle(trimmed)
+      if (tg) {
+        applyLiveToggle(tg)
+        continue
+      }
+    }
+
     if (lower === '/mcp') {
       if (!mcpPool) {
         console.log(theme.dim(t('mcp.none')))
@@ -2771,6 +2832,15 @@ async function main(): Promise<void> {
         theme.system(t('status.headless', { v: headless ? yes : no })),
       )
       console.log(theme.system(t('status.debug', { v: debug ? yes : no })))
+      const statusToggles = browser.getToggleStatesSync()
+      console.log(
+        theme.system(
+          t('status.toggles', {
+            think: statusToggles.deepThinking ? yes : no,
+            search: statusToggles.webSearch ? yes : no,
+          }),
+        ),
+      )
       console.log(
         theme.system(
           t('status.undo', {

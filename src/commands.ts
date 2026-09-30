@@ -586,6 +586,34 @@ export function isSlashCommand(text: string): boolean {
     .startsWith('/')
 }
 
+// Parse a live toggle command that can be applied IMMEDIATELY while the agent
+// is busy (no send needed): `/thinking [on|off]` and `/web [on|off]` (aliases
+// `/search`, `/websearch`). Returns null when the text is not such a command,
+// so the caller can fall through to the normal handling. Kept pure so the
+// interception in the input handler and the main loop share the same parsing.
+export interface LiveToggleCommand {
+  kind: 'thinking' | 'search'
+  mode: 'on' | 'off' | 'toggle'
+}
+
+export function parseLiveToggle(text: string): LiveToggleCommand | null {
+  const m = /^\/(thinking|web|websearch|search)(?:\s+(\S+))?\s*$/i.exec(
+    String(text ?? '').trim(),
+  )
+  if (!m) return null
+  const name = m[1].toLowerCase()
+  const kind: 'thinking' | 'search' =
+    name === 'thinking' ? 'thinking' : 'search'
+  const arg = (m[2] || '').toLowerCase()
+  let mode: 'on' | 'off' | 'toggle' = 'toggle'
+  if (arg === 'on' || arg === '1' || arg === 'true' || arg === 'вкл')
+    mode = 'on'
+  else if (arg === 'off' || arg === '0' || arg === 'false' || arg === 'выкл')
+    mode = 'off'
+  else if (arg !== '') return null
+  return { kind, mode }
+}
+
 // Parse a `/queue` invocation. Returns the subcommand ('list' | 'clear') or
 // null when the text is not a /queue command at all. This runs WHILE the agent
 // is busy (intercepted in the input handler), because the main command loop is

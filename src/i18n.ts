@@ -218,6 +218,17 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: '/queue [clear] показать/очистить очередь сообщений',
     en: '/queue [clear] list/clear the pending message queue',
   },
+  'help.cmd.thinking': {
+    ru: '/thinking [on|off] включить/выключить режим размышления (можно во время работы)',
+    en: '/thinking [on|off] toggle Deep thinking (works while the agent is busy)',
+  },
+  'help.cmd.web': {
+    ru: '/web [on|off] включить/выключить поиск в интернете (можно во время работы)',
+    en: '/web [on|off] toggle Smart search (works while the agent is busy)',
+  },
+  'toggle.thinking': { ru: 'Размышление', en: 'Deep thinking' },
+  'toggle.search': { ru: 'Поиск в интернете', en: 'Smart search' },
+  'toggle.set': { ru: '{name}: {state}', en: '{name}: {state}' },
   'compact.auto_trigger': {
     ru: '🗜️ Контекст заполнен на {pct}% ({tokens} токенов) — сжимаю историю и открываю новый чат...',
     en: '🗜️ Context at {pct}% ({tokens} tokens) — compacting the history and opening a fresh chat...',
@@ -915,6 +926,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   },
   'mcp.status_error': { ru: '(ошибка: {v})', en: '(error: {v})' },
   'status.mcp': { ru: 'MCP-инструменты: {v}', en: 'MCP tools: {v}' },
+  'status.toggles': {
+    ru: 'Размышление: {think} · Поиск: {search}',
+    en: 'Deep thinking: {think} · Search: {search}',
+  },
   'status.tokens': {
     ru: 'Контекст (токенов): {v}',
     en: 'Context (tokens): {v}',
