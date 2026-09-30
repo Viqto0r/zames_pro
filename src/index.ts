@@ -68,6 +68,7 @@ import {
   trimRestoredMessages,
   RESTORED_HISTORY_LIMIT,
   mergeMessages,
+  hasQueuedJob,
   isSlashCommand,
   parseQueueCommand,
   parseLiveToggle,
@@ -1605,7 +1606,7 @@ async function main(): Promise<void> {
         // this job already has a pending message in the queue, skip this fire.
         // Otherwise a 1-minute loop would add a new task every minute while a
         // long task is in flight, and they would all run back-to-back.
-        if (pendingQueue.some((m) => m.jobId === job.id)) {
+        if (hasQueuedJob(pendingQueue, job.id)) {
           transcript.log('scheduled_skip_queued', {
             id: job.id,
             task: job.task,

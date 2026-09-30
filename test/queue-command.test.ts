@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   parseQueueCommand,
   formatQueueList,
+  hasQueuedJob,
   type QueuedMessage,
 } from '../src/commands.ts'
 
@@ -52,4 +53,12 @@ test('formatQueueList: one line per message, truncated, with attachment count', 
 
 test('formatQueueList: empty input yields no lines', () => {
   assert.deepEqual(formatQueueList([]), [])
+})
+
+test('hasQueuedJob: detects a job already waiting in the queue', () => {
+  const queue = [{ jobId: 1 }, { jobId: 2 }, { text: 'plain' }]
+  assert.equal(hasQueuedJob(queue, 1), true)
+  assert.equal(hasQueuedJob(queue, 2), true)
+  assert.equal(hasQueuedJob(queue, 3), false)
+  assert.equal(hasQueuedJob([], 1), false)
 })

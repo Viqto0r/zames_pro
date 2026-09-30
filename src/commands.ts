@@ -599,6 +599,18 @@ export interface MergedMessage {
   attachments: QueuedAttachment[]
 }
 
+// True when a scheduled job already has a message waiting in the queue. The
+// scheduler ticker uses this to avoid piling many copies of the SAME job while
+// the agent is busy (a 1-minute loop would otherwise queue a task every minute
+// during one long task, and they would all run back-to-back). Pure, so the
+// guard is unit-tested without a live scheduler.
+export function hasQueuedJob(
+  queue: Array<{ jobId?: number }>,
+  jobId: number,
+): boolean {
+  return queue.some((m) => m.jobId === jobId)
+}
+
 // True when the queued message is a slash-command. It must NOT be merged into
 // a task: the main loop has to execute it (e.g. /compact, /new).
 export function isSlashCommand(text: string): boolean {
