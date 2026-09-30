@@ -230,6 +230,25 @@ test('renderDoctor shows the context limit, git remote and send pause', () => {
   assert.ok(out.includes('15s between agent sends'), out)
 })
 
+test('renderDoctor shows the session kind (local vs SSH)', () => {
+  const base = {
+    nodeVersion: 'v24',
+    platform: 'linux',
+    workdir: '/w',
+    gitOk: false,
+    configOk: true,
+    browserChannel: null,
+    clipboardTool: null,
+    mcpServers: 0,
+    mcpTools: 0,
+    transcriptOk: true,
+  }
+  assert.ok(
+    renderDoctor({ ...base, sshRemote: false }).includes('local terminal'),
+  )
+  assert.ok(renderDoctor({ ...base, sshRemote: true }).includes('SSH remote'))
+})
+
 // ---------- /permissions ----------
 
 test('renderPermissions shows modes and alwaysConfirm', () => {

@@ -3252,6 +3252,7 @@ async function main(): Promise<void> {
                 )
               : undefined,
             minSendIntervalMs: config.browser.minSendIntervalMs,
+            sshRemote: !!(process.env.SSH_CONNECTION || process.env.SSH_TTY),
           }),
         ),
       )

@@ -243,6 +243,8 @@ export interface DoctorInput {
   hasOrigin?: boolean
   /** Configured minimum pause between agent sends (ms). */
   minSendIntervalMs?: number
+  /** Running over an SSH connection (SSH_CONNECTION / SSH_TTY set). */
+  sshRemote?: boolean
 }
 
 export function renderDoctor(d: DoctorInput): string {
@@ -290,6 +292,9 @@ export function renderDoctor(d: DoctorInput): string {
       'send pause',
       Math.round(d.minSendIntervalMs / 1000) + 's between agent sends',
     )
+  }
+  if (typeof d.sshRemote === 'boolean') {
+    row(true, 'session', d.sshRemote ? 'SSH remote' : 'local terminal')
   }
   return 'Doctor:' + NL + rows.join(NL)
 }
