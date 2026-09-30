@@ -1449,6 +1449,10 @@ export class DeepSeekBrowser {
       try {
         await found.click({ timeout: 2000 })
         this._lastContinueAt = Date.now()
+        // C2: the auto-click is otherwise invisible. Emit ONE notice per
+        // click (the continueMinGapMs above already limits how often this
+        // can fire) so the operator sees why the turn resumed.
+        this._notice(this._t('ds.continue_clicked'))
         return true
       } catch {}
     }
@@ -1495,6 +1499,10 @@ export class DeepSeekBrowser {
         }
         return false
       })
+      if (clicked) {
+        this._lastContinueAt = Date.now()
+        this._notice(this._t('ds.continue_clicked'))
+      }
       return !!clicked
     } catch {
       return false

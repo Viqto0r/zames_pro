@@ -1445,6 +1445,14 @@ async function main(): Promise<void> {
     await mod.closeWeb().catch(() => {})
     if (mcpPool) await mcpPool.close().catch(() => {})
     transcript.close()
+    console.log(
+      theme.dim(
+        t('msg.exit_summary', {
+          transcript: transcript.file || t('common.off'),
+          chat: currentChatId || t('chats.not_created'),
+        }),
+      ),
+    )
     console.log(theme.system(String.fromCharCode(10) + t('msg.bye')))
     process.exit(0)
   })
@@ -1555,6 +1563,7 @@ async function main(): Promise<void> {
             t('msg.attached_image', {
               marker: att.marker,
               size: formatSize(image.data.length),
+              path: p,
             }),
           ),
         )
@@ -1579,6 +1588,7 @@ async function main(): Promise<void> {
             marker: att.marker,
             name,
             size: formatSize(data.length),
+            path: filePath,
           }),
         ),
       )
@@ -1605,6 +1615,7 @@ async function main(): Promise<void> {
                 marker: att.marker,
                 name: nm,
                 size: formatSize(data.length),
+                path: fp,
               }) + theme.dim(' (windows-clipboard)'),
             ),
           )
@@ -1638,6 +1649,7 @@ async function main(): Promise<void> {
           t('msg.attached_image', {
             marker: att.marker,
             size: formatSize(res.data.length),
+            path: p,
           }) + theme.dim('  (' + res.via + ')'),
         ),
       )
@@ -3141,6 +3153,16 @@ async function main(): Promise<void> {
   await mod.closeWeb().catch(() => {})
   if (mcpPool) await mcpPool.close().catch(() => {})
   transcript.close()
+  // C8: one dim line so the operator can find the log and the session after
+  // the run (previously the path was only available via /transcript).
+  console.log(
+    theme.dim(
+      t('msg.exit_summary', {
+        transcript: transcript.file || t('common.off'),
+        chat: currentChatId || t('chats.not_created'),
+      }),
+    ),
+  )
 }
 
 main().catch((e) => {

@@ -457,6 +457,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     en: 'Unknown command: {v}. Type /help.',
   },
   'msg.bye': { ru: 'Выход.', en: 'Bye.' },
+  'msg.exit_summary': {
+    ru: 'Транскрипт: {transcript} · чат: {chat}',
+    en: 'Transcript: {transcript} · chat: {chat}',
+  },
   'msg.abort_gen': {
     ru: '⏹ Esc — прерываю генерацию...',
     en: '⏹ Esc — aborting generation...',
@@ -467,12 +471,12 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   },
   'msg.queued': { ru: '📨 В очередь ({n}): ', en: '📨 Queued ({n}): ' },
   'msg.attached_image': {
-    ru: '🖼 Вложено изображение {marker} ({size}) — сохранено в tmp',
-    en: '🖼 Attached image {marker} ({size}) — saved to tmp',
+    ru: '🖼 Вложено изображение {marker} ({size}) — {path}',
+    en: '🖼 Attached image {marker} ({size}) — {path}',
   },
   'msg.attached_file': {
-    ru: '📎 Вложен файл {marker} {name} ({size}) — сохранён в tmp',
-    en: '📎 Attached file {marker} {name} ({size}) — saved to tmp',
+    ru: '📎 Вложен файл {marker} {name} ({size}) — {path}',
+    en: '📎 Attached file {marker} {name} ({size}) — {path}',
   },
   'msg.clip_empty': {
     ru: '⚠ В буфере обмена нет картинки (проверено: {via}).',
@@ -615,6 +619,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   'ds.send_no_new_answer': {
     ru: '✖ Новый ответ не получен — на странице остался прежний текст. Возможно, сообщение не отправилось. Проверь чат DeepSeek вручную.',
     en: '✖ No new answer received — the page still shows the previous text. The message may not have been sent. Check the DeepSeek chat manually.',
+  },
+  'ds.continue_clicked': {
+    ru: '▶ Нажал «Continue» (DeepSeek приостановил вывод — возобновляю).',
+    en: '▶ Clicked "Continue" (DeepSeek paused the output — resuming).',
   },
   'ds.answer_timeout': {
     ru: '⏳ DeepSeek не ответил за {sec}с ({attempt}/{max}) — повторяю запрос...',
