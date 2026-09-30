@@ -59,11 +59,23 @@ test('_sleepInterruptible also honors the agent abort flag', async () => {
   assert.equal(await b._sleepInterruptible(5000), true)
 })
 
+// The watchdog timer in agent-loop is intentionally `unref()`-ed, so while a
+// test simply awaits a pending ask the event loop can look "drained". Node's
+// test runner (22.x) then CANCELS the test (`cancelled 2`, exit 1) even though
+// the test would pass. Hold the loop open for the duration of the test.
+function keepAlive(): { stop: () => void } {
+  const t = setInterval(() => {}, 1000)
+  return {
+    stop: () => clearInterval(t),
+  }
+}
+
 // Watchdog fires -> the loop cancels the in-flight ask and AWAITS its settle
 // before the next iteration. The first ask() resolves only when
 // cancelPendingAsk() is called (what the real _sleepInterruptible does); the
 // next ask() returns the final respond.
 test('the watchdog cancels the in-flight ask and continues', async () => {
+  const alive = keepAlive()
   let cancelCalls = 0
   let askCalls = 0
   let releaseFirst: (() => void) | null = null
@@ -104,16 +116,20 @@ test('the watchdog cancels the in-flight ask and continues', async () => {
     parameters: { message: 'string' },
     fn: async (a: ToolArgs) => a.message,
   }
-  const result = await runAgentLoop({
-    browser: browser as never,
-    tools: [respondTool],
-    task: 'x',
-    workdir: process.cwd(),
-    askDeadlineMs: 50,
-  })
-  assert.equal(result, 'done')
-  assert.equal(cancelCalls, 1)
-  assert.ok(askCalls >= 2)
+  try {
+    const result = await runAgentLoop({
+      browser: browser as never,
+      tools: [respondTool],
+      task: 'x',
+      workdir: process.cwd(),
+      askDeadlineMs: 50,
+    })
+    assert.equal(result, 'done')
+    assert.equal(cancelCalls, 1)
+    assert.ok(askCalls >= 2)
+  } finally {
+    alive.stop()
+  }
 })
 
 test('the agent loop source awaits the cancelled ask before the next one', () => {

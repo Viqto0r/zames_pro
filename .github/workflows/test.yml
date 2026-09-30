@@ -19,7 +19,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          # Align CI with the toolchain the suite is verified on. Node 22's
+          # test runner cancels a test when the event loop drains before the
+          # test promise settles (our animation/watchdog timers are unref'd),
+          # which showed up as `cancelled 2` + exit 1 while the same suite is
+          # green on Node 24.
+          node-version: 24
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
