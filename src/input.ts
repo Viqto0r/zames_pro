@@ -315,6 +315,11 @@ export class LineEditor {
   _lastStatusBlock: string
   _wasRaw: boolean
   _onData: (b: Buffer) => void
+  // On SIGWINCH we redraw the whole block so the layout follows the new
+  // terminal width. Debounced: a drag fires many resize events. `_onResize`
+  // is stored so it can be removed in dispose().
+  _onResize: () => void
+  _resizeTimer: ReturnType<typeof setTimeout> | null
   // History of sent messages (for the up/down arrows).
   history: string[]
   _histIndex: number
@@ -393,6 +398,24 @@ export class LineEditor {
     this._lastStatusBlock = ''
     this._wasRaw = false
     this._onData = (b: Buffer) => this._handle(b)
+    this._resizeTimer = null
+    this._onResize = () => {
+      // Debounce: a window drag fires a burst of SIGWINCH events. We wait a
+      // short moment, then redraw the whole block with the NEW columns/rows
+      // so nothing is left over from the old width (the artifacts the
+      // operator saw, e.g. a status line bleeding into the input).
+      if (this._resizeTimer) clearTimeout(this._resizeTimer)
+      this._resizeTimer = setTimeout(() => {
+        this._resizeTimer = null
+        // A full clear + redraw is the only RELIABLE fix on resize: after the
+        // terminal reflows, the old block occupies a different number of rows,
+        // so a row-count-based erase misses and leaves duplicated text. ESC[2J
+        // clears the VIEWPORT (scrollback survives), then we repaint the
+        // status + input at the new width.
+        this.clearScreen()
+      }, 120)
+      if (this._resizeTimer.unref) this._resizeTimer.unref()
+    }
     this.history = []
     this._histIndex = 0
     this._histDraft = ''
@@ -535,6 +558,9 @@ export class LineEditor {
     stdin.resume()
     process.stdout.write(ESC + '[?2004h')
     stdin.on('data', this._onData)
+    // Redraw on terminal resize so the layout follows the new width instead
+    // of leaving artifacts from the old one.
+    process.stdout.on('resize', this._onResize)
     this._writeBlock()
     return true
   }
@@ -542,6 +568,8 @@ export class LineEditor {
   dispose() {
     const stdin = process.stdin
     stdin.removeListener('data', this._onData)
+    process.stdout.removeListener('resize', this._onResize)
+    if (this._resizeTimer) clearTimeout(this._resizeTimer)
     process.stdout.write(ESC + '[?2004l')
     this._stopDots()
     if (this.rendered) this._eraseBlock()
