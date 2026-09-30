@@ -442,6 +442,11 @@ export class DeepSeekBrowser {
   // next iteration does not run TWO asks against the same page (two sends /
   // two Continue clicks). Reset at the start of every _askOnce.
   _askCancelled: boolean
+  // Number of ask() calls currently in flight from OUR code. Used by B1: a
+  // completion/continue body that arrives while this is 0 was NOT initiated
+  // by us — it is the operator's own turn in the chat (or a manual resume in
+  // the web UI), and our next agent send must wait out the throttle from it.
+  _askInFlight: number
   // The user pressed Esc/Ctrl+C — a "stop" for the WHOLE current batch of
   // tasks (including the queue). Unlike _abort (reset on every send), this
   // flag lives until a new task is explicitly started from the prompt.
@@ -562,6 +567,7 @@ export class DeepSeekBrowser {
     this._lastContinueAt = 0
     this._abort = false
     this._askCancelled = false
+    this._askInFlight = 0
     this._stopped = false
     this._netCapture = ''
     this._netCaptureAt = 0
@@ -762,6 +768,14 @@ export class DeepSeekBrowser {
       // truncated/no-answer detectors can inspect it even when there is no
       // RESPONSE text (extractAnswer() returns '' for those bodies).
       if (isAnswerUrl) {
+        // B1: a completion/continue body that arrives while WE have no ask in
+        // flight was the OPERATOR's own turn (they sent a message by hand or
+        // resumed in the web UI). Record that moment so our next agent send
+        // waits out the throttle from it instead of firing too soon after the
+        // manual turn (which caused a rate limit). Do NOT touch the interval.
+        if (this._askInFlight === 0) {
+          this._lastSentAt = Date.now()
+        }
         this._netBody = body
         const cid = url.match(
           /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/,
@@ -1655,15 +1669,21 @@ export class DeepSeekBrowser {
     // (deep thinking) mode, where the long THINK phase gets cut off.
     let incompleteRetries = 0
 
-    // NOTE: `attempt` counts only GENUINE failures. The three retryable
-    // classes below (rate limit / server busy / truncated turn) have their OWN
-    // budgets and must NOT consume an ask() attempt — otherwise a rate limit at
-    // the start burns the whole askRetries budget and ask() gives up early.
-    while (attempt < this.askRetries) {
-      try {
-        return await this._askOnce(prompt, { timeout, agent, attachments })
-      } catch (e) {
-        lastErr = e as Error
+    // B1: mark that OUR code has an ask in flight. A completion/continue body
+    // that arrives with _askInFlight === 0 was the operator's own turn, and
+    // _onResponse uses that to bump _lastSentAt so the next agent send waits
+    // out the throttle.
+    this._askInFlight++
+    try {
+      // NOTE: `attempt` counts only GENUINE failures. The three retryable
+      // classes below (rate limit / server busy / truncated turn) have their OWN
+      // budgets and must NOT consume an ask() attempt — otherwise a rate limit
+      // at the start burns the whole askRetries budget and ask() gives up early.
+      while (attempt < this.askRetries) {
+        try {
+          return await this._askOnce(prompt, { timeout, agent, attachments })
+        } catch (e) {
+          lastErr = e as Error
 
         // Rate limit: DeepSeek did not accept the message. We wait a long time
         // and resend into the SAME chat (without newChat — otherwise the
@@ -1800,15 +1820,18 @@ export class DeepSeekBrowser {
           await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)))
         }
         attempt++
+        }
       }
-    }
 
-    throw new Error(
-      this._t('ds.ask_failed', {
-        max: this.askRetries,
-        error: lastErr?.message || '',
-      }),
-    )
+      throw new Error(
+        this._t('ds.ask_failed', {
+          max: this.askRetries,
+          error: lastErr?.message || '',
+        }),
+      )
+    } finally {
+      this._askInFlight = Math.max(0, this._askInFlight - 1)
+    }
   }
 
   // Cancel an in-flight ask() whose caller (the agent-loop watchdog) already
