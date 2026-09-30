@@ -686,6 +686,39 @@ export function parseGoalCommand(
   return { sub: 'set', goal: rest }
 }
 
+// Replace [image#N] / [file#N] markers in a task with the REAL file path, so
+// the model (reading the message in the DeepSeek chat) gets a usable path
+// instead of a bare marker. The terminal keeps showing the compact markers;
+// only the text sent to the browser is expanded. Numbering must match
+// AttachmentStore.add(): images and files are counted SEPARATELY, in the order
+// the attachments were added. A marker with no matching attachment is left
+// as-is (never silently dropped). Pure, so it is unit-tested.
+export function substituteAttachmentMarkers(
+  text: string,
+  attachments: Array<{ path: string; name: string; mime?: string }>,
+): string {
+  let imageCount = 0
+  let fileCount = 0
+  const imagePath = new Map<number, string>()
+  const filePath = new Map<number, string>()
+  for (const a of attachments || []) {
+    const isImg =
+      String(a.mime || '').startsWith('image/') || isImageName(a.name)
+    if (isImg) imagePath.set(++imageCount, a.path)
+    else filePath.set(++fileCount, a.path)
+  }
+  let out = String(text ?? '')
+  out = out.replace(
+    /\[image#(\d+)\]/g,
+    (whole, n) => imagePath.get(Number(n)) ?? whole,
+  )
+  out = out.replace(
+    /\[file#(\d+)\]/g,
+    (whole, n) => filePath.get(Number(n)) ?? whole,
+  )
+  return out
+}
+
 // True when a `/config ...` line can be handled LIVE (while the agent is busy):
 // the text subcommands only touch config values, never the chat. The bare
 // `/config` and `/config menu` (which pause the editor and read keys) are NOT

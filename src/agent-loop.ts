@@ -11,6 +11,7 @@ import type {
   TranscriptLike,
 } from './types.js'
 import { translate, type Locale } from './i18n.js'
+import { substituteAttachmentMarkers } from './commands.js'
 import { normText } from './browser.js'
 
 export interface RunAgentLoopOptions {
@@ -225,20 +226,33 @@ export async function runAgentLoop({
     // Tell the model what the markers mean even when the system-prompt is not
     // (re)sent (resumed chat). The files are uploaded to the chat by the
     // browser; this note just explains the [image#N] / [file#N] markers.
-    const markers = attachments.map((a, i) => {
-      const ext = String(a.name || '')
-      const isImg = /\.(png|jpe?g|gif|webp|bmp|svg|ico)$/i.test(ext)
-      return (isImg ? '[image#' : '[file#') + (i + 1) + ']'
+    //
+    // The task text keeps its COMPACT markers in the terminal, but what goes
+    // to the model is expanded to the real file paths (substituteAttachment
+    // Markers) so it can actually read them — a bare [file#1] is useless to
+    // the model. The note below still explains the marker→file mapping.
+    //
+    // Numbering matches AttachmentStore: images and files are counted
+    // SEPARATELY (image#1 and file#1 coexist), so the note lists them the
+    // same way the substitution resolves them.
+    let imgN = 0
+    let fileN = 0
+    const markers = attachments.map((a) => {
+      const isImg =
+        String(a.mime || '').startsWith('image/') ||
+        /\.(png|jpe?g|gif|webp|bmp|svg|ico)$/i.test(String(a.name || ''))
+      return isImg ? '[image#' + ++imgN + ']' : '[file#' + ++fileN + ']'
     })
     message =
-      task +
+      substituteAttachmentMarkers(task, attachments) +
       String.fromCharCode(10) +
       String.fromCharCode(10) +
       '(The user attached ' +
       attachments.length +
       ' file(s) to this message: ' +
       markers.join(', ') +
-      '. Look at the uploaded images in the chat; file copies are in <project>/tmp.)'
+      '. The [image#N]/[file#N] markers were replaced above by the real file paths. ' +
+      'Look at the uploaded images in the chat; file copies are in <project>/tmp.)'
   }
   transcript?.log('task', { task })
 
