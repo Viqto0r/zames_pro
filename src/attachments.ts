@@ -154,6 +154,11 @@ export class AttachmentStore {
     mime: string
     size: number
   }): Attachment {
+    // De-duplicate by real path: pasting the SAME file twice must reuse one
+    // attachment (one marker, one upload), not create [file#1] and [file#2].
+    // The operator saw exactly that when inserting the same file repeatedly.
+    const existing = this.items.find((a) => a.path === item.path)
+    if (existing) return existing
     const image =
       isImageName(item.name) || String(item.mime).startsWith('image/')
     const index = image ? ++this.imageCount : ++this.fileCount
