@@ -626,6 +626,29 @@ export class DeepSeekBrowser {
     }
   }
 
+  // A lightweight IN-PAGE marker so the operator, looking at the browser
+  // window, can tell that the agent is generating (the terminal spinner is not
+  // visible there). We prefix the tab title with a "⏳"; the ORIGINAL title is
+  // saved ONCE on the window and restored when generation ends, so DeepSeek's
+  // own chat title is never lost. Best-effort: a page error must never break
+  // the send loop.
+  async _setBusyTitle(busy: boolean): Promise<void> {
+    try {
+      await this.page.evaluate((on: boolean) => {
+        const w = window as unknown as { __zamesTitle?: string }
+        if (on) {
+          if (typeof w.__zamesTitle !== 'string') {
+            w.__zamesTitle = document.title.replace(/^⏳\s*/, '')
+          }
+          document.title = '⏳ ' + w.__zamesTitle
+        } else if (typeof w.__zamesTitle === 'string') {
+          document.title = w.__zamesTitle
+          w.__zamesTitle = undefined
+        }
+      }, busy)
+    } catch {}
+  }
+
   async launch(): Promise<void> {
     // NOTE: we deliberately do NOT kill stray chrome processes here. Per the
     // project rules, an agent must never kill a browser it did not start —
@@ -1978,6 +2001,9 @@ export class DeepSeekBrowser {
       )
     } finally {
       this._askInFlight = Math.max(0, this._askInFlight - 1)
+      // Clear the in-page "generating" marker (tab title) however the ask
+      // ended (answer, error, abort), so it never sticks after a run.
+      void this._setBusyTitle(false)
     }
   }
 
@@ -2326,6 +2352,7 @@ export class DeepSeekBrowser {
       } catch {}
     }
     this._emitSendState('generating')
+    void this._setBusyTitle(true)
     this._netCapture = ''
     this._netCaptureAt = 0
     this._netNoAnswer = false
