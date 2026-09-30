@@ -139,29 +139,41 @@ Codex CLI:
 
 - /diff [--staged] — show the working-tree git diff (--staged for the index).
 - /cost (alias /usage) — session stats: tasks, tool calls, duration, and the
- context size in tokens (DeepSeek's `accumulated_token_usage`).
+  context size in tokens (DeepSeek's `accumulated_token_usage`).
 - /export [file] — write the session transcript to a Markdown file
- (zames-export-<stamp>.md by default).
+  (zames-export-<stamp>.md by default).
 - /doctor — diagnose node, git, config, browser, clipboard and MCP.
 - /permissions — show the confirmation settings (Write/Edit/Bash + the
- alwaysConfirm regex list).
+  alwaysConfirm regex list).
 - /add-dir <path> — validate an extra directory (the sandbox is fixed at
- startup; relaunch with --dir to write there).
+  startup; relaunch with --dir to write there).
 - /resume <n> (after /chats) and /resume-id <id> — open a chat and PRINT its
- dialogue into the terminal, so the restored context is visible. Only the
- last 20 messages are shown (`RESTORED_HISTORY_LIMIT`).
+  dialogue into the terminal, so the restored context is visible. Only the
+  last 20 messages are shown (`RESTORED_HISTORY_LIMIT`).
 - /review [focus] [--staged] — ask the agent to review uncommitted changes
- and report findings (no code changes).
+  and report findings (no code changes).
 - /compact — ask DeepSeek to compress the current chat into a handover
- summary, then open a NEW chat, resend the system prompt and post the summary
- as the carried-over context. Use it when the context gets long.
+  summary, then open a NEW chat, resend the system prompt and post the summary
+  as the carried-over context. Use it when the context gets long.
+- /goal [text|clear] — set a long-lived session goal. It is prepended to every
+  task message, so the model keeps the big picture across many turns. Stored in
+  `<project>/.zames-goal` (git-ignored) and restored on the next launch.
+- /loop <interval> <task> — repeat a task periodically (e.g. `/loop 10m run the
+tests`). /cron "<min> <hour> <dom> <month> <dow>" <task> — run on a schedule.
+  /jobs [rm <id>|clear] lists and stops them. A fired job is put into the same
+  message queue you type into, so it runs when the agent is free (never mid-
+  generation) and still respects the send throttle.
+- /thinking [on|off] and /web [on|off] — toggle Deep thinking / Smart search.
+  These (and /queue, /jobs, /goal, `/config <sub>`) can be used WHILE the agent
+  is working — they do not touch the in-flight generation.
+- /queue [clear] — list or clear the messages waiting to be sent after the
+  current task.
 
 The token context is also shown live: the status line above the input has the
 spinner/text on the left and the context on the right (e.g. `125k · 13%`,
 percent of a 1M context). It is COLORED by fill level: green below 50%,
 yellow 50-80%, red above 80%. It comes from DeepSeek's
 `accumulated_token_usage` and is hidden until the first answer delivers it.
-
 
 ## Project context, skills and memory
 
