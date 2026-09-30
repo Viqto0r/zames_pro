@@ -204,6 +204,12 @@ export interface DoctorInput {
   transcriptOk: boolean
   /** A stored DeepSeek session/credentials exist (auth.json present). */
   authSaved?: boolean
+  /** Configured context window (tokens), shown for reference. */
+  contextLimit?: number
+  /** `git remote` has an `origin` (push/pull possible). */
+  hasOrigin?: boolean
+  /** Configured minimum pause between agent sends (ms). */
+  minSendIntervalMs?: number
 }
 
 export function renderDoctor(d: DoctorInput): string {
@@ -239,6 +245,19 @@ export function renderDoctor(d: DoctorInput): string {
   )
   row(true, 'mcp', d.mcpServers + ' server(s), ' + d.mcpTools + ' tool(s)')
   row(d.transcriptOk, 'transcript', d.transcriptOk ? 'on' : 'off')
+  if (typeof d.contextLimit === 'number' && d.contextLimit > 0) {
+    row(true, 'context', d.contextLimit.toLocaleString('en-US') + ' tokens')
+  }
+  if (d.gitOk && typeof d.hasOrigin === 'boolean') {
+    row(true, 'git remote', d.hasOrigin ? 'origin configured' : 'no origin')
+  }
+  if (typeof d.minSendIntervalMs === 'number') {
+    row(
+      d.minSendIntervalMs > 0,
+      'send pause',
+      Math.round(d.minSendIntervalMs / 1000) + 's between agent sends',
+    )
+  }
   return 'Doctor:' + NL + rows.join(NL)
 }
 

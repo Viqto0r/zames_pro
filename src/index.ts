@@ -2887,6 +2887,13 @@ async function main(): Promise<void> {
             mcpTools: mcpStatus.toolCount,
             transcriptOk: !!transcript.file,
             authSaved: authMarkerExists(),
+            contextLimit: config.ui.contextLimit,
+            hasOrigin: gitOk
+              ? (await runGit('git remote', currentWorkdir, 5000)).includes(
+                  'origin',
+                )
+              : undefined,
+            minSendIntervalMs: config.browser.minSendIntervalMs,
           }),
         ),
       )

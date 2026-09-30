@@ -179,6 +179,28 @@ test('renderDoctor marks OK and WARN', () => {
   assert.ok(out.includes('no tool found'))
 })
 
+test('renderDoctor shows the context limit, git remote and send pause', () => {
+  const out = renderDoctor({
+    nodeVersion: 'v24',
+    platform: 'linux',
+    workdir: '/w',
+    gitOk: true,
+    gitBranch: 'master',
+    configOk: true,
+    browserChannel: null,
+    clipboardTool: 'available',
+    mcpServers: 0,
+    mcpTools: 0,
+    transcriptOk: true,
+    contextLimit: 1_000_000,
+    hasOrigin: true,
+    minSendIntervalMs: 15000,
+  })
+  assert.ok(out.includes('1,000,000 tokens'), out)
+  assert.ok(out.includes('origin configured'), out)
+  assert.ok(out.includes('15s between agent sends'), out)
+})
+
 // ---------- /permissions ----------
 
 test('renderPermissions shows modes and alwaysConfirm', () => {
