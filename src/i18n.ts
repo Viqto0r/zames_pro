@@ -226,6 +226,27 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: '/web [on|off] включить/выключить поиск в интернете (можно во время работы)',
     en: '/web [on|off] toggle Smart search (works while the agent is busy)',
   },
+  'help.cmd.goal': {
+    ru: '/goal [текст|clear] задать долгоживущую цель сессии',
+    en: '/goal [text|clear] set a long-lived session goal',
+  },
+  'goal.set': { ru: '🎯 Цель сессии: {goal}', en: '🎯 Session goal: {goal}' },
+  'goal.loaded': {
+    ru: '🎯 Восстановлена цель сессии: {goal}',
+    en: '🎯 Restored session goal: {goal}',
+  },
+  'goal.current': {
+    ru: '🎯 Цель сессии: {goal}',
+    en: '🎯 Session goal: {goal}',
+  },
+  'goal.none': {
+    ru: 'Цель сессии не задана. /goal <текст>, /goal clear.',
+    en: 'No session goal. /goal <text>, /goal clear.',
+  },
+  'goal.cleared': {
+    ru: '🎯 Цель сессии очищена.',
+    en: '🎯 Session goal cleared.',
+  },
   'toggle.thinking': { ru: 'Размышление', en: 'Deep thinking' },
   'toggle.search': { ru: 'Поиск в интернете', en: 'Smart search' },
   'toggle.set': { ru: '{name}: {state}', en: '{name}: {state}' },

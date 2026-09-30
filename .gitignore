@@ -13,4 +13,6 @@ undefined
 # Per-project local settings. Kept out of git so personal toggles
 # (e.g. confirmation.*) never ship with the package.
 .zamesrc.json
+# Per-project session goal (/goal) — personal state, not part of the package.
+.zames-goal
 commit-msg.tmp

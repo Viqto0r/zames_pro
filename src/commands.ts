@@ -614,7 +614,44 @@ export function parseLiveToggle(text: string): LiveToggleCommand | null {
   return { kind, mode }
 }
 
-// Parse a `/queue` invocation. Returns the subcommand ('list' | 'clear') or
+// Prepend a long-lived session goal to a task message, so the model keeps the
+// big picture even when the goal was set many turns ago. The task is appended
+// AFTER the goal; when there is no goal the task is returned unchanged. The
+// text is agent-facing (English), like the system prompt.
+export function withGoal(
+  goal: string | null | undefined,
+  task: string,
+): string {
+  const g = String(goal ?? '').trim()
+  if (!g) return task
+  const NL = String.fromCharCode(10)
+  return (
+    'Session goal (long-lived — keep it in mind for this and every following task):' +
+    NL +
+    g +
+    NL +
+    NL +
+    'Current task:' +
+    NL +
+    task
+  )
+}
+
+// Parse a `/goal` invocation. Subcommands: 'set' (with text), 'show', 'clear'.
+// Returns null when the text is not a /goal command. Kept pure so the main loop
+// and any future interception share one parser.
+export function parseGoalCommand(
+  text: string,
+): { sub: 'show' } | { sub: 'clear' } | { sub: 'set'; goal: string } | null {
+  const t = String(text ?? '').trim()
+  const m = /^\/goal(?:\s+([\s\S]*))?$/.exec(t)
+  if (!m) return null
+  const rest = (m[1] ?? '').trim()
+  if (rest === '') return { sub: 'show' }
+  if (rest.toLowerCase() === 'clear' || rest.toLowerCase() === 'off')
+    return { sub: 'clear' }
+  return { sub: 'set', goal: rest }
+}
 // null when the text is not a /queue command at all. This runs WHILE the agent
 // is busy (intercepted in the input handler), because the main command loop is
 // blocked on runTask() and a queued /queue would only run after the task —

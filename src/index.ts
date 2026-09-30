@@ -71,6 +71,8 @@ import {
   isSlashCommand,
   parseQueueCommand,
   parseLiveToggle,
+  parseGoalCommand,
+  withGoal,
   formatQueueList,
   ctrlCEscalation,
   type RestoredMessage,
@@ -108,6 +110,8 @@ interface RunTaskOptions {
   contextLimit?: number
   /** Current context size (tokens) or null. */
   getTokenUsage?: (() => number | null) | null
+  /** Long-lived session goal, prepended to every task message. */
+  goal?: string | null
 }
 
 interface ReviewMode {
@@ -213,6 +217,36 @@ function saveLastChat(id: string | null, workdir = '', title = ''): void {
 function loadLastChat(workdir = ''): string | null {
   const s = loadLastSession(workdir)
   return s ? s.id : null
+}
+
+// Persistent per-project session goal (set by /goal). Kept OUT of the session
+// JSON (a session == a DeepSeek chat) because the goal is a property of the
+// PROJECT, not of one chat: it must survive /new and /compact. Best-effort —
+// a missing/unreadable file simply means "no goal".
+function goalFilePath(workdir: string): string {
+  return path.join(workdir, '.zames-goal')
+}
+
+async function loadGoal(workdir: string): Promise<string | null> {
+  try {
+    const txt = await fs.readFile(goalFilePath(workdir), 'utf-8')
+    const trimmed = txt.trim()
+    return trimmed || null
+  } catch {
+    return null
+  }
+}
+
+async function saveGoal(workdir: string, goal: string | null): Promise<void> {
+  try {
+    if (goal && goal.trim()) {
+      await fs.writeFile(goalFilePath(workdir), goal.trim() + '\n', 'utf-8')
+    } else {
+      await fs.rm(goalFilePath(workdir), { force: true })
+    }
+  } catch {
+    // best-effort: a failed write must not break the command
+  }
 }
 
 // ---------- hot reload ----------
@@ -423,6 +457,7 @@ ${theme.bold(t('help.commands'))}
  ${t('help.cmd.permissions')}
  ${t('help.cmd.add_dir')}
  ${t('help.cmd.review')}
+ ${t('help.cmd.goal')}
  ${t('help.cmd.thinking')}
  ${t('help.cmd.web')}
  ${t('help.cmd.compact')}
@@ -484,6 +519,7 @@ const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
   { name: '/permissions', key: 'help.cmd.permissions' },
   { name: '/add-dir', key: 'help.cmd.add_dir' },
   { name: '/review', key: 'help.cmd.review' },
+  { name: '/goal', key: 'help.cmd.goal' },
   { name: '/thinking', key: 'help.cmd.thinking' },
   { name: '/web', key: 'help.cmd.web' },
   { name: '/compact', key: 'help.cmd.compact' },
@@ -1149,6 +1185,7 @@ async function runTask(
     autoCompactPct = 95,
     contextLimit = 1_000_000,
     getTokenUsage = null,
+    goal = null,
   } = opts
 
   // In TTY mode the UI is a LineEditor: it owns the input (queue, Esc,
@@ -1219,7 +1256,7 @@ async function runTask(
       const outcome = await mod.runAgentLoop({
         browser,
         tools,
-        task: next.text,
+        task: withGoal(goal, next.text),
         workdir,
         maxIterations: maxIter,
         freshChat: next.freshChat,
@@ -1529,6 +1566,13 @@ async function main(): Promise<void> {
   let lastChats: ChatInfo[] = []
   let currentChatId: string | null = null
   let running = true
+  // Long-lived session goal (set via /goal). Prepended to every task message so
+  // the model keeps the big picture across many turns. Persisted per working
+  // directory in <project>/.zames-goal (best-effort); restored right away.
+  let sessionGoal: string | null = await loadGoal(currentWorkdir)
+  if (sessionGoal) {
+    console.log(theme.system(t('goal.loaded', { goal: sessionGoal })))
+  }
 
   // Messages the user typed while the agent worked. runTask takes them one
   // by one after the current task finishes.
@@ -2602,6 +2646,28 @@ async function main(): Promise<void> {
       continue
     }
 
+    if (lower === '/goal' || lower.startsWith('/goal ')) {
+      const g = parseGoalCommand(trimmed)
+      if (g) {
+        if (g.sub === 'clear') {
+          sessionGoal = null
+          await saveGoal(currentWorkdir, null)
+          console.log(theme.system(t('goal.cleared')))
+        } else if (g.sub === 'show') {
+          console.log(
+            sessionGoal
+              ? theme.system(t('goal.current', { goal: sessionGoal }))
+              : theme.dim(t('goal.none')),
+          )
+        } else {
+          sessionGoal = g.goal
+          await saveGoal(currentWorkdir, g.goal)
+          console.log(theme.system(t('goal.set', { goal: g.goal })))
+        }
+        continue
+      }
+    }
+
     if (lower === '/queue' || lower.startsWith('/queue ')) {
       const q = parseQueueCommand(trimmed)
       if (!q) {
@@ -3272,6 +3338,7 @@ async function main(): Promise<void> {
           autoCompactPct: config.browser.autoCompactPct,
           contextLimit: config.ui.contextLimit,
           getTokenUsage: () => browser.getLastTokenUsage(),
+          goal: sessionGoal,
         },
         inputAttachments,
       )
