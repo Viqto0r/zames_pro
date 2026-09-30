@@ -99,6 +99,13 @@ test('formatDuration formats h/m/s', () => {
   assert.equal(formatDuration(-5), '0s')
 })
 
+test('formatDuration honors localized unit labels', () => {
+  const ru = { h: 'ч', m: 'м', s: 'с' }
+  assert.equal(formatDuration(8000, ru), '8с')
+  assert.equal(formatDuration(5 * 60 * 1000 + 12000, ru), '5м 12с')
+  assert.equal(formatDuration(3661 * 1000, ru), '1ч 01м 01с')
+})
+
 test('renderCost contains key lines', () => {
   const out = renderCost(
     {

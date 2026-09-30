@@ -63,6 +63,7 @@ import {
   renderPermissions,
   resolveExtraDir,
   buildReviewPrompt,
+  formatDuration,
   trimRestoredMessages,
   RESTORED_HISTORY_LIMIT,
   mergeMessages,
@@ -1257,10 +1258,16 @@ async function runTask(
       }
 
       // T7: one dim summary line per task (duration + tool calls). Printed
-      // even on an abort, so the operator sees what happened.
+      // even on an abort, so the operator sees what happened. Duration is
+      // human-readable ("45s", "1m 20s", "1h 12m 45s") with LOCALIZED unit
+      // labels, instead of a raw seconds count like "3129.2s".
       const summary = theme.dim(
         t('msg.task_summary', {
-          sec: ((Date.now() - taskStart) / 1000).toFixed(1),
+          dur: formatDuration(Date.now() - taskStart, {
+            h: t('dur.h'),
+            m: t('dur.m'),
+            s: t('dur.s'),
+          }),
           tools: String(taskTools),
         }),
       )

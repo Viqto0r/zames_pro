@@ -94,15 +94,32 @@ export function parseTranscript(body: string): TranscriptEntry[] {
   return out
 }
 
-export function formatDuration(ms: number): string {
+// Unit labels for a formatted duration. English is the default (used by the
+// English /cost output); the user-facing task summary passes localized units
+// from the i18n catalog, so a Russian operator reads "1м 20с", not "1m 20s".
+export interface DurationUnits {
+  h: string
+  m: string
+  s: string
+}
+
+export const EN_DURATION_UNITS: DurationUnits = { h: 'h', m: 'm', s: 's' }
+
+// Human-readable duration: "8s", "5m 12s", "1h 01m 01s". Seconds are padded
+// only when a larger unit is present, so a lone "45s" is not "45s" padded.
+export function formatDuration(
+  ms: number,
+  units: DurationUnits = EN_DURATION_UNITS,
+): string {
   const total = Math.max(0, Math.round(ms / 1000))
   const h = Math.floor(total / 3600)
   const m = Math.floor((total % 3600) / 60)
   const s = total % 60
   const pad = (n: number): string => String(n).padStart(2, '0')
-  if (h > 0) return h + 'h ' + pad(m) + 'm ' + pad(s) + 's'
-  if (m > 0) return m + 'm ' + pad(s) + 's'
-  return s + 's'
+  if (h > 0)
+    return h + units.h + ' ' + pad(m) + units.m + ' ' + pad(s) + units.s
+  if (m > 0) return m + units.m + ' ' + pad(s) + units.s
+  return s + units.s
 }
 
 export function renderCost(
