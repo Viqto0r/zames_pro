@@ -3041,6 +3041,16 @@ export class DeepSeekBrowser {
             break
           }
         }
+        // A11: de-duplicate by node identity and drop a block that is NESTED
+        // inside another block. Some builds match both an outer message
+        // container and an inner one; without this the restored dialogue
+        // printed each turn twice. We keep only the OUTERMOST blocks.
+        if (blocks.length > 1) {
+          const unique = Array.from(new Set(blocks))
+          blocks = unique.filter(
+            (b) => !unique.some((other) => other !== b && other.contains(b)),
+          )
+        }
 
         const out: Array<{ role: string; text: string }> = []
         if (blocks.length) {
