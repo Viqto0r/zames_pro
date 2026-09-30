@@ -401,18 +401,18 @@ export class LineEditor {
     this._resizeTimer = null
     this._onResize = () => {
       // Debounce: a window drag fires a burst of SIGWINCH events. We wait a
-      // short moment, then redraw the whole block with the NEW columns/rows
-      // so nothing is left over from the old width (the artifacts the
-      // operator saw, e.g. a status line bleeding into the input).
+      // short moment, then redraw the block at the NEW width.
       if (this._resizeTimer) clearTimeout(this._resizeTimer)
       this._resizeTimer = setTimeout(() => {
         this._resizeTimer = null
-        // A full clear + redraw is the only RELIABLE fix on resize: after the
-        // terminal reflows, the old block occupies a different number of rows,
-        // so a row-count-based erase misses and leaves duplicated text. ESC[2J
-        // clears the VIEWPORT (scrollback survives), then we repaint the
-        // status + input at the new width.
-        this.clearScreen()
+        // Repaint ONLY the status + input block. We deliberately do NOT clear
+        // the whole viewport here: the operator's scrollback (the tool-call
+        // lines and answers printed above the input) must stay on screen.
+        // `_eraseBlock` erases from the top of the block DOWN (CR + ESC[J),
+        // so everything above it is preserved; then _writeBlock redraws the
+        // block at the new width. A slight leftover is possible at extreme
+        // width changes, but losing the history is far worse.
+        this._render()
       }, 120)
       if (this._resizeTimer.unref) this._resizeTimer.unref()
     }

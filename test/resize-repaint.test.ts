@@ -4,23 +4,30 @@ import { LineEditor } from '../src/input.ts'
 
 // Resize handling: a terminal resize (SIGWINCH / process.stdout 'resize') must
 // repaint the editor block, otherwise the old layout (drawn for the previous
-// width) stays on screen and artifacts/duplicated text appear.
+// width) stays on screen and artifacts/duplicated text appear. It must NOT
+// clear the whole viewport: the tool-call lines and answers printed above the
+// input have to stay on screen.
 
-test('LineEditor wires a resize handler that repaints', async () => {
+test('resize triggers a block repaint (not a full-screen clear)', async () => {
   const e = new LineEditor()
-  let cleared = 0
+  let renders = 0
+  e._render = () => {
+    renders++
+  }
+  let clears = 0
   e.clearScreen = () => {
-    cleared++
+    clears++
   }
   const handler = (e as unknown as { _onResize: () => void })._onResize
   assert.equal(typeof handler, 'function', 'a resize handler must exist')
   handler()
   await new Promise<void>((resolve) => setTimeout(resolve, 250))
-  assert.ok(cleared >= 1, 'resize must trigger a full repaint')
+  assert.ok(renders >= 1, 'resize must repaint the block')
+  assert.equal(clears, 0, 'resize must NOT clear the whole screen (history)')
   e.dispose()
 })
 
-test('clearScreen erases the viewport and repaints', () => {
+test('clearScreen still erases the viewport when called explicitly', () => {
   const e = new LineEditor()
   const writes: string[] = []
   const orig = process.stdout.write.bind(process.stdout)
