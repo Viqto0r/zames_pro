@@ -67,6 +67,8 @@ import {
   RESTORED_HISTORY_LIMIT,
   mergeMessages,
   isSlashCommand,
+  parseQueueCommand,
+  formatQueueList,
   ctrlCEscalation,
   type RestoredMessage,
 } from './commands.js'
@@ -1735,6 +1737,29 @@ async function main(): Promise<void> {
       return att
     }
     ed.onSubmit = (text: string, items) => {
+      // Intercept `/queue` WHILE the agent is busy. The main command loop is
+      // blocked on runTask() at this moment, so a queued /queue would only run
+      // after the task — exactly when inspecting or clearing the queue is
+      // pointless. Handling it HERE is the only moment the command is useful.
+      if (ed.busy) {
+        const q = parseQueueCommand(text)
+        if (q) {
+          if (q.sub === 'clear') {
+            const n = pendingQueue.length
+            pendingQueue.length = 0
+            ed.printAbove(theme.system(t('msg.queue_cleared') + ' (' + n + ')'))
+          } else if (!pendingQueue.length) {
+            ed.printAbove(theme.dim(t('msg.queue_empty')))
+          } else {
+            ed.printAbove(theme.system(t('msg.queue_title')))
+            for (const line of formatQueueList(pendingQueue)) {
+              ed.printAbove(theme.assistant(line))
+            }
+            ed.printAbove(theme.dim(t('msg.queue_cleared_hint')))
+          }
+          return
+        }
+      }
       const attachments = (items || []).map((a) => ({
         path: a.path,
         name: a.name,
@@ -2499,15 +2524,15 @@ async function main(): Promise<void> {
     }
 
     if (lower === '/queue' || lower.startsWith('/queue ')) {
-      const sub = trimmed.slice('/queue'.length).trim().toLowerCase()
-      if (sub === 'clear' || sub === 'c' || sub === 'clean') {
+      const q = parseQueueCommand(trimmed)
+      if (!q) {
+        console.error(theme.error(t('msg.queue_usage')))
+        continue
+      }
+      if (q.sub === 'clear') {
         const n = pendingQueue.length
         pendingQueue.length = 0
         console.log(theme.system(t('msg.queue_cleared') + ' (' + n + ')'))
-        continue
-      }
-      if (sub && sub !== 'list' && sub !== 'ls') {
-        console.error(theme.error(t('msg.queue_usage')))
         continue
       }
       if (!pendingQueue.length) {
@@ -2515,21 +2540,9 @@ async function main(): Promise<void> {
         continue
       }
       console.log(theme.system(t('msg.queue_title')))
-      pendingQueue.forEach((m, i) => {
-        const one = String(m.text || '')
-          .replace(/\s+/g, ' ')
-          .trim()
-        const shown = one.length > 80 ? one.slice(0, 80) + ' …' : one
-        const att = m.attachments?.length
-          ? ' [+' + m.attachments.length + ']'
-          : ''
-        console.log(
-          theme.system('  ') +
-            theme.assistant(
-              t('msg.queue_item', { n: i + 1, text: shown + att }),
-            ),
-        )
-      })
+      for (const line of formatQueueList(pendingQueue)) {
+        console.log(theme.assistant(line))
+      }
       console.log(theme.dim(t('msg.queue_cleared_hint')))
       continue
     }

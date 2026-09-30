@@ -569,6 +569,39 @@ export function isSlashCommand(text: string): boolean {
     .startsWith('/')
 }
 
+// Parse a `/queue` invocation. Returns the subcommand ('list' | 'clear') or
+// null when the text is not a /queue command at all. This runs WHILE the agent
+// is busy (intercepted in the input handler), because the main command loop is
+// blocked on runTask() and a queued /queue would only run after the task —
+// when inspecting/clearing the queue is pointless.
+export function parseQueueCommand(
+  text: string,
+): { sub: 'list' | 'clear' } | null {
+  const t = String(text ?? '').trim()
+  const m = /^\/queue(?:\s+(\S+))?\s*$/.exec(t)
+  if (!m) return null
+  const arg = (m[1] || '').toLowerCase()
+  if (arg === '' || arg === 'list' || arg === 'ls') return { sub: 'list' }
+  if (arg === 'clear' || arg === 'c' || arg === 'clean') return { sub: 'clear' }
+  // An unrecognized subcommand falls through to the normal main-loop handler,
+  // which prints the usage hint.
+  return null
+}
+
+// Render the queued messages for the operator (one line per message, text
+// truncated). Pure, so the /queue interception and the main-loop handler share
+// the EXACT same output instead of duplicating the formatting.
+export function formatQueueList(msgs: QueuedMessage[]): string[] {
+  return (msgs || []).map((m, i) => {
+    const one = String(m.text || '')
+      .replace(/\s+/g, ' ')
+      .trim()
+    const shown = one.length > 80 ? one.slice(0, 80) + ' …' : one
+    const att = m.attachments?.length ? ' [+' + m.attachments.length + ']' : ''
+    return '  ' + (i + 1) + '. ' + shown + att
+  })
+}
+
 function queuedIsImage(a: QueuedAttachment): boolean {
   return (
     String(a.mime || '').startsWith('image/') ||

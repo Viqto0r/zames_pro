@@ -527,7 +527,6 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   'msg.queue_title': { ru: 'Очередь сообщений:', en: 'Pending messages:' },
   'msg.queue_empty': { ru: 'Очередь пуста.', en: 'The queue is empty.' },
   'msg.queue_cleared': { ru: 'Очередь очищена.', en: 'Queue cleared.' },
-  'msg.queue_item': { ru: '{n}. {text}', en: '{n}. {text}' },
   'msg.queue_usage': {
     ru: 'Использование: /queue [clear]',
     en: 'Usage: /queue [clear]',
