@@ -2313,8 +2313,10 @@ export class DeepSeekBrowser {
     }
 
     await this._setInputText(input, prompt)
-    await this.page.waitForTimeout(50)
 
+    // Send immediately: the input is already verified by _setInputText, and a
+    // clickable send button normally appears right away. The old code slept a
+    // fixed 50ms here, which only added latency (the button does not need it).
     let sent = false
     for (const sel of SEND_SELECTORS) {
       const btn = this.page.locator(sel).last()
