@@ -522,7 +522,7 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   },
   // Per-task summary parts (joined with "·" by index.ts). Split into separate
   // keys so the tokens part can be omitted when the counter is unknown.
-  'task_sum.dur': { ru: 'задача: {dur}', en: 'task: {dur}' },
+  'task_sum.dur': { ru: 'длительность: {dur}', en: 'duration: {dur}' },
   'task_sum.tools': { ru: 'инструментов: {n}', en: 'tools: {n}' },
   'task_sum.tokens': { ru: 'токенов: {n}', en: 'tokens: {n}' },
   // Unit labels for the localized task duration (see formatDuration).
