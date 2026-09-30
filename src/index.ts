@@ -78,6 +78,12 @@ import {
   type RestoredMessage,
 } from './commands.js'
 import { performCompact } from './compact.js'
+import {
+  Scheduler,
+  parseInterval,
+  formatInterval,
+  parseCron,
+} from './scheduler.js'
 import { renderMarkdown } from './markdown.js'
 import { closeWeb } from './web.js'
 import {
@@ -458,6 +464,9 @@ ${theme.bold(t('help.commands'))}
  ${t('help.cmd.add_dir')}
  ${t('help.cmd.review')}
  ${t('help.cmd.goal')}
+ ${t('help.cmd.loop')}
+ ${t('help.cmd.cron')}
+ ${t('help.cmd.jobs')}
  ${t('help.cmd.thinking')}
  ${t('help.cmd.web')}
  ${t('help.cmd.compact')}
@@ -520,6 +529,9 @@ const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
   { name: '/add-dir', key: 'help.cmd.add_dir' },
   { name: '/review', key: 'help.cmd.review' },
   { name: '/goal', key: 'help.cmd.goal' },
+  { name: '/loop', key: 'help.cmd.loop' },
+  { name: '/cron', key: 'help.cmd.cron' },
+  { name: '/jobs', key: 'help.cmd.jobs' },
   { name: '/thinking', key: 'help.cmd.thinking' },
   { name: '/web', key: 'help.cmd.web' },
   { name: '/compact', key: 'help.cmd.compact' },
@@ -1572,6 +1584,43 @@ async function main(): Promise<void> {
   let sessionGoal: string | null = await loadGoal(currentWorkdir)
   if (sessionGoal) {
     console.log(theme.system(t('goal.loaded', { goal: sessionGoal })))
+  }
+
+  // Scheduled tasks (/loop, /cron). A pure Scheduler holds the jobs; a
+  // 1-second ticker enqueues a due job's task into the SAME message queue the
+  // operator uses, so it runs when the agent is free (never mid-generation,
+  // never bypassing the send throttle). Started lazily on the first job.
+  const scheduler = new Scheduler()
+  let scheduleTimer: ReturnType<typeof setInterval> | null = null
+  const startScheduleTicker = (): void => {
+    if (scheduleTimer) return
+    scheduleTimer = setInterval(() => {
+      const due = scheduler.due(Date.now())
+      for (const job of due) {
+        pendingQueue.push({ text: job.task })
+        transcript.log('scheduled_fire', { id: job.id, task: job.task })
+        if (editor) {
+          editor.printAbove(
+            theme.system(
+              t('sched.fired', { id: String(job.id), task: job.task }),
+            ),
+          )
+        } else {
+          console.log(
+            theme.system(
+              t('sched.fired', { id: String(job.id), task: job.task }),
+            ),
+          )
+        }
+        // Wake a waiting main loop so a queued job runs even when idle.
+        if (waiter) {
+          const r = waiter
+          waiter = null
+          r(pendingQueue.shift() ?? null)
+        }
+      }
+    }, 1000)
+    if (scheduleTimer.unref) scheduleTimer.unref()
   }
 
   // Messages the user typed while the agent worked. runTask takes them one
@@ -2668,6 +2717,110 @@ async function main(): Promise<void> {
       }
     }
 
+    if (lower === '/loop' || lower.startsWith('/loop ')) {
+      const rest = trimmed.slice('/loop'.length).trim()
+      const sp = rest.indexOf(' ')
+      const intervalStr = sp === -1 ? rest : rest.slice(0, sp)
+      const taskStr = sp === -1 ? '' : rest.slice(sp + 1).trim()
+      const ms = parseInterval(intervalStr)
+      if (!ms || !taskStr) {
+        console.error(theme.error(t('sched.loop_usage')))
+        continue
+      }
+      const job = scheduler.addLoop(ms, taskStr, Date.now())
+      startScheduleTicker()
+      console.log(
+        theme.system(
+          t('sched.added', {
+            id: String(job.id),
+            when: formatInterval(ms),
+            task: taskStr,
+          }),
+        ),
+      )
+      continue
+    }
+
+    if (lower === '/cron' || lower.startsWith('/cron ')) {
+      const rest = trimmed.slice('/cron'.length).trim()
+      // A cron expression is exactly 5 whitespace-separated fields; the task
+      // is everything after them.
+      const parts = rest.split(/\s+/)
+      if (parts.length < 6) {
+        console.error(theme.error(t('sched.cron_usage')))
+        continue
+      }
+      const cronExpr = parts.slice(0, 5).join(' ')
+      const taskStr = parts.slice(5).join(' ').trim()
+      if (!parseCron(cronExpr) || !taskStr) {
+        console.error(theme.error(t('sched.cron_usage')))
+        continue
+      }
+      const job = scheduler.addCron(cronExpr, taskStr, Date.now())
+      if (!job) {
+        console.error(theme.error(t('sched.cron_usage')))
+        continue
+      }
+      startScheduleTicker()
+      const nextIn = formatInterval(Math.max(0, job.nextAt - Date.now()))
+      console.log(
+        theme.system(
+          t('sched.added', {
+            id: String(job.id),
+            when: cronExpr + ' (in ~' + nextIn + ')',
+            task: taskStr,
+          }),
+        ),
+      )
+      continue
+    }
+
+    if (lower === '/jobs' || lower.startsWith('/jobs ')) {
+      const sub = trimmed.slice('/jobs'.length).trim().toLowerCase()
+      if (sub === 'clear') {
+        const n = scheduler.clear()
+        if (scheduleTimer) {
+          clearInterval(scheduleTimer)
+          scheduleTimer = null
+        }
+        console.log(theme.system(t('sched.cleared', { n: String(n) })))
+        continue
+      }
+      if (sub.startsWith('rm ') || sub.startsWith('remove ')) {
+        const id = Number(sub.replace(/^(rm|remove)\s+/, ''))
+        if (!Number.isInteger(id) || !scheduler.remove(id)) {
+          console.error(theme.error(t('sched.rm_usage')))
+          continue
+        }
+        if (!scheduler.count() && scheduleTimer) {
+          clearInterval(scheduleTimer)
+          scheduleTimer = null
+        }
+        console.log(theme.system(t('sched.removed', { id: String(id) })))
+        continue
+      }
+      const jobs = scheduler.list()
+      if (!jobs.length) {
+        console.log(theme.dim(t('sched.none')))
+        continue
+      }
+      console.log(theme.system(t('sched.title')))
+      for (const j of jobs) {
+        const when =
+          j.kind === 'loop'
+            ? 'every ' + formatInterval(j.intervalMs || 0)
+            : j.cron || ''
+        const nextIn = formatInterval(Math.max(0, j.nextAt - Date.now()))
+        console.log(
+          theme.assistant(
+            '  #' + j.id + ' [' + when + ', next ~' + nextIn + '] ' + j.task,
+          ),
+        )
+      }
+      console.log(theme.dim(t('sched.remove_hint')))
+      continue
+    }
+
     if (lower === '/queue' || lower.startsWith('/queue ')) {
       const q = parseQueueCommand(trimmed)
       if (!q) {
@@ -3355,6 +3508,7 @@ async function main(): Promise<void> {
   }
 
   if (editor) editor.dispose()
+  if (scheduleTimer) clearInterval(scheduleTimer)
   await browser.close().catch(() => {})
   await mod.closeWeb().catch(() => {})
   if (mcpPool) await mcpPool.close().catch(() => {})

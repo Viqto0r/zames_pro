@@ -230,6 +230,46 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: '/goal [текст|clear] задать долгоживущую цель сессии',
     en: '/goal [text|clear] set a long-lived session goal',
   },
+  'help.cmd.loop': {
+    ru: '/loop <интервал> <задача> периодически повторять задачу (напр. 10m)',
+    en: '/loop <interval> <task> repeat a task periodically (e.g. 10m)',
+  },
+  'help.cmd.cron': {
+    ru: '/cron <выражение> <задача> запускать по расписанию (5 полей)',
+    en: '/cron <expr> <task> schedule a task (5-field cron)',
+  },
+  'help.cmd.jobs': {
+    ru: '/jobs [rm <id>|clear] список/удаление запланированных задач',
+    en: '/jobs [rm <id>|clear] list/remove scheduled tasks',
+  },
+  'sched.loop_usage': {
+    ru: 'Использование: /loop <интервал> <задача>, например /loop 10m проверь тесты',
+    en: 'Usage: /loop <interval> <task>, e.g. /loop 10m check the tests',
+  },
+  'sched.cron_usage': {
+    ru: 'Использование: /cron "<мин> <час> <день> <мес> <день недели>" <задача>',
+    en: 'Usage: /cron "<min> <hour> <dom> <month> <dow>" <task>',
+  },
+  'sched.added': {
+    ru: '⏰ Задача #{id} добавлена ({when}): {task}',
+    en: '⏰ Job #{id} added ({when}): {task}',
+  },
+  'sched.title': { ru: 'Запланированные задачи:', en: 'Scheduled jobs:' },
+  'sched.none': { ru: 'Запланированных задач нет.', en: 'No scheduled jobs.' },
+  'sched.fired': {
+    ru: '⏰ Задача #{id} сработала: {task}',
+    en: '⏰ Job #{id} fired: {task}',
+  },
+  'sched.cleared': { ru: 'Задачи очищены: {n}', en: 'Jobs cleared: {n}' },
+  'sched.removed': { ru: 'Задача #{id} удалена.', en: 'Job #{id} removed.' },
+  'sched.rm_usage': {
+    ru: 'Использование: /jobs rm <id>',
+    en: 'Usage: /jobs rm <id>',
+  },
+  'sched.remove_hint': {
+    ru: 'Удалить: /jobs rm <id> · очистить всё: /jobs clear',
+    en: 'Remove: /jobs rm <id> · clear all: /jobs clear',
+  },
   'goal.set': { ru: '🎯 Цель сессии: {goal}', en: '🎯 Session goal: {goal}' },
   'goal.loaded': {
     ru: '🎯 Восстановлена цель сессии: {goal}',
