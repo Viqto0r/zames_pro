@@ -1179,17 +1179,61 @@ export class DeepSeekBrowser {
     }
   }
 
+  // A5/D1: wait for the INPUT to be present and visible, polling instead of a
+  // fixed sleep. Returns true as soon as it appears (or false on timeout).
+  async _awaitInput(timeoutMs = 5000): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs
+    while (Date.now() < deadline) {
+      const found = await this._findVisible(INPUT_SELECTORS, 400)
+      if (found) return true
+      await this.page.waitForTimeout(100)
+    }
+    return false
+  }
+
+  // A6: did the chat actually CHANGE? Compares the current chat id (URL or the
+  // one sniffed off the network) with a baseline. Used to VERIFY newChat /
+  // openChat instead of blindly trusting a click that may have done nothing.
+  private async _chatIdChangedFrom(baseline: string | null): Promise<boolean> {
+    const now = await this.getCurrentChatId()
+    return !!now && now !== baseline
+  }
+
+  // A5/A6: open a fresh chat. Returns as soon as the new-chat input is ready
+  // (polling), and VERIFIES the chat actually changed. A failed click falls
+  // back to navigating to the base URL, and we still wait for a positive
+  // signal before returning, so the next prompt is never sent into the OLD
+  // chat silently.
   async newChat(): Promise<void> {
+    const before = await this.getCurrentChatId()
     const newChatBtn = this.page
       .locator('button, a')
       .filter({ hasText: /new chat|новый чат|новый диалог/i })
       .first()
+    let clicked = false
     try {
       await newChatBtn.click({ timeout: 2000 })
-      await this.page.waitForTimeout(1000)
+      clicked = true
     } catch {
+      // fall through to the goto fallback below
+    }
+    // Give the app a moment to react to the click, then poll for the positive
+    // signal (input ready AND chat changed). If the click did nothing, fall
+    // back to navigating to the base URL.
+    let ok = false
+    const deadline = Date.now() + 5000
+    while (Date.now() < deadline) {
+      if (await this._awaitInput(500)) {
+        if (!clicked || (await this._chatIdChangedFrom(before))) {
+          ok = true
+          break
+        }
+      }
+      await this.page.waitForTimeout(100)
+    }
+    if (!ok) {
       await this.page.goto(CHAT_URL, { waitUntil: 'domcontentloaded' })
-      await this.page.waitForTimeout(1000)
+      await this._awaitInput(5000)
     }
   }
 
@@ -2038,7 +2082,11 @@ export class DeepSeekBrowser {
           btn.click({ timeout: 1500 }),
         ])
         await chooser.setFiles(bufPayload)
-        await this.page.waitForTimeout(2500)
+        // A5/D1: wait for the upload preview instead of a fixed 2.5s sleep.
+        await this._awaitUploadPreview(
+          files.map((f) => f.name),
+          2500,
+        )
         return
       } catch {}
     }
@@ -2060,7 +2108,35 @@ export class DeepSeekBrowser {
       return
     }
     // Wait for the upload to finish (the attach preview to appear).
-    await this.page.waitForTimeout(2000)
+    await this._awaitUploadPreview(
+      files.map((f) => f.name),
+      2000,
+    )
+  }
+
+  // A5/D1: wait for the upload preview (the attached-file chip above the
+  // input) to appear, instead of a fixed 2.5s/2s sleep. The signal is the
+  // FILE NAME showing up on the page: we attach files BEFORE typing the text,
+  // so the name cannot appear there for any other reason. The old fixed value
+  // stays as the TIMEOUT CEILING, so a build where the name is not detected
+  // behaves exactly as before.
+  async _awaitUploadPreview(names: string[], timeoutMs: number): Promise<void> {
+    const clean = names.map((n) => String(n || '').trim()).filter(Boolean)
+    if (!clean.length) {
+      await this.page.waitForTimeout(timeoutMs)
+      return
+    }
+    const deadline = Date.now() + timeoutMs
+    while (Date.now() < deadline) {
+      for (const name of clean) {
+        const n = await this.page
+          .getByText(name, { exact: false })
+          .count()
+          .catch(() => 0)
+        if (n > 0) return
+      }
+      await this.page.waitForTimeout(150)
+    }
   }
 
   // Wait out a rate-limit pause, showing an animated countdown through
@@ -2735,14 +2811,22 @@ export class DeepSeekBrowser {
   }
 
   async openChat(id: string): Promise<boolean> {
+    // A5/A6: click the chat link and VERIFY the URL actually points at the
+    // requested chat before returning (polling, no fixed 1.5s sleep).
     const candidates = [`a[href$="/chat/s/${id}"]`, `a[href*="${id}"]`]
     for (const sel of candidates) {
       try {
         const loc = this.page.locator(sel).first()
         if ((await loc.count()) === 0) continue
         await loc.click({ timeout: 3000 })
-        await this.page.waitForTimeout(1500)
-        return true
+        const deadline = Date.now() + 8000
+        while (Date.now() < deadline) {
+          if ((await this.getCurrentChatId()) === id) {
+            await this._awaitInput(2000)
+            return true
+          }
+          await this.page.waitForTimeout(100)
+        }
       } catch {}
     }
 
@@ -2751,8 +2835,18 @@ export class DeepSeekBrowser {
         waitUntil: 'domcontentloaded',
         timeout: 20_000,
       })
-      await this.page.waitForTimeout(1500)
-      return true
+      // Verify the navigation really landed on the requested chat; otherwise
+      // report the failure instead of sending the next prompt into the wrong
+      // chat silently.
+      const deadline = Date.now() + 10_000
+      while (Date.now() < deadline) {
+        if ((await this.getCurrentChatId()) === id) {
+          await this._awaitInput(2000)
+          return true
+        }
+        await this.page.waitForTimeout(100)
+      }
+      throw new Error('chat id did not change to ' + id)
     } catch (e) {
       throw new Error(
         this._t('ds.open_chat_failed', { id, error: (e as Error).message }),
