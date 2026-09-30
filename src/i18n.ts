@@ -601,8 +601,8 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     en: '✖ DeepSeek: the server did not respond after {attempt} retries. Try again later.',
   },
   'ds.ask_retry': {
-    ru: '⚠ Ответ не получен ({attempt}/{max}): {error} — повторяю...',
-    en: '⚠ No answer yet ({attempt}/{max}): {error} — retrying...',
+    ru: '⚠ Отправка не удалась (попытка {attempt}/{max} на этот запрос): {error} — повторяю...',
+    en: '⚠ Send failed (attempt {attempt}/{max} for this request): {error} — retrying...',
   },
   'ds.incomplete_retry': {
     ru: '⏳ DeepSeek оборвал ответ и кнопки Continue нет — переотправляю задачу ({attempt}/{max})...',
