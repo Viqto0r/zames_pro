@@ -482,22 +482,17 @@ export class LineEditor {
   }
 
   // Icons for the DeepSeek toggles: 🧠 "Deep thinking" and 🌐 "Smart search",
-  // shown before the context counter. BOTH icons are ALWAYS shown so the
-  // operator sees the state at a glance, including when the agent is idle:
-  // the ENABLED one is teal-green (theme.toggleOn), the DISABLED one is dim
-  // gray (theme.toggleOff). Colors are NOT changed here — only both icons are
-  // now rendered instead of hiding the disabled one. U+FE0E forces the
-  // monochrome TEXT presentation so the color is actually visible (emoji
-  // otherwise ignore the ANSI color).
+  // shown before the context counter. Only the ENABLED toggles are shown, so
+  // the state is unambiguous WITHOUT relying on the terminal coloring the
+  // emoji: an icon present = ON, absent = OFF. Emoji are (almost) never
+  // colored by ANSI, so a "dim" vs "green" pair of the SAME emoji would look
+  // identical — that is why the disabled icon is hidden instead.
   _toggleIcons(): string {
     const TEXT = '\uFE0E'
-    const brain = this.thinkingEnabled
-      ? theme.toggleOn('🧠' + TEXT)
-      : theme.toggleOff('🧠' + TEXT)
-    const globe = this.searchEnabled
-      ? theme.toggleOn('🌐' + TEXT)
-      : theme.toggleOff('🌐' + TEXT)
-    return brain + ' ' + globe + ' '
+    const parts: string[] = []
+    if (this.thinkingEnabled) parts.push(theme.toggleOn('🧠' + TEXT))
+    if (this.searchEnabled) parts.push(theme.toggleOn('🌐' + TEXT))
+    return parts.length ? parts.join(' ') + ' ' : ''
   }
 
   // Read the OS clipboard for an image and insert its marker. Used when the
