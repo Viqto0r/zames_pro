@@ -990,9 +990,13 @@ export class LineEditor {
   // so an idle status is not prefixed.
   _stateLabel(): string {
     if (this._sendState === 'generating')
-      return theme.brown(translate(this.locale)('state.generating'))
+      return (
+        theme.brown(translate(this.locale)('state.generating')) + theme.dim(':')
+      )
     if (this._sendState === 'settled')
-      return theme.success(translate(this.locale)('state.settled'))
+      return (
+        theme.success(translate(this.locale)('state.settled')) + theme.dim(':')
+      )
     return ''
   }
 
