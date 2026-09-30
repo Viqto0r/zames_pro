@@ -1343,11 +1343,47 @@ export class DeepSeekBrowser {
     return await this._stopButtonVisible()
   }
 
+  // A12: cheap first probe for the Continue button. Runs ONE page.evaluate
+  // that scans buttons/role-buttons for a matching label and returns a boolean.
+  // The full Playwright getByRole scan (count + isVisible per element) plus the
+  // DOM fallback are two round-trips; on the COMMON path (no button on screen,
+  // probed every ~300ms tick) this single evaluate replaces them. Only when it
+  // HITS do we run the full scan to get a clickable Locator.
+  async _continueVisibleCheap(): Promise<boolean> {
+    return await this.page
+      .evaluate(() => {
+        const re =
+          /^(?:continue|продолжить|продолжение)(?:\s+(?:think(?:ing)?|reason(?:ing)?|размышлени[ея]|генераци[юя]|ответ))?\s*[.!…]?$/i
+        const cands = Array.from(
+          document.querySelectorAll('div[role="button"], button'),
+        ) as HTMLElement[]
+        for (const e of cands) {
+          const label = (
+            (e.textContent || '') +
+            ' ' +
+            (e.getAttribute('aria-label') || '')
+          )
+            .replace(/\s+/g, ' ')
+            .trim()
+          if (!re.test(label)) continue
+          const st = getComputedStyle(e)
+          if (st.display === 'none' || st.visibility === 'hidden') continue
+          const r = e.getBoundingClientRect()
+          if (r.width > 0 && r.height > 0) return true
+        }
+        return false
+      })
+      .catch(() => false)
+  }
+
   // Is DeepSeek's "Continue" button currently visible? Used to BLOCK the
   // "answer settled" early-return in the finish loop: while Continue is on
   // screen the generation is PAUSED, not finished, so returning the partial
   // text there is exactly the "agent stopped with a Continue button" bug.
   async _continueButtonVisible(): Promise<boolean> {
+    // Cheap first probe: on the common path (no button) this single evaluate
+    // replaces the getByRole count+isVisible scan and the DOM fallback.
+    if (!(await this._continueVisibleCheap())) return false
     try {
       const loc = this.page.getByRole('button', { name: CONTINUE_NAME_RE })
       const n = await loc.count().catch(() => 0)
@@ -1397,6 +1433,10 @@ export class DeepSeekBrowser {
   // only act on an EXACT short label so a random "Continue" in prose (a button
   // inside a rendered answer, etc.) is never clicked.
   async _clickContinueIfVisible(): Promise<boolean> {
+    // A12: cheap first probe. The common case is "no button" and this is
+    // called every tick from the start-loop; the single evaluate replaces the
+    // getByRole count+isVisible scan plus the DOM fallback on that path.
+    if (!(await this._continueVisibleCheap())) return false
     // 1) Playwright's OWN click on the accessible name — this is a TRUSTED
     //    event and reliably triggers React handlers. The old in-page
     //    dispatchEvent/click often did nothing, which is exactly why the
