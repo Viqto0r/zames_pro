@@ -498,6 +498,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: '   Похоже, вы в контейнере/Dev Container: клипборд Windows отсюда недоступен. Вставьте путь к файлу (например tmp/pic.png) — он приложится к сообщению.',
     en: '   Looks like a container/Dev Container: the Windows clipboard is not reachable from here. Paste a path to a file (e.g. tmp/pic.png) — it will be attached to the message.',
   },
+  'msg.task_summary': {
+    ru: '· задача: {sec}с · инструментов: {tools}',
+    en: '· task: {sec}s · tools: {tools}',
+  },
   'msg.from_queue': { ru: '▶ Из очереди: ', en: '▶ From queue: ' },
   'msg.from_queue_batch': {
     ru: '▶ Из очереди ({n} сообщ.): ',

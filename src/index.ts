@@ -1197,6 +1197,11 @@ async function runTask(
     // the whole pre-send phase (chat creation, throttle wait) with no
     // generation in flight.
     while (true) {
+      // T7: per-task summary (duration + number of tool calls). Counts tools
+      // via the UI callback and reports ONE dim line after the task, so the
+      // operator sees how long it took and how much work happened.
+      const taskStart = Date.now()
+      let taskTools = 0
       const outcome = await mod.runAgentLoop({
         browser,
         tools,
@@ -1210,7 +1215,10 @@ async function runTask(
         onThinking: () => ui.thinking(),
         onSendPause: (seconds) => ui.sendPause(seconds),
         onNotice: (msg) => ui.warning(msg),
-        onToolCall: (name, toolArgs) => ui.toolCall(name, toolArgs),
+        onToolCall: (name, toolArgs) => {
+          taskTools++
+          ui.toolCall(name, toolArgs)
+        },
         onToolResult: (result) => ui.toolResult(result),
         onAssistantMessage: (msg) => ui.assistant(msg),
         onWarning: (msg) => ui.warning(msg),
@@ -1242,6 +1250,17 @@ async function runTask(
         ui.warning(outcome)
         transcript?.log('agent_no_answer', { outcome })
       }
+
+      // T7: one dim summary line per task (duration + tool calls). Printed
+      // even on an abort, so the operator sees what happened.
+      const summary = theme.dim(
+        t('msg.task_summary', {
+          sec: ((Date.now() - taskStart) / 1000).toFixed(1),
+          tools: String(taskTools),
+        }),
+      )
+      if (editor) editor.printAbove(summary)
+      else console.log(summary)
 
       // Aborted (Esc/Ctrl+C) — we don't start the next tasks from the queue
       // and clear it, so "stop" really stops everything.
