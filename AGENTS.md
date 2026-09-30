@@ -120,6 +120,29 @@ When adding a tool: write its description/params in English. When adding a
 message the operator sees: add it to CATALOG. Never put Russian prose into a
 tool description or an agent-loop nudge.
 
+## Comments in code
+
+A comment must explain **WHY**, not **WHAT**. Code already says what it does;
+a comment is valuable only when it carries something a reader cannot infer:
+
+- the non-obvious REASON for a choice, a hidden coupling, a platform/server
+  quirk, or a past bug it prevents (e.g. why a 15s throttle exists, why the
+  `HeadlessChrome` UA must be stripped, why a detector reads the RAW SSE body);
+- a WARNING (race, side effect, ordering requirement);
+- a short rationale for a workaround.
+
+Do NOT:
+
+- restate the code (`// set the flag`, `// return the result`) or the function
+  name;
+- reference backlog/task numbers (`A1`, `B12`, …) — those files get deleted and
+  the references rot. For traceability use a commit SHA (`// see 9fa866c`) and
+  only when it genuinely helps;
+- leave commented-out code (delete it; git remembers);
+- narrate progress or history in the code.
+
+When editing, keep existing "why" comments even if the code around them moves.
+
 ## tool-call format
 
 IMPORTANT: the model's answer is read NOT from the DOM but by intercepting the
