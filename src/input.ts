@@ -1,6 +1,11 @@
 import { theme } from './theme.js'
 import { renderMarkdown } from './markdown.js'
-import { randomThinkingPhrase, stripEllipsis } from './spinner.js'
+import {
+  randomThinkingPhrase,
+  stripEllipsis,
+  DOTS,
+  renderDots,
+} from './spinner.js'
 import { translate, type Locale } from './i18n.js'
 import {
   AttachmentStore,
@@ -91,10 +96,8 @@ export function expandPastes(pastes: PasteBlock[], text: string): string {
   return out
 }
 
-// Dot animation: start from an empty string (0 dots), then grow.
-// We align the width to the maximum (3) so the hint doesn't shift.
-const DOTS = ['', '.', '..', '...']
-const DOTS_PAD = '   '
+// Dot animation is shared with the ora spinner (see src/spinner.ts): DOTS and
+// renderDots live there so both status lines animate identically.
 
 function safeJson(v: unknown): string {
   try {
@@ -997,9 +1000,7 @@ export class LineEditor {
   }
 
   _dots(n: number): string {
-    // The dots are the same color as the base and of fixed width — otherwise
-    // the hint on the right "jumps" when the animation phase changes.
-    return theme.brown(DOTS[n] + DOTS_PAD.slice(DOTS[n].length))
+    return renderDots(n)
   }
 
   // Status-line hint ("Esc — stop"), localized.

@@ -30,6 +30,19 @@ export function stripEllipsis(phrase: string): string {
   return phrase.replace(/[.…]+\s*$/, '')
 }
 
+// Dot animation shared by BOTH UIs (the ora spinner and the LineEditor): start
+// from an empty string (0 dots), then grow. The width is padded to the maximum
+// (3 dots) so the trailing hint does not "jump" when the phase changes. Kept in
+// one place so the two status lines animate identically.
+export const DOTS = ['', '.', '..', '...']
+export const DOTS_PAD = '   '
+
+// The colored dot string for a phase (brown, matching the base text).
+export function renderDots(n: number): string {
+  const d = DOTS[n] ?? ''
+  return theme.brown(d + DOTS_PAD.slice(d.length))
+}
+
 export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
   let spinner: Ora | null = null
   let dotTimer: ReturnType<typeof setInterval> | null = null
@@ -41,11 +54,6 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
   // zero every second and look frozen on a single dot.
   let animBase = ''
   let animating = false
-
-  // Dot animation: start from an empty string (0 dots), then grow.
-  // We align the width to the maximum (3) so the hint doesn't shift.
-  const DOTS = ['', '.', '..', '...']
-  const DOTS_PAD = '   '
 
   const start = (text: string) => {
     if (!spinner) spinner = ora(text).start()
@@ -76,17 +84,13 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
   const startAnimated = (baseText: string, showHint = true) => {
     animBase = theme.brown(stripEllipsis(baseText))
     const hint = showHint ? HINT : ''
-    // The dots are the same color as the base and of fixed width — otherwise
-    // the hint on the right "jumps" when the animation phase changes.
-    const dots = (n: number) =>
-      theme.brown(DOTS[n] + DOTS_PAD.slice(DOTS[n].length))
-    start(animBase + dots(0) + hint)
+    start(animBase + renderDots(0) + hint)
     dotPhase = 0
     if (dotTimer) clearInterval(dotTimer)
     dotTimer = setInterval(() => {
       if (!spinner) return
       dotPhase = (dotPhase + 1) % DOTS.length
-      spinner.text = animBase + dots(dotPhase) + hint
+      spinner.text = animBase + renderDots(dotPhase) + hint
     }, 400)
     animating = true
     if (dotTimer.unref) dotTimer.unref()
@@ -130,10 +134,7 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
       // so the countdown refreshes without resetting the dots.
       if (animating && dotTimer && spinner) {
         animBase = theme.brown(stripEllipsis(label))
-        spinner.text =
-          animBase +
-          theme.brown(DOTS[dotPhase] + DOTS_PAD.slice(DOTS[dotPhase].length)) +
-          HINT
+        spinner.text = animBase + renderDots(dotPhase) + HINT
         return
       }
       startAnimated(label)
