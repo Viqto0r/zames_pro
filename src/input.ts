@@ -320,8 +320,8 @@ export class LineEditor {
   // Explicit lifecycle state of the send ('generating' | 'paused' |
   // 'settled' | ''). The thinking spinner already shows ACTIVITY, but it does
   // not tell a throttle pause from a real generation — a long reasoning turn
-  // and a wait for the rate-limit slot look identical. This drives a short
-  // phase prefix in the status line so the operator can tell them apart.
+  // and a wait for the rate-limit slot look identical. Only 'generating' shows
+  // a prefix (see _stateLabel); the field also gates the clean-up in stop().
   _sendState: string
   // The last rendered status row(s) (status + right-aligned context). Cached so
   // a re-render driven by TYPING (the buffer changed, the status did not) can
@@ -984,18 +984,14 @@ export class LineEditor {
   }
 
   // The lifecycle phase prefix for the status line, colored by meaning:
-  // generating (brown), settled (sage). 'paused' has NO prefix: during a
-  // pause the base status already reads "пауза Ns" (spinner.pause), so a
-  // second "пауза" would be redundant. Returns '' when no phase is active,
-  // so an idle status is not prefixed.
+  // generating (brown). There is NO prefix for 'settled' (the answer block
+  // already marks completion) and none for 'paused' (the base status itself
+  // reads "пауза Ns"). Returns '' when no phase is active, so an idle status
+  // is not prefixed.
   _stateLabel(): string {
     if (this._sendState === 'generating')
       return (
         theme.brown(translate(this.locale)('state.generating')) + theme.dim(':')
-      )
-    if (this._sendState === 'settled')
-      return (
-        theme.success(translate(this.locale)('state.settled')) + theme.dim(':')
       )
     return ''
   }

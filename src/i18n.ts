@@ -400,11 +400,9 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     en: '⚙ running {name}',
   },
   // Send/generation lifecycle indicator in the status line. Unlike the
-  // animated thinking phrase, these say explicitly WHAT phase the send is in,
-  // so the operator can tell a throttle pause from a real generation.
+  // animated thinking phrase, it says explicitly that a generation is in
+  // flight. 'paused'/'settled' have no label (see LineEditor._stateLabel).
   'state.generating': { ru: '▶ генерация', en: '▶ generating' },
-  'state.paused': { ru: '⏸ пауза', en: '⏸ paused' },
-  'state.settled': { ru: '✓ готово', en: '✓ settled' },
   'editor.more': { ru: '…ещё {n}', en: '…{n} more' },
   'editor.answer': { ru: '● Ответ', en: '● Answer' },
 
