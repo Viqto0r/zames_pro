@@ -1193,6 +1193,8 @@ async function runTask(
         onChatReady,
         debugLog: debug,
         locale: currentLocale,
+        askDeadlineMs: config.browser.askDeadlineMs,
+        maxAfterToolRetries: config.browser.maxAfterToolRetries,
       })
 
       // The loop may end WITHOUT a model answer: an exhausted iteration

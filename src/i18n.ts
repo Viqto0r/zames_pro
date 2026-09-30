@@ -984,6 +984,14 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: 'Автонажатие кнопки Continue (режим размышления)',
     en: 'Auto-click Continue (reasoning mode)',
   },
+  'cfg.f.browser_askDeadlineMs': {
+    ru: 'Watchdog-таймаут ask (мс)',
+    en: 'ask() watchdog deadline (ms)',
+  },
+  'cfg.f.browser_maxAfterToolRetries': {
+    ru: 'Повторов после таймаута',
+    en: 'Retries after a timeout',
+  },
   'cfg.f.browser_continueMinGapMs': {
     ru: 'Мин. пауза перед нажатием Continue, мс',
     en: 'Min gap before a Continue click, ms',

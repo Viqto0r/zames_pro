@@ -86,6 +86,17 @@ export interface BrowserConfig {
    * Continue clicks.
    */
   continueMinGapMs: number
+  /**
+   * Watchdog deadline for ONE browser.ask() (ms). If the model does not come
+   * back in time the agent-loop cancels the in-flight ask and retries. Default
+   * 240s. This is NOT a send-to-send pause, so tuning it is safe.
+   */
+  askDeadlineMs: number
+  /**
+   * How many times a browser.ask() watchdog timeout is retried before the
+   * loop gives up (afterToolRetries budget). Default 6.
+   */
+  maxAfterToolRetries: number
   /** Resend the full system-prompt when a chat is resumed (default off). */
   resendPromptOnResume: boolean
   /** DeepSeek Deep thinking toggle (reasoning; slow, hidden). */

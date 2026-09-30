@@ -42,6 +42,11 @@ export interface RunAgentLoopOptions {
    * waiting four minutes.
    */
   askDeadlineMs?: number
+  /**
+   * How many times a browser.ask() watchdog timeout is retried before the loop
+   * gives up. Default 6. Configurable via browser.maxAfterToolRetries.
+   */
+  maxAfterToolRetries?: number
   /** Files/images to attach to the FIRST message (the task). */
   attachments?: Array<{ path: string; name: string; mime: string }>
 }
@@ -68,6 +73,7 @@ export async function runAgentLoop({
   debugLog = false,
   locale = 'ru',
   askDeadlineMs = 240_000,
+  maxAfterToolRetries = 6,
 }: RunAgentLoopOptions): Promise<string> {
   // UI callbacks must NEVER break the agent loop. A rendering error (a huge
   // tool result, a broken markdown frame, a closed terminal) used to throw
@@ -253,7 +259,7 @@ export async function runAgentLoop({
   // paragraph that is neither a tool call nor a real respond) from a genuine
   // short answer. We key on the STRUCTURE (work already started), not words.
   let toolsRanInTask = 0
-  const MAX_AFTER_TOOL_RETRIES = 6
+  const MAX_AFTER_TOOL_RETRIES = Math.max(0, Math.floor(maxAfterToolRetries))
   // B7: the message of a respond that arrived TOGETHER with real tool calls.
   // It is not delivered immediately (the tools must run first), but if the
   // model then stops without calling respond again, this is the best final
