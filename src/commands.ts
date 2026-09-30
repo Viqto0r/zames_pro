@@ -53,6 +53,8 @@ export interface SessionStats {
   toolCounts: Record<string, number>
   durationMs: number
   startedAt: string | null
+  /** How many times the chat was auto-compacted (context neared the limit). */
+  autoCompacts: number
 }
 
 export function summarizeTranscript(entries: TranscriptEntry[]): SessionStats {
@@ -62,10 +64,12 @@ export function summarizeTranscript(entries: TranscriptEntry[]): SessionStats {
     toolCounts: {},
     durationMs: 0,
     startedAt: null,
+    autoCompacts: 0,
   }
   for (const e of entries) {
     if (!e || typeof e !== 'object') continue
     if (e.type === 'user_task') stats.turns++
+    if (e.type === 'auto_compact_done') stats.autoCompacts++
     if (e.type === 'tool_call') {
       stats.toolCalls++
       const tool = String(e.tool ?? '?')
@@ -140,6 +144,9 @@ export function renderCost(
   }
   lines.push(' tasks: ' + stats.turns)
   lines.push(' tool calls: ' + stats.toolCalls)
+  if (stats.autoCompacts > 0) {
+    lines.push(' auto-compacts: ' + stats.autoCompacts)
+  }
   const top = Object.entries(stats.toolCounts).sort((a, b) => b[1] - a[1])
   if (top.length) {
     lines.push(' by tool:')
@@ -163,6 +170,15 @@ export function formatExport(
   if (meta.workdir) out.push('- workdir: ' + meta.workdir)
   if (meta.chatId) out.push('- chat: ' + meta.chatId)
   out.push('- exported: ' + new Date().toISOString())
+  // A self-contained summary, so the exported Markdown stands on its own as a
+  // report without opening the transcript or a /cost run.
+  const stats = summarizeTranscript(entries)
+  out.push('- tasks: ' + stats.turns)
+  out.push('- tool calls: ' + stats.toolCalls)
+  out.push('- duration: ' + formatDuration(stats.durationMs))
+  if (stats.autoCompacts > 0) {
+    out.push('- auto-compacts: ' + stats.autoCompacts)
+  }
   out.push('')
   for (const e of entries) {
     const type = String(e.type ?? '?')

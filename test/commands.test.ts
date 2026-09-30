@@ -114,6 +114,7 @@ test('renderCost contains key lines', () => {
       toolCounts: { Read: 2, Bash: 1 },
       durationMs: 8000,
       startedAt: 'x',
+      autoCompacts: 0,
     },
     '/tmp/t.jsonl',
   )
@@ -122,18 +123,37 @@ test('renderCost contains key lines', () => {
   assert.ok(out.includes('Read: 2'))
   assert.ok(out.includes('8s'))
   assert.ok(out.includes('/tmp/t.jsonl'))
+  // No auto-compacts -> the line is omitted (not a noisy "0").
+  assert.ok(!out.includes('auto-compacts'))
   // No token count passed -> an explicit "unknown" line, never a bogus 0.
   assert.ok(out.includes('context: unknown'))
 })
 
 test('renderCost shows the token context when known', () => {
   const out = renderCost(
-    { turns: 1, toolCalls: 0, toolCounts: {}, durationMs: 0, startedAt: null },
+    {
+      turns: 1,
+      toolCalls: 0,
+      toolCounts: {},
+      durationMs: 0,
+      startedAt: null,
+      autoCompacts: 0,
+    },
     null,
     12345,
   )
   assert.ok(out.includes('12345 tokens'))
   assert.ok(!out.includes('context: unknown'))
+})
+
+test('summarizeTranscript counts auto-compacts', () => {
+  const s = summarizeTranscript([
+    { type: 'auto_compact_done' },
+    { type: 'auto_compact_done' },
+    { type: 'user_task' },
+  ])
+  assert.equal(s.autoCompacts, 2)
+  assert.equal(s.turns, 1)
 })
 
 // ---------- /export ----------
@@ -151,6 +171,8 @@ test('formatExport builds markdown from the transcript', () => {
   assert.ok(out.includes('# zames session export'))
   assert.ok(out.includes('- workdir: /w'))
   assert.ok(out.includes('- chat: abc'))
+  assert.ok(out.includes('- tasks: 1'))
+  assert.ok(out.includes('- tool calls: 1'))
   assert.ok(out.includes('## Task'))
   assert.ok(out.includes('do X'))
   assert.ok(out.includes('tool Read'))
