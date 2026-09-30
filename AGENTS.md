@@ -60,6 +60,38 @@ root: tools cannot read/write above it.
    working directory, git context).
 5. `src/tools.ts`, `src/gitTools.ts`, `src/web.ts` — tool implementations.
 
+### Module map (who owns what)
+
+When a change touches one concern, start in the module that owns it:
+
+- `src/index.ts` — CLI, main loop, slash-command dispatch, `runTask`, the
+  message queue, the `/goal` and `/loop`|`/cron`|`/jobs` commands, the scheduler
+  ticker. Command *logic* that can be pure lives in `src/commands.ts`.
+- `src/agent-loop.ts` — one task: send → parse → run tools → loop; the retry
+  budgets, the protocol/stale guards, the auto-compact seam.
+- `src/browser.ts` — the DeepSeekBrowser facade over Playwright: send/answer,
+  toggles, Continue, login, chats, attachments, history. Large by nature; the
+  pure parts (answer cleaning, signal detection) live in `src/net-capture.ts`.
+- `src/commands.ts` — PURE helpers for the slash commands (`/diff`, `/cost`,
+  `/export`, `/doctor`, `/permissions`, `/add-dir`, `/review`, `/compact`,
+  `/queue`, `/goal`, live toggles) and the restored-history rendering. No
+  browser/terminal access — unit-tested.
+- `src/scheduler.ts` — PURE interval/cron parsing and the `Scheduler` (loop and
+  cron jobs). The 1-second ticker lives in `src/index.ts`.
+- `src/compact.ts` — `performCompact()`, shared by the manual `/compact` and the
+  auto-compact seam in the loop.
+- `src/net-capture.ts` — parse the raw SSE/JSON the model sends (answer text,
+  token counter, truncation/no-answer/rate-limit detection).
+- `src/i18n.ts` — the localized `CATALOG` (ru/en) for everything the operator
+  sees; `src/input.ts` and `src/spinner.ts` read labels from it.
+- `src/input.ts` — the custom `LineEditor` (permanent input line, status above,
+  paste/attachments, history, slash hints). `src/spinner.ts` is the non-TTY
+  fallback UI. Both draw an animated dot status; shared formatting is imported
+  from one another (`randomThinkingPhrase`, `stripEllipsis`).
+- `src/context.ts` — AGENTS.md / MEMORY.md / skills / custom commands loading.
+- `src/config.ts`, `src/config-menu.ts` — config defaults/schema and the menu.
+- `src/sessions.ts`, `src/transcript.ts`, `src/undo.ts` — persistence.
+
 ## Tools
 
 File tools (src/tools.ts): Read, Write, Edit, Bash, Glob, Grep.
