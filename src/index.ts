@@ -69,6 +69,8 @@ import {
   buildCompactCarryover,
   formatRestoredHistory,
   isUsableCompactSummary,
+  mergeMessages,
+  isSlashCommand,
   type RestoredMessage,
 } from './commands.js'
 import { renderMarkdown } from './markdown.js'
@@ -411,6 +413,7 @@ ${theme.bold(t('help.commands'))}
  ${t('help.cmd.add_dir')}
  ${t('help.cmd.review')}
  ${t('help.cmd.compact')}
+  ${t('help.cmd.queue')}
   ${t('help.cmd.config')}
   ${t('help.cmd.lang')}
   ${t('help.cmd.debug_dom')}
@@ -469,6 +472,7 @@ const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
   { name: '/add-dir', key: 'help.cmd.add_dir' },
   { name: '/review', key: 'help.cmd.review' },
   { name: '/compact', key: 'help.cmd.compact' },
+  { name: '/queue', key: 'help.cmd.queue' },
   { name: '/config', key: 'help.cmd.config' },
   { name: '/skills', key: 'help.cmd.skills' },
   { name: '/memory', key: 'help.cmd.memory' },
@@ -1212,21 +1216,31 @@ async function runTask(
       }
       if (!queue.length) break
 
-      const queued = queue.shift() ?? { text: '' }
-      ui.stop()
-      if (editor) {
-        editor.printAbove(
-          theme.user(t('msg.from_queue')) + theme.assistant(queued.text),
-        )
-      } else {
-        console.log(
-          theme.user(t('msg.from_queue')) + theme.assistant(queued.text),
-        )
+      // Merge the LEADING plain-text messages into ONE batch (fewer sends ->
+      // less rate-limit risk and the operator's thoughts arrive together). We
+      // stop at the first slash-command: it must NOT be sent as a task — it is
+      // handled by the main loop, so we leave it (and anything after it) in
+      // the queue and break out of this task's drain loop.
+      let batchLen = 0
+      while (batchLen < queue.length && !isSlashCommand(queue[batchLen].text)) {
+        batchLen++
       }
-      transcript?.log('queued_task', { task: queued.text })
+      if (batchLen === 0) break
+      const batch = queue.splice(0, batchLen)
+      const merged = mergeMessages(batch)
+      if (!merged.text.trim()) break
+      ui.stop()
+      const banner =
+        batch.length === 1
+          ? theme.user(t('msg.from_queue')) + theme.assistant(batch[0].text)
+          : theme.user(t('msg.from_queue_batch', { n: batch.length })) +
+            theme.assistant(t('msg.batch_joined', { n: batch.length }))
+      if (editor) editor.printAbove(banner)
+      else console.log(banner)
+      transcript?.log('queued_task', { task: merged.text, count: batch.length })
       next = {
-        text: queued.text,
-        attachments: queued.attachments,
+        text: merged.text,
+        attachments: merged.attachments,
         freshChat: false,
         sendSystemPrompt: false,
       }
@@ -2395,6 +2409,42 @@ async function main(): Promise<void> {
 
     if (lower === '/pwd') {
       console.log(theme.system(currentWorkdir))
+      continue
+    }
+
+    if (lower === '/queue' || lower.startsWith('/queue ')) {
+      const sub = trimmed.slice('/queue'.length).trim().toLowerCase()
+      if (sub === 'clear' || sub === 'c' || sub === 'clean') {
+        const n = pendingQueue.length
+        pendingQueue.length = 0
+        console.log(theme.system(t('msg.queue_cleared') + ' (' + n + ')'))
+        continue
+      }
+      if (sub && sub !== 'list' && sub !== 'ls') {
+        console.error(theme.error(t('msg.queue_usage')))
+        continue
+      }
+      if (!pendingQueue.length) {
+        console.log(theme.dim(t('msg.queue_empty')))
+        continue
+      }
+      console.log(theme.system(t('msg.queue_title')))
+      pendingQueue.forEach((m, i) => {
+        const one = String(m.text || '')
+          .replace(/\s+/g, ' ')
+          .trim()
+        const shown = one.length > 80 ? one.slice(0, 80) + ' …' : one
+        const att = m.attachments?.length
+          ? ' [+' + m.attachments.length + ']'
+          : ''
+        console.log(
+          theme.system('  ') +
+            theme.assistant(
+              t('msg.queue_item', { n: i + 1, text: shown + att }),
+            ),
+        )
+      })
+      console.log(theme.dim(t('msg.queue_cleared_hint')))
       continue
     }
 

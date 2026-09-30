@@ -214,6 +214,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: '/compact сжать историю и открыть новый чат с резюме',
     en: '/compact compact the history and open a new chat with the summary',
   },
+  'help.cmd.queue': {
+    ru: '/queue [clear] показать/очистить очередь сообщений',
+    en: '/queue [clear] list/clear the pending message queue',
+  },
   'compact.start': {
     ru: '🗜️ Сжимаю историю чата (DeepSeek)...',
     en: '🗜️ Compacting the chat history (DeepSeek)...',
@@ -491,6 +495,26 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     en: '   Looks like a container/Dev Container: the Windows clipboard is not reachable from here. Paste a path to a file (e.g. tmp/pic.png) — it will be attached to the message.',
   },
   'msg.from_queue': { ru: '▶ Из очереди: ', en: '▶ From queue: ' },
+  'msg.from_queue_batch': {
+    ru: '▶ Из очереди ({n} сообщ.): ',
+    en: '▶ From queue ({n} messages): ',
+  },
+  'msg.batch_joined': {
+    ru: 'объединил {n} сообщений в одну задачу',
+    en: 'merged {n} messages into one task',
+  },
+  'msg.queue_title': { ru: 'Очередь сообщений:', en: 'Pending messages:' },
+  'msg.queue_empty': { ru: 'Очередь пуста.', en: 'The queue is empty.' },
+  'msg.queue_cleared': { ru: 'Очередь очищена.', en: 'Queue cleared.' },
+  'msg.queue_item': { ru: '{n}. {text}', en: '{n}. {text}' },
+  'msg.queue_usage': {
+    ru: 'Использование: /queue [clear]',
+    en: 'Usage: /queue [clear]',
+  },
+  'msg.queue_cleared_hint': {
+    ru: 'Очистить: /queue clear',
+    en: 'Clear: /queue clear',
+  },
   'msg.agent_error': { ru: '✖ Ошибка агента:', en: '✖ Agent error:' },
   'msg.suspicious_stop': {
     ru: 'агент, похоже, остановился, не распознав вызов инструмента. Ответ сохранён в транскрипте (событие suspicious_final). Можно попросить продолжить или переотправить задачу.',

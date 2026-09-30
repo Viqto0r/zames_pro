@@ -1,4 +1,5 @@
 import path from 'path'
+import { isImageName } from './attachments.js'
 
 // Helpers for the extra slash commands (/diff, /cost, /export, /doctor,
 // /permissions, /review, /add-dir). Pure functions, unit-tested without a
@@ -500,6 +501,94 @@ export function buildCompactCarryover(summary: string, task?: string): string {
     out += NL + NL + 'Original task: ' + goal
   }
   return out
+}
+
+// ---------- /review ----------
+
+// ---------- queued messages (batch merge) ----------
+
+// A message typed while the agent works lands in the pending queue. Sending
+// each one separately costs N rate-limit pauses and splits the operator's
+// thought; merging the leading PLAIN-TEXT messages into ONE batch is both
+// faster and closer to intent. Slash-commands are NOT merged — they must be
+// handled by the main loop, not sent to the model as a task.
+
+export interface QueuedAttachment {
+  path: string
+  name: string
+  mime: string
+}
+
+export interface QueuedMessage {
+  text: string
+  attachments?: QueuedAttachment[]
+}
+
+export interface MergedMessage {
+  text: string
+  attachments: QueuedAttachment[]
+}
+
+// True when the queued message is a slash-command. It must NOT be merged into
+// a task: the main loop has to execute it (e.g. /compact, /new).
+export function isSlashCommand(text: string): boolean {
+  return String(text ?? '')
+    .trim()
+    .startsWith('/')
+}
+
+function queuedIsImage(a: QueuedAttachment): boolean {
+  return (
+    String(a.mime || '').startsWith('image/') ||
+    isImageName(String(a.name || ''))
+  )
+}
+
+// Merge a batch of queued messages into a single task. Marker numbering is
+// PER-MESSAGE ([image#1]/[file#1] restart in every message), so a naive
+// concatenation would produce duplicate markers for different files. We
+// RENUMBER the markers across the batch and rebuild the attachments array in
+// the same order, keeping the text markers the source of truth.
+export function mergeMessages(msgs: QueuedMessage[]): MergedMessage {
+  const list = (msgs || []).filter((m) => String(m?.text ?? '').trim() !== '')
+  if (list.length === 0) return { text: '', attachments: [] }
+  if (list.length === 1) {
+    return {
+      text: list[0].text,
+      attachments: (list[0].attachments || []).slice(),
+    }
+  }
+  let imgOffset = 0
+  let fileOffset = 0
+  const attachments: QueuedAttachment[] = []
+  const parts: string[] = []
+  for (const m of list) {
+    const atts = m.attachments || []
+    const images = atts.filter(queuedIsImage)
+    const files = atts.filter((a) => !queuedIsImage(a))
+    let text = String(m.text)
+    text = text.replace(/\[image#(\d+)\]/g, (whole, n) => {
+      const i = Number(n)
+      if (!Number.isFinite(i) || i < 1 || i > images.length) return whole
+      return '[image#' + (imgOffset + i) + ']'
+    })
+    text = text.replace(/\[file#(\d+)\]/g, (whole, n) => {
+      const i = Number(n)
+      if (!Number.isFinite(i) || i < 1 || i > files.length) return whole
+      return '[file#' + (fileOffset + i) + ']'
+    })
+    imgOffset += images.length
+    fileOffset += files.length
+    attachments.push(...atts)
+    parts.push(text.trim())
+  }
+  const header =
+    'The operator sent ' +
+    list.length +
+    ' messages while you were working. They are listed below in order — ' +
+    'treat them as one instruction.'
+  const text = header + NL + NL + parts.join(NL + NL + '---' + NL + NL)
+  return { text, attachments }
 }
 
 // ---------- /review ----------
