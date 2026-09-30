@@ -506,6 +506,7 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   'status.undo': { ru: 'Undo: {v}', en: 'Undo: {v}' },
   'status.transcript': { ru: 'Транскрипт: {v}', en: 'Transcript: {v}' },
   'status.locale': { ru: 'Язык: {v}', en: 'Language: {v}' },
+  'status.goal': { ru: 'Цель сессии: {v}', en: 'Session goal: {v}' },
 
   // ---------- messages ----------
   'msg.working_dir': {

@@ -1905,6 +1905,11 @@ async function main(): Promise<void> {
           void handleConfigCommand(text)
           return
         }
+        // `/goal` is safe mid-run: it only sets a variable and writes a file.
+        if (/^\/goal(\s|$)/i.test(text.trim())) {
+          void handleGoal(text)
+          return
+        }
       }
       const attachments = (items || []).map((a) => ({
         path: a.path,
@@ -2087,6 +2092,34 @@ async function main(): Promise<void> {
     const line = t('toggle.set', { name: label, state: stateText })
     if (editor) editor.printAbove(theme.system(line))
     else console.log(theme.system(line))
+  }
+
+  // Handle a `/goal` command shared by the main loop and the live interception
+  // (so a goal can be set even while the agent is busy — it only touches a
+  // variable and a file, never the chat). Output goes above the input line
+  // when the editor is active, otherwise to stdout.
+  async function handleGoal(input: string): Promise<void> {
+    const g = parseGoalCommand(input)
+    if (!g) return
+    const emit = (line: string): void => {
+      if (editor) editor.printAbove(line)
+      else console.log(line)
+    }
+    if (g.sub === 'clear') {
+      sessionGoal = null
+      await saveGoal(currentWorkdir, null)
+      emit(theme.system(t('goal.cleared')))
+    } else if (g.sub === 'show') {
+      emit(
+        sessionGoal
+          ? theme.system(t('goal.current', { goal: sessionGoal }))
+          : theme.dim(t('goal.none')),
+      )
+    } else {
+      sessionGoal = g.goal
+      await saveGoal(currentWorkdir, g.goal)
+      emit(theme.system(t('goal.set', { goal: g.goal })))
+    }
   }
 
   function configSetRaw(field: ConfigField, raw: string): void {
@@ -2710,25 +2743,8 @@ async function main(): Promise<void> {
     }
 
     if (lower === '/goal' || lower.startsWith('/goal ')) {
-      const g = parseGoalCommand(trimmed)
-      if (g) {
-        if (g.sub === 'clear') {
-          sessionGoal = null
-          await saveGoal(currentWorkdir, null)
-          console.log(theme.system(t('goal.cleared')))
-        } else if (g.sub === 'show') {
-          console.log(
-            sessionGoal
-              ? theme.system(t('goal.current', { goal: sessionGoal }))
-              : theme.dim(t('goal.none')),
-          )
-        } else {
-          sessionGoal = g.goal
-          await saveGoal(currentWorkdir, g.goal)
-          console.log(theme.system(t('goal.set', { goal: g.goal })))
-        }
-        continue
-      }
+      await handleGoal(trimmed)
+      continue
     }
 
     if (lower === '/loop' || lower.startsWith('/loop ')) {
@@ -3106,6 +3122,9 @@ async function main(): Promise<void> {
             v: transcript.file || t('common.off'),
           }),
         ),
+      )
+      console.log(
+        theme.system(t('status.goal', { v: sessionGoal || t('common.none') })),
       )
       console.log(
         theme.system(
