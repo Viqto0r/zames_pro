@@ -484,6 +484,13 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     en: '⏹ Ctrl+C — aborting generation...',
   },
   'msg.queued': { ru: '📨 В очередь ({n}): ', en: '📨 Queued ({n}): ' },
+  // Shown ONCE per session, the first time a message is queued while the
+  // agent is working. It explains what happens (sent after the current task)
+  // and how to inspect/clear the queue, so the operator knows nothing is lost.
+  'msg.queued_hint': {
+    ru: 'Сообщение в очереди — уйдёт после текущей задачи; /queue покажет и очистит.',
+    en: 'Message queued — it will be sent after the current task; /queue lists or clears it.',
+  },
   'msg.attached_image': {
     ru: '🖼 Вложено изображение {marker} ({size}) — {path}',
     en: '🖼 Attached image {marker} ({size}) — {path}',

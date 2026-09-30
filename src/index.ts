@@ -1502,6 +1502,10 @@ async function main(): Promise<void> {
   const pendingQueue: PendingMessage[] = []
   // Show the "no clipboard image" hint only once per session.
   let clipboardWarned = false
+  // Show the "message is queued" hint once per session (the first time the
+  // operator sends while a task runs), so the queue is understood without
+  // spamming the hint on every queued message.
+  let queueHintShown = false
   // Timestamp of the last Ctrl+C while the agent was busy. Two presses
   // within 2s escalate from "abort the running tool" to "stop the whole run".
   let lastCtrlCAt = 0
@@ -1738,6 +1742,14 @@ async function main(): Promise<void> {
       }))
       const msg: PendingMessage = { text, attachments }
       pendingQueue.push(msg)
+      // The operator typed this WHILE the agent was working, so the message is
+      // queued and only sent after the current task. Explain that once per
+      // session (via the editor's own status area) so it is clear nothing was
+      // lost; later queued messages stay as the compact msg.queued banner only.
+      if (ed.busy && !queueHintShown) {
+        queueHintShown = true
+        ed.printAbove(theme.dim(t('msg.queued_hint')))
+      }
       if (waiter) {
         const r = waiter
         waiter = null
