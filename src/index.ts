@@ -1081,6 +1081,20 @@ async function printRestoredHistory(
   const restoredTokens = browser.getLastTokenUsage()
   if (typeof restoredTokens === 'number') {
     out(theme.dim(t('chats.history_tokens', { v: String(restoredTokens) })))
+    // C6: warn when the restored chat is near the context limit, and suggest
+    // /compact. The threshold mirrors the auto-compact one so the operator
+    // sees the same signal whether or not auto-compact is enabled.
+    const limit = config.ui.contextLimit
+    if (limit > 0) {
+      const pct = (restoredTokens / limit) * 100
+      if (pct >= 80) {
+        out(
+          theme.warn(
+            t('chats.history_near_limit', { pct: String(Math.round(pct)) }),
+          ),
+        )
+      }
+    }
   }
   for (const m of messages) {
     if (m.role === 'user') {
