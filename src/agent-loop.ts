@@ -254,6 +254,11 @@ export async function runAgentLoop({
   // short answer. We key on the STRUCTURE (work already started), not words.
   let toolsRanInTask = 0
   const MAX_AFTER_TOOL_RETRIES = 6
+  // B7: the message of a respond that arrived TOGETHER with real tool calls.
+  // It is not delivered immediately (the tools must run first), but if the
+  // model then stops without calling respond again, this is the best final
+  // message we have and must reach the operator.
+  let mixedRespondMsg = ''
 
   const iterCap = maxIterations > 0 ? maxIterations : 100000
   for (let i = 0; i < iterCap; i++) {
@@ -593,13 +598,36 @@ export async function runAgentLoop({
       // paragraph "Now let me analyze..." instead of calling a tool). We do not
       // match words here - the STRUCTURE (toolsRanInTask > 0) is the signal.
       if (toolsRanInTask > 0) {
+        // B11: before surfacing a reasoning paragraph as a report, make ONE
+        // explicit attempt to get a real respond (or a remembered mixed-respond
+        // message). This turns "ambiguous text" into an unambiguous final.
+        if (!finalRespondAsked) {
+          finalRespondAsked = true
+          transcript?.log('final_respond_request', {
+            response: rawResponse.slice(0, 500),
+          })
+          message =
+            'You stopped mid-task without finishing. If the task is DONE — ' +
+            'call the respond tool with the final message to the operator ' +
+            '(and nothing else): ' +
+            '{"tool": "respond", "args": {"message": "..."}}. ' +
+            'If it is NOT done — reply with exactly one JSON tool-call object, ' +
+            'no text before or after.'
+          continue
+        }
         transcript?.log('protocol_violation_final', {
           response: rawResponse.slice(0, 500),
         })
         safeWarning(translate(locale)('msg.suspicious_stop'))
-        // The model stopped calling tools mid-task. Surface the last text as
-        // a READABLE report, but say explicitly that the task may be incomplete:
-        // never let a reasoning paragraph masquerade as a finished result.
+        // The model stopped calling tools mid-task. If it left a real message
+        // in a mixed respond earlier, deliver THAT (it is a genuine final);
+        // otherwise surface the last text but say explicitly that the task may
+        // be incomplete: never let a reasoning paragraph masquerade as a result.
+        if (mixedRespondMsg) {
+          safeAssistantMessage(mixedRespondMsg)
+          transcript?.log('assistant_final', { message: mixedRespondMsg })
+          return mixedRespondMsg
+        }
         const lastText = (rawResponse || '').trim()
         return lastText
           ? lastText +
@@ -640,6 +668,14 @@ export async function runAgentLoop({
       transcript?.log('respond_mixed_with_tools', {
         tools: realCalls.map((c) => c.tool),
       })
+      // B7: a respond mixed with real tools must NOT be dropped silently. Keep
+      // its message; if the model then stops WITHOUT calling respond again, we
+      // deliver this remembered message instead of a bare reasoning paragraph.
+      const m =
+        typeof respondCall.args.message === 'string'
+          ? respondCall.args.message
+          : String(respondCall.args.message ?? '')
+      if (isMeaningfulRespond(m)) mixedRespondMsg = m
     }
     if (respondCall && realCalls.length === 0) {
       const msg =
