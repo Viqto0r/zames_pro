@@ -65,14 +65,11 @@ import {
   buildReviewPrompt,
   trimRestoredMessages,
   RESTORED_HISTORY_LIMIT,
-  buildCompactPrompt,
-  buildCompactCarryover,
-  formatRestoredHistory,
-  isUsableCompactSummary,
   mergeMessages,
   isSlashCommand,
   type RestoredMessage,
 } from './commands.js'
+import { performCompact } from './compact.js'
 import { renderMarkdown } from './markdown.js'
 import { closeWeb } from './web.js'
 import {
@@ -97,6 +94,14 @@ interface RunTaskOptions {
   queue?: PendingMessage[]
   ui?: LineEditor | null
   onChatReady?: (chatId: string | null) => void
+  /** B12: called at the between-tools seam when the context is nearly full. */
+  onAutoCompact?: (() => Promise<string | null>) | null
+  /** B12: fill percentage at which onAutoCompact fires. */
+  autoCompactPct?: number
+  /** B12: the context window size (tokens) for the threshold. */
+  contextLimit?: number
+  /** B12: current context size (tokens) or null. */
+  getTokenUsage?: (() => number | null) | null
 }
 
 interface ReviewMode {
@@ -147,8 +152,8 @@ function getPositional(): string[] {
 
 // /compact asks the OLD chat for a summary. If browser.ask() exhausts its own
 // rate-limit budget, aborting the whole compaction used to force the operator
-// to start over. We retry the summary call a few times instead.
-const COMPACT_SUMMARY_ATTEMPTS = 3
+// to start over. We retry the summary call a few times instead (inside
+// performCompact()).
 // How many restored messages the LOCAL fallback summary keeps when the model
 // could not produce one (a rate limit / server error must not lose the
 // compaction).
@@ -1116,6 +1121,10 @@ async function runTask(
     queue = [],
     ui: editor,
     onChatReady,
+    onAutoCompact = null,
+    autoCompactPct = 95,
+    contextLimit = 1_000_000,
+    getTokenUsage = null,
   } = opts
 
   // In TTY mode the UI is a LineEditor: it owns the input (queue, Esc,
@@ -1195,6 +1204,15 @@ async function runTask(
         locale: currentLocale,
         askDeadlineMs: config.browser.askDeadlineMs,
         maxAfterToolRetries: config.browser.maxAfterToolRetries,
+        // B12: auto-compact between tool calls when the context nears the
+        // window limit. The callback is provided by the caller (runTask) so it
+        // can refresh the outer currentChatId. It runs in the SAME execution
+        // context (this task owns the browser send loop) and the loop awaits
+        // it, so it serializes with the throttle.
+        onAutoCompact,
+        autoCompactPct,
+        contextLimit,
+        getTokenUsage,
       })
 
       // The loop may end WITHOUT a model answer: an exhausted iteration
@@ -2859,170 +2877,27 @@ async function main(): Promise<void> {
       // Compaction: ask DeepSeek (in the CURRENT chat) to compress the
       // history into a handover summary, then start a NEW chat, resend the
       // system prompt and post the summary as the carried-over context.
-      // This keeps the model working with a small context while nothing is
-      // lost: the summary plus the system prompt are all the new chat needs.
-      if (!currentChatId) {
-        currentChatId = await browser.getCurrentChatId()
-      }
-      if (!currentChatId) {
-        console.error(theme.warn(t('compact.no_chat')))
-        continue
-      }
-      const beforeTokens = browser.getLastTokenUsage()
-      if (editor) editor.lock(t('msg.input_locked'))
-      try {
-        console.log(theme.system(t('compact.start')))
-        // 1) Ask the OLD chat to summarize itself. agent: true - this is a
-        // real back-and-forth, so the send throttle applies.
-        //
-        // The call is retried a few times: browser.ask() already retries the
-        // "Messages too frequent" rate limit internally, but if it exhausts
-        // its own budget the whole /compact used to abort and the operator
-        // had to start over. A transient server error must NOT lose the
-        // compaction, so we keep trying with a growing pause before giving up.
-        let summary = ''
-        let summaryErr = ''
-        for (let attempt = 1; attempt <= COMPACT_SUMMARY_ATTEMPTS; attempt++) {
-          // On a retry after an unusable answer we append an explicit
-          // "plain text only" note. In reasoning mode DeepSeek answered the
-          // /compact prompt with a Bash TOOL CALL ("gather the current state")
-          // instead of a summary — protocol noise that must NOT be carried
-          // into the new chat.
-          let prompt = buildCompactPrompt(currentLocale)
-          if (attempt > 1) {
-            prompt +=
-              currentLocale === 'en'
-                ? '\n\nIMPORTANT: reply with the summary as PLAIN TEXT only. Do NOT call any tools and do NOT output tool-call JSON/DSML.'
-                : '\n\nВАЖНО: ответь ТОЛЬКО текстом резюме. НЕ вызывай инструменты и НЕ выводи JSON/DSML вызова инструмента.'
-          }
-          let answer = ''
-          try {
-            answer = await browser.ask(prompt, {
-              agent: true,
-              timeout: Math.max(60_000, config.browser.answerTimeoutMs),
-            })
-          } catch (e) {
-            summaryErr = (e as Error).message
-          }
-          const trimmed = String(answer || '').trim()
-          // The user aborted (Esc) — do not keep retrying.
-          if (/^\(прервано пользователем\)$/.test(trimmed)) {
-            summaryErr = trimmed
-            break
-          }
-          if (!summaryErr && isUsableCompactSummary(trimmed)) {
-            summary = trimmed
-            summaryErr = ''
-            break
-          }
-          // The turn may have succeeded yet produced an unusable answer (a
-          // tool call, empty text). Record it and retry with the note.
-          if (!summaryErr) summaryErr = trimmed || t('common.unknown')
-          if (attempt < COMPACT_SUMMARY_ATTEMPTS) {
-            console.error(
-              theme.warn(
-                t('compact.summary_retry', {
-                  v: summaryErr,
-                  attempt: String(attempt),
-                  max: String(COMPACT_SUMMARY_ATTEMPTS),
-                }),
-              ),
-            )
-            await new Promise((r) => setTimeout(r, 3000 * attempt))
-          }
-        }
-        // A model summary that never arrived (a server error, or only
-        // tool-call answers) must NOT lose the compaction: fall back to a
-        // LOCAL summary built from the restored chat history (the same
-        // displayable dialogue /resume prints).
-        if (!summary) {
-          let fallback = ''
-          try {
-            const all =
-              currentChatId && browser.fetchChatMessages
-                ? await browser.fetchChatMessages(currentChatId).catch(() => [])
-                : []
-            const msgs = trimRestoredMessages(all, 0)
-            if (msgs.length) {
-              fallback = formatRestoredHistory(msgs, {
-                limit: COMPACT_FALLBACK_LIMIT,
-              })
-            }
-          } catch {}
-          fallback = String(fallback || '').trim()
-          if (fallback) {
-            summary = fallback
-            console.error(
-              theme.warn(
-                t('compact.summary_fallback', {
-                  v: String(COMPACT_FALLBACK_LIMIT),
-                }),
-              ),
-            )
-          } else {
-            console.error(
-              theme.error(
-                t('compact.summary_failed', {
-                  v: summaryErr || t('common.unknown'),
-                }),
-              ),
-            )
-            continue
-          }
-        }
-        transcript.log('compact_summary', {
-          chars: summary.length,
-          beforeTokens,
-        })
-        // 2) New chat + system prompt + the summary as the first message.
-        await browser.newChat()
-        await browser.ask(
-          mod.buildSystemPrompt({
-            workdir: currentWorkdir,
-            tools: mod.createTools(currentWorkdir, { undo }),
-            locale: currentLocale,
-          }),
-          { timeout: 60_000, agent: false },
-        )
-        await browser.ask(buildCompactCarryover(summary, task ?? undefined), {
-          timeout: 60_000,
-          agent: false,
-        })
-        currentChatId = await browser.getCurrentChatId()
+      // Shared with the AUTO-compact path via performCompact() so both
+      // paths stay identical (same retries, same fallback, same resend).
+      const res = await performCompact({
+        browser,
+        currentChatId,
+        workdir: currentWorkdir,
+        locale: currentLocale,
+        task: task ?? undefined,
+        transcript,
+        ui: editor,
+        buildSystemPrompt: mod.buildSystemPrompt,
+        tools: mod.createTools(currentWorkdir, { undo }),
+        answerTimeoutMs: config.browser.answerTimeoutMs,
+        fallbackLimit: COMPACT_FALLBACK_LIMIT,
+      })
+      if (res.ok) {
+        currentChatId = res.chatId
         saveLastChat(currentChatId, currentWorkdir)
         freshChatNext = false
         // The new chat already carries the system prompt and the context.
         sendSystemPromptNext = false
-        console.log(
-          theme.assistant(
-            t('compact.done') +
-              String.fromCharCode(10) +
-              t('compact.report', {
-                chars: summary.length,
-                tokens:
-                  beforeTokens === null
-                    ? t('common.unknown')
-                    : String(beforeTokens),
-              }),
-          ),
-        )
-        if (editor) {
-          editor.printAbove(
-            theme.dim(
-              String.fromCharCode(10) +
-                '--- compacted context ---' +
-                String.fromCharCode(10) +
-                summary +
-                String.fromCharCode(10) +
-                '--- end ---' +
-                String.fromCharCode(10),
-            ),
-          )
-        }
-      } catch (e) {
-        console.error(theme.error((e as Error).message))
-      } finally {
-        if (editor) editor.unlock()
       }
       continue
     }
@@ -3185,6 +3060,36 @@ async function main(): Promise<void> {
               saveLastChat(chatId, currentWorkdir)
             }
           },
+          // B12: auto-compact between tool calls when the context nears the
+          // window limit. Enabled via browser.autoCompact. It sends messages
+          // from THIS execution context (the task owns the browser), and the
+          // loop awaits it, so it serializes with the throttle.
+          onAutoCompact: config.browser.autoCompact
+            ? async () => {
+                const res = await performCompact({
+                  browser,
+                  currentChatId,
+                  workdir: currentWorkdir,
+                  locale: currentLocale,
+                  task: taskText,
+                  transcript,
+                  ui: editor,
+                  buildSystemPrompt: mod.buildSystemPrompt,
+                  tools: mod.createTools(currentWorkdir, { undo }),
+                  answerTimeoutMs: config.browser.answerTimeoutMs,
+                  quiet: true,
+                  skipUiLock: true,
+                })
+                if (res.ok) {
+                  currentChatId = res.chatId
+                  saveLastChat(res.chatId, currentWorkdir)
+                }
+                return res.ok ? res.chatId : null
+              }
+            : null,
+          autoCompactPct: config.browser.autoCompactPct,
+          contextLimit: config.ui.contextLimit,
+          getTokenUsage: () => browser.getLastTokenUsage(),
         },
         inputAttachments,
       )

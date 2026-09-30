@@ -97,6 +97,18 @@ export interface BrowserConfig {
    * loop gives up (afterToolRetries budget). Default 6.
    */
   maxAfterToolRetries: number
+  /**
+   * Auto-compact the chat when its context nears the window limit, at the
+   * safe seam between tool calls. Off by default (opt-in) because it opens a
+   * NEW chat and changes the session mid-run.
+   */
+  autoCompact: boolean
+  /**
+   * Fill percentage (of ui.contextLimit) at which auto-compact fires.
+   * 50..100, default 95 — leave headroom for the tool-result message, the
+   * system prompt and the summary prompt itself.
+   */
+  autoCompactPct: number
   /** Resend the full system-prompt when a chat is resumed (default off). */
   resendPromptOnResume: boolean
   /** DeepSeek Deep thinking toggle (reasoning; slow, hidden). */
@@ -212,5 +224,13 @@ export interface BrowserLike {
   readChatMessages?: () => Promise<
     Array<{ role: 'user' | 'assistant'; text: string }>
   >
+  // Optional: fetch the WHOLE dialogue from DeepSeek's history endpoint (used
+  // by /resume and the auto-compact local fallback).
+  fetchChatMessages?: (
+    id: string,
+  ) => Promise<Array<{ role: 'user' | 'assistant'; text: string }>>
+  // Optional: the latest context size (tokens) DeepSeek reported for the
+  // current chat. Used by /cost, /status and auto-compact.
+  getLastTokenUsage?: () => number | null
   close: () => Promise<void>
 }

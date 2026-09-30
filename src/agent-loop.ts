@@ -47,6 +47,30 @@ export interface RunAgentLoopOptions {
    * gives up. Default 6. Configurable via browser.maxAfterToolRetries.
    */
   maxAfterToolRetries?: number
+  /**
+   * B12: called at the safe seam AFTER a tool result and BEFORE the next send
+   * when the context is nearly full. The callback compacts the chat (opens a
+   * NEW chat) and returns the new chat id, or null on failure. When it fires,
+   * the loop refreshes the current chat id and continues in the new chat.
+   * The callback is awaited, so it naturally serializes with the throttle.
+   */
+  onAutoCompact?: (() => Promise<string | null>) | null
+  /**
+   * Fill percentage (of ui.contextLimit) at which onAutoCompact fires.
+   * Default 95. Only used when onAutoCompact is provided.
+   */
+  autoCompactPct?: number
+  /**
+   * The context window size (tokens) used by the auto-compact threshold.
+   * Default 1_000_000. Only used when onAutoCompact is provided.
+   */
+  contextLimit?: number
+  /**
+   * Current context size (tokens), or null when unknown. Called at the seam;
+   * when null the auto-compact is skipped silently. Only used when
+   * onAutoCompact is provided.
+   */
+  getTokenUsage?: (() => number | null) | null
   /** Files/images to attach to the FIRST message (the task). */
   attachments?: Array<{ path: string; name: string; mime: string }>
 }
@@ -74,6 +98,10 @@ export async function runAgentLoop({
   locale = 'ru',
   askDeadlineMs = 240_000,
   maxAfterToolRetries = 6,
+  onAutoCompact = null,
+  autoCompactPct = 95,
+  contextLimit = 1_000_000,
+  getTokenUsage = null,
 }: RunAgentLoopOptions): Promise<string> {
   // UI callbacks must NEVER break the agent loop. A rendering error (a huge
   // tool result, a broken markdown frame, a closed terminal) used to throw
@@ -260,6 +288,10 @@ export async function runAgentLoop({
   // short answer. We key on the STRUCTURE (work already started), not words.
   let toolsRanInTask = 0
   const MAX_AFTER_TOOL_RETRIES = Math.max(0, Math.floor(maxAfterToolRetries))
+  // B12: token count at which the last auto-compact fired. Re-arm only after
+  // the (fresh) chat grows past this plus a margin, so a chat that starts
+  // above the threshold does not compact on every tool call.
+  let lastAutoCompactTokens = -1
   // B7: the message of a respond that arrived TOGETHER with real tool calls.
   // It is not delivered immediately (the tools must run first), but if the
   // model then stops without calling respond again, this is the best final
@@ -820,6 +852,56 @@ export async function runAgentLoop({
           return `Tool result for ${r.tool}:\n${truncateToolResult(resultStr, 8000)}`
         })
         .join('\n\n')
+    }
+
+    // B12: auto-compact at the ONLY safe seam — after a tool result and before
+    // the next send. Never mid-generation, never during a rate-limit wait, and
+    // never between the task and the first send (this block runs only after a
+    // tool really executed). The callback is awaited, so it serializes with the
+    // send throttle. When it returns a NEW chat id we refresh the message's
+    // chat and continue in the fresh chat.
+    if (
+      onAutoCompact &&
+      getTokenUsage &&
+      !browser._abort &&
+      !browser._stopped
+    ) {
+      const tokens = getTokenUsage()
+      if (tokens !== null && Number.isFinite(tokens) && tokens > 0) {
+        const pct = (tokens / contextLimit) * 100
+        const firedRecently = lastAutoCompactTokens >= 0
+        // Re-arm only once the counter grows past the point we compacted at
+        // (plus a small margin), so a fresh chat does not compact again on
+        // every tool call.
+        const armed = !firedRecently || tokens > lastAutoCompactTokens + 1
+        if (pct >= autoCompactPct && armed) {
+          lastAutoCompactTokens = tokens
+          safeWarning(
+            translate(locale)('compact.auto_trigger', {
+              pct: String(Math.round(pct)),
+              tokens: String(tokens),
+            }),
+          )
+          transcript?.log('auto_compact_trigger', { tokens, pct })
+          try {
+            const newChat = await onAutoCompact()
+            if (newChat) {
+              transcript?.log('auto_compact_done', { chatId: newChat })
+              // Continue in the fresh chat. The next send is a tool-result
+              // (agent: true), which is fine: the new chat already holds the
+              // system prompt + carryover. `lastAutoCompactTokens` stays at the
+              // count we compacted AT, so a chat that starts above the
+              // threshold does not compact again until it GROWS past it.
+            } else {
+              transcript?.log('auto_compact_failed', {})
+            }
+          } catch (e) {
+            transcript?.log('auto_compact_error', {
+              error: (e as Error).message,
+            })
+          }
+        }
+      }
     }
   }
 

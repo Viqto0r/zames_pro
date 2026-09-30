@@ -218,6 +218,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: '/queue [clear] показать/очистить очередь сообщений',
     en: '/queue [clear] list/clear the pending message queue',
   },
+  'compact.auto_trigger': {
+    ru: '🗜️ Контекст заполнен на {pct}% ({tokens} токенов) — сжимаю историю и открываю новый чат...',
+    en: '🗜️ Context at {pct}% ({tokens} tokens) — compacting the history and opening a fresh chat...',
+  },
   'compact.start': {
     ru: '🗜️ Сжимаю историю чата (DeepSeek)...',
     en: '🗜️ Compacting the chat history (DeepSeek)...',
@@ -983,6 +987,14 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   'cfg.f.browser_autoContinue': {
     ru: 'Автонажатие кнопки Continue (режим размышления)',
     en: 'Auto-click Continue (reasoning mode)',
+  },
+  'cfg.f.browser_autoCompact': {
+    ru: 'Авто-сжатие контекста',
+    en: 'Auto-compact the context',
+  },
+  'cfg.f.browser_autoCompactPct': {
+    ru: 'Порог авто-сжатия (%)',
+    en: 'Auto-compact threshold (%)',
   },
   'cfg.f.browser_askDeadlineMs': {
     ru: 'Watchdog-таймаут ask (мс)',
