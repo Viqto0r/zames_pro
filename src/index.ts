@@ -100,6 +100,9 @@ import type { McpPool } from './mcp.js'
 interface PendingMessage {
   text: string
   attachments?: Array<{ path: string; name: string; mime: string }>
+  /** Set when the message came from a scheduled /loop or /cron job. Used to
+   *  avoid piling many copies of the same job while the agent is busy. */
+  jobId?: number
 }
 
 interface RunTaskOptions {
@@ -1598,7 +1601,18 @@ async function main(): Promise<void> {
     scheduleTimer = setInterval(() => {
       const due = scheduler.due(Date.now())
       for (const job of due) {
-        pendingQueue.push({ text: job.task })
+        // Do not pile MANY copies of the same job while the agent is busy: if
+        // this job already has a pending message in the queue, skip this fire.
+        // Otherwise a 1-minute loop would add a new task every minute while a
+        // long task is in flight, and they would all run back-to-back.
+        if (pendingQueue.some((m) => m.jobId === job.id)) {
+          transcript.log('scheduled_skip_queued', {
+            id: job.id,
+            task: job.task,
+          })
+          continue
+        }
+        pendingQueue.push({ text: job.task, jobId: job.id })
         transcript.log('scheduled_fire', { id: job.id, task: job.task })
         if (editor) {
           editor.printAbove(
