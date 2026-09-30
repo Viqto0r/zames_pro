@@ -505,6 +505,19 @@ export function buildCompactCarryover(summary: string, task?: string): string {
 
 // ---------- /review ----------
 
+// ---------- Ctrl+C escalation (C3) ----------
+
+// Decide what a Ctrl+C does while the agent is busy. The FIRST press aborts
+// the currently running TOOL; a SECOND press within the window stops the WHOLE
+// run (including the queue). Outside the window it is a fresh first press.
+// Returns 'tool' | 'run'.
+export function ctrlCEscalation(
+  sinceLastMs: number,
+  windowMs = 2000,
+): 'tool' | 'run' {
+  return sinceLastMs < windowMs ? 'run' : 'tool'
+}
+
 // ---------- queued messages (batch merge) ----------
 
 // A message typed while the agent works lands in the pending queue. Sending

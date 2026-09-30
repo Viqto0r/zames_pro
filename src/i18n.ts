@@ -570,6 +570,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: '⏹ Esc — прерываю генерацию...',
     en: '⏹ Esc — aborting generation...',
   },
+  'msg.abort_tool_short': {
+    ru: '⏹ Ctrl+C — прерываю текущий инструмент (ещё раз — стоп всему прогону)...',
+    en: '⏹ Ctrl+C — aborting the current tool (press again to stop the whole run)...',
+  },
   'msg.abort_ctrlc_short': {
     ru: '⏹ Ctrl+C — прерываю генерацию...',
     en: '⏹ Ctrl+C — aborting generation...',

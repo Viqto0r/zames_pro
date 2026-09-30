@@ -67,6 +67,7 @@ import {
   RESTORED_HISTORY_LIMIT,
   mergeMessages,
   isSlashCommand,
+  ctrlCEscalation,
   type RestoredMessage,
 } from './commands.js'
 import { performCompact } from './compact.js'
@@ -1478,6 +1479,9 @@ async function main(): Promise<void> {
   const pendingQueue: PendingMessage[] = []
   // Show the "no clipboard image" hint only once per session.
   let clipboardWarned = false
+  // C3: timestamp of the last Ctrl+C while the agent was busy. Two presses
+  // within 2s escalate from "abort the running tool" to "stop the whole run".
+  let lastCtrlCAt = 0
 
   // ---------- review mode state ----------
   // null — normal mode.
@@ -1725,8 +1729,21 @@ async function main(): Promise<void> {
     }
     ed.onCtrlC = () => {
       if (ed.busy) {
-        ed.printAbove(theme.warn(t('msg.abort_ctrlc_short')))
-        browser.stopGeneration().catch(() => {})
+        // C3: a running tool can be long (npm test, a big build). The FIRST
+        // Ctrl+C aborts just the TOOL (sets browser._abort, which the tool's
+        // AbortSignal follows and which makes the loop drop the tool result).
+        // A SECOND Ctrl+C within 2s is an explicit "stop the whole run"
+        // (sets _stopped, which also halts the queue). This makes the two
+        // intents distinguishable instead of one press doing everything.
+        const now = Date.now()
+        if (ctrlCEscalation(now - lastCtrlCAt) === 'run') {
+          ed.printAbove(theme.warn(t('msg.abort_ctrlc_short')))
+          browser.stopGeneration().catch(() => {})
+        } else {
+          ed.printAbove(theme.warn(t('msg.abort_tool_short')))
+          browser._abort = true
+        }
+        lastCtrlCAt = now
       } else {
         // Not busy — exit. We wake takeInput() so the loop finishes.
         running = false
