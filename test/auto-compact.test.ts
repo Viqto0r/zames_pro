@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { runAgentLoop } from '../src/agent-loop.ts'
 import type { ToolDef, BrowserLike, ToolArgs } from '../src/types.ts'
 
-// B12: when the context is nearly full, the loop triggers onAutoCompact at the
+// When the context is nearly full, the loop triggers onAutoCompact at the
 // safe seam AFTER a tool result and BEFORE the next send. It fires at most
 // once at the threshold and not again until the counter grows.
 

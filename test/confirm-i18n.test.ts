@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { ConfirmManager } from '../src/confirm.ts'
 
-// A7: operator-facing strings used to be hardcoded in src/confirm.ts (the
+// Operator-facing strings used to be hardcoded in src/confirm.ts (the
 // Russian «Разрешить», «да», «нет»). They now come from the i18n CATALOG, so
 // `/config lang en` switches them too.
 test('ConfirmManager picks the locale for its prompt label', () => {
@@ -13,7 +13,7 @@ test('ConfirmManager picks the locale for its prompt label', () => {
   assert.equal(new ConfirmManager().locale, 'ru')
 })
 
-// B5: an invalid alwaysConfirm regex must NOT crash the run. It falls back to
+// An invalid alwaysConfirm regex must NOT crash the run. It falls back to
 // a literal (escaped) substring match.
 test('an invalid alwaysConfirm pattern does not throw', () => {
   const c = new ConfirmManager({

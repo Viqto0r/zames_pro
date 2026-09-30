@@ -95,13 +95,13 @@ interface RunTaskOptions {
   queue?: PendingMessage[]
   ui?: LineEditor | null
   onChatReady?: (chatId: string | null) => void
-  /** B12: called at the between-tools seam when the context is nearly full. */
+  /** Called at the between-tools seam when the context is nearly full. */
   onAutoCompact?: (() => Promise<string | null>) | null
-  /** B12: fill percentage at which onAutoCompact fires. */
+  /** Fill percentage at which onAutoCompact fires. */
   autoCompactPct?: number
-  /** B12: the context window size (tokens) for the threshold. */
+  /** The context window size (tokens) for the threshold. */
   contextLimit?: number
-  /** B12: current context size (tokens) or null. */
+  /** Current context size (tokens) or null. */
   getTokenUsage?: (() => number | null) | null
 }
 
@@ -1082,7 +1082,7 @@ async function printRestoredHistory(
   const restoredTokens = browser.getLastTokenUsage()
   if (typeof restoredTokens === 'number') {
     out(theme.dim(t('chats.history_tokens', { v: String(restoredTokens) })))
-    // C6: warn when the restored chat is near the context limit, and suggest
+    // Warn when the restored chat is near the context limit, and suggest
     // /compact. The threshold mirrors the auto-compact one so the operator
     // sees the same signal whether or not auto-compact is enabled.
     const limit = config.ui.contextLimit
@@ -1219,7 +1219,7 @@ async function runTask(
         locale: currentLocale,
         askDeadlineMs: config.browser.askDeadlineMs,
         maxAfterToolRetries: config.browser.maxAfterToolRetries,
-        // B12: auto-compact between tool calls when the context nears the
+        // Auto-compact between tool calls when the context nears the
         // window limit. The callback is provided by the caller (runTask) so it
         // can refresh the outer currentChatId. It runs in the SAME execution
         // context (this task owns the browser send loop) and the loop awaits
@@ -1479,7 +1479,7 @@ async function main(): Promise<void> {
   const pendingQueue: PendingMessage[] = []
   // Show the "no clipboard image" hint only once per session.
   let clipboardWarned = false
-  // C3: timestamp of the last Ctrl+C while the agent was busy. Two presses
+  // Timestamp of the last Ctrl+C while the agent was busy. Two presses
   // within 2s escalate from "abort the running tool" to "stop the whole run".
   let lastCtrlCAt = 0
 
@@ -1729,7 +1729,7 @@ async function main(): Promise<void> {
     }
     ed.onCtrlC = () => {
       if (ed.busy) {
-        // C3: a running tool can be long (npm test, a big build). The FIRST
+        // A running tool can be long (npm test, a big build). The FIRST
         // Ctrl+C aborts just the TOOL (sets browser._abort, which the tool's
         // AbortSignal follows and which makes the loop drop the tool result).
         // A SECOND Ctrl+C within 2s is an explicit "stop the whole run"
@@ -3091,7 +3091,7 @@ async function main(): Promise<void> {
               saveLastChat(chatId, currentWorkdir)
             }
           },
-          // B12: auto-compact between tool calls when the context nears the
+          // Auto-compact between tool calls when the context nears the
           // window limit. Enabled via browser.autoCompact. It sends messages
           // from THIS execution context (the task owns the browser), and the
           // loop awaits it, so it serializes with the throttle.
@@ -3141,7 +3141,7 @@ async function main(): Promise<void> {
   await mod.closeWeb().catch(() => {})
   if (mcpPool) await mcpPool.close().catch(() => {})
   transcript.close()
-  // C8: one dim line so the operator can find the log and the session after
+  // One dim line so the operator can find the log and the session after
   // the run (previously the path was only available via /transcript).
   console.log(
     theme.dim(

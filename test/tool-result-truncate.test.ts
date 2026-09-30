@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { truncateToolResult } from '../src/agent-loop.ts'
 
-// B6: a huge tool result used to be sliced silently (12_000 / 8000 chars),
+// A huge tool result used to be sliced silently (12_000 / 8000 chars),
 // so the model could not tell it was looking at a PARTIAL output. The cap now
 // appends an explicit marker.
 test('a short result is returned unchanged', () => {

@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { DeepSeekBrowser } from '../src/browser.ts'
 
-// A6: newChat / openChat used to swallow errors and never confirm the page
+// newChat / openChat used to swallow errors and never confirm the page
 // changed — a failed click then sent the next prompt into the OLD chat. They
 // now poll for the input AND verify the chat id actually changed.
 

@@ -7,7 +7,7 @@ import { DeepSeekBrowser } from '../src/browser.ts'
 import { runAgentLoop } from '../src/agent-loop.ts'
 import type { ToolDef, ToolArgs } from '../src/types.ts'
 
-// A1: the agent-loop watchdog races browser.ask() against a 240s deadline.
+// The agent-loop watchdog races browser.ask() against a 240s deadline.
 // When the timer wins the underlying ask() used to KEEP RUNNING (possibly
 // inside a 300s rate-limit wait or the finish loop), while the next iteration
 // started a SECOND ask() against the same page -- two sends / two Continue

@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { DeepSeekBrowser } from '../src/browser.ts'
 
-// A4: `_onResponse` used to call extractAnswer() on EVERY deepseek
+// `_onResponse` used to call extractAnswer() on EVERY deepseek
 // json/event-stream response and set `_netCapture` whenever the result was
 // non-empty. Only the SSE completion shape carries real answers today, but any
 // future endpoint returning an object with a content/text/response string

@@ -1040,7 +1040,7 @@ export class LineEditor {
   assistant(msg: string): void {
     this.stop()
     const rendered = renderMarkdown(msg)
-    // C11: show the used context size at the END of the answer too. During
+    // Show the used context size at the END of the answer too. During
     // generation it lives in the status line, but ui.stop() clears that right
     // before this call, so the operator lost the number exactly when the
     // answer arrived. Read it fresh via onContextQuery and append it dimmed

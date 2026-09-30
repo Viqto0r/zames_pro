@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { performCompact } from '../src/compact.ts'
 import type { BrowserLike } from '../src/types.ts'
 
-// B12: /compact logic extracted into a reusable performCompact() so the manual
+// /compact logic extracted into a reusable performCompact() so the manual
 // command and the automatic between-tools trigger share ONE implementation
 // (same retries, same local fallback, same system-prompt resend).
 

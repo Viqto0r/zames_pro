@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { ctrlCEscalation } from '../src/commands.ts'
 
-// C3: while the agent is busy, the FIRST Ctrl+C aborts the running tool; a
+// While the agent is busy, the FIRST Ctrl+C aborts the running tool; a
 // SECOND press within 2s stops the whole run (including the queue).
 
 test('a fresh Ctrl+C aborts just the tool', () => {

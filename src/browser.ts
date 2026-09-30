@@ -442,7 +442,7 @@ export class DeepSeekBrowser {
   // next iteration does not run TWO asks against the same page (two sends /
   // two Continue clicks). Reset at the start of every _askOnce.
   _askCancelled: boolean
-  // Number of ask() calls currently in flight from OUR code. Used by B1: a
+  // Number of ask() calls currently in flight from OUR code. A
   // completion/continue body that arrives while this is 0 was NOT initiated
   // by us — it is the operator's own turn in the chat (or a manual resume in
   // the web UI), and our next agent send must wait out the throttle from it.
@@ -768,7 +768,7 @@ export class DeepSeekBrowser {
       // truncated/no-answer detectors can inspect it even when there is no
       // RESPONSE text (extractAnswer() returns '' for those bodies).
       if (isAnswerUrl) {
-        // B1: a completion/continue body that arrives while WE have no ask in
+        // A completion/continue body that arrives while WE have no ask in
         // flight was the OPERATOR's own turn (they sent a message by hand or
         // resumed in the web UI). Record that moment so our next agent send
         // waits out the throttle from it instead of firing too soon after the
@@ -1179,7 +1179,7 @@ export class DeepSeekBrowser {
     }
   }
 
-  // A5/D1: wait for the INPUT to be present and visible, polling instead of a
+  // Wait for the INPUT to be present and visible, polling instead of a
   // fixed sleep. Returns true as soon as it appears (or false on timeout).
   async _awaitInput(timeoutMs = 5000): Promise<boolean> {
     const deadline = Date.now() + timeoutMs
@@ -1191,7 +1191,7 @@ export class DeepSeekBrowser {
     return false
   }
 
-  // A6: did the chat actually CHANGE? Compares the current chat id (URL or the
+  // Did the chat actually CHANGE? Compares the current chat id (URL or the
   // one sniffed off the network) with a baseline. Used to VERIFY newChat /
   // openChat instead of blindly trusting a click that may have done nothing.
   private async _chatIdChangedFrom(baseline: string | null): Promise<boolean> {
@@ -1199,7 +1199,7 @@ export class DeepSeekBrowser {
     return !!now && now !== baseline
   }
 
-  // A5/A6: open a fresh chat. Returns as soon as the new-chat input is ready
+  // Open a fresh chat. Returns as soon as the new-chat input is ready
   // (polling), and VERIFIES the chat actually changed. A failed click falls
   // back to navigating to the base URL, and we still wait for a positive
   // signal before returning, so the next prompt is never sent into the OLD
@@ -1387,7 +1387,7 @@ export class DeepSeekBrowser {
     return await this._stopButtonVisible()
   }
 
-  // D2: a CHEAP growth signal for the "did the answer start?" loop. The old
+  // A CHEAP growth signal for the "did the answer start?" loop. The old
   // code read `document.body.innerText.length` every ~300ms tick, which
   // serializes the ENTIRE page text (sidebar, history, menus) and forces a
   // layout — expensive on a long chat. This returns only the number of
@@ -1410,7 +1410,7 @@ export class DeepSeekBrowser {
       .catch(() => ({ nodes: 0, lastLen: 0 }))
   }
 
-  // A12: cheap first probe for the Continue button. Runs ONE page.evaluate
+  // Cheap first probe for the Continue button. Runs ONE page.evaluate
   // that scans buttons/role-buttons for a matching label and returns a boolean.
   // The full Playwright getByRole scan (count + isVisible per element) plus the
   // DOM fallback are two round-trips; on the COMMON path (no button on screen,
@@ -1500,7 +1500,7 @@ export class DeepSeekBrowser {
   // only act on an EXACT short label so a random "Continue" in prose (a button
   // inside a rendered answer, etc.) is never clicked.
   async _clickContinueIfVisible(): Promise<boolean> {
-    // A12: cheap first probe. The common case is "no button" and this is
+    // Cheap first probe. The common case is "no button" and this is
     // called every tick from the start-loop; the single evaluate replaces the
     // getByRole count+isVisible scan plus the DOM fallback on that path.
     if (!(await this._continueVisibleCheap())) return false
@@ -1556,7 +1556,7 @@ export class DeepSeekBrowser {
       try {
         await found.click({ timeout: 2000 })
         this._lastContinueAt = Date.now()
-        // C2: the auto-click is otherwise invisible. Emit ONE notice per
+        // The auto-click is otherwise invisible. Emit ONE notice per
         // click (the continueMinGapMs above already limits how often this
         // can fire) so the operator sees why the turn resumed.
         this._notice(this._t('ds.continue_clicked'))
@@ -1784,7 +1784,7 @@ export class DeepSeekBrowser {
     // (deep thinking) mode, where the long THINK phase gets cut off.
     let incompleteRetries = 0
 
-    // B1: mark that OUR code has an ask in flight. A completion/continue body
+    // Mark that OUR code has an ask in flight. A completion/continue body
     // that arrives with _askInFlight === 0 was the operator's own turn, and
     // _onResponse uses that to bump _lastSentAt so the next agent send waits
     // out the throttle.
@@ -2082,7 +2082,7 @@ export class DeepSeekBrowser {
           btn.click({ timeout: 1500 }),
         ])
         await chooser.setFiles(bufPayload)
-        // A5/D1: wait for the upload preview instead of a fixed 2.5s sleep.
+        // Wait for the upload preview instead of a fixed 2.5s sleep.
         await this._awaitUploadPreview(
           files.map((f) => f.name),
           2500,
@@ -2114,7 +2114,7 @@ export class DeepSeekBrowser {
     )
   }
 
-  // A5/D1: wait for the upload preview (the attached-file chip above the
+  // Wait for the upload preview (the attached-file chip above the
   // input) to appear, instead of a fixed 2.5s/2s sleep. The signal is the
   // FILE NAME showing up on the page: we attach files BEFORE typing the text,
   // so the name cannot appear there for any other reason. The old fixed value
@@ -2336,7 +2336,7 @@ export class DeepSeekBrowser {
     // or the page grew (a new answer node / longer last answer). In parallel we
     // catch the rate-limit toast (only toasts, not the whole body).
     const startDeadline = Date.now() + 30_000
-    // D2: a CHEAP growth signal (message-node count + last-answer length)
+    // A CHEAP growth signal (message-node count + last-answer length)
     // instead of document.body.innerText.length, which walked the whole page.
     const startSignal = await this._chatSignal()
     let started = false
@@ -2409,7 +2409,7 @@ export class DeepSeekBrowser {
         this._askDebug('CLICKED Continue (start-loop)')
       }
       const cur = await this._readLastAnswerTextCleanDom().catch(() => '')
-      // D2: cheap growth signal instead of the whole-body length.
+      // Cheap growth signal instead of the whole-body length.
       const sig = await this._chatSignal()
       const grew =
         sig.nodes > startSignal.nodes || sig.lastLen > startSignal.lastLen
@@ -2665,7 +2665,7 @@ export class DeepSeekBrowser {
             }
             stable = 0
           } else if (!(await this._isGenerating())) {
-            // B3: only return when the generation has REALLY ended — no Stop
+            // Only return when the generation has REALLY ended — no Stop
             // button AND no Continue button (checked above). The old condition
             // `isNew || !_isGenerating()` returned a still-streaming answer
             // merely because it looked "new", cutting a long answer short.
@@ -2811,7 +2811,7 @@ export class DeepSeekBrowser {
   }
 
   async openChat(id: string): Promise<boolean> {
-    // A5/A6: click the chat link and VERIFY the URL actually points at the
+    // Click the chat link and VERIFY the URL actually points at the
     // requested chat before returning (polling, no fixed 1.5s sleep).
     const candidates = [`a[href$="/chat/s/${id}"]`, `a[href*="${id}"]`]
     for (const sel of candidates) {
@@ -3041,7 +3041,7 @@ export class DeepSeekBrowser {
             break
           }
         }
-        // A11: de-duplicate by node identity and drop a block that is NESTED
+        // De-duplicate by node identity and drop a block that is NESTED
         // inside another block. Some builds match both an outer message
         // container and an inner one; without this the restored dialogue
         // printed each turn twice. We keep only the OUTERMOST blocks.

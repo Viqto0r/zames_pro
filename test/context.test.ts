@@ -77,7 +77,7 @@ test('loadProjectContext picks up AGENTS.md and MEMORY.md', async () => {
   assert.match(ctx.agents[0].content, /be nice/)
 })
 
-// B4: an EXISTING but 0-byte AGENTS.md was dropped by a truthiness check,
+// An EXISTING but 0-byte AGENTS.md was dropped by a truthiness check,
 // so the prompt lost the file entirely. It must appear as an (empty) section.
 test('an empty AGENTS.md is still injected as an (empty) section', async () => {
   const root = await mkTmp()

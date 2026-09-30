@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { DeepSeekBrowser, isRateLimitText } from '../src/browser.ts'
 
-// T1: the rate limit can arrive ONLY in the SSE body of chat/completion. The
+// The rate limit can arrive ONLY in the SSE body of chat/completion. The
 // DOM toast is short-lived and easy to miss, so the old code waited out the
 // whole deadline and threw ds.send_no_new_answer while the chat plainly
 // showed "Messages too frequent". _onResponse now records the body flag, and

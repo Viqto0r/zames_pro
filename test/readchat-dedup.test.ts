@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
-// A11: readChatMessages matched BOTH an outer message container and an inner
+// readChatMessages matched BOTH an outer message container and an inner
 // one on some builds, so the restored dialogue printed each turn twice. The
 // reader now keeps only the OUTERMOST blocks (drops a block nested in another).
 

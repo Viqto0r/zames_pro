@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { runAgentLoop } from '../src/agent-loop.ts'
 import type { ToolDef, BrowserLike, ToolArgs } from '../src/types.ts'
 
-// B7: a respond that arrives TOGETHER with real tool calls must not be dropped
+// A respond that arrives TOGETHER with real tool calls must not be dropped
 // silently. The tools run first, but if the model then stops WITHOUT calling
 // respond again, the remembered respond message is delivered as the final.
 

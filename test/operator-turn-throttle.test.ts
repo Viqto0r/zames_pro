@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { DeepSeekBrowser } from '../src/browser.ts'
 
-// B1: the 15s inter-send throttle only knew about OUR sends. If the operator
+// The 15s inter-send throttle only knew about OUR sends. If the operator
 // sent a message into the agent's chat by hand (or resumed the chat in the web
 // UI), the agent's next send could fire too soon after it and hit the rate
 // limit. A completion/continue body that arrives while WE have no ask in

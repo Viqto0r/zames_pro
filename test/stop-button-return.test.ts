@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { STOP_NAME_RE } from '../src/browser.ts'
 
-// B3: the finish loop must NOT return a "stable" answer while the Stop button
+// The finish loop must NOT return a "stable" answer while the Stop button
 // is still visible. A long answer looks stable between two ticks (the text has
 // not changed yet) but the generation is still running; returning there cut the
 // answer short. The rule the loop implements:

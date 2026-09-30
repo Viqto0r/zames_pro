@@ -505,7 +505,7 @@ export function buildCompactCarryover(summary: string, task?: string): string {
 
 // ---------- /review ----------
 
-// ---------- Ctrl+C escalation (C3) ----------
+// ---------- Ctrl+C escalation ----------
 
 // Decide what a Ctrl+C does while the agent is busy. The FIRST press aborts
 // the currently running TOOL; a SECOND press within the window stops the WHOLE

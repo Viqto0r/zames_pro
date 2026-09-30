@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { DeepSeekBrowser } from '../src/browser.ts'
 
-// D2: the "did the answer start?" loop used to read
+// The "did the answer start?" loop used to read
 // document.body.innerText.length every tick (expensive on a long chat).
 // _chatSignal() returns a cheap growth signal (message node count + last
 // answer length).

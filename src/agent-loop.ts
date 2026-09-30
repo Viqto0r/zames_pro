@@ -48,7 +48,7 @@ export interface RunAgentLoopOptions {
    */
   maxAfterToolRetries?: number
   /**
-   * B12: called at the safe seam AFTER a tool result and BEFORE the next send
+   * Called at the safe seam AFTER a tool result and BEFORE the next send
    * when the context is nearly full. The callback compacts the chat (opens a
    * NEW chat) and returns the new chat id, or null on failure. When it fires,
    * the loop refreshes the current chat id and continues in the new chat.
@@ -288,11 +288,11 @@ export async function runAgentLoop({
   // short answer. We key on the STRUCTURE (work already started), not words.
   let toolsRanInTask = 0
   const MAX_AFTER_TOOL_RETRIES = Math.max(0, Math.floor(maxAfterToolRetries))
-  // B12: token count at which the last auto-compact fired. Re-arm only after
+  // Token count at which the last auto-compact fired. Re-arm only after
   // the (fresh) chat grows past this plus a margin, so a chat that starts
   // above the threshold does not compact on every tool call.
   let lastAutoCompactTokens = -1
-  // B7: the message of a respond that arrived TOGETHER with real tool calls.
+  // The message of a respond that arrived TOGETHER with real tool calls.
   // It is not delivered immediately (the tools must run first), but if the
   // model then stops without calling respond again, this is the best final
   // message we have and must reach the operator.
@@ -322,7 +322,7 @@ export async function runAgentLoop({
     // the watchdog timer wins. Before, the losing ask() kept running (up to a
     // 300s rate-limit wait or the finish loop) while the next iteration
     // started a SECOND ask() against the same page — two sends / two Continue
-    // clicks. See A1.
+    // clicks.
     const askPromise = browser.ask(message, {
       agent: !isFirst,
       attachments: isFirst ? attachments : [],
@@ -636,7 +636,7 @@ export async function runAgentLoop({
       // paragraph "Now let me analyze..." instead of calling a tool). We do not
       // match words here - the STRUCTURE (toolsRanInTask > 0) is the signal.
       if (toolsRanInTask > 0) {
-        // B11: before surfacing a reasoning paragraph as a report, make ONE
+        // Before surfacing a reasoning paragraph as a report, make ONE
         // explicit attempt to get a real respond (or a remembered mixed-respond
         // message). This turns "ambiguous text" into an unambiguous final.
         if (!finalRespondAsked) {
@@ -706,7 +706,7 @@ export async function runAgentLoop({
       transcript?.log('respond_mixed_with_tools', {
         tools: realCalls.map((c) => c.tool),
       })
-      // B7: a respond mixed with real tools must NOT be dropped silently. Keep
+      // A respond mixed with real tools must NOT be dropped silently. Keep
       // its message; if the model then stops WITHOUT calling respond again, we
       // deliver this remembered message instead of a bare reasoning paragraph.
       const m =
@@ -829,7 +829,7 @@ export async function runAgentLoop({
     // Real progress was made, so the "unparsed answer" budget is replenished:
     // a long chain of tools must not run out of it because of earlier hiccups.
     unparsedRetries = 0
-    // A9: reset ALL per-task retry counters after a successful tool, not just
+    // Reset ALL per-task retry counters after a successful tool, not just
     // the three above. stallRetries/looksDoneRetries/malformedRetries used to
     // live for the WHOLE task, so over a long chain of tools their budgets
     // could be exhausted by earlier hiccups and the guards silently stopped
@@ -854,7 +854,7 @@ export async function runAgentLoop({
         .join('\n\n')
     }
 
-    // B12: auto-compact at the ONLY safe seam — after a tool result and before
+    // Auto-compact at the ONLY safe seam — after a tool result and before
     // the next send. Never mid-generation, never during a rate-limit wait, and
     // never between the task and the first send (this block runs only after a
     // tool really executed). The callback is awaited, so it serializes with the
