@@ -1343,6 +1343,29 @@ export class DeepSeekBrowser {
     return await this._stopButtonVisible()
   }
 
+  // D2: a CHEAP growth signal for the "did the answer start?" loop. The old
+  // code read `document.body.innerText.length` every ~300ms tick, which
+  // serializes the ENTIRE page text (sidebar, history, menus) and forces a
+  // layout — expensive on a long chat. This returns only the number of
+  // message/answer nodes plus the length of the LAST answer element, which is
+  // all we need to tell "the page grew / a new answer is streaming".
+  async _chatSignal(): Promise<{ nodes: number; lastLen: number }> {
+    return await this.page
+      .evaluate(() => {
+        const nodes = document.querySelectorAll(
+          '[class*="ds-message"], [class*="chat-message"], .ds-markdown',
+        ).length
+        let lastLen = 0
+        const answers = document.querySelectorAll('.ds-markdown')
+        if (answers.length) {
+          const lastEl = answers[answers.length - 1] as HTMLElement
+          lastLen = (lastEl.innerText || '').length
+        }
+        return { nodes, lastLen }
+      })
+      .catch(() => ({ nodes: 0, lastLen: 0 }))
+  }
+
   // A12: cheap first probe for the Continue button. Runs ONE page.evaluate
   // that scans buttons/role-buttons for a matching label and returns a boolean.
   // The full Playwright getByRole scan (count + isVisible per element) plus the
@@ -2234,12 +2257,12 @@ export class DeepSeekBrowser {
     this._askDebug('SENT at=' + this._lastSentAt)
 
     // Wait for the start: either Stop appeared, or the answer text changed,
-    // or the total amount of text on the page grew. In parallel we catch
-    // the rate-limit toast (only toasts, not the whole body).
+    // or the page grew (a new answer node / longer last answer). In parallel we
+    // catch the rate-limit toast (only toasts, not the whole body).
     const startDeadline = Date.now() + 30_000
-    const startBodyLen = await this.page
-      .evaluate(() => document.body.innerText.length)
-      .catch(() => 0)
+    // D2: a CHEAP growth signal (message-node count + last-answer length)
+    // instead of document.body.innerText.length, which walked the whole page.
+    const startSignal = await this._chatSignal()
     let started = false
     // A stale/echo answer (the model repeats the previous text, or the answer
     // legitimately equals it) does NOT change `cur`. In that case the old loop
@@ -2310,9 +2333,10 @@ export class DeepSeekBrowser {
         this._askDebug('CLICKED Continue (start-loop)')
       }
       const cur = await this._readLastAnswerTextCleanDom().catch(() => '')
-      const bodyLen = await this.page
-        .evaluate(() => document.body.innerText.length)
-        .catch(() => 0)
+      // D2: cheap growth signal instead of the whole-body length.
+      const sig = await this._chatSignal()
+      const grew =
+        sig.nodes > startSignal.nodes || sig.lastLen > startSignal.lastLen
       // A NEW answer is the only reliable sign that the message was actually
       // sent: the text on the page must differ from what was there before the
       // send, OR the page must have grown. The Stop-button heuristic
@@ -2328,15 +2352,15 @@ export class DeepSeekBrowser {
       // to hang until the full timeout and the agent appeared to "stop".
       const netStarted =
         !!this._netCapture && this._netCaptureAt >= this._lastSentAt
-      if (changed || netStarted || bodyLen > startBodyLen) {
+      if (changed || netStarted || grew) {
         started = true
         this._askDebug(
           'STARTED changed=' +
             changed +
             ' netStarted=' +
             netStarted +
-            ' bodyGrew=' +
-            (bodyLen > startBodyLen),
+            ' grew=' +
+            grew,
         )
         break
       }
@@ -2367,8 +2391,8 @@ export class DeepSeekBrowser {
           changed +
           ' netStarted=' +
           netStarted +
-          ' bodyLen=' +
-          bodyLen +
+          ' grew=' +
+          grew +
           ' settled=' +
           settledTicks +
           ' generating=' +
@@ -2429,10 +2453,9 @@ export class DeepSeekBrowser {
         const cur2 = await this._readLastAnswerTextCleanDom().catch(() => '')
         const net2 =
           !!this._netCapture && this._netCaptureAt >= this._lastSentAt
+        const sig2 = await this._chatSignal()
         const grew2 =
-          (await this.page
-            .evaluate(() => document.body.innerText.length)
-            .catch(() => 0)) > startBodyLen
+          sig2.nodes > startSignal.nodes || sig2.lastLen > startSignal.lastLen
         if (
           net2 ||
           grew2 ||
