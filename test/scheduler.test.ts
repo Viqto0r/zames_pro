@@ -29,6 +29,9 @@ test('formatInterval: shortest human form', () => {
   assert.equal(formatInterval(30_000), '30s')
   assert.equal(formatInterval(300_000), '5m')
   assert.equal(formatInterval(7_200_000), '2h')
+  // A cron job with no computable next fire renders neutrally, not "Infinity".
+  assert.equal(formatInterval(Number.POSITIVE_INFINITY), '-')
+  assert.equal(formatInterval(Number.NaN), '-')
 })
 
 test('parseCron: rejects a wrong field count or bad values', () => {

@@ -35,7 +35,10 @@ export function parseInterval(text: string): number | null {
 }
 
 // Render an interval back to the shortest human form (used in listings).
+// Non-finite input (a cron job whose next fire could not be computed sets
+// nextAt to Infinity) renders as "-" instead of "Infinityh".
 export function formatInterval(ms: number): string {
+  if (!Number.isFinite(ms)) return '-'
   if (ms % 3_600_000 === 0) return ms / 3_600_000 + 'h'
   if (ms % 60_000 === 0) return ms / 60_000 + 'm'
   if (ms % 1000 === 0) return ms / 1000 + 's'
