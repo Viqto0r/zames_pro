@@ -25,6 +25,7 @@ export const theme = {
   toolResult: chalk.hex('#8a9bb5'), // gray-blue
   system: chalk.hex('#808896'), // neutral gray
   dim: chalk.hex('#5b616e'), // dark gray
+  taskSummary: chalk.hex('#8fa3c8'), // per-task summary — noticeable but calm, distinct from spinner brown and warn ochre
   warn: chalk.hex('#c9a86a'), // calm ochre
   error: chalk.hex('#c98a80'), // muted terracotta
   success: chalk.hex('#a9c08c'), // soft sage

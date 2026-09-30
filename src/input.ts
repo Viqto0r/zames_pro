@@ -261,23 +261,34 @@ export function formatTokenStatus(
     return ''
   }
   const n = Math.round(tokens)
-  let compact: string
-  if (n >= 1_000_000) {
-    const m = n / 1_000_000
-    compact = (Number.isInteger(m) ? String(m) : m.toFixed(1)) + 'M'
-  } else if (n >= 1_000) {
-    const k = n / 1_000
-    compact =
-      (k >= 100 ? String(Math.round(k)) : k.toFixed(1).replace(/\.0$/, '')) +
-      'k'
-  } else {
-    compact = String(n)
-  }
+  const compact = formatCompactTokens(n)
   const pct = Math.max(0, (n / limit) * 100)
   const pctStr = pct >= 10 ? String(Math.round(pct)) : pct.toFixed(1)
   // "ctx:" marks this as the USED context size, so the operator does not have
   // to guess what "302k · 30%" means.
   return 'ctx: ' + compact + ' · ' + pctStr + '%'
+}
+
+// Compact token count (10k, 125k, 1.5M). Exported so the per-task summary
+// reuses the EXACT same "k/M" formatting as the context counter. Invalid
+// input (null/NaN/negative) renders an empty string.
+export function formatCompactTokens(tokens: number | null | undefined): string {
+  if (typeof tokens !== 'number' || !Number.isFinite(tokens) || tokens < 0) {
+    return ''
+  }
+  const n = Math.round(tokens)
+  if (n >= 1_000_000) {
+    const m = n / 1_000_000
+    return (Number.isInteger(m) ? String(m) : m.toFixed(1)) + 'M'
+  }
+  if (n >= 1_000) {
+    const k = n / 1_000
+    return (
+      (k >= 100 ? String(Math.round(k)) : k.toFixed(1).replace(/\.0$/, '')) +
+      'k'
+    )
+  }
+  return String(n)
 }
 
 export class LineEditor {

@@ -13,6 +13,7 @@ import {
   LineEditor,
   expandPastes,
   pasteReplacement,
+  formatCompactTokens,
   type PasteBlock,
 } from './input.js'
 import {
@@ -1205,10 +1206,15 @@ async function runTask(
     // the whole pre-send phase (chat creation, throttle wait) with no
     // generation in flight.
     while (true) {
-      // T7: per-task summary (duration + number of tool calls). Counts tools
-      // via the UI callback and reports ONE dim line after the task, so the
-      // operator sees how long it took and how much work happened.
+      // T7: per-task summary (duration + number of tool calls + tokens).
+      // Counts tools via the UI callback and reports ONE line after the task,
+      // so the operator sees how long it took and how much work happened.
       const taskStart = Date.now()
+      // Token delta for THIS task: accumulated_token_usage is cumulative for
+      // the whole chat, so the per-task spend is after - before. Null when the
+      // counter is unknown (fresh chat / no answer yet); the token part is then
+      // omitted from the summary.
+      const tokensBefore = getTokenUsage ? getTokenUsage() : null
       let taskTools = 0
       const outcome = await mod.runAgentLoop({
         browser,
@@ -1262,20 +1268,33 @@ async function runTask(
         transcript?.log('agent_no_answer', { outcome })
       }
 
-      // T7: one dim summary line per task (duration + tool calls). Printed
-      // even on an abort, so the operator sees what happened. Duration is
-      // human-readable ("45s", "1m 20s", "1h 12m 45s") with LOCALIZED unit
-      // labels, instead of a raw seconds count like "3129.2s".
-      const summary = theme.dim(
-        t('msg.task_summary', {
+      // T7: one summary line per task (duration + tool calls + tokens spent).
+      // Printed even on an abort, so the operator sees what happened. Duration
+      // is human-readable ("45s", "1m 20s", "1h 12m 45s") with LOCALIZED unit
+      // labels, instead of a raw seconds count like "3129.2s". The token part
+      // is the DELTA of the cumulative counter for THIS task; it is omitted
+      // when the counter is unknown.
+      const tokensAfter = getTokenUsage ? getTokenUsage() : null
+      const tokenDelta =
+        typeof tokensBefore === 'number' && typeof tokensAfter === 'number'
+          ? Math.max(0, tokensAfter - tokensBefore)
+          : null
+      const summaryParts = [
+        t('task_sum.dur', {
           dur: formatDuration(Date.now() - taskStart, {
             h: t('dur.h'),
             m: t('dur.m'),
             s: t('dur.s'),
           }),
-          tools: String(taskTools),
         }),
-      )
+        t('task_sum.tools', { n: String(taskTools) }),
+      ]
+      if (tokenDelta !== null) {
+        summaryParts.push(
+          t('task_sum.tokens', { n: formatCompactTokens(tokenDelta) }),
+        )
+      }
+      const summary = theme.taskSummary('· ' + summaryParts.join(' · '))
       if (editor) editor.printAbove(summary)
       else console.log(summary)
 

@@ -522,10 +522,11 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: '   Похоже, вы в контейнере/Dev Container: клипборд Windows отсюда недоступен. Вставьте путь к файлу (например tmp/pic.png) — он приложится к сообщению.',
     en: '   Looks like a container/Dev Container: the Windows clipboard is not reachable from here. Paste a path to a file (e.g. tmp/pic.png) — it will be attached to the message.',
   },
-  'msg.task_summary': {
-    ru: '· задача: {dur} · инструментов: {tools}',
-    en: '· task: {dur} · tools: {tools}',
-  },
+  // Per-task summary parts (joined with "·" by index.ts). Split into separate
+  // keys so the tokens part can be omitted when the counter is unknown.
+  'task_sum.dur': { ru: 'задача: {dur}', en: 'task: {dur}' },
+  'task_sum.tools': { ru: 'инструментов: {n}', en: 'tools: {n}' },
+  'task_sum.tokens': { ru: 'токенов: {n}', en: 'tokens: {n}' },
   // Unit labels for the localized task duration (see formatDuration).
   'dur.h': { ru: 'ч', en: 'h' },
   'dur.m': { ru: 'м', en: 'm' },

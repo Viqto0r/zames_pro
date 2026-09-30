@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   LineEditor,
   formatTokenStatus,
+  formatCompactTokens,
   tokenStatusLevel,
   CONTEXT_LIMIT,
   CONTEXT_YELLOW_PCT,
@@ -34,6 +35,19 @@ test('formatTokenStatus: null/undefined/NaN hide the status', () => {
 
 test('formatTokenStatus: honors a custom limit', () => {
   assert.equal(formatTokenStatus(50, 100), 'ctx: 50 · 50%')
+})
+
+test('formatCompactTokens: k/M compaction, shared with the context counter', () => {
+  assert.equal(formatCompactTokens(0), '0')
+  assert.equal(formatCompactTokens(999), '999')
+  assert.equal(formatCompactTokens(10_000), '10k')
+  assert.equal(formatCompactTokens(125_000), '125k')
+  assert.equal(formatCompactTokens(1_000_000), '1M')
+  assert.equal(formatCompactTokens(1_500_000), '1.5M')
+  // Invalid input renders an empty string (the token part is omitted).
+  assert.equal(formatCompactTokens(null), '')
+  assert.equal(formatCompactTokens(Number.NaN), '')
+  assert.equal(formatCompactTokens(-1), '')
 })
 
 test('tokenStatusLevel: green/yellow/red thresholds', () => {
