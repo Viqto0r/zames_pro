@@ -134,6 +134,17 @@ export function nextCronTime(expr: string, fromMs: number): number | null {
   return null
 }
 
+// One listing line for a job: "#3 [every 10m, next ~5m] run the tests". Pure,
+// so the /jobs formatting is unit-tested without a live scheduler.
+export function formatJobLine(job: ScheduleJob, now: number): string {
+  const when =
+    job.kind === 'loop'
+      ? 'every ' + formatInterval(job.intervalMs || 0)
+      : job.cron || ''
+  const nextIn = formatInterval(Math.max(0, job.nextAt - now))
+  return '  #' + job.id + ' [' + when + ', next ~' + nextIn + '] ' + job.task
+}
+
 // Holds the scheduled jobs. Pure: no timers here. index.ts drives it with a
 // 1-second tick and enqueues the tasks that `due()` returns.
 export class Scheduler {

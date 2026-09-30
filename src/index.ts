@@ -84,6 +84,7 @@ import {
   Scheduler,
   parseInterval,
   formatInterval,
+  formatJobLine,
   parseCron,
 } from './scheduler.js'
 import { renderMarkdown } from './markdown.js'
@@ -2851,16 +2852,7 @@ async function main(): Promise<void> {
       }
       console.log(theme.system(t('sched.title')))
       for (const j of jobs) {
-        const when =
-          j.kind === 'loop'
-            ? 'every ' + formatInterval(j.intervalMs || 0)
-            : j.cron || ''
-        const nextIn = formatInterval(Math.max(0, j.nextAt - Date.now()))
-        console.log(
-          theme.assistant(
-            '  #' + j.id + ' [' + when + ', next ~' + nextIn + '] ' + j.task,
-          ),
-        )
+        console.log(theme.assistant(formatJobLine(j, Date.now())))
       }
       console.log(theme.dim(t('sched.remove_hint')))
       continue

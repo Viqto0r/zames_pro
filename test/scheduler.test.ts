@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   parseInterval,
   formatInterval,
+  formatJobLine,
   parseCron,
   cronMatches,
   nextCronTime,
@@ -119,4 +120,30 @@ test('Scheduler: addCron computes nextAt', () => {
   assert.ok(job)
   assert.ok((job as { nextAt: number }).nextAt > now)
   assert.equal(s.addCron('bad expr', 'x', now), null)
+})
+
+test('formatJobLine renders loop and cron jobs', () => {
+  const now = 1_000_000
+  const loop = {
+    id: 1,
+    kind: 'loop' as const,
+    task: 'run tests',
+    intervalMs: 600_000,
+    nextAt: now + 300_000,
+    createdAt: now,
+  }
+  const line = formatJobLine(loop, now)
+  assert.ok(line.includes('#1'))
+  assert.ok(line.includes('every 10m'))
+  assert.ok(line.includes('next ~5m'))
+  assert.ok(line.includes('run tests'))
+  const cron = {
+    id: 2,
+    kind: 'cron' as const,
+    task: 'morning',
+    cron: '0 9 * * *',
+    nextAt: now + 3_600_000,
+    createdAt: now,
+  }
+  assert.ok(formatJobLine(cron, now).includes('0 9 * * *'))
 })
