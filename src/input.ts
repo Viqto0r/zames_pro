@@ -371,6 +371,13 @@ export class LineEditor {
   contextStatus: string | null
   // The raw token count behind contextStatus (for the color level).
   contextTokens: number | null
+  // Number of messages waiting in the queue, shown as a small "⧗N" badge in
+  // the status line so the operator sees that typed-ahead messages are still
+  // pending. 0 hides it. Updated by the caller.
+  queueLength: number
+  // A callback the editor calls before every render to read the CURRENT queue
+  // length, so the badge stays live without the caller polling.
+  onQueueQuery: (() => number) | null
   // Whether the DeepSeek "Deep thinking" / "Smart search" toggles are ON.
   // Shown as two colored icons before the context counter: a dim gray icon
   // means off, a teal-green icon means on.
@@ -453,6 +460,8 @@ export class LineEditor {
     this.contextLimit = CONTEXT_LIMIT
     this.onToggleQuery = null
     this.onContextQuery = null
+    this.queueLength = 0
+    this.onQueueQuery = null
   }
 
   // Refresh the toggle icon states from onToggleQuery (if wired) before a
@@ -497,6 +506,22 @@ export class LineEditor {
     if (level === 'high') return theme.error(ctx)
     if (level === 'warn') return theme.warn(ctx)
     return theme.success(ctx)
+  }
+
+  // The queue badge ("⧗N") shown before the context counter when messages are
+  // waiting. Returns '' when the queue is empty, so it never clutters an idle
+  // status line. Refreshed from onQueueQuery before every render when wired.
+  _queueBadge(): string {
+    if (this.onQueueQuery) {
+      try {
+        const n = this.onQueueQuery()
+        this.queueLength = typeof n === 'number' && n > 0 ? n : 0
+      } catch {
+        // A broken callback must never break the render.
+      }
+    }
+    if (this.queueLength <= 0) return ''
+    return theme.warn('⧗' + this.queueLength) + ' '
   }
 
   // Icons for the DeepSeek toggles: 🧠 "Deep thinking" and 🌐 "Smart search",
@@ -736,7 +761,7 @@ export class LineEditor {
     // but the icons are still meaningful.
     const ctxRaw = this._contextText()
     this._refreshToggles()
-    const ctxText = this._toggleIcons() + ctxRaw
+    const ctxText = this._queueBadge() + this._toggleIcons() + ctxRaw
     let statusOut = ''
     let top = 0
     // Never fill a row to the FULL terminal width: on terminals with

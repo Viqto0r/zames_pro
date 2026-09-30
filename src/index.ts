@@ -1747,6 +1747,9 @@ async function main(): Promise<void> {
     // The editor pulls the number on every render, so it follows the live
     // DeepSeek counter (accumulated_token_usage) without a polling timer.
     ed.onContextQuery = () => browser.getLastTokenUsage()
+    // Queue badge: show "⧗N" while messages are waiting to be sent after the
+    // current task. Pulled on every render (like the context counter).
+    ed.onQueueQuery = () => pendingQueue.length
     // Use the configured context window for the fill percentage/color.
     ed.setContextLimit(config.ui.contextLimit)
     // Toggle icons (🧠 deep thinking, 🌐 web search) before the context

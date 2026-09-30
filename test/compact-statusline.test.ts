@@ -107,6 +107,25 @@ test('a throwing onContextQuery does not break the render', () => {
   assert.equal(e._contextForRender(), null)
 })
 
+test('queue badge shows only when messages are waiting', () => {
+  const e = new LineEditor()
+  e._render = () => {}
+  assert.equal(e._queueBadge(), '')
+  e.queueLength = 3
+  assert.ok(e._queueBadge().includes('3'))
+  // onQueueQuery overrides the stored value on each render.
+  let q = 0
+  e.onQueueQuery = () => q
+  assert.equal(e._queueBadge(), '')
+  q = 2
+  assert.ok(e._queueBadge().includes('2'))
+  // A throwing callback must not break the render (keeps the last value).
+  e.onQueueQuery = () => {
+    throw new Error('boom')
+  }
+  assert.ok(e._queueBadge().includes('2'))
+})
+
 // ---------- /compact prompt helpers ----------
 
 test('buildCompactPrompt: both languages, self-sufficient instructions', () => {
