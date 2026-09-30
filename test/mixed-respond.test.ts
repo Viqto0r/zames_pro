@@ -88,7 +88,10 @@ test('mixed respond+tools still runs the tools first', async () => {
     { tool: 'Echo', args: { v: '1' } },
     { tool: 'respond', args: { message: 'готово' } },
   ])
-  const { browser } = makeBrowser([mixed, jsonCall('respond', { message: 'done' })])
+  const { browser } = makeBrowser([
+    mixed,
+    jsonCall('respond', { message: 'done' }),
+  ])
   const result = await runAgentLoop({
     browser,
     tools: [echo, respondTool],

@@ -30,7 +30,9 @@ test('a non-completion body with a content field does not set _netCapture', asyn
 test('a completion body with a content field sets _netCapture', async () => {
   const b = new DeepSeekBrowser()
   const sse =
-    'data: ' + JSON.stringify({ choices: [{ delta: { content: 'REAL' } }] }) + '\n'
+    'data: ' +
+    JSON.stringify({ choices: [{ delta: { content: 'REAL' } }] }) +
+    '\n'
   const resp = fakeResponse(
     'https://chat.deepseek.com/api/v0/chat/completion',
     sse,

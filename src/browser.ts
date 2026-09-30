@@ -1685,141 +1685,145 @@ export class DeepSeekBrowser {
         } catch (e) {
           lastErr = e as Error
 
-        // Rate limit: DeepSeek did not accept the message. We wait a long time
-        // and resend into the SAME chat (without newChat — otherwise the
-        // context is lost). The waits don't consume the regular ask() attempts.
-        if (e instanceof RateLimitError) {
-          rateLimitRetries++
-          if (rateLimitRetries > this.maxRateLimitRetries) {
-            this._notice(
-              theme.error(
-                this._t('ds.rate_limit_give_up', {
-                  attempt: rateLimitRetries,
-                  min: Math.ceil(this.rateLimitWaitMs / 60000),
-                }),
-              ),
-            )
-            throw e
-          }
-          this._notice(
-            theme.warn(
-              this._t('ds.rate_limit_wait', {
-                min: Math.ceil(this.rateLimitWaitMs / 60000),
-                attempt: rateLimitRetries,
-                max: this.maxRateLimitRetries,
-              }),
-            ),
-          )
-          // Interruptible: Esc/Ctrl+C must cancel this long wait too,
-          // otherwise "stop" stays frozen for up to 5 minutes.
-          // The wait is ANIMATED through onSendPause (a live countdown), so the
-          // operator sees the agent is waiting on the rate limit instead of a
-          // frozen spinner. `_lastSentAt` is bumped so the countdown renders.
-          const waitSec = Math.ceil(this.rateLimitWaitMs / 1000)
-          const aborted = await this._waitRateLimit(waitSec)
-          if (aborted) return '(прервано пользователем)'
-          continue
-        }
-
-        // Server busy / overloaded: clear in seconds, so we retry quickly
-        // (unlike the rate limit). Without this branch the error fell into the
-        // generic ask() retry and the operator saw a bare message with no
-        // explanation of what DeepSeek is doing.
-        if (e instanceof ServerBusyError) {
-          serverBusyRetries++
-          if (serverBusyRetries > this.maxServerBusyRetries) {
-            this._notice(
-              theme.error(
-                this._t('ds.server_busy_give_up', {
-                  attempt: serverBusyRetries,
-                }),
-              ),
-            )
-            throw e
-          }
-          this._notice(
-            theme.warn(
-              this._t('ds.server_busy_wait', {
-                sec: Math.ceil(this.serverBusyWaitMs / 1000),
-                attempt: serverBusyRetries,
-                max: this.maxServerBusyRetries,
-              }),
-            ),
-          )
-          const aborted = await this._sleepInterruptible(this.serverBusyWaitMs)
-          if (aborted) return '(прервано пользователем)'
-          continue
-        }
-
-        // The turn was TRUNCATED by the server (`generation_err`, INCOMPLETE):
-        // DeepSeek answered with a partial (often empty) answer and shows a
-        // "Continue" button. In reasoning mode this is much more likely. We
-        // resend the SAME prompt into the chat (that is what the Continue
-        // button does) instead of waiting for an answer that will never come.
-        if (e instanceof GenerationIncompleteError) {
-          incompleteRetries++
-          if (incompleteRetries > this.maxIncompleteRetries) {
-            this._notice(
-              theme.error(
-                this._t('ds.incomplete_give_up', {
-                  attempt: incompleteRetries,
-                }),
-              ),
-            )
-            throw e
-          }
-          this._notice(
-            theme.warn(
-              this._t('ds.incomplete_retry', {
-                attempt: incompleteRetries,
-                max: this.maxIncompleteRetries,
-              }),
-            ),
-          )
-          const aborted = await this._sleepInterruptible(this.incompleteWaitMs)
-          if (aborted) return '(прервано пользователем)'
-          continue
-        }
-
-        this._notice(
-          theme.warn(
-            this._t('ds.ask_retry', {
-              attempt: attempt + 1,
-              max: this.askRetries,
-              error: (e as Error).message,
-            }),
-          ),
-        )
-
-        // Only a genuinely LOST page justifies a restart. "Target page,
-        // context or browser has been closed" means the page is gone for good;
-        // a bare "browser" mention (e.g. a selector error containing the word)
-        // must NOT tear the window down — that was the "a new window opened"
-        // surprise during a resumed chat. We re-open the SAME context instead.
-        if (
-          /target page, context or browser has been closed|page.*has been closed/i.test(
-            (e as Error).message,
-          )
-        ) {
-          this._notice(theme.warn(this._t('ds.ask_restart_browser')))
-          try {
-            await this.restart()
-            await this.waitForLogin()
-          } catch (re) {
+          // Rate limit: DeepSeek did not accept the message. We wait a long time
+          // and resend into the SAME chat (without newChat — otherwise the
+          // context is lost). The waits don't consume the regular ask() attempts.
+          if (e instanceof RateLimitError) {
+            rateLimitRetries++
+            if (rateLimitRetries > this.maxRateLimitRetries) {
+              this._notice(
+                theme.error(
+                  this._t('ds.rate_limit_give_up', {
+                    attempt: rateLimitRetries,
+                    min: Math.ceil(this.rateLimitWaitMs / 60000),
+                  }),
+                ),
+              )
+              throw e
+            }
             this._notice(
               theme.warn(
-                this._t('ds.ask_restart_failed', {
-                  error: (re as Error).message,
+                this._t('ds.rate_limit_wait', {
+                  min: Math.ceil(this.rateLimitWaitMs / 60000),
+                  attempt: rateLimitRetries,
+                  max: this.maxRateLimitRetries,
                 }),
               ),
             )
+            // Interruptible: Esc/Ctrl+C must cancel this long wait too,
+            // otherwise "stop" stays frozen for up to 5 minutes.
+            // The wait is ANIMATED through onSendPause (a live countdown), so the
+            // operator sees the agent is waiting on the rate limit instead of a
+            // frozen spinner. `_lastSentAt` is bumped so the countdown renders.
+            const waitSec = Math.ceil(this.rateLimitWaitMs / 1000)
+            const aborted = await this._waitRateLimit(waitSec)
+            if (aborted) return '(прервано пользователем)'
+            continue
           }
-        }
 
-        if (attempt < this.askRetries - 1) {
-          await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)))
-        }
-        attempt++
+          // Server busy / overloaded: clear in seconds, so we retry quickly
+          // (unlike the rate limit). Without this branch the error fell into the
+          // generic ask() retry and the operator saw a bare message with no
+          // explanation of what DeepSeek is doing.
+          if (e instanceof ServerBusyError) {
+            serverBusyRetries++
+            if (serverBusyRetries > this.maxServerBusyRetries) {
+              this._notice(
+                theme.error(
+                  this._t('ds.server_busy_give_up', {
+                    attempt: serverBusyRetries,
+                  }),
+                ),
+              )
+              throw e
+            }
+            this._notice(
+              theme.warn(
+                this._t('ds.server_busy_wait', {
+                  sec: Math.ceil(this.serverBusyWaitMs / 1000),
+                  attempt: serverBusyRetries,
+                  max: this.maxServerBusyRetries,
+                }),
+              ),
+            )
+            const aborted = await this._sleepInterruptible(
+              this.serverBusyWaitMs,
+            )
+            if (aborted) return '(прервано пользователем)'
+            continue
+          }
+
+          // The turn was TRUNCATED by the server (`generation_err`, INCOMPLETE):
+          // DeepSeek answered with a partial (often empty) answer and shows a
+          // "Continue" button. In reasoning mode this is much more likely. We
+          // resend the SAME prompt into the chat (that is what the Continue
+          // button does) instead of waiting for an answer that will never come.
+          if (e instanceof GenerationIncompleteError) {
+            incompleteRetries++
+            if (incompleteRetries > this.maxIncompleteRetries) {
+              this._notice(
+                theme.error(
+                  this._t('ds.incomplete_give_up', {
+                    attempt: incompleteRetries,
+                  }),
+                ),
+              )
+              throw e
+            }
+            this._notice(
+              theme.warn(
+                this._t('ds.incomplete_retry', {
+                  attempt: incompleteRetries,
+                  max: this.maxIncompleteRetries,
+                }),
+              ),
+            )
+            const aborted = await this._sleepInterruptible(
+              this.incompleteWaitMs,
+            )
+            if (aborted) return '(прервано пользователем)'
+            continue
+          }
+
+          this._notice(
+            theme.warn(
+              this._t('ds.ask_retry', {
+                attempt: attempt + 1,
+                max: this.askRetries,
+                error: (e as Error).message,
+              }),
+            ),
+          )
+
+          // Only a genuinely LOST page justifies a restart. "Target page,
+          // context or browser has been closed" means the page is gone for good;
+          // a bare "browser" mention (e.g. a selector error containing the word)
+          // must NOT tear the window down — that was the "a new window opened"
+          // surprise during a resumed chat. We re-open the SAME context instead.
+          if (
+            /target page, context or browser has been closed|page.*has been closed/i.test(
+              (e as Error).message,
+            )
+          ) {
+            this._notice(theme.warn(this._t('ds.ask_restart_browser')))
+            try {
+              await this.restart()
+              await this.waitForLogin()
+            } catch (re) {
+              this._notice(
+                theme.warn(
+                  this._t('ds.ask_restart_failed', {
+                    error: (re as Error).message,
+                  }),
+                ),
+              )
+            }
+          }
+
+          if (attempt < this.askRetries - 1) {
+            await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)))
+          }
+          attempt++
         }
       }
 
@@ -2198,8 +2202,7 @@ export class DeepSeekBrowser {
     let settledTicks = 0
     let lastStartCur = ''
     while (Date.now() < startDeadline) {
-      if (this._abort || this._askCancelled)
-        return '(прервано пользователем)'
+      if (this._abort || this._askCancelled) return '(прервано пользователем)'
       const pageText = await this._readPageText()
       if (isRateLimitText(pageText)) {
         throw new RateLimitError(pageText.slice(0, 300))
@@ -2374,8 +2377,7 @@ export class DeepSeekBrowser {
       this._lastSentAt = Date.now()
       const retryDeadline = Date.now() + 20_000
       while (Date.now() < retryDeadline) {
-        if (this._abort || this._askCancelled)
-          return '(прервано пользователем)'
+        if (this._abort || this._askCancelled) return '(прервано пользователем)'
         const cur2 = await this._readLastAnswerTextCleanDom().catch(() => '')
         const net2 =
           !!this._netCapture && this._netCaptureAt >= this._lastSentAt

@@ -27,7 +27,10 @@ test('a manual turn (no ask in flight) bumps _lastSentAt', async () => {
   const before = (b as unknown as { _lastSentAt: number })._lastSentAt
   assert.equal(before, 0)
   await b._onResponse(
-    fakeResponse('https://chat.deepseek.com/api/v0/chat/completion', OK_BODY) as never,
+    fakeResponse(
+      'https://chat.deepseek.com/api/v0/chat/completion',
+      OK_BODY,
+    ) as never,
   )
   const after = (b as unknown as { _lastSentAt: number })._lastSentAt
   assert.ok(after > 0, 'operator turn should set _lastSentAt')
@@ -39,7 +42,10 @@ test('a body during OUR own ask does NOT re-bump _lastSentAt', async () => {
   any._askInFlight = 1
   any._lastSentAt = 111
   await b._onResponse(
-    fakeResponse('https://chat.deepseek.com/api/v0/chat/completion', OK_BODY) as never,
+    fakeResponse(
+      'https://chat.deepseek.com/api/v0/chat/completion',
+      OK_BODY,
+    ) as never,
   )
   assert.equal(any._lastSentAt, 111, 'our own send must not be re-timestamped')
 })

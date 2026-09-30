@@ -47,10 +47,15 @@ test('a normal answer does NOT set the rate-limit flag', async () => {
   const b = new DeepSeekBrowser()
   const ok =
     'data: ' +
-    JSON.stringify({ choices: [{ delta: { content: '{"tool": "respond"}' } }] }) +
+    JSON.stringify({
+      choices: [{ delta: { content: '{"tool": "respond"}' } }],
+    }) +
     '\n'
   await b._onResponse(
-    fakeResponse('https://chat.deepseek.com/api/v0/chat/completion', ok) as never,
+    fakeResponse(
+      'https://chat.deepseek.com/api/v0/chat/completion',
+      ok,
+    ) as never,
   )
   assert.equal(
     (b as unknown as { _netRateLimited: boolean })._netRateLimited,

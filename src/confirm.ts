@@ -76,8 +76,7 @@ export class ConfirmManager {
     }
 
     const t = translate(this.locale)
-    const label =
-      message || t('confirm.ask_label') + ' ' + kind + '?'
+    const label = message || t('confirm.ask_label') + ' ' + kind + '?'
     const question =
       theme.warn(`${label} `) +
       theme.system('[') +
