@@ -56,19 +56,20 @@ export function renderContextSection(
         s.allowedTools && s.allowedTools.length
           ? ' [tools: ' + s.allowedTools.join(', ') + ']'
           : ''
+      // A built-in skill (no file on disk) says so instead of an empty path.
+      const loc = s.path ? '\n  file: ' + s.path : '\n  (built-in)'
       return (
         '- ' +
         s.name +
         tools +
         ': ' +
         (s.description || '(no description)') +
-        '\n  file: ' +
-        s.path
+        loc
       )
     })
     out +=
       '\n## Skills\n\n' +
-      'Specialized workflows available as SKILL.md files. When a task matches a skill description, read its file and follow its instructions. Skills are progressive disclosure: only read the body when the skill applies.\n\n' +
+      'Specialized workflows. A skill with a `file:` is a SKILL.md on disk (read it when it applies); a `(built-in)` skill has no file — the operator can invoke it with /<name> and its instructions arrive as the task. Skills are progressive disclosure: only read the body when the skill applies.\n\n' +
       lines.join('\n') +
       '\n'
   }

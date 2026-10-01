@@ -47,6 +47,33 @@ test('loadSkills parses allowed-tools and user-invokable', async () => {
   assert.equal(s!.userInvokable, false)
 })
 
+test('loadSkills includes built-in skills with an inline body', async () => {
+  const root = await mkTmp()
+  const skills = await loadSkills(root)
+  const commit = skills.find((x) => x.name === 'commit')
+  assert.ok(commit, 'built-in commit skill should be present')
+  assert.equal(commit!.path, '')
+  assert.ok((commit!.builtinBody || '').length > 0)
+  assert.equal(commit!.userInvokable, true)
+})
+
+test('a project skill overrides a built-in with the same name', async () => {
+  const root = await mkTmp()
+  const dir = path.join(root, '.zames', 'skills', 'commit')
+  await fs.mkdir(dir, { recursive: true })
+  await fs.writeFile(
+    path.join(dir, 'SKILL.md'),
+    '---\nname: commit\ndescription: my own commit flow\n---\ncustom body',
+    'utf-8',
+  )
+  const skills = await loadSkills(root)
+  const commit = skills.find((x) => x.name === 'commit')
+  assert.ok(commit)
+  assert.equal(commit!.source, 'project')
+  assert.equal(commit!.description, 'my own commit flow')
+  assert.equal(commit!.builtinBody, undefined)
+})
+
 test('loadCommands reads .zames/commands/*.md', async () => {
   const root = await mkTmp()
   const dir = path.join(root, '.zames', 'commands')

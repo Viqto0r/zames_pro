@@ -31,6 +31,86 @@ export interface SkillInfo {
   allowedTools?: string[]
   source: 'project' | 'global'
   userInvokable: boolean
+  // Body of a BUILT-IN skill (not read from disk). Present only for built-ins
+  // that no project/global SKILL.md overrode; expandSlashTarget reads it
+  // directly instead of the file at `path`.
+  builtinBody?: string
+}
+
+// Built-in skills, always available unless a project/global skill with the
+// same name overrides them (real files win). They give the agent proven,
+// reusable workflows in the spirit of Claude Code / Codex. English only (the
+// body goes into the agent-facing task text).
+const BUILTIN_SKILLS: Array<{
+  name: string
+  description: string
+  body: string
+}> = [
+  {
+    name: 'commit',
+    description:
+      'Prepare a clean git commit from the current changes (stage, message).',
+    body:
+      'Prepare a commit from the current working-tree changes. Steps:\n' +
+      '1. Run `git status` and `git diff` (and `git diff --staged`) to see exactly what changed.\n' +
+      '2. Stage ONLY the files that belong to the intended change — never `git add -A` blindly.\n' +
+      '3. Write a short imperative subject line (<=72 chars) and an optional body explaining WHY.\n' +
+      '4. Commit with `git commit`. Do NOT push.\n' +
+      'If the changes are unrelated or include junk, report that and ask before committing.',
+  },
+  {
+    name: 'review',
+    description:
+      'Review the current diff for bugs, risks and style issues (no code changes).',
+    body:
+      'Review the current uncommitted diff. Do NOT change any code — only report.\n' +
+      '1. Get the diff with `git diff` (and `git diff --staged`).\n' +
+      '2. Look for real problems: correctness bugs, unhandled edge cases, races, ' +
+      'silent failures, security issues, broken error handling.\n' +
+      '3. For each finding give file:line, what is wrong and WHY it matters.\n' +
+      '4. End with a short verdict: safe to commit / needs fixes, and list the must-fix items first.',
+  },
+  {
+    name: 'test',
+    description: 'Run the project tests and fix failures until green.',
+    body:
+      'Run the project test suite and make it green. Steps:\n' +
+      '1. Find the test command (package.json scripts, Makefile, README).\n' +
+      '2. Run it. If it passes, report the result and stop.\n' +
+      '3. On failure, read the failing test and the code it exercises. Fix the ROOT cause ' +
+      '(do not weaken or delete the test to make it pass, unless the test itself is wrong).\n' +
+      '4. Re-run until it passes. Report what changed and the final result.',
+  },
+  {
+    name: 'debug',
+    description: 'Systematically diagnose and fix a bug.',
+    body:
+      'Diagnose a bug systematically. Steps:\n' +
+      '1. Reproduce it: find the smallest command/steps that show the failure.\n' +
+      '2. Form a hypothesis about the cause and find evidence in the code (read the actual code path).\n' +
+      '3. Narrow it down (logs, a focused test, a minimal repro) BEFORE editing.\n' +
+      '4. Fix the ROOT cause, not the symptom. Add a regression test that fails before and passes after.\n' +
+      '5. Verify the fix and report the cause, the change and the test.',
+  },
+  {
+    name: 'explain',
+    description: 'Explain how a file/module/feature works.',
+    body:
+      'Explain how the requested code works, for a developer new to it.\n' +
+      '1. Read the relevant files (start from the entry point and follow the calls).\n' +
+      '2. Give a concise overview: what it does, its inputs/outputs, the main flow.\n' +
+      '3. Call out non-obvious details: side effects, ordering, error handling, ' +
+      'couplings, and any WHY-comments that matter.\n' +
+      '4. Do NOT change code. Answer in the operator language.',
+  },
+]
+
+export function builtinSkills(): Array<{
+  name: string
+  description: string
+  body: string
+}> {
+  return BUILTIN_SKILLS
 }
 
 export interface CustomCommand {
@@ -248,6 +328,23 @@ export async function loadSkills(workdir: string): Promise<SkillInfo[]> {
     }
   }
   found.sort((a, b) => a.name.localeCompare(b.name))
+  // Built-in skills come LAST (lowest priority): any project/global skill
+  // with the same name already claimed `seen` and wins. Only the not-overridden
+  // built-ins are appended, with an empty path and the body inline.
+  for (const b of BUILTIN_SKILLS) {
+    const key = b.name.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    found.push({
+      name: b.name,
+      description: b.description,
+      path: '',
+      dir: '',
+      source: 'global',
+      userInvokable: true,
+      builtinBody: b.body,
+    })
+  }
   return found
 }
 

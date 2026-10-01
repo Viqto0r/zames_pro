@@ -617,14 +617,18 @@ async function expandSlashTarget(
     )
     if (skill) {
       let body = ''
-      try {
-        const raw = await fs.readFile(skill.path, 'utf-8')
-        body = skillBody(raw)
-      } catch {
-        body = ''
+      if (skill.builtinBody !== undefined) {
+        body = skill.builtinBody
+      } else {
+        try {
+          const raw = await fs.readFile(skill.path, 'utf-8')
+          body = skillBody(raw)
+        } catch {
+          body = ''
+        }
       }
-      const header =
-        'Follow the skill "' + skill.name + '" (from ' + skill.path + ').'
+      const from = skill.path ? ' (from ' + skill.path + ')' : ' (built-in)'
+      const header = 'Follow the skill "' + skill.name + '"' + from + '.'
       const extra = rest
         ? '\n\nAdditional instructions from the operator: ' + rest
         : ''
@@ -2945,13 +2949,14 @@ async function main(): Promise<void> {
           theme.system(t('skills.title', { n: String(skills.length) })),
         )
         for (const s of skills) {
+          const src = s.path ? s.source : 'built-in'
           console.log(
             '  ' +
               theme.user('/' + s.name) +
-              theme.dim(' [' + s.source + '] ') +
+              theme.dim(' [' + src + '] ') +
               (s.description || theme.dim(t('common.none'))),
           )
-          console.log(theme.dim('      ' + s.path))
+          if (s.path) console.log(theme.dim('      ' + s.path))
         }
       }
       continue
