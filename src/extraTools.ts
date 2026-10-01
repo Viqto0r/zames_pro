@@ -28,17 +28,42 @@ export interface TodoItem {
   status: 'pending' | 'in_progress' | 'completed'
 }
 
-// The todo list is per-process session state. It is deliberately NOT
-// persisted: a fresh run starts with an empty list, like Claude Code's
-// session checklist.
-const todoList: TodoItem[] = []
-
-export function getTodos(): TodoItem[] {
-  return todoList.map((t) => ({ ...t }))
+// The todo list is session state. It lives in a TodoStore so the caller can
+// inject ONE shared instance (index.ts does): the logic modules are
+// hot-reloadable, and module-level state here would be silently lost on
+// /reload. The default store keeps the simple callers (tests) working.
+export interface TodoStore {
+  items: TodoItem[]
+  /** Called after every change so the caller can persist the list. */
+  onChange?: (items: TodoItem[]) => void
 }
 
-export function resetTodos(): void {
-  todoList.length = 0
+const defaultTodoStore: TodoStore = { items: [] }
+
+export function createTodoStore(
+  onChange?: (items: TodoItem[]) => void,
+): TodoStore {
+  return { items: [], onChange }
+}
+
+export function getTodos(store: TodoStore = defaultTodoStore): TodoItem[] {
+  return store.items.map((t) => ({ ...t }))
+}
+
+export function resetTodos(store: TodoStore = defaultTodoStore): void {
+  store.items.length = 0
+}
+
+// Replace the whole list. Used by TodoWrite and by the session restore (which
+// re-injects the persisted checklist).
+export function setTodos(
+  items: TodoItem[],
+  store: TodoStore = defaultTodoStore,
+): void {
+  const clean = normalizeTodos(items)
+  store.items.length = 0
+  store.items.push(...clean)
+  store.onChange?.(store.items.map((t) => ({ ...t })))
 }
 
 export function renderTodos(items: TodoItem[]): string {
@@ -199,8 +224,9 @@ export function applyUpdateHunk(
 
 export function createExtraTools(
   workdir: string,
-  { undo }: { undo?: UndoStore | null } = {},
+  { undo, todos }: { undo?: UndoStore | null; todos?: TodoStore } = {},
 ): ToolDef[] {
+  const todoStore = todos || defaultTodoStore
   const root = path.resolve(workdir)
   const safe = (p: string): string => {
     const resolved = path.resolve(root, p)
@@ -343,10 +369,8 @@ export function createExtraTools(
         } else {
           throw new Error('todos must be an array.')
         }
-        const items = normalizeTodos(list)
-        todoList.length = 0
-        todoList.push(...items)
-        return renderTodos(todoList)
+        setTodos(normalizeTodos(list), todoStore)
+        return renderTodos(todoStore.items)
       },
     },
 

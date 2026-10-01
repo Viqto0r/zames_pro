@@ -169,6 +169,11 @@ export interface Session {
   workdir: string
   createdAt: string
   updatedAt: string
+  /**
+   * The agent's TodoWrite checklist, restored with the session so a resumed
+   * chat keeps its task list. Optional: older session files have no field.
+   */
+  todos?: Array<{ content: string; status: string }>
 }
 
 export interface SessionsIndex {

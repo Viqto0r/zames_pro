@@ -93,3 +93,32 @@ test('a throwing onToggleQuery does not break the render', () => {
   e._refreshToggles()
   assert.equal(e.thinkingEnabled, true)
 })
+
+// I2: the task-list summary ("tasks: 2/5") shown before the context counter.
+// Empty when onTasksQuery is not wired or returns nothing, so an idle status
+// line is not cluttered.
+
+test('_tasksBadge is empty without a callback', () => {
+  const e = new LineEditor()
+  assert.equal(e._tasksBadge(), '')
+})
+
+test('_tasksBadge shows the summary from onTasksQuery', () => {
+  const e = new LineEditor()
+  e.onTasksQuery = () => 'tasks: 2/5'
+  assert.ok(e._tasksBadge().includes('tasks: 2/5'))
+})
+
+test('_tasksBadge is empty when the callback returns nothing', () => {
+  const e = new LineEditor()
+  e.onTasksQuery = () => ''
+  assert.equal(e._tasksBadge(), '')
+})
+
+test('_tasksBadge survives a throwing callback', () => {
+  const e = new LineEditor()
+  e.onTasksQuery = () => {
+    throw new Error('boom')
+  }
+  assert.equal(e._tasksBadge(), '')
+})

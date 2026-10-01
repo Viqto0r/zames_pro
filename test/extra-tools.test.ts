@@ -5,11 +5,13 @@ import path from 'path'
 import os from 'os'
 import {
   createExtraTools,
+  createTodoStore,
   parsePatch,
   applyUpdateHunk,
   renderTodos,
   normalizeTodos,
   getTodos,
+  setTodos,
   resetTodos,
 } from '../src/extraTools.ts'
 import { createTools } from '../src/tools.ts'
@@ -364,5 +366,51 @@ test('Read сырой вывод подходит для Edit old_string', async
     await fs.readFile(path.join(dir, 'a.txt'), 'utf-8'),
     'foo QUX baz',
   )
+  await fs.rm(dir, { recursive: true, force: true })
+})
+
+// ---------- TodoStore (I2: per-session, persisted checklist) ----------
+
+test('TodoStore: изменения идут в переданный store, а не в модульный', async () => {
+  resetTodos()
+  const dir = await tmpDir()
+  const store = createTodoStore()
+  const tools = createExtraTools(dir, { todos: store })
+  await tool(tools, 'TodoWrite').fn({
+    todos: [{ content: 'x', status: 'pending' }],
+  })
+  assert.equal(store.items.length, 1)
+  // The default module-level store is untouched.
+  assert.equal(getTodos().length, 0)
+  await fs.rm(dir, { recursive: true, force: true })
+})
+
+test('TodoWrite вызывает onChange, чтобы список можно было сохранить', async () => {
+  const dir = await tmpDir()
+  let saved: Array<{ content: string; status: string }> | null = null
+  const store = createTodoStore((items) => {
+    saved = items
+  })
+  const tools = createExtraTools(dir, { todos: store })
+  await tool(tools, 'TodoWrite').fn({
+    todos: [{ content: 'a', status: 'completed' }],
+  })
+  assert.ok(Array.isArray(saved))
+  assert.equal((saved as Array<{ content: string }>)[0].content, 'a')
+  await fs.rm(dir, { recursive: true, force: true })
+})
+
+test('setTodos нормализует и заменяет список целиком', async () => {
+  const dir = await tmpDir()
+  const store = createTodoStore()
+  const tools = createExtraTools(dir, { todos: store })
+  await tool(tools, 'TodoWrite').fn({
+    todos: [{ content: 'old', status: 'pending' }],
+  })
+  setTodos([{ content: 'new', status: 'in_progress' }], store)
+  const items = getTodos(store)
+  assert.equal(items.length, 1)
+  assert.equal(items[0].content, 'new')
+  assert.equal(items[0].status, 'in_progress')
   await fs.rm(dir, { recursive: true, force: true })
 })

@@ -57,3 +57,14 @@ test('повторный saveSession обновляет title, сохраняя 
 test('saveSession с пустым id ничего не делает', () => {
   assert.equal(saveSession({ id: '', workdir: '/p' }), null)
 })
+
+test('saveSession сохраняет todos и не стирает их при обновлении title', () => {
+  const id = 'todos-' + Date.now()
+  const todos = [{ content: 'step 1', status: 'completed' }]
+  const s = saveSession({ id, workdir: '/p', todos })
+  assert.deepEqual(s?.todos, todos)
+  assert.deepEqual(readSession(id)?.todos, todos)
+  // A later saveLastChat-style call (no todos) must keep the existing list.
+  const s2 = saveSession({ id, title: 'T', workdir: '/p' })
+  assert.deepEqual(s2?.todos, todos)
+})

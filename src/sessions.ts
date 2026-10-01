@@ -30,10 +30,12 @@ export function saveSession({
   id,
   title = '',
   workdir = '',
+  todos,
 }: {
   id: string
   title?: string
   workdir?: string
+  todos?: Array<{ content: string; status: string }>
 }): Session | null {
   if (!id) return null
   try {
@@ -51,6 +53,10 @@ export function saveSession({
       createdAt: prev.createdAt || now,
       updatedAt: now,
     }
+    // Keep the previous checklist unless a new one is explicitly passed —
+    // saveLastChat() calls this for title/workdir only and must not wipe it.
+    const nextTodos = todos !== undefined ? todos : prev.todos
+    if (nextTodos !== undefined) data.todos = nextTodos
     fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf-8')
     writeIndex({ id, workdir: data.workdir })
     return data

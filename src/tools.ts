@@ -3,7 +3,7 @@ import path from 'path'
 import { exec, type ExecOptions } from 'child_process'
 import { createGitTools } from './gitTools.js'
 import { createWebTools } from './web.js'
-import { createExtraTools } from './extraTools.js'
+import { createExtraTools, type TodoStore } from './extraTools.js'
 import type { ToolArgs, ToolDef, ToolContext } from './types.js'
 import type { UndoStore } from './undo.js'
 
@@ -14,7 +14,7 @@ import type { UndoStore } from './undo.js'
 
 export function createTools(
   workdir: string,
-  { undo }: { undo?: UndoStore | null } = {},
+  { undo, todos }: { undo?: UndoStore | null; todos?: TodoStore } = {},
 ): ToolDef[] {
   const root = path.resolve(workdir)
   const safe = (p: string): string => {
@@ -298,7 +298,7 @@ export function createTools(
 
   const gitTools = createGitTools(workdir)
   const webTools = createWebTools()
-  const extraTools = createExtraTools(workdir, { undo })
+  const extraTools = createExtraTools(workdir, { undo, todos })
 
   const respondTool: ToolDef = {
     name: 'respond',

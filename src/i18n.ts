@@ -218,6 +218,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: '/queue [clear] показать/очистить очередь сообщений',
     en: '/queue [clear] list/clear the pending message queue',
   },
+  'help.cmd.tasks': {
+    ru: '/tasks список задач агента (TodoWrite)',
+    en: '/tasks the agent task list (TodoWrite)',
+  },
   'help.cmd.thinking': {
     ru: '/thinking [on|off] включить/выключить режим размышления (можно во время работы)',
     en: '/thinking [on|off] toggle Deep thinking (works while the agent is busy)',
@@ -511,6 +515,21 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   'status.transcript': { ru: 'Транскрипт: {v}', en: 'Transcript: {v}' },
   'status.locale': { ru: 'Язык: {v}', en: 'Language: {v}' },
   'status.goal': { ru: 'Цель сессии: {v}', en: 'Session goal: {v}' },
+  'status.tasks_summary': {
+    ru: 'задачи: {done}/{total}',
+    en: 'tasks: {done}/{total}',
+  },
+
+  // ---------- tasks (/tasks) ----------
+  'tasks.title': { ru: 'Задачи агента:', en: 'Agent tasks:' },
+  'tasks.empty': {
+    ru: 'Список задач пуст (агент ещё не вызывал TodoWrite).',
+    en: 'The task list is empty (the agent has not called TodoWrite yet).',
+  },
+  'tasks.restored': {
+    ru: 'Восстановлен список задач: {done}/{total}',
+    en: 'Task list restored: {done}/{total}',
+  },
 
   // ---------- messages ----------
   'msg.working_dir': {

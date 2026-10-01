@@ -7,6 +7,14 @@ import { theme } from './theme.js'
 
 import { DeepSeekBrowser, headlessUACacheReady } from './browser.js'
 import { createTools } from './tools.js'
+import {
+  createTodoStore,
+  getTodos,
+  setTodos,
+  resetTodos,
+  renderTodos,
+  type TodoItem,
+} from './extraTools.js'
 import { runAgentLoop } from './agent-loop.js'
 import { createSpinner } from './spinner.js'
 import {
@@ -93,6 +101,7 @@ import { closeWeb } from './web.js'
 import {
   saveSession,
   loadLastSession,
+  readSession,
   listSessions,
   sessionsDir,
 } from './sessions.js'
@@ -483,6 +492,7 @@ ${theme.bold(t('help.commands'))}
  ${t('help.cmd.web')}
  ${t('help.cmd.compact')}
   ${t('help.cmd.queue')}
+  ${t('help.cmd.tasks')}
   ${t('help.cmd.config')}
   ${t('help.cmd.lang')}
   ${t('help.cmd.debug_dom')}
@@ -548,6 +558,7 @@ const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
   { name: '/web', key: 'help.cmd.web' },
   { name: '/compact', key: 'help.cmd.compact' },
   { name: '/queue', key: 'help.cmd.queue' },
+  { name: '/tasks', key: 'help.cmd.tasks' },
   { name: '/config', key: 'help.cmd.config' },
   { name: '/skills', key: 'help.cmd.skills' },
   { name: '/memory', key: 'help.cmd.memory' },
@@ -1594,6 +1605,55 @@ async function main(): Promise<void> {
   let lastChats: ChatInfo[] = []
   let currentChatId: string | null = null
   let running = true
+  // The agent's TodoWrite checklist, shared with the tool factory and
+  // persisted in the session JSON. A store (not module state) so /reload does
+  // not silently drop the list, and so the writer in onTodosChange sees the
+  // same instance the tools mutate.
+  const todoStore = createTodoStore()
+  const persistTodos = (): void => {
+    if (!currentChatId) return
+    saveSession({
+      id: currentChatId,
+      workdir: currentWorkdir,
+      todos: getTodos(todoStore),
+    })
+  }
+  // Write the checklist whenever the agent changes it, so a restart/resume
+  // brings the tasks back (they used to be in-memory only).
+  todoStore.onChange = () => persistTodos()
+
+  // A compact "tasks: 2/5" summary for the status line. Empty when the list
+  // is empty, so an idle status is not cluttered.
+  const todosSummary = (): string => {
+    const items = getTodos(todoStore)
+    if (!items.length) return ''
+    const done = items.filter((t) => t.status === 'completed').length
+    return t('status.tasks_summary', {
+      done: String(done),
+      total: String(items.length),
+    })
+  }
+
+  // Re-inject a persisted checklist after /resume or the startup restore.
+  const restoreTodos = (items: TodoItem[] | undefined): void => {
+    if (items && items.length) setTodos(items, todoStore)
+  }
+  const loadSessionTodos = (id: string | null): void => {
+    const s = readSession(id)
+    const items = s?.todos as TodoItem[] | undefined
+    if (!items || !items.length) return
+    restoreTodos(items)
+    const done = items.filter((x) => x.status === 'completed').length
+    console.log(
+      theme.system(
+        t('tasks.restored', {
+          done: String(done),
+          total: String(items.length),
+        }),
+      ),
+    )
+  }
+
   // Long-lived session goal (set via /goal). Prepended to every task message so
   // the model keeps the big picture across many turns. Persisted per working
   // directory in <project>/.zames-goal (best-effort); restored right away.
@@ -1723,6 +1783,7 @@ async function main(): Promise<void> {
           t('msg.chat_opened') + ' ' + resumeId + String.fromCharCode(10),
         ),
       )
+      loadSessionTodos(resumeId)
       await printRestoredHistory(browser, null, resumeId)
     } catch (e) {
       console.error(
@@ -1776,6 +1837,9 @@ async function main(): Promise<void> {
     // Queue badge: show "⧗N" while messages are waiting to be sent after the
     // current task. Pulled on every render (like the context counter).
     ed.onQueueQuery = () => pendingQueue.length
+    // Task-list summary ("tasks: 2/5") before the context counter. Pulled on
+    // every render, like the queue badge.
+    ed.onTasksQuery = () => todosSummary()
     // Use the configured context window for the fill percentage/color.
     ed.setContextLimit(config.ui.contextLimit)
     // Toggle icons (🧠 deep thinking, 🌐 web search) before the context
@@ -2411,6 +2475,9 @@ async function main(): Promise<void> {
         await browser.newChat()
         freshChatNext = false
         sendSystemPromptNext = true
+        // A new chat starts a fresh checklist: keeping the old tasks would
+        // label them as "restored" in a chat that never saw them.
+        resetTodos(todoStore)
         currentChatId = await browser.getCurrentChatId()
         saveLastChat(currentChatId, currentWorkdir)
         transcript.log('new_chat')
@@ -2682,6 +2749,7 @@ async function main(): Promise<void> {
                 : String.fromCharCode(10) + t('chats.prompt_no_resend'),
             ),
         )
+        loadSessionTodos(pick.id)
         await printRestoredHistory(browser, editor, pick.id)
       } catch (e) {
         console.error(
@@ -2753,6 +2821,7 @@ async function main(): Promise<void> {
           theme.assistant(t('msg.chat_opened')) +
             theme.system(String.fromCharCode(10)),
         )
+        loadSessionTodos(id)
         await printRestoredHistory(browser, editor, id)
       } catch (e) {
         console.error(
@@ -2907,6 +2976,21 @@ async function main(): Promise<void> {
       continue
     }
 
+    if (lower === '/tasks') {
+      const items = getTodos(todoStore)
+      if (!items.length) {
+        console.log(theme.dim(t('tasks.empty')))
+        continue
+      }
+      console.log(theme.system(t('tasks.title')))
+      // Skip the "Todo list (N/M done):" header line from renderTodos — the
+      // /tasks title already says it.
+      for (const line of renderTodos(items).split(NL).slice(1)) {
+        console.log(theme.assistant(line))
+      }
+      continue
+    }
+
     if (lower.startsWith('/thinking') || lower.startsWith('/web')) {
       const tg = parseLiveToggle(trimmed)
       if (tg) {
@@ -3003,7 +3087,10 @@ async function main(): Promise<void> {
         'and factual, based only on what you find. Write the file with the Write ' +
         'tool, then reply via respond with a one-line summary.'
 
-      const initTools = mod.createTools(currentWorkdir, { undo })
+      const initTools = mod.createTools(currentWorkdir, {
+        undo,
+        todos: todoStore,
+      })
       if (editor) editor.busy = true
       console.log(theme.system(t('init.analyzing')))
       try {
@@ -3358,7 +3445,7 @@ async function main(): Promise<void> {
         transcript,
         ui: editor,
         buildSystemPrompt: mod.buildSystemPrompt,
-        tools: mod.createTools(currentWorkdir, { undo }),
+        tools: mod.createTools(currentWorkdir, { undo, todos: todoStore }),
         answerTimeoutMs: config.browser.answerTimeoutMs,
         fallbackLimit: COMPACT_FALLBACK_LIMIT,
       })
@@ -3377,7 +3464,10 @@ async function main(): Promise<void> {
       const staged = rest.indexOf('--staged') !== -1
       const focus = rest.replace(/--staged/g, '').trim()
       const reviewTask = buildReviewPrompt(focus, staged)
-      const reviewTools = mod.createTools(currentWorkdir, { undo })
+      const reviewTools = mod.createTools(currentWorkdir, {
+        undo,
+        todos: todoStore,
+      })
       if (editor) editor.busy = true
       try {
         await runTask(browser, reviewTools, reviewTask, currentWorkdir, {
@@ -3506,7 +3596,7 @@ async function main(): Promise<void> {
 
     transcript.log('user_task', { task: taskText, workdir: currentWorkdir })
 
-    const tools = mod.createTools(currentWorkdir, { undo })
+    const tools = mod.createTools(currentWorkdir, { undo, todos: todoStore })
     if (mcpPool) tools.push(...mcpPool.tools)
     if (editor) editor.busy = true
     try {
@@ -3545,7 +3635,10 @@ async function main(): Promise<void> {
                   transcript,
                   ui: editor,
                   buildSystemPrompt: mod.buildSystemPrompt,
-                  tools: mod.createTools(currentWorkdir, { undo }),
+                  tools: mod.createTools(currentWorkdir, {
+                    undo,
+                    todos: todoStore,
+                  }),
                   answerTimeoutMs: config.browser.answerTimeoutMs,
                   quiet: true,
                   skipUiLock: true,

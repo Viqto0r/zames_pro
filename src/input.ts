@@ -381,6 +381,9 @@ export class LineEditor {
   // A callback the editor calls before every render to read the CURRENT queue
   // length, so the badge stays live without the caller polling.
   onQueueQuery: (() => number) | null
+  // A callback the editor calls before every render to read the agent's
+  // current task-list summary ("tasks: 2/5"), empty when there is no list.
+  onTasksQuery: (() => string) | null
   // Whether the DeepSeek "Deep thinking" / "Smart search" toggles are ON.
   // Shown as two colored icons before the context counter: a dim gray icon
   // means off, a teal-green icon means on.
@@ -465,6 +468,7 @@ export class LineEditor {
     this.onContextQuery = null
     this.queueLength = 0
     this.onQueueQuery = null
+    this.onTasksQuery = null
   }
 
   // Refresh the toggle icon states from onToggleQuery (if wired) before a
@@ -525,6 +529,20 @@ export class LineEditor {
     }
     if (this.queueLength <= 0) return ''
     return theme.warn('⧗' + this.queueLength) + ' '
+  }
+
+  // The agent's task-list summary ("tasks: 2/5") shown before the context
+  // counter. Empty when there is no list, so an idle status is not cluttered.
+  // Refreshed from onTasksQuery before every render when wired.
+  _tasksBadge(): string {
+    if (!this.onTasksQuery) return ''
+    try {
+      const s = this.onTasksQuery()
+      return s ? theme.system(s) + ' ' : ''
+    } catch {
+      // A broken callback must never break the render.
+      return ''
+    }
   }
 
   // Icons for the DeepSeek toggles: 🧠 "Deep thinking" and 🌐 "Smart search",
@@ -764,7 +782,8 @@ export class LineEditor {
     // but the icons are still meaningful.
     const ctxRaw = this._contextText()
     this._refreshToggles()
-    const ctxText = this._queueBadge() + this._toggleIcons() + ctxRaw
+    const ctxText =
+      this._queueBadge() + this._tasksBadge() + this._toggleIcons() + ctxRaw
     let statusOut = ''
     let top = 0
     // Never fill a row to the FULL terminal width: on terminals with
