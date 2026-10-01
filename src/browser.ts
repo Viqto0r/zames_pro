@@ -10,6 +10,7 @@ import {
   dumpNetBody,
   isFinishedWithoutAnswer,
 } from './net-capture.js'
+import { rewriteFailedAttachments } from './commands.js'
 import path from 'path'
 import os from 'os'
 import fs from 'fs/promises'
@@ -2105,15 +2106,21 @@ export class DeepSeekBrowser {
   // Attach files/images to the chat via the hidden <input type=file> of the
   // DeepSeek upload widget. The element is not visible, so we set the files
   // programmatically (Playwright setInputFiles works on hidden inputs too).
+  // Returns the files that could NOT be attached (read error, no upload
+  // widget, or a failed upload), so the caller can rewrite their path in the
+  // message to [attach-failed: name]. The model must not believe a file was
+  // attached when it was not.
   async _attachFiles(
     files: Array<{ path: string; name: string; mime: string }>,
-  ): Promise<void> {
+  ): Promise<Array<{ path: string; name: string }>> {
+    const failed: Array<{ path: string; name: string }> = []
     const bufPayload = []
     for (const f of files) {
       try {
         const buffer = await fs.readFile(f.path)
         bufPayload.push({ name: f.name, mimeType: f.mime, buffer })
       } catch (e) {
+        failed.push({ path: f.path, name: f.name })
         this._notice(
           theme.warn(
             this._t('ds.attach_read_failed', {
@@ -2124,7 +2131,7 @@ export class DeepSeekBrowser {
         )
       }
     }
-    if (!bufPayload.length) return
+    if (!bufPayload.length) return failed
 
     // Preferred path: click the attach button and let the file chooser event
     // carry the files. This is how a real user attaches a file and it reliably
@@ -2152,7 +2159,7 @@ export class DeepSeekBrowser {
           files.map((f) => f.name),
           2500,
         )
-        return
+        return failed
       } catch {}
     }
 
@@ -2160,7 +2167,8 @@ export class DeepSeekBrowser {
     const input = this.page.locator('input[type="file"]').first()
     if ((await input.count()) === 0) {
       this._notice(theme.warn(this._t('ds.attach_no_input')))
-      return
+      for (const f of files) failed.push({ path: f.path, name: f.name })
+      return failed
     }
     try {
       await input.setInputFiles(bufPayload, { timeout: 15_000 })
@@ -2170,13 +2178,15 @@ export class DeepSeekBrowser {
           this._t('ds.attach_failed', { error: (e as Error).message }),
         ),
       )
-      return
+      for (const f of files) failed.push({ path: f.path, name: f.name })
+      return failed
     }
     // Wait for the upload to finish (the attach preview to appear).
     await this._awaitUploadPreview(
       files.map((f) => f.name),
       2000,
     )
+    return failed
   }
 
   // Wait for the upload preview (the attached-file chip above the
@@ -2377,11 +2387,16 @@ export class DeepSeekBrowser {
 
     // Attach files/images FIRST (before the text): the DeepSeek upload widget
     // shows them above the input, and only then the message can be sent.
+    // A file that FAILED to attach has its real path in the prompt text (see
+    // substituteAttachmentMarkers); rewrite it to [attach-failed: name] so the
+    // model does not believe the file is available.
+    let finalPrompt = prompt
     if (attachments.length) {
-      await this._attachFiles(attachments)
+      const failed = await this._attachFiles(attachments)
+      finalPrompt = rewriteFailedAttachments(finalPrompt, failed)
     }
 
-    await this._setInputText(input, prompt)
+    await this._setInputText(input, finalPrompt)
 
     // Send immediately: the input is already verified by _setInputText, and a
     // clickable send button normally appears right away. The old code slept a

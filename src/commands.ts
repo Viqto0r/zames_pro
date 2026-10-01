@@ -719,6 +719,22 @@ export function substituteAttachmentMarkers(
   return out
 }
 
+// Rewrite the paths of files that FAILED to attach into [attach-failed: name]
+// in the task text, so the model does not believe an unavailable file was
+// attached. The prompt carries real paths (substituteAttachmentMarkers), so a
+// failed file's path is replaced in place. Pure, so it is unit-tested.
+export function rewriteFailedAttachments(
+  text: string,
+  failed: Array<{ path: string; name: string }>,
+): string {
+  let out = String(text ?? '')
+  for (const f of failed || []) {
+    if (!f || !f.path) continue
+    out = out.split(f.path).join('[attach-failed: ' + f.name + ']')
+  }
+  return out
+}
+
 // True when a `/config ...` line can be handled LIVE (while the agent is busy):
 // the text subcommands only touch config values, never the chat. The bare
 // `/config` and `/config menu` (which pause the editor and read keys) are NOT

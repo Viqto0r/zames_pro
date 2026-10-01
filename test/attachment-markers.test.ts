@@ -1,6 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { substituteAttachmentMarkers } from '../src/commands.ts'
+import {
+  substituteAttachmentMarkers,
+  rewriteFailedAttachments,
+} from '../src/commands.ts'
 
 test('substituteAttachmentMarkers: file marker becomes the path', () => {
   const out = substituteAttachmentMarkers('look at [file#1] please', [
@@ -35,4 +38,16 @@ test('substituteAttachmentMarkers: unknown markers are left as-is', () => {
 
 test('substituteAttachmentMarkers: no attachments is a no-op', () => {
   assert.equal(substituteAttachmentMarkers('plain text', []), 'plain text')
+})
+
+test('rewriteFailedAttachments: failed paths become [attach-failed: name]', () => {
+  const out = rewriteFailedAttachments(
+    'read /tmp/ok.txt and /tmp/bad.pdf now',
+    [{ path: '/tmp/bad.pdf', name: 'bad.pdf' }],
+  )
+  assert.equal(out, 'read /tmp/ok.txt and [attach-failed: bad.pdf] now')
+})
+
+test('rewriteFailedAttachments: no failures is a no-op', () => {
+  assert.equal(rewriteFailedAttachments('x /tmp/a', []), 'x /tmp/a')
 })
