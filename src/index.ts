@@ -5,7 +5,7 @@ import { existsSync, statSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { theme } from './theme.js'
 
-import { DeepSeekBrowser } from './browser.js'
+import { DeepSeekBrowser, headlessUACacheReady } from './browser.js'
 import { createTools } from './tools.js'
 import { runAgentLoop } from './agent-loop.js'
 import { createSpinner } from './spinner.js'
@@ -3305,6 +3305,8 @@ async function main(): Promise<void> {
               : undefined,
             minSendIntervalMs: config.browser.minSendIntervalMs,
             sshRemote: !!(process.env.SSH_CONNECTION || process.env.SSH_TTY),
+            headless: !!headless,
+            headlessUaCached: await headlessUACacheReady().catch(() => false),
           }),
         ),
       )

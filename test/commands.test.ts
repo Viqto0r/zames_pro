@@ -249,6 +249,34 @@ test('renderDoctor shows the session kind (local vs SSH)', () => {
   assert.ok(renderDoctor({ ...base, sshRemote: true }).includes('SSH remote'))
 })
 
+test('renderDoctor shows the headless UA-cache row only in headless', () => {
+  const base = {
+    nodeVersion: 'v24',
+    platform: 'linux',
+    workdir: '/w',
+    gitOk: false,
+    configOk: true,
+    browserChannel: null,
+    clipboardTool: null,
+    mcpServers: 0,
+    mcpTools: 0,
+    transcriptOk: true,
+  }
+  // Headed: no headless row at all.
+  assert.ok(!renderDoctor({ ...base, headless: false }).includes('headless'))
+  // Headless with cache -> OK; without -> WARN with an explanation.
+  assert.ok(
+    renderDoctor({ ...base, headless: true, headlessUaCached: true }).includes(
+      'UA cached',
+    ),
+  )
+  assert.ok(
+    renderDoctor({ ...base, headless: true, headlessUaCached: false }).includes(
+      'no cached UA',
+    ),
+  )
+})
+
 // ---------- /permissions ----------
 
 test('renderPermissions shows modes and alwaysConfirm', () => {

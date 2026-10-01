@@ -245,6 +245,12 @@ export interface DoctorInput {
   minSendIntervalMs?: number
   /** Running over an SSH connection (SSH_CONNECTION / SSH_TTY set). */
   sshRemote?: boolean
+  /** Headless is the default: is a sanitized (non-Headless) UA cached? A
+   *  missing cache means the NEXT headless start does an extra relaunch, and a
+   *  broken headless setup shows up here instead of silently failing. */
+  headlessUaCached?: boolean
+  /** Whether the agent runs headless at all (affects the headless UA row). */
+  headless?: boolean
 }
 
 export function renderDoctor(d: DoctorInput): string {
@@ -295,6 +301,15 @@ export function renderDoctor(d: DoctorInput): string {
   }
   if (typeof d.sshRemote === 'boolean') {
     row(true, 'session', d.sshRemote ? 'SSH remote' : 'local terminal')
+  }
+  if (d.headless) {
+    row(
+      !!d.headlessUaCached,
+      'headless',
+      d.headlessUaCached
+        ? 'UA cached (no relaunch)'
+        : 'no cached UA yet (first start relaunches once)',
+    )
   }
   return 'Doctor:' + NL + rows.join(NL)
 }

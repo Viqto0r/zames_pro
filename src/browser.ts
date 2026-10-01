@@ -166,6 +166,14 @@ async function writeCachedHeadlessUA(
   } catch {}
 }
 
+// For /doctor: is a sanitized UA cached for the CURRENT engine build? A missing
+// cache only means the next headless start relaunches once (not an error), so
+// this is informational. Best-effort.
+export async function headlessUACacheReady(): Promise<boolean> {
+  const ua = await readCachedHeadlessUA(headlessEngineKey())
+  return !!ua
+}
+
 // A headless Chrome advertises "HeadlessChrome/..." in its User-Agent, and
 // DeepSeek's CDN (CloudFront/WAF) rejects that UA with a plain "403 ERROR"
 // page before the app is even served — so a headless login looked broken while
