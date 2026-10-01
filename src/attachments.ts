@@ -1,6 +1,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
+import { createHash } from 'crypto'
 import { execFileSync } from 'child_process'
 import { extractPathToken } from './path-token.js'
 
@@ -27,6 +28,14 @@ export interface Attachment {
   image: boolean
   marker: string
   size: number
+  /** SHA-1 of the bytes, when known (used to de-dup identical pastes). */
+  hash?: string
+}
+
+// Stable content hash for de-duplicating identical attachments (a pasted image
+// is saved to a NEW temp file every time, so its path is not a stable identity).
+export function contentHash(data: Buffer): string {
+  return createHash('sha1').update(data).digest('hex')
 }
 
 function sanitize(name: string): string {
@@ -153,11 +162,19 @@ export class AttachmentStore {
     name: string
     mime: string
     size: number
+    /** SHA-1 of the bytes, when known. Used to de-dup the SAME content pasted
+     *  twice: image/clipboard pastes get a NEW temp path each time, so a
+     *  path-only check missed them and produced [image#1] AND [image#2] for the
+     *  same picture. Content is the stable identity. */
+    hash?: string
   }): Attachment {
-    // De-duplicate by real path: pasting the SAME file twice must reuse one
-    // attachment (one marker, one upload), not create [file#1] and [file#2].
-    // The operator saw exactly that when inserting the same file repeatedly.
-    const existing = this.items.find((a) => a.path === item.path)
+    // De-duplicate by real path (files/paths) OR by content hash (images and
+    // clipboard data, which are re-saved to a fresh temp file on every paste).
+    // The operator saw the SAME file become [file#1] and [file#2].
+    const existing = this.items.find(
+      (a) =>
+        a.path === item.path || (item.hash && a.hash && a.hash === item.hash),
+    )
     if (existing) return existing
     const image =
       isImageName(item.name) || String(item.mime).startsWith('image/')
@@ -171,6 +188,7 @@ export class AttachmentStore {
       image,
       marker,
       size: Number(item.size) || 0,
+      hash: item.hash,
     }
     this.items.push(att)
     return att

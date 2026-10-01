@@ -36,3 +36,34 @@ test('AttachmentStore.add de-dups files too', () => {
   assert.equal(s.items.length, 1)
   assert.equal(s.items[0].marker, '[file#1]')
 })
+
+test('AttachmentStore.add de-dups identical content under DIFFERENT paths', () => {
+  // A pasted image/clipboard item is saved to a NEW temp file every time, so
+  // the path differs — the content hash must still collapse it to one marker.
+  const s = new AttachmentStore()
+  const a = s.add({
+    path: '/tmp/paste-1.png',
+    name: 'paste.png',
+    mime: 'image/png',
+    size: 10,
+    hash: 'abc',
+  })
+  const b = s.add({
+    path: '/tmp/paste-2.png',
+    name: 'paste.png',
+    mime: 'image/png',
+    size: 10,
+    hash: 'abc',
+  })
+  assert.equal(a.marker, b.marker)
+  assert.equal(s.items.length, 1)
+  // Different content -> a new marker.
+  const c = s.add({
+    path: '/tmp/paste-3.png',
+    name: 'paste.png',
+    mime: 'image/png',
+    size: 10,
+    hash: 'xyz',
+  })
+  assert.equal(c.marker, '[image#2]')
+})

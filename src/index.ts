@@ -28,6 +28,7 @@ import {
   sniffMime,
   readWindowsClipboardFiles,
   hasClipboardTool,
+  contentHash,
 } from './attachments.js'
 import {
   loadConfig,
@@ -1791,6 +1792,7 @@ async function main(): Promise<void> {
           name,
           mime: image.mime,
           size: image.data.length,
+          hash: contentHash(image.data),
         })
         ed.printAbove(
           theme.system(
@@ -1877,6 +1879,7 @@ async function main(): Promise<void> {
         name,
         mime,
         size: res.data.length,
+        hash: contentHash(res.data),
       })
       ed.printAbove(
         theme.system(
