@@ -302,6 +302,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: '🗜️ Контекст заполнен на {pct}% ({tokens} токенов) — сжимаю историю и открываю новый чат...',
     en: '🗜️ Context at {pct}% ({tokens} tokens) — compacting the history and opening a fresh chat...',
   },
+  'compact.auto_same_chat': {
+    ru: '🗜️ Сжатие не открыло новый чат (тот же id) — отключаю авто-сжатие до конца задачи, чтобы не зациклиться.',
+    en: '🗜️ Compaction did not open a fresh chat (same id) — disabling auto-compact for the rest of the task to avoid a loop.',
+  },
   'compact.start': {
     ru: '🗜️ Сжимаю историю чата (DeepSeek)...',
     en: '🗜️ Compacting the chat history (DeepSeek)...',

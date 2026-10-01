@@ -316,6 +316,12 @@ export async function runAgentLoop({
   // the (fresh) chat grows past this plus a margin, so a chat that starts
   // above the threshold does not compact on every tool call.
   let lastAutoCompactTokens = -1
+  // Set when an auto-compact returned the SAME chat id it started in — i.e.
+  // the "fresh chat" never opened and the compaction did nothing. Without this
+  // guard a broken newChat() (see B2) made the loop compact on EVERY tool call
+  // while the context kept growing. Defense in depth: the root cause is fixed,
+  // but a future regression must not turn into an endless "compacting" loop.
+  let autoCompactDisabled = false
   // The message of a respond that arrived TOGETHER with real tool calls.
   // It is not delivered immediately (the tools must run first), but if the
   // model then stops without calling respond again, this is the best final
@@ -898,7 +904,7 @@ export async function runAgentLoop({
         // (plus a small margin), so a fresh chat does not compact again on
         // every tool call.
         const armed = !firedRecently || tokens > lastAutoCompactTokens + 1
-        if (pct >= autoCompactPct && armed) {
+        if (pct >= autoCompactPct && armed && !autoCompactDisabled) {
           lastAutoCompactTokens = tokens
           safeWarning(
             translate(locale)('compact.auto_trigger', {
@@ -908,9 +914,22 @@ export async function runAgentLoop({
           )
           transcript?.log('auto_compact_trigger', { tokens, pct })
           try {
+            const beforeChat = await browser
+              .getCurrentChatId()
+              .catch(() => null)
             const newChat = await onAutoCompact()
             if (newChat) {
-              transcript?.log('auto_compact_done', { chatId: newChat })
+              if (beforeChat && newChat === beforeChat) {
+                // The chat did NOT change: the summary was posted back into
+                // the old chat and the context was not reset. Warn once and
+                // stop auto-compacting for the rest of the task instead of
+                // looping on every tool call.
+                autoCompactDisabled = true
+                safeWarning(translate(locale)('compact.auto_same_chat'))
+                transcript?.log('auto_compact_same_chat', { chatId: newChat })
+              } else {
+                transcript?.log('auto_compact_done', { chatId: newChat })
+              }
               // Continue in the fresh chat. The next send is a tool-result
               // (agent: true), which is fine: the new chat already holds the
               // system prompt + carryover. `lastAutoCompactTokens` stays at the

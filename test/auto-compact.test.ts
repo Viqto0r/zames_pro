@@ -126,3 +126,41 @@ test('an unknown token count skips auto-compact silently', async () => {
   })
   assert.equal(compactCalls, 0)
 })
+
+// B3: a compaction that returns the SAME chat id (the fresh chat never opened)
+// must not loop. Auto-compact is disabled for the rest of the task after one
+// such result, with a warning to the operator.
+test('auto-compact disables itself when it returns the same chat id', async () => {
+  // Several tool calls: without the guard this would compact on every one.
+  const script = [
+    jsonCall('Echo', { v: '1' }),
+    jsonCall('Echo', { v: '2' }),
+    jsonCall('Echo', { v: '3' }),
+    jsonCall('respond', { message: 'done' }),
+  ]
+  const { browser } = makeBrowser(script)
+  // getCurrentChatId() returns 'chat-xyz' (see makeBrowser).
+  let compactCalls = 0
+  const warnings: string[] = []
+  const result = await runAgentLoop({
+    browser,
+    tools: [echoTool, respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+    maxIterations: 20,
+    onWarning: (m) => warnings.push(m),
+    onAutoCompact: async () => {
+      compactCalls++
+      return 'chat-xyz' // same chat — the compaction did nothing
+    },
+    autoCompactPct: 1,
+    contextLimit: 1000,
+    getTokenUsage: () => 500,
+  })
+  assert.equal(result, 'done')
+  assert.equal(compactCalls, 1, 'must compact at most once for the same chat')
+  assert.ok(
+    warnings.some((w) => /same id|тот же id/i.test(w)),
+    'the operator must be warned: ' + JSON.stringify(warnings),
+  )
+})
