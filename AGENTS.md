@@ -66,7 +66,7 @@ When a change touches one concern, start in the module that owns it:
 
 - `src/index.ts` — CLI, main loop, slash-command dispatch, `runTask`, the
   message queue, the `/goal` and `/loop`|`/cron`|`/jobs` commands, the scheduler
-  ticker. Command *logic* that can be pure lives in `src/commands.ts`.
+  ticker. Command _logic_ that can be pure lives in `src/commands.ts`.
 - `src/agent-loop.ts` — one task: send → parse → run tools → loop; the retry
   budgets, the protocol/stale guards, the auto-compact seam.
 - `src/browser.ts` — the DeepSeekBrowser facade over Playwright: send/answer,
@@ -1065,6 +1065,22 @@ ONLY tool-calls yields "service only" — that is expected, not a bug.
 - `self-review.ts` — snapshots and self-review
 
 ## Verifying changes
+
+### Agent self-smoke (a real isolated instance)
+
+`npm run self-smoke` (scripts/self-smoke.mjs) launches a REAL zames instance in
+an ISOLATED profile and exercises the core functionality end-to-end against
+live DeepSeek, then prints PASS/FAIL per scenario. Use it to check your own
+build BEFORE a final commit — it catches integration regressions (login, tool
+calls, attachments, send) that unit tests cannot.
+
+Isolation matters: the script sets a THROWAWAY `HOME` (via `ZAMES_SMOKE_HOME`)
+BEFORE importing any project module, copies the real `~/.zames/config.json` so
+auto-login works, and symlinks the real Playwright browser cache. It NEVER
+writes to the operator's `~/.zames/profile` and can run alongside a live agent.
+Flags: `--headed` (visible window), `ZAMES_SMOKE_KEEP=1` (keep the temp HOME).
+Scenario failures are reported, not thrown; exit code 1 means at least one
+failed. When you add a user-visible feature, add a self-smoke scenario for it.
 
 - Syntax/types: `npm run typecheck` (tsc --noEmit, includes test/)
 - Tests: `npm test` (tsx --test test/*.test.ts); watch — `npm run test:watch`
