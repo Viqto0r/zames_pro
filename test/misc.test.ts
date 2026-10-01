@@ -260,3 +260,52 @@ test('блок ONLY TOOL CALLS локализован (ru/en)', () => {
   // And each locale gets its own text, not the other's.
   assert.ok(!en.includes('ТОЛЬКО ВЫЗОВЫ ИНСТРУМЕНТОВ'))
 })
+
+// U2/U3: wide characters (emoji, CJK) must count as 2 columns so the
+// status-line arithmetic and the input wrapping/cursor agree with the real
+// terminal. The emoji used in the status line are the important case.
+import { charWidth } from '../src/input.ts'
+
+test('charWidth: emoji and CJK are 2 columns, ASCII 1', () => {
+  assert.equal(charWidth('a'.codePointAt(0) as number), 1)
+  assert.equal(charWidth('🧠'.codePointAt(0) as number), 2)
+  assert.equal(charWidth('🌐'.codePointAt(0) as number), 2)
+  assert.equal(charWidth('中'.codePointAt(0) as number), 2)
+  assert.equal(charWidth('あ'.codePointAt(0) as number), 2)
+  // Math symbol ⧗ (U+29D7) is NOT wide — it stays 1, like a real terminal.
+  assert.equal(charWidth('⧗'.codePointAt(0) as number), 1)
+  // Zero-width: combining accent / ZWJ / variation selector.
+  assert.equal(charWidth(0x0301), 0)
+  assert.equal(charWidth(0x200d), 0)
+  assert.equal(charWidth(0xfe0f), 0)
+})
+
+test('visLen counts emoji as 2 columns', () => {
+  assert.equal(visLen('ab'), 2)
+  assert.equal(visLen('a🧠b'), 4)
+  assert.equal(visLen('中中中'), 6)
+  assert.equal(visLen('⧗2'), 2)
+})
+
+test('visRows wraps a wide-char status by columns, not code points', () => {
+  // 41 CJK chars = 82 columns -> 2 rows at 80 cols (a code-point count of 41
+  // would wrongly say 1 row).
+  assert.equal(visRows('中'.repeat(41), 80), 2)
+  assert.equal(visRows('中'.repeat(40), 80), 1)
+})
+
+test('layoutInput wraps CJK input by display columns', () => {
+  // avail = 20 - 2 (prompt '> ') = 18 columns -> 9 CJK chars per row.
+  const r = layoutInput('> ', '中'.repeat(20), 20, 20)
+  assert.ok(r.rows.length >= 3, '20 CJK chars must need 3+ rows at 20 cols')
+  assert.ok(
+    r.rows.every((row) => visLen(row.prefix + row.text) <= 20),
+    'no printed row may exceed the width',
+  )
+})
+
+test('layoutInput puts the cursor after a wide char in columns', () => {
+  // Cursor after one CJK char: prompt '> ' (2) + 2 columns = 4.
+  const r = layoutInput('> ', '中', 1, 80)
+  assert.equal(r.cursorCol, 4)
+})

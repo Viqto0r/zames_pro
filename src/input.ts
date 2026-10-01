@@ -116,7 +116,12 @@ export function visRows(s: string, cols: number): number {
   return Math.max(1, Math.ceil(len / width))
 }
 
-// Visible length of a line without ANSI sequences.
+// Visible length of a line without ANSI sequences. WIDE characters (emoji,
+// CJK) count as 2 columns — a plain code-point count made the status-line
+// arithmetic (right-align, wrapping, block erase) disagree with the real
+// screen, so a status containing an emoji/CJK could wrap past the edge and
+// make the block erase miss (status "stacking"). Combining marks and the
+// zero-width joiner/space/variation selectors count as 0.
 export function visLen(s: string): number {
   s = String(s)
   let n = 0
@@ -131,10 +136,52 @@ export function visLen(s: string): number {
       }
       continue
     }
-    n++
-    i++
+    const cp = s.codePointAt(i) as number
+    n += charWidth(cp)
+    i += cp > 0xffff ? 2 : 1
   }
   return n
+}
+
+// Display width of one code point in columns (0, 1 or 2). Based on the
+// conventional wcwidth ranges — good enough for terminal layout, and it makes
+// the emoji used in the status line (🧠🌐) count as 2, while math symbols like
+// ⧗ (U+29D7) stay 1, matching a real terminal.
+export function charWidth(cp: number): number {
+  // Zero width: combining marks, ZWJ/ZWNJ, variation selectors.
+  if (
+    cp === 0x200b ||
+    cp === 0x200c ||
+    cp === 0x200d ||
+    (cp >= 0x0300 && cp <= 0x036f) ||
+    (cp >= 0x1ab0 && cp <= 0x1aff) ||
+    (cp >= 0x1dc0 && cp <= 0x1dff) ||
+    (cp >= 0x20d0 && cp <= 0x20ff) ||
+    (cp >= 0xfe00 && cp <= 0xfe0f) ||
+    (cp >= 0xfe20 && cp <= 0xfe2f)
+  ) {
+    return 0
+  }
+  // Wide: CJK, Hangul, fullwidth forms, emoji.
+  if (
+    (cp >= 0x1100 && cp <= 0x115f) ||
+    (cp >= 0x2e80 && cp <= 0x303e) ||
+    (cp >= 0x3041 && cp <= 0x33ff) ||
+    (cp >= 0x3400 && cp <= 0x4dbf) ||
+    (cp >= 0x4e00 && cp <= 0x9fff) ||
+    (cp >= 0xa000 && cp <= 0xa4cf) ||
+    (cp >= 0xac00 && cp <= 0xd7a3) ||
+    (cp >= 0xf900 && cp <= 0xfaff) ||
+    (cp >= 0xfe30 && cp <= 0xfe4f) ||
+    (cp >= 0xff00 && cp <= 0xff60) ||
+    (cp >= 0xffe0 && cp <= 0xffe6) ||
+    (cp >= 0x1f000 && cp <= 0x1f02f) ||
+    (cp >= 0x1f300 && cp <= 0x1faff) ||
+    (cp >= 0x20000 && cp <= 0x3fffd)
+  ) {
+    return 2
+  }
+  return 1
 }
 
 // Layout of the input into visual lines accounting for terminal width.
@@ -171,20 +218,27 @@ export function layoutInput(
     const start = i
 
     // Build the next visual line. First we take as many
-    // characters as fit (count < avail). If we hit the width
+    // characters as fit (columns < avail). If we hit the width
     // and the next character is not the end of the line, we roll back to the
     // last space so we don't split a word in the middle (word-wrap).
+    // Wrapping and the cursor column are measured in COLUMNS (charWidth),
+    // not code points — otherwise a CJK/emoji input would overflow the row
+    // and put the cursor on the wrong cell.
     let text = ''
-    let count = 0
-    let lastSpace = -1 // index of the space in text (by Array.from)
-    while (i < chars.length && chars[i] !== NL && count < avail) {
-      if (chars[i] === ' ') lastSpace = count
+    let widthUsed = 0
+    let charIdx = 0
+    let lastSpace = -1 // char index of the space within text
+    while (i < chars.length && chars[i] !== NL) {
+      const w = charWidth(chars[i].codePointAt(0) as number)
+      if (widthUsed + w > avail) break
+      if (chars[i] === ' ') lastSpace = charIdx
       text += chars[i]
       i++
-      count++
+      charIdx++
+      widthUsed += w
     }
     const atLineEnd = i >= chars.length || chars[i] === NL
-    if (!atLineEnd && count >= avail && lastSpace > 0) {
+    if (!atLineEnd && widthUsed >= avail && lastSpace > 0) {
       // Move the "tail" of the line to the next visual line.
       const textChars = Array.from(text)
       const tailLen = textChars.length - lastSpace
@@ -205,14 +259,20 @@ export function layoutInput(
   let cursorCol = promptW
   for (let r = 0; r < rows.length; r++) {
     const row = rows[r]
-    const len = Array.from(row.text).length
+    const rowChars = Array.from(row.text)
+    const len = rowChars.length
     const from = row.start
     const to = row.start + len
     if (cur >= from && cur <= to) {
       const next = rows[r + 1]
       if (cur === to && next && next.start === to) continue
       cursorRow = r
-      cursorCol = promptW + (cur - from)
+      // Cursor column in COLUMNS (wide chars count as 2).
+      let w = 0
+      for (let k = 0; k < cur - from; k++) {
+        w += charWidth(rowChars[k].codePointAt(0) as number)
+      }
+      cursorCol = promptW + w
       break
     }
   }
