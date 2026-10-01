@@ -57,7 +57,6 @@ function quoteArgs(input: string | string[]): string {
     .join(' ')
 }
 
-// Checks whether the directory is a git repository and gathers the context.
 export async function getGitContext(
   workdir: string,
 ): Promise<GitContext | null> {
