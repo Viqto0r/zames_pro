@@ -103,6 +103,68 @@ export function askPassword(question: string): Promise<string> {
 
 const USER_DATA_DIR = path.join(os.homedir(), '.zames', 'profile')
 const CHAT_URL = 'https://chat.deepseek.com/'
+// Cache of the sanitized (non-Headless) User-Agent, keyed by the browser
+// engine path. On the FIRST headless run we detect the real UA, strip the
+// "Headless" marker and store it here; later runs pass it straight to
+// _launchOnce, so the browser starts with a good UA and the "launch → read UA →
+// relaunch" dance happens only once (it otherwise doubled every headless
+// start). Keying by the executable path means a Playwright update (new engine
+// path) invalidates the cache and we re-derive the UA once for the new build.
+const HEADLESS_UA_CACHE = path.join(os.homedir(), '.zames', 'headless-ua.json')
+
+// Pure: pick a reusable UA from the cache file's text for the given engine, or
+// null. Exported so the policy is unit-tested without touching ~/.zames.
+export function parseHeadlessUACache(
+  raw: string,
+  engine: string,
+): string | null {
+  try {
+    const j = JSON.parse(raw)
+    if (
+      j &&
+      j.engine === engine &&
+      typeof j.ua === 'string' &&
+      j.ua &&
+      !/Headless/i.test(j.ua)
+    ) {
+      return j.ua
+    }
+  } catch {}
+  return null
+}
+
+function headlessEngineKey(): string {
+  try {
+    return chromium.executablePath()
+  } catch {
+    return ''
+  }
+}
+
+async function readCachedHeadlessUA(engine: string): Promise<string | null> {
+  if (!engine) return null
+  try {
+    const raw = await fs.readFile(HEADLESS_UA_CACHE, 'utf-8')
+    return parseHeadlessUACache(raw, engine)
+  } catch {
+    return null
+  }
+}
+
+async function writeCachedHeadlessUA(
+  engine: string,
+  ua: string,
+): Promise<void> {
+  if (!engine || !ua) return
+  try {
+    await fs.mkdir(path.dirname(HEADLESS_UA_CACHE), { recursive: true })
+    await fs.writeFile(
+      HEADLESS_UA_CACHE,
+      JSON.stringify({ engine, ua }, null, 2),
+      'utf-8',
+    )
+  } catch {}
+}
 
 // A headless Chrome advertises "HeadlessChrome/..." in its User-Agent, and
 // DeepSeek's CDN (CloudFront/WAF) rejects that UA with a plain "403 ERROR"
@@ -667,6 +729,13 @@ export class DeepSeekBrowser {
       if (this.debug) console.error('profile: удаляю Singleton-файлы')
       await cleanSingletonFiles()
     }
+    // Headless: if we already know the sanitized UA for THIS engine build, use
+    // it from the start — that skips the "launch, read UA, relaunch" dance
+    // (which otherwise doubled every headless start).
+    if (this.headless && !this.userAgent) {
+      const cached = await readCachedHeadlessUA(headlessEngineKey())
+      if (cached) this.userAgent = cached
+    }
     await this._launchOnce()
     await this._fixHeadlessUserAgent()
   }
@@ -687,6 +756,9 @@ export class DeepSeekBrowser {
       const fixed = sanitizeHeadlessUA(ua)
       if (fixed === ua) return
       this.userAgent = fixed
+      // Remember the good UA for this engine build so the NEXT headless start
+      // uses it immediately (no relaunch). Keyed by executable path.
+      void writeCachedHeadlessUA(headlessEngineKey(), fixed)
       if (this.debug)
         console.error('profile: headless UA → перезапуск с обычным Chrome UA')
       await this.context.close().catch(() => {})
