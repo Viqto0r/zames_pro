@@ -2398,25 +2398,65 @@ export class DeepSeekBrowser {
 
     await this._setInputText(input, finalPrompt)
 
-    // Send immediately: the input is already verified by _setInputText, and a
-    // clickable send button normally appears right away. The old code slept a
-    // fixed 50ms here, which only added latency (the button does not need it).
+    // Send: wait for the send button to become ENABLED first. After an
+    // attachment upload the button is DISABLED while the file is still
+    // uploading; a click on a disabled button silently does nothing, so the
+    // message stayed in the input and no generation started (the operator saw
+    // the text + the file in the box, but nothing was sent). We poll for an
+    // ENABLED button, then click; if none becomes enabled in time, fall back
+    // to Enter (which is also ignored while the send is disabled).
+    const sendDeadline = Date.now() + 8000
     let sent = false
-    for (const sel of SEND_SELECTORS) {
-      const btn = this.page.locator(sel).last()
-      try {
-        if ((await btn.count()) === 0) continue
-        if (!(await btn.isVisible().catch(() => false))) continue
-        await btn.click({ timeout: 1500 })
-        sent = true
-        break
-      } catch {}
+    while (!sent && Date.now() < sendDeadline) {
+      for (const sel of SEND_SELECTORS) {
+        const btn = this.page.locator(sel).last()
+        try {
+          if ((await btn.count()) === 0) continue
+          if (!(await btn.isVisible().catch(() => false))) continue
+          // DeepSeek's send control is a div[role=button]; Playwright's
+          // isEnabled() does NOT honor aria-disabled on a div, so read the
+          // attribute (and a disabled class) directly — during an upload the
+          // button is aria-disabled=true and a click is silently ignored.
+          const enabled = await btn
+            .evaluate((el: Element) => {
+              if (el.getAttribute('aria-disabled') === 'true') return false
+              const cls = (el.className || '').toString()
+              if (/disabled|is-disabled/.test(cls)) return false
+              return true
+            })
+            .catch(() => true)
+          if (!enabled) continue
+          await btn.click({ timeout: 1500 })
+          sent = true
+          break
+        } catch {}
+      }
+      if (!sent) await this.page.waitForTimeout(150)
     }
     if (!sent) {
       await this.page.keyboard.press('Enter')
     }
     this._lastSentAt = Date.now()
-    this._askDebug('SENT at=' + this._lastSentAt)
+    this._askDebug('SENT at=' + this._lastSentAt + ' viaButton=' + sent)
+
+    // Verify the send REALLY went out: DeepSeek clears the input when the
+    // message is accepted. If the text is still there a moment later, the
+    // click/Enter was ignored (a disabled button during upload, a lost
+    // keystroke) — press Enter once more so the message is not silently stuck
+    // in the box (exactly the operator's "text + file in the box, no send").
+    try {
+      await this.page.waitForTimeout(300)
+      const stillThere = await input
+        .evaluate((el: HTMLTextAreaElement) =>
+          (el.value || el.innerText || el.textContent || '').trim(),
+        )
+        .catch(() => '')
+      if (stillThere) {
+        this._askDebug('SEND not cleared, pressing Enter again')
+        await this.page.keyboard.press('Enter')
+        this._lastSentAt = Date.now()
+      }
+    } catch {}
 
     // Wait for the start: either Stop appeared, or the answer text changed,
     // or the page grew (a new answer node / longer last answer). In parallel we
