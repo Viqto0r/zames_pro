@@ -491,6 +491,12 @@ export class DeepSeekBrowser {
   // the agent hung until the timeout.
   _netBody: string
   _netHookInstalled: boolean
+  // The page object the net hook was installed on. A RELAUNCH (e.g. the
+  // headless UA fix) creates a NEW page; comparing against this lets
+  // _installNetHook re-attach to the new page instead of silently skipping
+  // (which left the post-fix page with no capture and "no answer" in
+  // headless, while headed worked).
+  _netHookPage: unknown
   // Fired right when a message is actually typed/sent (AFTER the send-pause
   // and attachments). Used to start the "agent is working" spinner only when
   // a generation really begins, not during the pre-send phase (chat open,
@@ -587,6 +593,7 @@ export class DeepSeekBrowser {
     this._lastHistoryError = ''
     this._netBody = ''
     this._netHookInstalled = false
+    this._netHookPage = null
     this.onSendStart = null
     this.onSendPause = null
     this.onSendState = null
@@ -744,10 +751,14 @@ export class DeepSeekBrowser {
   }
 
   _installNetHook(): void {
-    if (this._netHookInstalled) return
     const pg = this['page']
     if (!pg) return
+    // Skip only when the hook is ALREADY on THIS page. After a relaunch the
+    // page object changed, so we must attach to the new one — otherwise the
+    // capture stayed dead and ask() saw "no answer".
+    if (this._netHookInstalled && this._netHookPage === pg) return
     this._netHookInstalled = true
+    this._netHookPage = pg
     pg.on('response', (resp: import('playwright').Response) => {
       void this._onResponse(resp).catch(() => {})
     })
