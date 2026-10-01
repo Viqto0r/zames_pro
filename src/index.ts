@@ -1635,14 +1635,14 @@ async function main(): Promise<void> {
   }
 
   // Re-inject a persisted checklist after /resume or the startup restore.
-  const restoreTodos = (items: TodoItem[] | undefined): void => {
-    if (items && items.length) setTodos(items, todoStore)
-  }
+  // The list is REPLACED (not merged): a resumed chat with no saved checklist
+  // must clear the previous chat's tasks, otherwise the status line keeps
+  // showing them for a chat that never had them.
   const loadSessionTodos = (id: string | null): void => {
     const s = readSession(id)
-    const items = s?.todos as TodoItem[] | undefined
-    if (!items || !items.length) return
-    restoreTodos(items)
+    const items = (s?.todos as TodoItem[] | undefined) || []
+    setTodos(items, todoStore)
+    if (!items.length) return
     const done = items.filter((x) => x.status === 'completed').length
     console.log(
       theme.system(
