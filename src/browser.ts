@@ -103,6 +103,13 @@ export function askPassword(question: string): Promise<string> {
 
 const USER_DATA_DIR = path.join(os.homedir(), '.zames', 'profile')
 const CHAT_URL = 'https://chat.deepseek.com/'
+// The "New chat" control is NOT a <button>/<a> on the current DeepSeek build
+// (it is a <div>), so matching only button/a missed it, the click timed out
+// and newChat() silently no-opped. Match any clickable-ish element whose text
+// is EXACTLY the new-chat label (an anchored regex keeps a big outer container
+// from matching its long descendant text).
+const NEW_CHAT_SELECTOR = 'button, a, [role="button"], div, span'
+const NEW_CHAT_TEXT_RE = /^\s*(new chat|новый чат|новый диалог)\s*$/i
 // Cache of the sanitized (non-Headless) User-Agent, keyed by the browser
 // engine path. On the FIRST headless run we detect the real UA, strip the
 // "Headless" marker and store it here; later runs pass it straight to
@@ -1339,34 +1346,42 @@ export class DeepSeekBrowser {
   async newChat(): Promise<void> {
     const before = await this.getCurrentChatId()
     const newChatBtn = this.page
-      .locator('button, a')
-      .filter({ hasText: /new chat|новый чат|новый диалог/i })
+      .locator(NEW_CHAT_SELECTOR)
+      .filter({ hasText: NEW_CHAT_TEXT_RE })
       .first()
     let clicked = false
     try {
       await newChatBtn.click({ timeout: 2000 })
       clicked = true
     } catch {
-      // fall through to the goto fallback below
+      // No usable control — fall through to the goto fallback below.
     }
-    // Give the app a moment to react to the click, then poll for the positive
-    // signal (input ready AND chat changed). If the click did nothing, fall
-    // back to navigating to the base URL.
+    // Poll for the POSITIVE signal: the chat id must actually change. The old
+    // code accepted `!clicked` as success, so a failed click returned as if a
+    // fresh chat had opened and the next prompt went into the OLD chat (this
+    // is what made auto-compact loop on the same chat). The old chat also has
+    // a ready input, so an input alone is not proof.
     let ok = false
-    const deadline = Date.now() + 5000
-    while (Date.now() < deadline) {
-      if (await this._awaitInput(500)) {
-        if (!clicked || (await this._chatIdChangedFrom(before))) {
+    if (clicked) {
+      const deadline = Date.now() + 5000
+      while (Date.now() < deadline) {
+        if (await this._chatIdChangedFrom(before)) {
           ok = true
           break
         }
+        await this.page.waitForTimeout(100)
       }
-      await this.page.waitForTimeout(100)
     }
     if (!ok) {
+      // Navigating to the base URL always yields a fresh chat.
       await this.page.goto(CHAT_URL, { waitUntil: 'domcontentloaded' })
       await this._awaitInput(5000)
     }
+    // The chat id sniffed off the network belongs to the PREVIOUS chat; the
+    // base URL carries no id, so getCurrentChatId() would otherwise return the
+    // STALE old id for the fresh chat. Clear it — a fresh chat has no id until
+    // the first message creates one.
+    this._netChatId = null
   }
 
   async _findVisible(

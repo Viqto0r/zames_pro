@@ -25,14 +25,44 @@ function chain(overrides: Record<string, unknown> = {}): unknown {
   return self
 }
 
+// The real DeepSeek "New chat" control is a <div>, not a <button>/<a>. The
+// selector must therefore match the div, otherwise the click times out and
+// newChat silently no-ops.
+const NEW_CHAT_SELECTOR = 'button, a, [role="button"], div, span'
+
+test('newChat clicks the new-chat control and accepts a changed id', async () => {
+  const b = new DeepSeekBrowser()
+  let id = 'old-chat'
+  let clickedSelector = ''
+  ;(b as unknown as { page: unknown }).page = {
+    locator: (sel: string) => {
+      if (sel === NEW_CHAT_SELECTOR) {
+        return chain({
+          click: async () => {
+            clickedSelector = sel
+            id = 'new-chat'
+          },
+        })
+      }
+      return chain()
+    },
+    url: () => 'https://chat.deepseek.com/a/chat/s/' + id,
+    goto: async () => {},
+    waitForTimeout: async () => {},
+  }
+  await b.newChat()
+  assert.equal(clickedSelector, NEW_CHAT_SELECTOR, 'must target the div too')
+  assert.equal(await b.getCurrentChatId(), 'new-chat')
+})
+
 test('newChat falls back to goto when the click changes nothing', async () => {
   const b = new DeepSeekBrowser()
   let went = false
   let id = 'same-chat'
   ;(b as unknown as { page: unknown }).page = {
-    // The new-chat button click does NOT change the chat id.
+    // The new-chat control click does NOT change the chat id.
     locator: (sel: string) =>
-      sel === 'button, a' ? chain({ click: async () => {} }) : chain(),
+      sel === NEW_CHAT_SELECTOR ? chain({ click: async () => {} }) : chain(),
     url: () => 'https://chat.deepseek.com/a/chat/s/' + id,
     goto: async () => {
       went = true
@@ -46,22 +76,45 @@ test('newChat falls back to goto when the click changes nothing', async () => {
   assert.equal(went, true, 'a no-op click must fall back to goto')
 })
 
-test('newChat returns once the input is ready on a fresh chat', async () => {
+// A failed click (no control found) must NOT be treated as success: the old
+// code accepted `!clicked` and returned with the OLD chat still open — this is
+// exactly what made auto-compact loop on the same chat.
+test('newChat goes to a fresh chat even when no control is found', async () => {
   const b = new DeepSeekBrowser()
-  let id = 'old-chat'
+  let went = false
   ;(b as unknown as { page: unknown }).page = {
-    locator: (sel: string) =>
-      sel === 'button, a'
-        ? chain({
-            click: async () => {
-              id = 'new-chat'
-            },
-          })
-        : chain(),
-    url: () => 'https://chat.deepseek.com/a/chat/s/' + id,
+    locator: () =>
+      chain({
+        click: async () => {
+          throw new Error('no control')
+        },
+      }),
+    url: () => 'https://chat.deepseek.com/a/chat/s/old-chat',
+    goto: async () => {
+      went = true
+    },
+    waitForTimeout: async () => {},
+  }
+  await b.newChat()
+  assert.equal(went, true, 'a failed click must fall back to goto')
+})
+
+test('newChat clears the stale sniffed chat id after a goto', async () => {
+  const b = new DeepSeekBrowser()
+  b._netChatId = 'stale-old-chat'
+  ;(b as unknown as { page: unknown }).page = {
+    locator: () =>
+      chain({
+        click: async () => {
+          throw new Error('no control')
+        },
+      }),
+    // After the goto the URL is the base (no id), so getCurrentChatId() would
+    // fall back to the stale sniffed id without the clear.
+    url: () => 'https://chat.deepseek.com/',
     goto: async () => {},
     waitForTimeout: async () => {},
   }
   await b.newChat()
-  assert.equal(await b.getCurrentChatId(), 'new-chat')
+  assert.equal(await b.getCurrentChatId(), null)
 })
