@@ -937,12 +937,19 @@ export async function runAgentLoop({
 // partial output (it would act on a half-read file/log).
 export function truncateToolResult(text: string, limit: number): string {
   if (text.length <= limit) return text
-  const omitted = text.length - limit
-  return (
-    text.slice(0, limit) +
-    String.fromCharCode(10) +
-    `[...truncated ${omitted} chars]`
-  )
+  // Prefer a LINE boundary near the limit so the model does not read a line
+  // cut in half (a half line is easy to misread as the real content). We look
+  // for the last newline within the last 20% of the window; if none, fall back
+  // to the hard char cut.
+  let cut = limit
+  const NL = String.fromCharCode(10)
+  const searchFrom = Math.floor(limit * 0.8)
+  const nl = text.lastIndexOf(NL, limit)
+  // Cut AFTER the newline (include it) so the kept part is a whole number of
+  // lines — a cut that EXCLUDED the newline left a half line before the marker.
+  if (nl >= searchFrom) cut = nl + 1
+  const omitted = text.length - cut
+  return text.slice(0, cut) + NL + `[...truncated ${omitted} chars]`
 }
 
 // The answer looks like a tool call, but parseToolCall() did not recognize it.

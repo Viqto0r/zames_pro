@@ -26,3 +26,17 @@ test('the marker reports the real number of omitted chars', () => {
   const out = truncateToolResult(s, 1000)
   assert.match(out, /\[\.\.\.truncated 234 chars\]/)
 })
+
+test('a cut near a line boundary keeps whole lines', () => {
+  const line = 'a'.repeat(30) + String.fromCharCode(10) // 31 chars per line
+  const s = line.repeat(50) // 1550 chars
+  const out = truncateToolResult(s, 1000)
+  const NL = String.fromCharCode(10)
+  // Strip the marker line we appended: the kept content is everything up to
+  // the last NL that precedes "[...truncated".
+  const kept = out.slice(0, out.indexOf(NL + '[...'))
+  // A whole number of 31-char lines was kept (no half line).
+  assert.equal(kept.length % 31, 0)
+  assert.ok(kept.length <= 1000 && kept.length > 1000 - 31)
+  assert.match(out, /\[\.\.\.truncated \d+ chars\]/)
+})
