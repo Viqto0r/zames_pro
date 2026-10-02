@@ -16,3 +16,6 @@ undefined
 # Per-project session goal (/goal) — personal state, not part of the package.
 .zames-goal
 commit-msg.tmp
+
+# Local improvement backlog - not part of the shipped repo.
+BACKLOG.md
