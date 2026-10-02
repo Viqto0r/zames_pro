@@ -5,7 +5,6 @@ dist
 tmp/
 .husky/_
 
-
 # A tool call that omitted its path used to create this file by accident.
 # Kept as a safety net so it never reaches a commit.
 undefined
@@ -16,6 +15,3 @@ undefined
 # Per-project session goal (/goal) — personal state, not part of the package.
 .zames-goal
 commit-msg.tmp
-
-# Local improvement backlog - not part of the shipped repo.
-BACKLOG.md
