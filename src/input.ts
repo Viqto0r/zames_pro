@@ -812,10 +812,18 @@ export class LineEditor {
   // status stays on screen, only the input area is redrawn. This removes the
   // full-screen flicker on terminals like Tabby, where erasing the whole block
   // on every character made the display blink.
-  _eraseInputOnly(inputRows: number) {
+  //
+  // `cursorRowInInput` is the cursor's row WITHIN the input area (0-based) as
+  // it is currently on screen: we move up exactly that many rows to the input's
+  // TOP and clear downward (ESC[J), which also wipes the hint lines below the
+  // input. Passing the input's full HEIGHT here (an earlier version did)
+  // overshot by `cursorRow` rows whenever the cursor was not on the last visual
+  // line, so every keystroke redrew the block one row higher — the input line
+  // visibly climbed from the bottom to the top of the screen.
+  _eraseInputOnly(cursorRowInInput: number) {
     if (!this.rendered) return
     const rows = process.stdout.rows || 24
-    const up = Math.min(Math.max(0, inputRows - 1), Math.max(0, rows - 1))
+    const up = Math.min(Math.max(0, cursorRowInInput), Math.max(0, rows - 1))
     if (up > 0) process.stdout.write(ESC + '[' + up + 'A')
     process.stdout.write(CR + ESC + '[J')
     this.rendered = false
@@ -905,13 +913,14 @@ export class LineEditor {
     if (statusUnchanged) {
       // Count the real input rows via layout (wrapping aware).
       const layOnly = layoutInput(this.promptStr, this.buf, this.cursor, cols)
-      const inputLineRows = layOnly.rows.length
       const suggOnly = this._suggestions()
       const shownOnly = suggOnly.slice(0, 8)
       const linesBelowOnly = shownOnly.length
         ? shownOnly.length + (suggOnly.length > shownOnly.length ? 1 : 0)
         : 0
-      this._eraseInputOnly(inputLineRows + linesBelowOnly)
+      // Move up to the INPUT top using the OLD cursor row (the position that is
+      // on screen right now), never the input's height.
+      this._eraseInputOnly(this.cursorRowFromTop - this._statusTop)
       let outOnly = ''
       outOnly += layOnly.rows.map((r) => r.prefix + r.text).join(NL)
       if (shownOnly.length) {
@@ -1021,14 +1030,14 @@ export class LineEditor {
     }
     const cols = process.stdout.columns || 80
     const lay = layoutInput(this.promptStr, this.buf, this.cursor, cols)
-    const inputRows = lay.rows.length
     const sugg = this._suggestions()
     const shown = sugg.slice(0, 8)
     this._suggestCount = shown.length
     const linesBelow = shown.length
       ? shown.length + (sugg.length > shown.length ? 1 : 0)
       : 0
-    this._eraseInputOnly(inputRows + linesBelow)
+    // Move up to the INPUT top using the OLD cursor row (on screen right now).
+    this._eraseInputOnly(this.cursorRowFromTop - this._statusTop)
     let out = lay.rows.map((r) => r.prefix + r.text).join(NL)
     if (shown.length) {
       const maxName = Math.max(...shown.map((c) => c.name.length))
