@@ -1,6 +1,6 @@
 {
   "name": "zames_pro",
-  "version": "2.49.3",
+  "version": "2.49.4",
   "description": "Terminal coding agent over chat.deepseek.com via Playwright",
   "type": "module",
   "bin": {
@@ -38,7 +38,7 @@
   ],
   "license": "MIT",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.1",

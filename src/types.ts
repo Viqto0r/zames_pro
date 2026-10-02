@@ -174,6 +174,12 @@ export interface Session {
    * chat keeps its task list. Optional: older session files have no field.
    */
   todos?: Array<{ content: string; status: string }>
+  /**
+   * Format version of the session file (SESSIONS_FORMAT_VERSION in
+   * sessions.ts). Optional: files written before versioning have no field and
+   * are treated as version 1.
+   */
+  version?: number
 }
 
 export interface SessionsIndex {

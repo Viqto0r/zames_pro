@@ -6,7 +6,13 @@ import { DEFAULT_LOCALE } from './i18n.js'
 
 const ZAMES_HOME = path.join(os.homedir(), '.zames')
 const HOME_CONFIG = path.join(ZAMES_HOME, 'config.json')
-const PROJECT_CONFIG = path.join(process.cwd(), '.zamesrc.json')
+
+// The PROJECT config path is resolved LAZILY: `/cd` changes process.cwd() at
+// runtime, so freezing it at import time meant a `.zamesrc.json` in the new
+// working directory was never read (and writes went to the OLD directory).
+export function projectConfigPath(): string {
+  return path.join(process.cwd(), '.zamesrc.json')
+}
 
 export const DEFAULTS: ZamesConfig = {
   maxIterations: 0,
@@ -77,14 +83,14 @@ export const DEFAULTS: ZamesConfig = {
 
 export function loadConfig(): ZamesConfig {
   const merged = JSON.parse(JSON.stringify(DEFAULTS)) as ZamesConfig
-  for (const file of [HOME_CONFIG, PROJECT_CONFIG]) {
+  for (const file of [HOME_CONFIG, projectConfigPath()]) {
     try {
       const data = JSON.parse(fs.readFileSync(file, 'utf-8'))
       deepMerge(merged as unknown as Record<string, unknown>, data)
     } catch (e) {
       const err = e as NodeJS.ErrnoException
       if (err.code !== 'ENOENT') {
-        console.error(`config: не удалось прочитать ${file}: ${err.message}`)
+        console.error(`config: failed to read ${file}: ${err.message}`)
       }
     }
   }
@@ -448,7 +454,7 @@ export function validateConfigValue(field: ConfigField, raw: string): unknown {
 export type ConfigScope = 'project' | 'home'
 
 export function configPathFor(scope: ConfigScope): string {
-  return scope === 'project' ? PROJECT_CONFIG : HOME_CONFIG
+  return scope === 'project' ? projectConfigPath() : HOME_CONFIG
 }
 
 /**
@@ -512,5 +518,12 @@ export function resetConfigValue(scope: ConfigScope, key: string): string {
   return file
 }
 
-export const CONFIG_PATHS = { HOME_CONFIG, PROJECT_CONFIG }
+// 'PROJECT_CONFIG' stays a getter so existing callers that only DISPLAY the
+// path (help, /config) keep working while still reflecting the current cwd.
+export const CONFIG_PATHS = {
+  HOME_CONFIG,
+  get PROJECT_CONFIG(): string {
+    return projectConfigPath()
+  },
+}
 export { ZAMES_HOME }

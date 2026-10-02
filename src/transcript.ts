@@ -34,12 +34,12 @@ export class Transcript {
       // Write errors (disk full, file deleted, etc.) arrive as an 'error'
       // event; without a listener this is an uncaught exception.
       this.stream.on('error', (e: Error) => {
-        console.error(`transcript: ошибка записи: ${e.message}`)
+        console.error(`transcript: write error: ${e.message}`)
         this.enabled = false
       })
     } catch (e) {
       console.error(
-        `transcript: не удалось создать файл: ${(e as Error).message}`,
+        `transcript: failed to create file: ${(e as Error).message}`,
       )
       this.enabled = false
     }

@@ -16,6 +16,14 @@ interface SessionsIndex {
   updatedAt?: string
 }
 
+export const SESSIONS_FORMAT_VERSION = 1
+
+function atomicWriteJson(file: string, value: unknown): void {
+  const tmp = file + '.tmp-' + process.pid
+  fs.writeFileSync(tmp, JSON.stringify(value, null, 2), 'utf-8')
+  fs.renameSync(tmp, file)
+}
+
 function ensureDir(): void {
   fs.mkdirSync(SESSIONS_DIR, { recursive: true })
 }
@@ -52,12 +60,13 @@ export function saveSession({
       workdir: workdir || prev.workdir || '',
       createdAt: prev.createdAt || now,
       updatedAt: now,
+      version: SESSIONS_FORMAT_VERSION,
     }
     // Keep the previous checklist unless a new one is explicitly passed —
     // saveLastChat() calls this for title/workdir only and must not wipe it.
     const nextTodos = todos !== undefined ? todos : prev.todos
     if (nextTodos !== undefined) data.todos = nextTodos
-    fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf-8')
+    atomicWriteJson(file, data)
     writeIndex({ id, workdir: data.workdir })
     return data
   } catch {
@@ -80,7 +89,7 @@ function writeIndex({ id, workdir }: { id: string; workdir: string }): void {
     index.byWorkdir[key] = id
     index.last = id
     index.updatedAt = new Date().toISOString()
-    fs.writeFileSync(INDEX_FILE, JSON.stringify(index, null, 2), 'utf-8')
+    atomicWriteJson(INDEX_FILE, index)
   } catch {}
 }
 

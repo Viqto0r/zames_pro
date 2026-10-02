@@ -1,4 +1,23 @@
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import type { ToolArgs, ToolDef, ToolParameters } from './types.js'
+
+// The MCP client advertises a name+version to servers. Read the real version
+// from package.json (the previous hardcoded '1.0.0' silently drifted from the
+// package). Best-effort: an unreadable package.json must never break MCP.
+function packageVersion(): string {
+  try {
+    const here = path.dirname(fileURLToPath(import.meta.url))
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(here, '..', 'package.json'), 'utf-8'),
+    )
+    if (pkg && typeof pkg.version === 'string') return pkg.version
+  } catch {
+    // fall through
+  }
+  return '0.0.0'
+}
 
 // ---------- MCP (Model Context Protocol) client ----------
 //
@@ -352,7 +371,7 @@ async function connectServer(
   try {
     const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
     const client = new Client(
-      { name: 'zames', version: '1.0.0' },
+      { name: 'zames', version: packageVersion() },
       { capabilities: {} },
     ) as unknown as McpClientLike
 

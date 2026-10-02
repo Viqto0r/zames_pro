@@ -741,7 +741,7 @@ export class DeepSeekBrowser {
     // is handled by removing the Singleton files (below) and, if it is still
     // busy, by a clear error in _launchOnce().
     if (await profileLooksLocked()) {
-      if (this.debug) console.error('profile: удаляю Singleton-файлы')
+      if (this.debug) console.error('profile: removing Singleton files')
       await cleanSingletonFiles()
     }
     // Headless: if we already know the sanitized UA for THIS engine build, use
@@ -775,12 +775,14 @@ export class DeepSeekBrowser {
       // uses it immediately (no relaunch). Keyed by executable path.
       void writeCachedHeadlessUA(headlessEngineKey(), fixed)
       if (this.debug)
-        console.error('profile: headless UA → перезапуск с обычным Chrome UA')
+        console.error(
+          'profile: headless UA -> relaunching with a plain Chrome UA',
+        )
       await this.context.close().catch(() => {})
       await this._launchOnce()
     } catch (e) {
       if (this.debug)
-        console.error('profile: UA-фикс не удался:', (e as Error).message)
+        console.error('profile: UA fix failed:', (e as Error).message)
     }
   }
 
@@ -808,7 +810,7 @@ export class DeepSeekBrowser {
         )
       ) {
         if (this.debug)
-          console.error('profile: занят, перезапускаю после очистки')
+          console.error('profile: busy, relaunching after cleanup')
         // Do NOT kill a foreign chrome (see AGENTS.md): only clear the
         // Singleton files and retry. If the profile is genuinely in use by a
         // live browser, nukeProfile() below fails safely and the error
@@ -821,7 +823,7 @@ export class DeepSeekBrowser {
             options,
           )
         } catch {
-          if (this.debug) console.error('profile: сношу целиком')
+          if (this.debug) console.error('profile: nuking the profile')
           await nukeProfile()
           this.context = await chromium.launchPersistentContext(
             USER_DATA_DIR,
@@ -966,7 +968,7 @@ export class DeepSeekBrowser {
   async waitForLogin(): Promise<void> {
     // 1) Already signed in (session cookie in the persistent profile)?
     if (await this.isLoggedIn()) {
-      if (this.debug) console.error('auth: сессия уже активна')
+      if (this.debug) console.error('auth: session already active')
       return
     }
 
@@ -1052,7 +1054,7 @@ export class DeepSeekBrowser {
     const hasSaved = !!(this.auth.username && this.auth.password)
     // Prompt only when we have a login field to fill.
     if (!(await this._loginFormVisible())) {
-      if (this.debug) console.error('auth: форма входа не найдена')
+      if (this.debug) console.error('auth: login form not found')
       return false
     }
 
