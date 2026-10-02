@@ -2515,6 +2515,7 @@ async function main(): Promise<void> {
           config,
           focus: focus || undefined,
           transcript,
+          locale: currentLocale,
         })
 
         // Switch to review mode:
@@ -2642,7 +2643,7 @@ async function main(): Promise<void> {
 
     if (lower === '/self-list') {
       try {
-        await mod.selfList({ config })
+        await mod.selfList({ config, locale: currentLocale })
       } catch (e) {
         console.error(theme.error(t('msg.error')), (e as Error).message)
       }

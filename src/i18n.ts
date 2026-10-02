@@ -833,6 +833,66 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: 'Использование: /self-apply <name>',
     en: 'Usage: /self-apply <name>',
   },
+  'self.no_src': {
+    ru: 'Самообзор отменён: в {dir} нет .ts файлов. Проверь, что src/ не пуст и ты запускаешь агента из корня проекта.',
+    en: 'Self-review aborted: no .ts files in {dir}. Check that src/ is not empty and you run the agent from the project root.',
+  },
+  'self.no_src_err': {
+    ru: 'SRC_DIR пуст — нечего ревьюить',
+    en: 'SRC_DIR is empty - nothing to review',
+  },
+  'self.snapshot': { ru: '📸 Снапшот: {dir}', en: '📸 Snapshot: {dir}' },
+  'self.files': { ru: 'Файлов: {n} — {list}', en: 'Files: {n} — {list}' },
+  'self.starting': {
+    ru: 'Начинаю самообзор...',
+    en: 'Starting self-review...',
+  },
+  'self.report': { ru: '📋 Отчёт:', en: '📋 Report:' },
+  'self.report_empty': { ru: '(пусто)', en: '(empty)' },
+  'self.report_path': { ru: 'Отчёт:       {v}', en: 'Report:      {v}' },
+  'self.snapshot_path': { ru: 'Снапшот:     {v}', en: 'Snapshot:    {v}' },
+  'self.changed': {
+    ru: 'Изменено:    {n} файл(ов): {list}',
+    en: 'Changed:     {n} file(s): {list}',
+  },
+  'self.changed_none': {
+    ru: 'Изменено:    (ничего — только отчёт)',
+    en: 'Changed:     (nothing - report only)',
+  },
+  'self.next': { ru: 'Дальше:', en: 'Next:' },
+  'self.diff_hint': {
+    ru: '  /self-diff {name}   — посмотреть различия',
+    en: '  /self-diff {name}   — view the diff',
+  },
+  'self.apply_hint': {
+    ru: '  /self-apply {name}  — применить к живому src/',
+    en: '  /self-apply {name}  — apply to the live src/',
+  },
+  'self.no_diff': { ru: 'Различий нет.', en: 'No differences.' },
+  'self.apply_no_ts': {
+    ru: 'В снапшоте {dir} нет .ts файлов. Apply отменён, чтобы не стирать src/.',
+    en: 'Snapshot {dir} has no .ts files. Apply aborted to avoid wiping src/.',
+  },
+  'self.applied': {
+    ru: '✅ Применено: {n} файл(ов)',
+    en: '✅ Applied: {n} file(s)',
+  },
+  'self.backup': { ru: 'Бэкап: {dir}', en: 'Backup: {dir}' },
+  'self.restart_hint': {
+    ru: 'Перезапусти агента, чтобы изменения вступили в силу.',
+    en: 'Restart the agent for the changes to take effect.',
+  },
+  'self.no_snapshots': { ru: 'Снапшотов нет.', en: 'No snapshots.' },
+  'self.list_title': {
+    ru: 'Снапшоты самообзора:',
+    en: 'Self-review snapshots:',
+  },
+  'self.list_changed': { ru: '[{n} изменено]', en: '[{n} changed]' },
+  'self.list_unchanged': { ru: '[без правок]', en: '[no changes]' },
+  'self.list_commands': {
+    ru: 'Команды: /self-diff <name>, /self-apply <name>',
+    en: 'Commands: /self-diff <name>, /self-apply <name>',
+  },
   'self.fix_hint': {
     ru: '\n💡 Режим ревью по снапшоту {name}. Пиши агенту задачу или /self-done.\n',
     en: '\n💡 Review mode on snapshot {name}. Send the agent a task or /self-done.\n',

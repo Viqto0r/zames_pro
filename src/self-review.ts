@@ -1,6 +1,7 @@
 import path from 'path'
 import fs from 'fs/promises'
 import { theme } from './theme.js'
+import { translate, DEFAULT_LOCALE, type Locale } from './i18n.js'
 import { fileURLToPath } from 'url'
 
 import { ZAMES_HOME } from './config.js'
@@ -25,6 +26,13 @@ function resolveSrcDir(): string {
 
 const SRC_DIR = resolveSrcDir()
 const SNAP_ROOT = path.join(ZAMES_HOME, 'snapshots')
+
+// Localization for everything the OPERATOR sees. The locale is passed in from
+// the caller (src/index.ts holds currentLocale); without it we fall back to the
+// default so a direct call never breaks.
+function translator(locale?: Locale): ReturnType<typeof translate> {
+  return translate(locale || DEFAULT_LOCALE)
+}
 
 // Dynamic import of the logic with a timestamp — so that on /reload (or
 // auto-reload) self-review uses FRESH tools/agent-loop, not the ones cached on
@@ -65,12 +73,15 @@ export async function selfReview({
   browser,
   focus,
   transcript,
+  locale,
 }: {
   browser: BrowserLike
   focus?: string
   transcript?: TranscriptLike | null
+  locale?: Locale
   config?: unknown
 }): Promise<{ snapDir: string; reportPath: string; changed: string[] }> {
+  const t = translator(locale)
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
   const snapRoot = path.join(SNAP_ROOT)
   const snapDir = path.join(snapRoot, `run-${stamp}`)
@@ -80,13 +91,8 @@ export async function selfReview({
   const copied = await copyDirJsFiles(SRC_DIR, snapDir)
 
   if (copied.length === 0) {
-    console.error(
-      theme.error(
-        `\n✖ Самообзор отменён: в ${SRC_DIR} нет .ts файлов.\n` +
-          `Проверь, что src/ не пуст и ты запускаешь агента из корня проекта.\n`,
-      ),
-    )
-    throw new Error('SRC_DIR пуст — нечего ревьюить')
+    console.error(theme.error('\n✖ ' + t('self.no_src', { dir: SRC_DIR })))
+    throw new Error(t('self.no_src_err'))
   }
 
   // Copy package.json for context — so the agent sees the dependencies
@@ -98,9 +104,13 @@ export async function selfReview({
     await fs.writeFile(path.join(snapDir, 'package.json'), pkg, 'utf-8')
   } catch {}
 
-  console.log(theme.system(`\n📸 Снапшот: ${snapDir}`))
-  console.log(theme.system(`Файлов: ${copied.length} — ${copied.join(', ')}`))
-  console.log(theme.system('Начинаю самообзор...\n'))
+  console.log(theme.system('\n' + t('self.snapshot', { dir: snapDir })))
+  console.log(
+    theme.system(
+      t('self.files', { n: copied.length, list: copied.join(', ') }),
+    ),
+  )
+  console.log(theme.system(t('self.starting') + '\n'))
 
   const taskPrompt = buildReviewPrompt({ focus, snapDir })
 
@@ -123,14 +133,14 @@ export async function selfReview({
       console.log(theme.warn(`🔧 ${name}`), theme.system(preview))
     },
     onToolResult: (r: unknown) => {
-      const t = typeof r === 'string' ? r : JSON.stringify(r)
+      const text = typeof r === 'string' ? r : JSON.stringify(r)
       console.log(
-        theme.system(`   → ${t.slice(0, 200).replace(/\n/g, ' ↵ ')}\n`),
+        theme.system(`   → ${text.slice(0, 200).replace(/\n/g, ' ↵ ')}\n`),
       )
     },
     onAssistantMessage: (msg: string) => {
       finalMessage = msg
-      console.log(theme.assistant('\n📋 Отчёт:\n'))
+      console.log(theme.assistant('\n' + t('self.report') + '\n'))
       console.log(msg)
       console.log()
     },
@@ -138,33 +148,31 @@ export async function selfReview({
 
   // Save the report
   const reportPath = path.join(snapDir, '_report.md')
-  await fs.writeFile(reportPath, finalMessage || '(пусто)', 'utf-8')
+  await fs.writeFile(
+    reportPath,
+    finalMessage || t('self.report_empty'),
+    'utf-8',
+  )
 
   // Compute what changed
   const changed = await diffFiles(SRC_DIR, snapDir)
 
   console.log(theme.system('─'.repeat(60)))
-  console.log(theme.system(`Отчёт:       ${reportPath}`))
-  console.log(theme.system(`Снапшот:     ${snapDir}`))
+  console.log(theme.system(t('self.report_path', { v: reportPath })))
+  console.log(theme.system(t('self.snapshot_path', { v: snapDir })))
   if (changed.length) {
     console.log(
       theme.assistant(
-        `Изменено:    ${changed.length} файл(ов): ${changed.join(', ')}`,
+        t('self.changed', { n: changed.length, list: changed.join(', ') }),
       ),
     )
   } else {
-    console.log(theme.system('Изменено:    (ничего — только отчёт)'))
+    console.log(theme.system(t('self.changed_none')))
   }
-  console.log(theme.user(`\nДальше:`))
+  console.log(theme.user('\n' + t('self.next')))
+  console.log(theme.user(t('self.diff_hint', { name: path.basename(snapDir) })))
   console.log(
-    theme.user(
-      `  /self-diff ${path.basename(snapDir)}   — посмотреть различия`,
-    ),
-  )
-  console.log(
-    theme.user(
-      `  /self-apply ${path.basename(snapDir)}  — применить к живому src/`,
-    ),
+    theme.user(t('self.apply_hint', { name: path.basename(snapDir) })),
   )
   console.log()
 
@@ -175,13 +183,16 @@ export async function selfReview({
 
 export async function selfDiff({
   name,
+  locale,
 }: {
   name: string
+  locale?: Locale
   config?: unknown
 }): Promise<void> {
+  const t = translator(locale)
   const snapDir = path.join(SNAP_ROOT, name)
   const snapStat = await fs.stat(snapDir).catch(() => null)
-  if (!snapStat) throw new Error(`Снапшот не найден: ${snapDir}`)
+  if (!snapStat) throw new Error(t('self.snapshot_not_found', { dir: snapDir }))
 
   const { unifiedDiff, colorDiff } = await import('./diff.js')
   const files = await fs.readdir(snapDir)
@@ -204,7 +215,7 @@ export async function selfDiff({
   }
 
   if (!anyDiff) {
-    console.log(theme.system('Различий нет.'))
+    console.log(theme.system(t('self.no_diff')))
   }
 }
 
@@ -212,13 +223,16 @@ export async function selfDiff({
 
 export async function selfApply({
   name,
+  locale,
 }: {
   name: string
+  locale?: Locale
   config?: unknown
 }): Promise<void> {
+  const t = translator(locale)
   const snapDir = path.join(SNAP_ROOT, name)
   const snapStat = await fs.stat(snapDir).catch(() => null)
-  if (!snapStat) throw new Error(`Снапшот не найден: ${snapDir}`)
+  if (!snapStat) throw new Error(t('self.snapshot_not_found', { dir: snapDir }))
 
   // Back up the current src before overwriting
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
@@ -229,9 +243,7 @@ export async function selfApply({
   const jsFiles = files.filter((f) => f.endsWith('.ts'))
 
   if (jsFiles.length === 0) {
-    throw new Error(
-      `В снапшоте ${snapDir} нет .ts файлов. Apply отменён, чтобы не стирать src/.`,
-    )
+    throw new Error(t('self.apply_no_ts', { dir: snapDir }))
   }
 
   const applied = []
@@ -241,35 +253,34 @@ export async function selfApply({
     applied.push(f)
   }
 
-  console.log(theme.assistant(`\n✅ Применено: ${applied.length} файл(ов)`))
+  console.log(theme.assistant('\n' + t('self.applied', { n: applied.length })))
   console.log(theme.system(applied.join(', ')))
-  console.log(theme.system(`Бэкап: ${backupDir}`))
-  console.log(
-    theme.warn(`\nПерезапусти агента, чтобы изменения вступили в силу.\n`),
-  )
+  console.log(theme.system(t('self.backup', { dir: backupDir })))
+  console.log(theme.warn('\n' + t('self.restart_hint') + '\n'))
 }
 
 // ---------- /self-list ----------
 
 export async function selfList({
-  config: _config,
-}: { config?: unknown } = {}): Promise<void> {
+  locale,
+}: { locale?: Locale; config?: unknown } = {}): Promise<void> {
+  const t = translator(locale)
   const snapRoot = path.join(SNAP_ROOT)
   let entries: string[]
   try {
     entries = await fs.readdir(snapRoot)
   } catch {
-    console.log(theme.system('Снапшотов нет.'))
+    console.log(theme.system(t('self.no_snapshots')))
     return
   }
 
   if (!entries.length) {
-    console.log(theme.system('Снапшотов нет.'))
+    console.log(theme.system(t('self.no_snapshots')))
     return
   }
 
   entries.sort()
-  console.log(theme.system('Снапшоты самообзора:'))
+  console.log(theme.system(t('self.list_title')))
   for (const e of entries) {
     const full = path.join(snapRoot, e)
     const stat = await fs.stat(full).catch(() => null)
@@ -281,13 +292,13 @@ export async function selfList({
       .catch(() => false)
     const changedCount = (await diffFiles(SRC_DIR, full)).length
     const tag = changedCount
-      ? theme.assistant(`[${changedCount} изменено]`)
-      : theme.system('[без правок]')
+      ? theme.assistant(t('self.list_changed', { n: changedCount }))
+      : theme.system(t('self.list_unchanged'))
     const rep = hasReport ? theme.user('📋') : '  '
     console.log(`  ${rep} ${e}  ${tag}`)
   }
   console.log()
-  console.log(theme.system('Команды: /self-diff <name>, /self-apply <name>\n'))
+  console.log(theme.system(t('self.list_commands') + '\n'))
 }
 
 // ---------- helpers ----------
