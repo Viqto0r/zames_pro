@@ -19,6 +19,8 @@ export interface ConfigMenuOptions {
   t: TranslateFn
   /** Current field value (may be undefined = default). */
   get: (path: string) => unknown
+  /** The default value (for the "modified" marker). Optional. */
+  getDefault?: (path: string) => unknown
   /** Save a new value. Throws on a validation error. */
   set: (field: ConfigField, raw: string) => void
   /** Reset to the default. */
@@ -30,9 +32,9 @@ export interface ConfigMenuOptions {
 
 const ESC = String.fromCharCode(27)
 
-// Strip ANSI sequences to compute the visible length of a line.
+// Strip ANSH sequences to compute the visible length of a line.
 function stripAnsi(s: string): string {
-  return s.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
+  return s.replace(/\x1b\`[0-9;?]*[A-Za-z]/g, '')
 }
 
 // Visible COLUMNS of a line (ANSI removed, wide chars counted as 2). Using the
@@ -60,7 +62,7 @@ function displayValue(
 }
 
 function groupLabel(field: ConfigField, t: TranslateFn): string {
-  return t(field.groupKey)
+  return theme.system('  ' + t(field.groupKey))
 }
 
 /**
@@ -71,15 +73,22 @@ function groupLabel(field: ConfigField, t: TranslateFn): string {
 export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
   const input = opts.input || process.stdin
   const output = opts.output || process.stdout
-  const { fields, t, get, set, reset } = opts
+  const { fields, t, get, set, reset, getDefault } = opts
 
   if (!input.isTTY || !input.setRawMode) {
     return Promise.reject(new Error(t('cfg.menu.notty')))
   }
 
+  // cursor indexes the VISIBLE (filtered) list, not the full `fields`.
   let cursor = 0
   let editing = false
   let editBuf = ''
+  // Reverse/forward filter over the list (/ to enter, typing narrows it).
+  let filterMode = false
+  let filterQuery = ''
+  // Second `d` on the same row confirms the reset, so a stray keypress
+  // cannot wipe a setting by accident.
+  let pendingReset: string | null = null
   let message: string | null = null
   let exited = false
   let resolveDone: (() => void) | null = null
@@ -89,18 +98,52 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
   input.resume()
   output.write(ESC + '[?25l') // hide the cursor while rendering
 
+  // Fields that match the current filter (path, label or group contains the
+  // query, case-insensitive). Empty query -> everything.
+  const visible = (): ConfigField[] => {
+    const q = filterQuery.trim().toLowerCase()
+    if (!q) return fields
+    return fields.filter((f) =>
+      (f.path + ' ' + t(f.labelKey || f.path) + ' ' + t(f.groupKey))
+        .toLowerCase()
+        .includes(q),
+    )
+  }
+
+  const currentField = (): ConfigField | null => {
+    const vis = visible()
+    if (!vis.length) return null
+    if (cursor >= vis.length) cursor = vis.length - 1
+    return vis[cursor]
+  }
+
+  // True when the value differs from the default (the field is overridden
+  // in a config file), so the menu can mark it. Skipped with no getDefault.
+  const isModified = (f: ConfigField): boolean => {
+    if (!getDefault) return false
+    const cur = get(f.path)
+    const def = getDefault(f.path)
+    try {
+      return JSON.stringify(cur) !== JSON.stringify(def)
+    } catch {
+      return String(cur) !== String(def)
+    }
+  }
+
   // Menu rendering: lines go top to bottom, and we return the cursor to the
   // start of the block via relative moves so we don't spawn blank lines.
   let lastRows = 0
   const render = (): void => {
     const lines: string[] = []
     lines.push(theme.bold(t('cfg.menu.title')))
+    const vis = visible()
+    if (cursor >= vis.length) cursor = Math.max(0, vis.length - 1)
     let lastGroup = ''
-    for (let i = 0; i < fields.length; i++) {
-      const f = fields[i]
+    for (let i = 0; i < vis.length; i++) {
+      const f = vis[i]
       const g = groupLabel(f, t)
       if (g !== lastGroup) {
-        lines.push(theme.system('  ' + g))
+        lines.push(g)
         lastGroup = g
       }
       const selected = i === cursor
@@ -110,19 +153,38 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
         : t(f.labelKey || f.path)
       const val = displayValue(f, get(f.path), t)
       const valText = selected ? theme.assistant(val) : theme.dim(val)
+      const mod = isModified(f) ? theme.warn('*') : ''
       const pathText = selected ? theme.dim('  ' + f.path) : ''
-      lines.push(marker + label + theme.dim('  =  ') + valText + pathText)
+      lines.push(marker + label + theme.dim('  =  ') + valText + mod + pathText)
+    }
+    if (!vis.length) {
+      lines.push(theme.dim('  ' + t('cfg.menu.no_match')))
     }
     if (editing) {
       lines.push('')
       lines.push(theme.user(t('cfg.menu.edit_hint')))
       lines.push(theme.prompt('\u276f ') + editBuf)
+    } else if (filterMode) {
+      lines.push('')
+      lines.push(theme.user(t('cfg.menu.filter_hint')))
+      lines.push(theme.prompt('\u276f ') + filterQuery)
     } else if (message) {
       lines.push('')
       lines.push(theme.assistant(message))
     } else {
       lines.push('')
-      lines.push(theme.dim(t('cfg.menu.hint')))
+      if (filterQuery) {
+        lines.push(
+          theme.dim(
+            t('cfg.menu.filter_active', { q: filterQuery }) +
+              '  ' +
+              t('cfg.menu.hint'),
+          ),
+        )
+      } else {
+        lines.push('  ' + theme.dim(t('cfg.menu.hint')))
+        lines.push('  ' + theme.dim(t('cfg.menu.filter_hint')))
+      }
     }
 
     // Erase the previous block and print the new one. We count VISUAL lines
@@ -165,21 +227,22 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
     }
   }
 
-  const cleanup = (clearOnExit = false): void => {
+  const cleanup = (cleanOnExit = false): void => {
     if (exited) return
     exited = true
     input.removeListener('data', onData)
-    if (clearOnExit) clearBlock()
+    if (cleanOnExit) clearBlock()
     if (input.setRawMode) input.setRawMode(wasRaw || false)
     output.write(ESC + '[?25h') // restore the cursor
     if (resolveDone) resolveDone()
   }
 
   const commitEdit = (): void => {
-    const f = fields[cursor]
+    const f = currentField()
     const raw = editBuf.trim()
     editing = false
     editBuf = ''
+    if (!f) return
     if (!raw) {
       message = null
       return
@@ -196,7 +259,8 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
   }
 
   const toggle = (): void => {
-    const f = fields[cursor]
+    const f = currentField()
+    if (!f) return
     if (f.type === 'boolean') {
       const cur = get(f.path)
       set(f, cur === true ? 'false' : 'true')
@@ -247,20 +311,47 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
       return
     }
 
+    // Filter mode (/): printable keys build the query, Esc/Enter leave it
+    // (keeping the query active), Ctrl+C exits the whole menu.
+    if (filterMode) {
+      for (const ch of s) {
+        if (ch === '\r' || ch === '\n' || ch === ESC) {
+          filterMode = false
+          break
+        }
+        if (ch === '\x03') {
+          cleanup(true)
+          return
+        }
+        if (ch === '\x7f' || ch === '\b') {
+          filterQuery = filterQuery.slice(0, -1)
+        } else if (ch >= ' ') {
+          filterQuery += ch
+        }
+      }
+      cursor = 0
+      render()
+      return
+    }
+
     // The terminal may send several keys in one packet (fast typing,
     // auto-repeat, automation). We parse the buffer into tokens: first
     // escape sequences (arrows), then single characters.
     let i = 0
     while (i < s.length) {
       if (s.startsWith('\x1b[A', i)) {
-        cursor = (cursor - 1 + fields.length) % fields.length
+        const n = visible().length
+        if (n > 0) cursor = (cursor - 1 + n) % n
         message = null
+        pendingReset = null
         i += 3
         continue
       }
       if (s.startsWith('\x1b[B', i)) {
-        cursor = (cursor + 1) % fields.length
+        const n = visible().length
+        if (n > 0) cursor = (cursor + 1) % n
         message = null
+        pendingReset = null
         i += 3
         continue
       }
@@ -271,18 +362,43 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
         cleanup(true)
         return
       }
-      if (ch === 'k') {
-        cursor = (cursor - 1 + fields.length) % fields.length
+      if (ch === '/') {
+        filterMode = true
+        message = null
+        // The rest of THIS packet belongs to the filter query (typing " /debug"
+        // arrives as one chunk, and without this the trailing characters fell
+        // through to the command keys — 'd' armed a reset instead of filtering).
+        for (const rest of s.slice(i + 1)) {
+          if (rest === '\x7f' || rest === '\b') {
+            filterQuery = filterQuery.slice(0, -1)
+          } else if (rest >= ' ') {
+            filterQuery += rest
+          }
+        }
+        cursor = 0
+        i = s.length
+      } else if (ch === 'k') {
+        const n = visible().length
+        if (n > 0) cursor = (cursor - 1 + n) % n
         message = null
       } else if (ch === 'j') {
-        cursor = (cursor + 1) % fields.length
+        const n = visible().length
+        if (n > 0) cursor = (cursor + 1) % n
         message = null
       } else if (ch === '\r' || ch === '\n' || ch === ' ') {
         toggle()
       } else if (ch === 'd' || ch === 'D') {
-        const f = fields[cursor]
-        reset(f)
-        message = t('cfg.reset', { v: f.path })
+        const f = currentField()
+        if (f) {
+          if (pendingReset === f.path) {
+            reset(f)
+            message = t('cfg.reset', { v: f.path })
+            pendingReset = null
+          } else {
+            pendingReset = f.path
+            message = t('cfg.menu.reset_confirm', { v: f.path })
+          }
+        }
       }
       i++
     }

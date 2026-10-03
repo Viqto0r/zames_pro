@@ -2278,6 +2278,7 @@ async function main(): Promise<void> {
         fields: CONFIG_SCHEMA,
         t,
         get: (path) => getByPath(config, path),
+        getDefault: (path) => getByPath(DEFAULTS, path),
         set: (field, raw) => configSetRaw(field, raw),
         reset: (field) => configResetField(field),
       })

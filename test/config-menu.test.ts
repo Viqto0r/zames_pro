@@ -86,6 +86,10 @@ test('меню: d сбрасывает поле к дефолту', async () => 
   })
   const debugIdx = CONFIG_SCHEMA.findIndex((f) => f.path === 'debug')
   for (let i = 0; i < debugIdx; i++) input.emit('data', Buffer.from('\x1b[B'))
+  // A single `d` only ARMS the reset (a guard against a stray keypress);
+  // the second `d` on the same row actually resets.
+  input.emit('data', Buffer.from('d'))
+  assert.equal(resetPath, '')
   input.emit('data', Buffer.from('d'))
   assert.equal(resetPath, 'debug')
   input.emit('data', Buffer.from('q'))
@@ -117,6 +121,62 @@ test('меню: number открывает ввод и сохраняет', async
   input.emit('data', Buffer.from('\r')) // save
   assert.equal(saved, '25')
   assert.equal(store.maxIterations, 25)
+  input.emit('data', Buffer.from('q'))
+  await p
+})
+
+test('меню: фильтр «/» сужает список по подстроке', async () => {
+  const input = new FakeIn()
+  const output = new FakeOut()
+  const store: Record<string, unknown> = { debug: false }
+  let setPath = ''
+  const p = runConfigMenu({
+    fields: CONFIG_SCHEMA,
+    t: translate('ru'),
+    get: (path) => store[path],
+    set: (field, raw) => {
+      setPath = field.path
+      store[field.path] = raw === 'true'
+    },
+    reset: () => {},
+    input: input as unknown as NodeJS.ReadStream,
+    output: output as unknown as NodeJS.WriteStream,
+  })
+  // Type the filter "debug", then Enter to leave the filter (keeping it),
+  // then Enter again toggles the single visible field.
+  input.emit('data', Buffer.from('/debug'))
+  input.emit('data', Buffer.from('\r'))
+  input.emit('data', Buffer.from('\r'))
+  assert.equal(setPath, 'debug')
+  assert.equal(store.debug, true)
+  input.emit('data', Buffer.from('q'))
+  await p
+})
+
+test('меню: d требует подтверждения второго нажатия', async () => {
+  const input = new FakeIn()
+  const output = new FakeOut()
+  const store: Record<string, unknown> = { debug: true }
+  const resetPaths: string[] = []
+  const p = runConfigMenu({
+    fields: CONFIG_SCHEMA,
+    t: translate('ru'),
+    get: (path) => store[path],
+    set: () => {},
+    reset: (field) => {
+      resetPaths.push(field.path)
+      delete store[field.path]
+    },
+    input: input as unknown as NodeJS.ReadStream,
+    output: output as unknown as NodeJS.WriteStream,
+  })
+  const debugIdx = CONFIG_SCHEMA.findIndex((f) => f.path === 'debug')
+  for (let i = 0; i < debugIdx; i++) input.emit('data', Buffer.from('\x1b[B'))
+  // Moving with j must CLEAR the armed reset.
+  input.emit('data', Buffer.from('d'))
+  input.emit('data', Buffer.from('j'))
+  input.emit('data', Buffer.from('d'))
+  assert.equal(resetPaths.length, 0)
   input.emit('data', Buffer.from('q'))
   await p
 })

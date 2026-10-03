@@ -1411,6 +1411,19 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     en: '✔ Saved: {v} = {value}',
   },
   'cfg.menu.default': { ru: 'по умолчанию', en: 'default' },
+  'cfg.menu.filter_hint': {
+    ru: '/ — поиск по настройкам, d — сбросить (дважды), * — изменено от дефолта',
+    en: '/ search settings, d reset (press twice), * changed from default',
+  },
+  'cfg.menu.filter_active': {
+    ru: 'Фильтр: «{q}» (Esc/Enter — очистить)',
+    en: 'Filter: "{q}" (Esc/Enter to clear)',
+  },
+  'cfg.menu.no_match': { ru: '(нет совпадений)', en: '(no matches)' },
+  'cfg.menu.reset_confirm': {
+    ru: 'Нажми d ещё раз, чтобы сбросить {v}',
+    en: 'Press d again to reset {v}',
+  },
   'cfg.menu.notty': {
     ru: 'Меню доступно только в интерактивном терминале. Используй /config list|get|set.',
     en: 'The menu needs an interactive terminal. Use /config list|get|set.',
