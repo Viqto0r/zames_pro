@@ -128,9 +128,14 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
     // Erase the previous block and print the new one. We count VISUAL lines
     // (accounting for wrapping by terminal width), otherwise on narrow
     // terminals you get "garbage" from unerased tails.
+    // Reserve the last column. A line whose visible width reaches exactly the
+    // terminal width hits the autowrap edge: depending on the terminal it
+    // either consumes two rows for the following `\n` or keeps a pending wrap,
+    // and in both cases a full-width divisor UNDERCOUNTS the block height — the
+    // erase then misses the tail and the config lines DUPLICATE on screen (the
+    // reported bug). Overcounting by one is a harmless blank row; undercounting
+    // is not, so we bias to the safe side here.
     const cols = output.columns || 80
-    // Reserve the last column like the editor does: a row that fills the
-    // terminal exactly can autowrap, which desyncs the block height.
     const usable = Math.max(1, cols - 1)
     const rowsOf = (s: string): number => {
       return Math.max(1, Math.ceil(visCols(s) / usable))
