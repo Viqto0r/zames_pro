@@ -522,9 +522,11 @@ ${theme.bold(t('help.files'))}
   ${t('help.files.sessions')}      ${sessionsDir()}
   ${t('help.files.profile')}     ~/.zames/profile
   ${t('help.files.snapshots')}    ~/.zames/snapshots
-  ${t('help.files.tmp')}   <project>/tmp (.gitignore, cleaned on start)
+  ${t('help.files.tmp')}   <project>/tmp ${t('help.files.tmp_note')}
   ${t('help.files.config')}      ${CONFIG_PATHS.HOME_CONFIG}
                ${CONFIG_PATHS.PROJECT_CONFIG}
+
+${theme.dim(t('help.toggles_legend'))}
 `)
 }
 

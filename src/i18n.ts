@@ -476,7 +476,15 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   'help.files.profile': { ru: 'Профиль:', en: 'Profile:' },
   'help.files.snapshots': { ru: 'Снапшоты:', en: 'Snapshots:' },
   'help.files.tmp': { ru: 'Временные:', en: 'Temp:' },
+  'help.files.tmp_note': {
+    ru: '(в .gitignore, очищается при старте)',
+    en: '(.gitignore, cleaned on start)',
+  },
   'help.files.config': { ru: 'Конфиг:', en: 'Config:' },
+  'help.toggles_legend': {
+    ru: 'Индикаторы в статус-строке: 🧠 — глубокое размышление, 🌐 — поиск в интернете (видны, когда включены).',
+    en: 'Status-line icons: 🧠 — Deep thinking, 🌐 — web search (shown when enabled).',
+  },
 
   // ---------- spinner ----------
   'spinner.phrases': {
