@@ -31,8 +31,18 @@ export const theme = {
   success: chalk.hex('#a9c08c'), // soft sage
   brown: chalk.hex('#a1723f'), // brown (status/spinner)
   toggleOn: chalk.hex('#6fd0b0'), // teal-green — a toggle is ON
-  toggleOff: chalk.hex('#4a4f5a'), // dim gray — a toggle is OFF
   bold: chalk.bold,
+}
+
+// Horizontal rule that separates the model's answer from the next block. It
+// spans the terminal width (capped at `max`) so it does not look stubby on a
+// wide terminal. Falls back to 60 columns when the width is unknown (non-TTY).
+// One column is kept free, like everywhere else in the status/input layout, so
+// a full-width rule cannot trigger autowrap.
+export function divider(max = 100): string {
+  const cols = process.stdout.columns || 0
+  const width = Math.max(20, Math.min(max, cols ? cols - 1 : 60))
+  return '─'.repeat(width)
 }
 
 export default theme

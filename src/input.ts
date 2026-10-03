@@ -1,4 +1,4 @@
-import { theme } from './theme.js'
+import { theme, divider } from './theme.js'
 import { renderMarkdown } from './markdown.js'
 import {
   randomThinkingPhrase,
@@ -384,9 +384,6 @@ export class LineEditor {
   // True while the dot-animation timer is running. Lets sendPause() update
   // only the base text (remaining seconds) without restarting the timer.
   _animating: boolean
-  // Whether the animated status shows the trailing "Esc — стоп" hint. Off
-  // while a tool runs (its process cannot be cancelled).
-  _showHint: boolean
   _dotPhase: number
   _thinkBase: string
   // Explicit lifecycle state of the send ('generating' | 'paused' |
@@ -498,7 +495,6 @@ export class LineEditor {
     this._inPaste = false
     this._dotTimer = null
     this._animating = false
-    this._showHint = true
     this._dotPhase = 0
     this._thinkBase = ''
     this._sendState = ''
@@ -1157,9 +1153,10 @@ export class LineEditor {
     return renderDots(n)
   }
 
-  // Status-line hint ("Esc — stop"), localized.
+  // Status-line hint ("Esc — stop"), localized. Shown for every animated
+  // state: Esc really aborts both a generation and a running tool (the Bash
+  // child is killed via AbortSignal), so the promise is accurate.
   _hint(): string {
-    if (!this._showHint) return ''
     return theme.dim('  ·  ' + translate(this.locale)('spinner.hint'))
   }
 
@@ -1201,13 +1198,8 @@ export class LineEditor {
   // Shared by the thinking spinner and the send-pause indicator, so the pause
   // is animated too (previously the pause was a static console line and the
   // dots stayed frozen).
-  //
-  // `showHint` (default true) controls the trailing "· Esc — стоп". While a
-  // TOOL runs we hide it: the tool's child process cannot be killed, so
-  // promising "Esc to stop" would be misleading.
-  _startAnimated(baseText: string, showHint = true) {
+  _startAnimated(baseText: string) {
     this._thinkBase = theme.brown(stripEllipsis(baseText))
-    this._showHint = showHint
     this._dotPhase = 0
     this.setStatus(this._thinkBase + this._dots(0) + this._hint())
     this._stopDots()
@@ -1297,7 +1289,7 @@ export class LineEditor {
         NL +
         rendered +
         NL +
-        theme.dim('─'.repeat(60)),
+        theme.dim(divider()),
     )
   }
 

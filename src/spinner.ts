@@ -1,5 +1,5 @@
 import ora, { type Ora } from 'ora'
-import { theme } from './theme.js'
+import { theme, divider } from './theme.js'
 import { renderMarkdown } from './markdown.js'
 import { translate, type Locale } from './i18n.js'
 
@@ -77,20 +77,15 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
   // "running" dot sequence. Shared by the thinking spinner and the send-pause
   // indicator, so the pause is animated too (before, it was a static line and
   // the dots did not move — the operator saw a frozen spinner).
-  //
-  // `showHint` (default true) controls the trailing "· Esc — стоп". While a
-  // tool runs we hide it: its process cannot be cancelled, so promising a stop
-  // would be misleading.
-  const startAnimated = (baseText: string, showHint = true) => {
+  const startAnimated = (baseText: string) => {
     animBase = theme.brown(stripEllipsis(baseText))
-    const hint = showHint ? HINT : ''
-    start(animBase + renderDots(0) + hint)
+    start(animBase + renderDots(0) + HINT)
     dotPhase = 0
     if (dotTimer) clearInterval(dotTimer)
     dotTimer = setInterval(() => {
       if (!spinner) return
       dotPhase = (dotPhase + 1) % DOTS.length
-      spinner.text = animBase + renderDots(dotPhase) + hint
+      spinner.text = animBase + renderDots(dotPhase) + HINT
     }, 400)
     animating = true
     if (dotTimer.unref) dotTimer.unref()
@@ -176,7 +171,7 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
       // (which is highlighted by the prompt with a golden arrow).
       console.log(NL + theme.assistant(translate(locale)('editor.answer')) + NL)
       console.log(rendered)
-      console.log(theme.dim('─'.repeat(60)) + NL)
+      console.log(theme.dim(divider()) + NL)
     },
 
     warning: (msg: string) => {

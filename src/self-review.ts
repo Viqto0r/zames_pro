@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs/promises'
-import { theme } from './theme.js'
+import { theme, divider } from './theme.js'
 import { translate, DEFAULT_LOCALE, type Locale } from './i18n.js'
 import { fileURLToPath } from 'url'
 
@@ -157,7 +157,7 @@ export async function selfReview({
   // Compute what changed
   const changed = await diffFiles(SRC_DIR, snapDir)
 
-  console.log(theme.system('─'.repeat(60)))
+  console.log(theme.system(divider()))
   console.log(theme.system(t('self.report_path', { v: reportPath })))
   console.log(theme.system(t('self.snapshot_path', { v: snapDir })))
   if (changed.length) {
