@@ -453,6 +453,8 @@ ${theme.bold(t('help.options'))}
   --version, -v      ${t('help.opt.version')}
   --help, -h         ${t('help.opt.help')}
 
+${t('help.color_note')}
+
 ${theme.bold(t('help.while_working'))}
   ${t('help.key.queue')}
   ${t('help.key.history')}

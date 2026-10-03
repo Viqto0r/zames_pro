@@ -385,6 +385,9 @@ export class LineEditor {
   // only the base text (remaining seconds) without restarting the timer.
   _animating: boolean
   _dotPhase: number
+  // When the current animated phase started, so the status can show its
+  // elapsed time. 0 when nothing is animating.
+  _animStart: number
   _thinkBase: string
   // Explicit lifecycle state of the send ('generating' | 'paused' |
   // 'settled' | ''). The thinking spinner already shows ACTIVITY, but it does
@@ -501,6 +504,7 @@ export class LineEditor {
     this._dotTimer = null
     this._animating = false
     this._dotPhase = 0
+    this._animStart = 0
     this._thinkBase = ''
     this._sendState = ''
     this._lastStatusBlock = ''
@@ -1211,16 +1215,36 @@ export class LineEditor {
   _startAnimated(baseText: string) {
     this._thinkBase = theme.brown(stripEllipsis(baseText))
     this._dotPhase = 0
-    this.setStatus(this._thinkBase + this._dots(0) + this._hint())
+    // Remember when the animation began so the status can show how long the
+    // current phase has been running ("12s"): a long reasoning turn otherwise
+    // looks identical to a hung one.
+    this._animStart = Date.now()
+    this.setStatus(
+      this._thinkBase + this._dots(0) + this._elapsedLabel() + this._hint(),
+    )
     this._stopDots()
     this._dotTimer = setInterval(() => {
       this._dotPhase = (this._dotPhase + 1) % DOTS.length
       this.setStatus(
-        this._thinkBase + this._dots(this._dotPhase) + this._hint(),
+        this._thinkBase +
+          this._dots(this._dotPhase) +
+          this._elapsedLabel() +
+          this._hint(),
       )
     }, 400)
     this._animating = true
     if (this._dotTimer.unref) this._dotTimer.unref()
+  }
+
+  // Elapsed seconds of the current animated phase, formatted for the status
+  // line ("0s", "45s", "2m 05s"). Empty while nothing is animating.
+  _elapsedLabel(): string {
+    if (!this._animating || !this._animStart) return ''
+    const sec = Math.floor((Date.now() - this._animStart) / 1000)
+    const m = Math.floor(sec / 60)
+    const s = sec % 60
+    const text = m > 0 ? m + 'm ' + String(s).padStart(2, '0') + 's' : s + 's'
+    return theme.dim(' · ' + text)
   }
 
   thinking() {

@@ -52,6 +52,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
 
   // ---------- help ----------
   'help.options': { ru: 'Опции CLI:', en: 'CLI options:' },
+  'help.color_note': {
+    ru: 'Цвет отключается переменной окружения NO_COLOR=1.',
+    en: 'Disable color with the NO_COLOR=1 environment variable.',
+  },
   'help.opt.dir': {
     ru: 'рабочая директория агента',
     en: 'agent working directory',

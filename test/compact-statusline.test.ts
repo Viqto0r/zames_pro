@@ -141,6 +141,17 @@ test('queue badge shows only when messages are waiting', () => {
   assert.ok(e._queueBadge().includes('2'))
 })
 
+test('elapsed label is empty when idle and non-empty while animating', () => {
+  const e = new LineEditor()
+  e._render = () => {}
+  // Not animating -> no timer suffix.
+  assert.equal(e._elapsedLabel(), '')
+  e._animating = true
+  e._animStart = Date.now() - 65_000
+  const label = e._elapsedLabel()
+  assert.ok(label.includes('1m'), label)
+})
+
 // ---------- /compact prompt helpers ----------
 
 test('buildCompactPrompt: both languages, self-sufficient instructions', () => {
