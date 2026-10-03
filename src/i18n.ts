@@ -116,6 +116,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: 'Ctrl+R                   поиск по истории (обратный)',
     en: 'Ctrl+R                    reverse-search the history',
   },
+  'help.key.undo': {
+    ru: 'Ctrl+_                   отменить правку в строке ввода',
+    en: 'Ctrl+_                    undo the last edit in the input line',
+  },
   'help.key.words': {
     ru: 'Ctrl+← / Ctrl+→          перемещение по словам',
     en: 'Ctrl+← / Ctrl+→           move by words',

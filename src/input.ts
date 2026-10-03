@@ -428,6 +428,13 @@ export class LineEditor {
   // Called after every submit with the new full history, so the caller can
   // persist it (the history otherwise dies with the process).
   onHistoryChange: ((history: string[]) => void) | null
+  // Snapshots of {buf, cursor} taken before each edit, so Ctrl+_ can undo a
+  // slip (a fat-fingered Ctrl+U / Ctrl+K used to wipe the whole line with no
+  // way back). Capped so a long session cannot grow it without bound.
+  _undoStack: Array<{ buf: string; cursor: number }>
+  // True while a run of plain typing is in progress, so one undo snapshot
+  // covers the whole run instead of every character.
+  _typingRun: boolean
   // Slash-command hints (shown when you type «/»).
   slashCommands: SlashCommand[]
   _suggestCount: number
@@ -540,6 +547,8 @@ export class LineEditor {
     this._searchIndex = -1
     this._searchSavedBuf = ''
     this.onHistoryChange = null
+    this._undoStack = []
+    this._typingRun = false
     this.slashCommands = commands
     this._suggestCount = 0
     this.pastes = []
@@ -1422,6 +1431,25 @@ export class LineEditor {
     if (this.busy) this._startThinking()
   }
 
+  // Record the current buffer for Ctrl+_ undo. `coalesce` keeps one snapshot
+  // for a whole run of plain typing (so undo removes the run, not one char) —
+  // the run ends as soon as a non-typing key is handled.
+  _pushUndo(coalesce = false): void {
+    if (coalesce && this._typingRun) return
+    this._undoStack.push({ buf: this.buf, cursor: this.cursor })
+    if (this._undoStack.length > 200) this._undoStack.shift()
+    this._typingRun = coalesce
+  }
+
+  // Ctrl+_ — restore the buffer to before the last edit.
+  _undoEdit(): void {
+    const prev = this._undoStack.pop()
+    if (!prev) return
+    this.buf = prev.buf
+    this.cursor = Math.min(prev.cursor, Array.from(prev.buf).length)
+    this._typingRun = false
+  }
+
   _insert(text: string): void {
     const chars = Array.from(this.buf)
     const ins = Array.from(String(text))
@@ -1890,9 +1918,16 @@ export class LineEditor {
         continue
       }
       if (code === 21) {
+        this._pushUndo()
         this.buf = ''
         this.cursor = 0
         this.pastes = []
+        this._renderInputOnly()
+        continue
+      }
+      if (code === 31) {
+        // Ctrl+_ — undo the last edit in the input line.
+        this._undoEdit()
         this._renderInputOnly()
         continue
       }
@@ -1909,12 +1944,14 @@ export class LineEditor {
         continue
       }
       if (code === 23) {
+        this._pushUndo()
         this._deleteWordLeft()
         this._renderInputOnly()
         continue
       }
       if (code === 11) {
         // Ctrl+K — delete from the cursor to the end of the line.
+        this._pushUndo()
         const arr = Array.from(this.buf)
         let e = this.cursor
         while (e < arr.length && arr[e] !== NL) e++
@@ -1924,6 +1961,7 @@ export class LineEditor {
         continue
       }
       if (code === 127 || code === 8) {
+        this._pushUndo(true)
         this._backspace()
         this._renderInputOnly()
         continue
@@ -1984,6 +2022,7 @@ export class LineEditor {
           continue
         }
         if (s.startsWith('[3~')) {
+          this._pushUndo(true)
           this._delete()
           s = s.slice(3)
           this._renderInputOnly()
@@ -2009,6 +2048,8 @@ export class LineEditor {
       }
 
       if (code < 32) continue
+      // Coalesce a run of typing into ONE undo snapshot.
+      this._pushUndo(true)
       this._insert(ch)
       this._renderInputOnly()
     }
