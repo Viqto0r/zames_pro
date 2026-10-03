@@ -456,6 +456,7 @@ ${theme.bold(t('help.options'))}
 ${theme.bold(t('help.while_working'))}
   ${t('help.key.queue')}
   ${t('help.key.history')}
+  ${t('help.key.search')}
   ${t('help.key.words')}
   ${t('help.key.slash')}
   ${t('help.key.newline')}

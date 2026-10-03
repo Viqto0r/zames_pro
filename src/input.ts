@@ -417,6 +417,11 @@ export class LineEditor {
   history: string[]
   _histIndex: number
   _histDraft: string
+  // Incremental reverse-search over the history (Ctrl+R), bash-style.
+  _searchMode: boolean
+  _searchQuery: string
+  _searchIndex: number
+  _searchSavedBuf: string
   // Slash-command hints (shown when you type «/»).
   slashCommands: SlashCommand[]
   _suggestCount: number
@@ -523,6 +528,10 @@ export class LineEditor {
     this.history = []
     this._histIndex = 0
     this._histDraft = ''
+    this._searchMode = false
+    this._searchQuery = ''
+    this._searchIndex = -1
+    this._searchSavedBuf = ''
     this.slashCommands = commands
     this._suggestCount = 0
     this.pastes = []
@@ -1589,6 +1598,97 @@ export class LineEditor {
     this.cursor = Array.from(this.buf).length
   }
 
+  // ---------- reverse-search (Ctrl+R) ----------
+
+  // Start an incremental reverse search, keeping the current buffer aside so
+  // Esc restores it (bash behavior). An empty history leaves the editor
+  // untouched.
+  _searchStart() {
+    if (!this.history.length) return
+    this._searchMode = true
+    this._searchQuery = ''
+    this._searchIndex = this.history.length - 1
+    this._searchSavedBuf = this.buf
+    this._searchRefresh(true)
+    this._searchStatus()
+  }
+
+  // Recompute the match for the current query. `resetToNewest` moves the
+  // cursor back to the newest entry (used when the query changes; a repeated
+  // Ctrl+R keeps scanning older entries from the current index).
+  _searchRefresh(resetToNewest = false) {
+    const q = this._searchQuery
+    if (resetToNewest) this._searchIndex = this.history.length - 1
+    for (let i = this._searchIndex; i >= 0; i--) {
+      if (q === '' || this.history[i].toLowerCase().includes(q.toLowerCase())) {
+        this._searchIndex = i
+        return
+      }
+    }
+    // No match from here: signal it and leave the buffer as-is.
+    this._searchIndex = -1
+  }
+
+  // Show the search state in the status line. The matched entry is previewed
+  // in the input line live, so Enter can accept it at once.
+  _searchStatus() {
+    const t = translate(this.locale)
+    const q = this._searchQuery
+    if (this._searchIndex >= 0) {
+      // Set the matched buffer BEFORE setStatus(): setStatus renders the
+      // block, so the preview must already be in the buffer.
+      this.buf = this.history[this._searchIndex]
+      this.cursor = Array.from(this.buf).length
+      this.setStatus(t('editor.search_prompt', { q }))
+    } else {
+      this.setStatus(t('editor.search_fail', { q }))
+    }
+  }
+
+  // One more Ctrl+R: move to the PREVIOUS (older) match.
+  _searchNext() {
+    if (this._searchIndex > 0) {
+      const prev = this._searchIndex
+      this._searchIndex = prev - 1
+      this._searchRefresh(false)
+      // If nothing matched above `prev`, keep the previous match.
+      if (this._searchIndex < 0) this._searchIndex = prev
+    }
+    this._searchStatus()
+  }
+
+  // Enter: keep the matched buffer and leave search mode.
+  _searchAccept() {
+    this._searchMode = false
+    this._searchQuery = ''
+    this.setStatus('')
+    this._render()
+  }
+
+  // Esc / Ctrl+C: leave search mode and restore the buffer typed before it.
+  _searchCancel() {
+    this._searchMode = false
+    this._searchQuery = ''
+    this.buf = this._searchSavedBuf
+    this.cursor = Array.from(this.buf).length
+    this.setStatus('')
+    this._render()
+  }
+
+  // A character typed during search extends the query; Backspace trims it.
+  _searchInput(ch: string) {
+    this._searchQuery += ch
+    this._searchRefresh(true)
+    this._searchStatus()
+  }
+
+  _searchBackspace() {
+    if (!this._searchQuery.length) return
+    this._searchQuery = this._searchQuery.slice(0, -1)
+    this._searchRefresh(true)
+    this._searchStatus()
+  }
+
   _handle(data: Buffer): void {
     let s = data.toString('utf-8')
 
@@ -1610,8 +1710,34 @@ export class LineEditor {
       return
     }
 
-    if (!this._inPaste && s === ESC) {
+    if (!this._inPaste && s === ESC && !this._searchMode) {
       if (this.onEscape) this.onEscape()
+      return
+    }
+
+    // While the reverse search (Ctrl+R) is active, the editor is in a modal
+    // state: every printable key extends the query, Ctrl+R scans older
+    // entries, Enter accepts and Esc/Ctrl+C cancels. Handling this BEFORE the
+    // normal key dispatch keeps the search self-contained.
+    if (this._searchMode) {
+      let i = 0
+      while (i < s.length) {
+        const code = s.charCodeAt(i)
+        if (code === 18) {
+          this._searchNext()
+        } else if (code === 13 || code === 10) {
+          this._searchAccept()
+          return
+        } else if (code === 27 || code === 3) {
+          this._searchCancel()
+          return
+        } else if (code === 127 || code === 8) {
+          this._searchBackspace()
+        } else if (code >= 32) {
+          this._searchInput(s[i])
+        }
+        i++
+      }
       return
     }
 
@@ -1744,6 +1870,11 @@ export class LineEditor {
         // OS clipboard first; if there is no image we fall back to reading the
         // text clipboard via the terminal's own paste (nothing to do).
         void this._tryClipboard()
+        continue
+      }
+      if (code === 18) {
+        // Ctrl+R — incremental reverse search over the input history.
+        this._searchStart()
         continue
       }
       if (code === 23) {

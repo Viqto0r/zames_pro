@@ -108,6 +108,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: '↑ / ↓                    история введённых сообщений',
     en: '↑ / ↓                     input history',
   },
+  'help.key.search': {
+    ru: 'Ctrl+R                   поиск по истории (обратный)',
+    en: 'Ctrl+R                    reverse-search the history',
+  },
   'help.key.words': {
     ru: 'Ctrl+← / Ctrl+→          перемещение по словам',
     en: 'Ctrl+← / Ctrl+→           move by words',
@@ -478,6 +482,15 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   'state.generating': { ru: '▶ генерация', en: '▶ generating' },
   'editor.more': { ru: '…ещё {n}', en: '…{n} more' },
   'editor.answer': { ru: '● Ответ', en: '● Answer' },
+  // Reverse search (Ctrl+R) status line. The query may be empty.
+  'editor.search_prompt': {
+    ru: '(обратный поиск) `{q}` — Ctrl+R дальше, Enter принять, Esc отмена',
+    en: '(reverse-i-search) `{q}` — Ctrl+R next, Enter accept, Esc cancel',
+  },
+  'editor.search_fail': {
+    ru: '(обратный поиск) `{q}` — не найдено, Esc отмена',
+    en: '(reverse-i-search) `{q}` — not found, Esc cancel',
+  },
 
   // ---------- status ----------
   'status.workdir': {
