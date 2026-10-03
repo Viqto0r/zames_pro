@@ -376,6 +376,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: '/debug-dom               сохранить HTML страницы (для отладки)',
     en: '/debug-dom               dump page HTML (debug)',
   },
+  'help.no_topic': {
+    ru: 'Нет команды по запросу «{v}». Попробуй /help без аргумента.',
+    en: 'No command matches "{v}". Try /help without arguments.',
+  },
   'help.cmd.help': {
     ru: '/help, help              справка',
     en: '/help, help              this help',

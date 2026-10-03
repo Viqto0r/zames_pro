@@ -2483,8 +2483,34 @@ async function main(): Promise<void> {
 
     if (['/exit', '/quit', 'exit', 'quit'].includes(lower)) break
 
-    if (lower === '/help' || lower === 'help') {
-      printHelp()
+    if (
+      lower === '/help' ||
+      lower === 'help' ||
+      lower.startsWith('/help ') ||
+      lower.startsWith('help ')
+    ) {
+      const topic = trimmed.replace(/^\/?help\s*/i, '').trim()
+      if (!topic) {
+        printHelp()
+      } else {
+        // /help <command> — print the full description of ONE command instead
+        // of making the operator scroll the whole list.
+        const q = '/' + topic.replace(/^\//, '').toLowerCase()
+        const match = buildSlashCommands().filter(
+          (c) =>
+            c.name.toLowerCase() === q ||
+            c.name.toLowerCase().startsWith(q + ' '),
+        )
+        if (!match.length) {
+          console.error(theme.warn(t('help.no_topic', { v: topic })))
+        } else {
+          for (const c of match) {
+            console.log(
+              theme.assistant(c.name) + theme.dim('  ' + c.description),
+            )
+          }
+        }
+      }
       continue
     }
 
