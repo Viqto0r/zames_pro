@@ -3293,7 +3293,7 @@ async function main(): Promise<void> {
         continue
       }
       const out = await runGit(diffGitArgs(staged), currentWorkdir, 20_000)
-      console.log(theme.system(formatDiff(out, { maxLines: 400 })))
+      console.log(theme.system(formatDiff(out, { maxLines: 400 }, t)))
       continue
     }
 
@@ -3309,7 +3309,7 @@ async function main(): Promise<void> {
       }
       console.log(
         theme.system(
-          renderCost(stats, transcript.file, browser.getLastTokenUsage()),
+          renderCost(stats, transcript.file, browser.getLastTokenUsage(), t),
         ),
       )
       continue
@@ -3372,30 +3372,33 @@ async function main(): Promise<void> {
         : { servers: [], toolCount: 0 }
       console.log(
         theme.system(
-          renderDoctor({
-            nodeVersion: process.version,
-            platform: process.platform,
-            workdir: currentWorkdir,
-            gitOk,
-            gitBranch,
-            configOk: true,
-            browserChannel: config.browserChannel,
-            clipboardTool,
-            mcpServers: mcpStatus.servers.length,
-            mcpTools: mcpStatus.toolCount,
-            transcriptOk: !!transcript.file,
-            authSaved: authMarkerExists(),
-            contextLimit: config.ui.contextLimit,
-            hasOrigin: gitOk
-              ? (await runGit('git remote', currentWorkdir, 5000)).includes(
-                  'origin',
-                )
-              : undefined,
-            minSendIntervalMs: config.browser.minSendIntervalMs,
-            sshRemote: !!(process.env.SSH_CONNECTION || process.env.SSH_TTY),
-            headless: !!headless,
-            headlessUaCached: await headlessUACacheReady().catch(() => false),
-          }),
+          renderDoctor(
+            {
+              nodeVersion: process.version,
+              platform: process.platform,
+              workdir: currentWorkdir,
+              gitOk,
+              gitBranch,
+              configOk: true,
+              browserChannel: config.browserChannel,
+              clipboardTool,
+              mcpServers: mcpStatus.servers.length,
+              mcpTools: mcpStatus.toolCount,
+              transcriptOk: !!transcript.file,
+              authSaved: authMarkerExists(),
+              contextLimit: config.ui.contextLimit,
+              hasOrigin: gitOk
+                ? (await runGit('git remote', currentWorkdir, 5000)).includes(
+                    'origin',
+                  )
+                : undefined,
+              minSendIntervalMs: config.browser.minSendIntervalMs,
+              sshRemote: !!(process.env.SSH_CONNECTION || process.env.SSH_TTY),
+              headless: !!headless,
+              headlessUaCached: await headlessUACacheReady().catch(() => false),
+            },
+            t,
+          ),
         ),
       )
       continue
@@ -3404,12 +3407,15 @@ async function main(): Promise<void> {
     if (lower === '/permissions' || lower === '/allowed-tools') {
       console.log(
         theme.system(
-          renderPermissions({
-            write: config.confirmation.write,
-            edit: config.confirmation.edit,
-            bash: config.confirmation.bash,
-            alwaysConfirm: config.confirmation.alwaysConfirm,
-          }),
+          renderPermissions(
+            {
+              write: config.confirmation.write,
+              edit: config.confirmation.edit,
+              bash: config.confirmation.bash,
+              alwaysConfirm: config.confirmation.alwaysConfirm,
+            },
+            t,
+          ),
         ),
       )
       continue
@@ -3417,7 +3423,7 @@ async function main(): Promise<void> {
 
     if (lower === '/add-dir' || lower.startsWith('/add-dir ')) {
       const arg = trimmed.slice('/add-dir'.length).trim()
-      const res = resolveExtraDir(arg, currentWorkdir)
+      const res = resolveExtraDir(arg, currentWorkdir, t)
       if ('error' in res) {
         console.error(theme.warn(res.error))
         continue

@@ -1,5 +1,6 @@
 import path from 'path'
 import { isImageName } from './attachments.js'
+import { translate, type TranslateFn } from './i18n.js'
 
 // Helpers for the extra slash commands (/diff, /cost, /export, /doctor,
 // /permissions, /review, /add-dir). Pure functions, unit-tested without a
@@ -13,24 +14,19 @@ const CR = String.fromCharCode(13)
 export function formatDiff(
   diffText: string,
   opts: { maxLines?: number } = {},
+  t: TranslateFn = translate('en'),
 ): string {
   const maxLines = opts.maxLines ?? 200
   const trimmed = String(diffText ?? '')
     .split(CR + NL)
     .join(NL)
     .trimEnd()
-  if (!trimmed) return '(no changes)'
+  if (!trimmed) return t('diff.no_changes')
   const lines = trimmed.split(NL)
   if (lines.length <= maxLines) return trimmed
   const head = lines.slice(0, maxLines).join(NL)
   const rest = lines.length - maxLines
-  return (
-    head +
-    NL +
-    '... [' +
-    rest +
-    ' more lines, use Bash git diff for the full output]'
-  )
+  return head + NL + t('diff.more_lines', { n: String(rest) })
 }
 
 export function diffGitArgs(staged = false): string {
@@ -130,31 +126,28 @@ export function renderCost(
   stats: SessionStats,
   transcriptFile: string | null,
   tokenUsage: number | null = null,
+  t: TranslateFn = translate('en'),
 ): string {
   const lines: string[] = []
-  lines.push('Session stats:')
+  lines.push(t('cost.title'))
   if (typeof tokenUsage === 'number') {
-    lines.push(
-      ' context: ~' + tokenUsage + ' tokens (DeepSeek accumulated_token_usage)',
-    )
+    lines.push(t('cost.context_known', { n: String(tokenUsage) }))
   } else {
-    lines.push(
-      ' context: unknown (DeepSeek reports it after the first answer in a chat)',
-    )
+    lines.push(t('cost.context_unknown'))
   }
-  lines.push(' tasks: ' + stats.turns)
-  lines.push(' tool calls: ' + stats.toolCalls)
+  lines.push(t('cost.tasks', { n: String(stats.turns) }))
+  lines.push(t('cost.tool_calls', { n: String(stats.toolCalls) }))
   if (stats.autoCompacts > 0) {
-    lines.push(' auto-compacts: ' + stats.autoCompacts)
+    lines.push(t('cost.auto_compacts', { n: String(stats.autoCompacts) }))
   }
   const top = Object.entries(stats.toolCounts).sort((a, b) => b[1] - a[1])
   if (top.length) {
-    lines.push(' by tool:')
+    lines.push(t('cost.by_tool'))
     for (const [name, n] of top) lines.push(' ' + name + ': ' + n)
   }
-  lines.push(' duration: ' + formatDuration(stats.durationMs))
-  if (stats.startedAt) lines.push(' started: ' + stats.startedAt)
-  lines.push(' transcript: ' + (transcriptFile || '(off)'))
+  lines.push(t('cost.duration', { dur: formatDuration(stats.durationMs) }))
+  if (stats.startedAt) lines.push(t('cost.started', { v: stats.startedAt }))
+  lines.push(t('cost.transcript', { v: transcriptFile || t('cost.off') }))
   return lines.join(NL)
 }
 
@@ -253,65 +246,94 @@ export interface DoctorInput {
   headless?: boolean
 }
 
-export function renderDoctor(d: DoctorInput): string {
+export function renderDoctor(
+  d: DoctorInput,
+  t: TranslateFn = translate('en'),
+): string {
   const rows: string[] = []
   const row = (ok: boolean, label: string, value: string): void => {
     rows.push(
       ' ' + (ok ? '[OK] ' : '[WARN]') + ' ' + label.padEnd(16) + ' ' + value,
     )
   }
+  const onoff = (b: boolean): string => (b ? t('common.on') : t('common.off'))
   row(true, 'node', d.nodeVersion)
   row(true, 'platform', d.platform)
   row(true, 'workdir', d.workdir)
   row(
     d.gitOk,
     'git',
-    d.gitOk ? 'repo (' + (d.gitBranch || 'detached') + ')' : 'not a repository',
+    d.gitOk
+      ? t('doctor.repo', { v: d.gitBranch || t('doctor.detached') })
+      : t('doctor.not_repo'),
   )
   row(
     d.configOk,
     'config',
-    d.configOk ? 'loaded' : 'error: ' + (d.configError || 'unknown'),
+    d.configOk
+      ? t('doctor.loaded')
+      : t('doctor.error', { v: d.configError || t('doctor.unknown') }),
   )
-  row(true, 'browser', d.browserChannel ? d.browserChannel : 'bundled chromium')
+  row(
+    true,
+    'browser',
+    d.browserChannel ? d.browserChannel : t('doctor.bundled'),
+  )
   row(
     !!d.authSaved,
     'auth',
-    d.authSaved ? 'session saved (auto re-login ready)' : 'no saved session',
+    d.authSaved ? t('doctor.auth_saved') : t('doctor.auth_none'),
   )
   row(
     !!d.clipboardTool,
     'clipboard',
-    d.clipboardTool || 'no tool found (image paste disabled)',
+    d.clipboardTool || t('doctor.clipboard_none'),
   )
-  row(true, 'mcp', d.mcpServers + ' server(s), ' + d.mcpTools + ' tool(s)')
-  row(d.transcriptOk, 'transcript', d.transcriptOk ? 'on' : 'off')
+  row(
+    true,
+    'mcp',
+    t('doctor.mcp', {
+      servers: String(d.mcpServers),
+      tools: String(d.mcpTools),
+    }),
+  )
+  row(d.transcriptOk, 'transcript', onoff(d.transcriptOk))
   if (typeof d.contextLimit === 'number' && d.contextLimit > 0) {
-    row(true, 'context', d.contextLimit.toLocaleString('en-US') + ' tokens')
+    row(
+      true,
+      'context',
+      t('doctor.tokens', {
+        v: d.contextLimit.toLocaleString('en-US'),
+      }),
+    )
   }
   if (d.gitOk && typeof d.hasOrigin === 'boolean') {
-    row(true, 'git remote', d.hasOrigin ? 'origin configured' : 'no origin')
+    row(
+      true,
+      'git remote',
+      d.hasOrigin ? t('doctor.origin_ok') : t('doctor.origin_none'),
+    )
   }
   if (typeof d.minSendIntervalMs === 'number') {
     row(
       d.minSendIntervalMs > 0,
       'send pause',
-      Math.round(d.minSendIntervalMs / 1000) + 's between agent sends',
+      t('doctor.send_pause', {
+        n: String(Math.round(d.minSendIntervalMs / 1000)),
+      }),
     )
   }
   if (typeof d.sshRemote === 'boolean') {
-    row(true, 'session', d.sshRemote ? 'SSH remote' : 'local terminal')
+    row(true, 'session', d.sshRemote ? t('doctor.ssh') : t('doctor.local'))
   }
   if (d.headless) {
     row(
       !!d.headlessUaCached,
       'headless',
-      d.headlessUaCached
-        ? 'UA cached (no relaunch)'
-        : 'no cached UA yet (first start relaunches once)',
+      d.headlessUaCached ? t('doctor.ua_cached') : t('doctor.ua_not_cached'),
     )
   }
-  return 'Doctor:' + NL + rows.join(NL)
+  return t('doctor.title') + NL + rows.join(NL)
 }
 
 // ---------- /permissions ----------
@@ -323,21 +345,22 @@ export interface PermissionsInput {
   alwaysConfirm: string[]
 }
 
-export function renderPermissions(p: PermissionsInput): string {
-  const onoff = (b: boolean): string => (b ? 'ask' : 'allow')
+export function renderPermissions(
+  p: PermissionsInput,
+  t: TranslateFn = translate('en'),
+): string {
+  const onoff = (b: boolean): string => (b ? t('perm.ask') : t('perm.allow'))
   const lines: string[] = []
-  lines.push('Tool permissions (confirmation settings):')
-  lines.push(' Write: ' + onoff(p.write))
-  lines.push(' Edit: ' + onoff(p.edit))
-  lines.push(' Bash: ' + onoff(p.bash))
+  lines.push(t('perm.title'))
+  lines.push(t('perm.write', { v: onoff(p.write) }))
+  lines.push(t('perm.edit', { v: onoff(p.edit) }))
+  lines.push(t('perm.bash', { v: onoff(p.bash) }))
   if (p.alwaysConfirm.length) {
-    lines.push(' Always confirm (regex):')
+    lines.push(t('perm.always'))
     for (const re of p.alwaysConfirm) lines.push(' ' + re)
   }
   lines.push('')
-  lines.push(
-    'Change with: /config set confirmation.write false (and .edit / .bash)',
-  )
+  lines.push(t('perm.change_hint'))
   return lines.join(NL)
 }
 
@@ -346,12 +369,13 @@ export function renderPermissions(p: PermissionsInput): string {
 export function resolveExtraDir(
   input: string,
   workdir: string,
+  t: TranslateFn = translate('en'),
 ): { path: string } | { error: string } {
   const raw = String(input ?? '').trim()
-  if (!raw) return { error: 'Usage: /add-dir <path>' }
+  if (!raw) return { error: t('adddir.usage') }
   const abs = path.resolve(workdir, raw)
   if (abs === path.resolve(workdir)) {
-    return { error: 'This is already the working directory.' }
+    return { error: t('adddir.same') }
   }
   return { path: abs }
 }

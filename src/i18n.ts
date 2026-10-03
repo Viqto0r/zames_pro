@@ -618,6 +618,104 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   'dur.h': { ru: 'ч', en: 'h' },
   'dur.m': { ru: 'м', en: 'm' },
   'dur.s': { ru: 'с', en: 's' },
+
+  // ---------- /diff ----------
+  'diff.no_changes': { ru: '(нет изменений)', en: '(no changes)' },
+  'diff.more_lines': {
+    ru: '... [{n} строк ещё, полный вывод — Bash git diff]',
+    en: '... [{n} more lines, use Bash git diff for the full output]',
+  },
+
+  // ---------- /cost ----------
+  'cost.title': { ru: 'Статистика сессии:', en: 'Session stats:' },
+  'cost.context_known': {
+    ru: ' контекст: ~{n} токенов (DeepSeek accumulated_token_usage)',
+    en: ' context: ~{n} tokens (DeepSeek accumulated_token_usage)',
+  },
+  'cost.context_unknown': {
+    ru: ' контекст: неизвестно (DeepSeek сообщит после первого ответа в чате)',
+    en: ' context: unknown (DeepSeek reports it after the first answer in a chat)',
+  },
+  'cost.tasks': { ru: ' задач: {n}', en: ' tasks: {n}' },
+  'cost.tool_calls': {
+    ru: ' вызовов инструментов: {n}',
+    en: ' tool calls: {n}',
+  },
+  'cost.auto_compacts': { ru: ' авто-сжатий: {n}', en: ' auto-compacts: {n}' },
+  'cost.by_tool': { ru: ' по инструментам:', en: ' by tool:' },
+  'cost.duration': { ru: ' длительность: {dur}', en: ' duration: {dur}' },
+  'cost.started': { ru: ' начало: {v}', en: ' started: {v}' },
+  'cost.transcript': { ru: ' транскрипт: {v}', en: ' transcript: {v}' },
+  'cost.off': { ru: '(выкл)', en: '(off)' },
+
+  // ---------- /doctor ----------
+  'doctor.title': { ru: 'Диагностика:', en: 'Doctor:' },
+  'doctor.repo': { ru: 'репозиторий ({v})', en: 'repo ({v})' },
+  'doctor.detached': { ru: 'detached', en: 'detached' },
+  'doctor.not_repo': { ru: 'не репозиторий', en: 'not a repository' },
+  'doctor.loaded': { ru: 'загружен', en: 'loaded' },
+  'doctor.error': { ru: 'ошибка: {v}', en: 'error: {v}' },
+  'doctor.unknown': { ru: 'неизвестно', en: 'unknown' },
+  'doctor.bundled': { ru: 'встроенный chromium', en: 'bundled chromium' },
+  'doctor.auth_saved': {
+    ru: 'сессия сохранена (авто-вход готов)',
+    en: 'session saved (auto re-login ready)',
+  },
+  'doctor.auth_none': { ru: 'нет сохранённой сессии', en: 'no saved session' },
+  'doctor.clipboard_none': {
+    ru: 'инструмент не найден (вставка картинок отключена)',
+    en: 'no tool found (image paste disabled)',
+  },
+  'doctor.mcp': {
+    ru: '{servers} сервер(ов), {tools} инструмент(ов)',
+    en: '{servers} server(s), {tools} tool(s)',
+  },
+  'doctor.tokens': { ru: '{v} токенов', en: '{v} tokens' },
+  'doctor.origin_ok': { ru: 'origin настроен', en: 'origin configured' },
+  'doctor.origin_none': { ru: 'нет origin', en: 'no origin' },
+  'doctor.send_pause': {
+    ru: '{n}с между отправками агента',
+    en: '{n}s between agent sends',
+  },
+  'doctor.ssh': { ru: 'SSH-подключение', en: 'SSH remote' },
+  'doctor.local': { ru: 'локальный терминал', en: 'local terminal' },
+  'doctor.ua_cached': {
+    ru: 'UA закэширован (без перезапуска)',
+    en: 'UA cached (no relaunch)',
+  },
+  'doctor.ua_not_cached': {
+    ru: 'UA ещё не закэширован (первый запуск перезапустится один раз)',
+    en: 'no cached UA yet (first start relaunches once)',
+  },
+
+  // ---------- /permissions ----------
+  'perm.title': {
+    ru: 'Права инструментов (настройки подтверждений):',
+    en: 'Tool permissions (confirmation settings):',
+  },
+  'perm.write': { ru: ' Write: {v}', en: ' Write: {v}' },
+  'perm.edit': { ru: ' Edit: {v}', en: ' Edit: {v}' },
+  'perm.bash': { ru: ' Bash: {v}', en: ' Bash: {v}' },
+  'perm.ask': { ru: 'спрашивать', en: 'ask' },
+  'perm.allow': { ru: 'разрешить', en: 'allow' },
+  'perm.always': {
+    ru: ' Всегда подтверждать (regex):',
+    en: ' Always confirm (regex):',
+  },
+  'perm.change_hint': {
+    ru: 'Изменить: /config set confirmation.write false (и .edit / .bash)',
+    en: 'Change with: /config set confirmation.write false (and .edit / .bash)',
+  },
+
+  // ---------- /add-dir ----------
+  'adddir.usage': {
+    ru: 'Использование: /add-dir <path>',
+    en: 'Usage: /add-dir <path>',
+  },
+  'adddir.same': {
+    ru: 'Это уже рабочая директория.',
+    en: 'This is already the working directory.',
+  },
   'msg.from_queue': { ru: '▶ Из очереди: ', en: '▶ From queue: ' },
   'msg.from_queue_batch': {
     ru: '▶ Из очереди ({n} сообщ.): ',
