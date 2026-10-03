@@ -212,6 +212,49 @@ test('drift: many backspaces must not move the input line', () => {
   }
 })
 
+// Closing the /config menu calls editor.resume(). The menu's own cleanup parks
+// the cursor near the TOP of the screen; without re-pinning, the editor redrew
+// its block up there and every later keystroke kept it glued to the top.
+// resume() must go home and re-pad to the bottom again.
+test('resume after pause re-pins the block to the bottom', () => {
+  const { term, e, restore } = setup(24, 80)
+  const stdin = process.stdin as unknown as Record<string, unknown>
+  const origIsTTY = process.stdin.isTTY
+  const origSetRaw = stdin.setRawMode
+  const origResumeFn = stdin.resume
+  const origOn = stdin.on
+  Object.defineProperty(process.stdin, 'isTTY', {
+    value: true,
+    configurable: true,
+  })
+  stdin.setRawMode = () => {}
+  stdin.resume = () => {}
+  stdin.on = () => {}
+  try {
+    boot(e)
+    e.pause()
+    // The foreign UI left the cursor at the top of the screen.
+    term.r = 0
+    term.c = 0
+    e.resume()
+    assert.equal(term.findRow('>'), 23, 'input must be re-pinned to bottom')
+    // A later repaint must keep it there.
+    e.buf = 'a'
+    e.cursor = 1
+    e._writeBlock()
+    assert.equal(term.findRow('>'), 23, 'still bottom after a repaint')
+  } finally {
+    Object.defineProperty(process.stdin, 'isTTY', {
+      value: origIsTTY,
+      configurable: true,
+    })
+    stdin.setRawMode = origSetRaw
+    stdin.resume = origResumeFn
+    stdin.on = origOn
+    restore()
+  }
+})
+
 function bottomNonEmpty(term: Term): number {
   for (let i = term.rows - 1; i >= 0; i--) {
     if (term.lineText(i).length) return i

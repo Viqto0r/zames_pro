@@ -747,8 +747,20 @@ export class LineEditor {
     stdin.resume()
     process.stdout.write(ESC + '[?2004h')
     stdin.on('data', this._onData)
+    // `pause()` erased our block and handed the terminal to a foreign UI (the
+    // /config menu), which may leave the cursor ANYWHERE — after Esc the menu
+    // clears its block and parks the cursor at the TOP of the screen. Without
+    // re-pinning, the block would be redrawn up there and every later repaint
+    // would keep it glued to the top. Re-fill the viewport and forget the
+    // stale block height so the editor lands at the bottom again.
+    this._lastStatusBlock = ''
+    this._blockRows = 0
+    // Start from a KNOWN row: the foreign UI may have parked the cursor
+    // anywhere (the /config menu leaves it near the top). From home, padding
+    // lands exactly on the last screen row.
+    process.stdout.write(ESC + '[H')
+    this._padToBottom()
     this._writeBlock()
-    this._render()
   }
 
   // Lock input while a long operation runs (chat resume/open, /new,
