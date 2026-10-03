@@ -76,6 +76,23 @@ While the agent is working you can keep typing: press Enter to queue a message
 abort the current generation. This mirrors typing during generation on the
 DeepSeek website.
 
+### Input line
+
+The prompt is a small line editor with persistent history:
+
+- `↑` / `↓` — walk the message history (saved in `~/.zames/history.json`, so it
+  survives a restart); inside a multiline message the arrows move between lines.
+- `Ctrl+R` — incremental reverse search over the history (bash-style): type to
+  filter, `Ctrl+R` for older matches, `Enter` to accept, `Esc` to cancel.
+- `Ctrl+_` — undo the last edit in the input line (a fat-fingered `Ctrl+U` /
+  `Ctrl+K` is recoverable).
+- `Ctrl+U` — clear the line, `Ctrl+K` — delete to end of line, `Ctrl+W` —
+  delete the word before the cursor, `Ctrl+←`/`Ctrl+→` — move by words.
+- `\` + `Enter`, `Ctrl+J`, `Ctrl+Enter` or `Shift+Enter` — insert a newline.
+- `/` + `Tab` — slash-command hints and completion.
+
+Set `NO_COLOR=1` to disable colors (a calm default palette is used otherwise).
+
 ### Images and files
 
 You can paste an image or a file into the input line (Ctrl+Shift+V / Shift+Insert
@@ -149,7 +166,11 @@ Codex CLI:
   startup; relaunch with --dir to write there).
 - /resume <n> (after /chats) and /resume-id <id> — open a chat and PRINT its
   dialogue into the terminal, so the restored context is visible. Only the
-  last 20 messages are shown (`RESTORED_HISTORY_LIMIT`).
+  last 20 messages are shown (`RESTORED_HISTORY_LIMIT`). /last reopens the last
+  chat of the current directory with no lookup step; /sessions shows the saved
+  sessions with their relative age.
+- /help <command> — the full description of a single command (e.g. `/help diff`)
+  instead of the whole list.
 - /review [focus] [--staged] — ask the agent to review uncommitted changes
   and report findings (no code changes).
 - /compact — ask DeepSeek to compress the current chat into a handover
