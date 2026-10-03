@@ -587,13 +587,14 @@ export class LineEditor {
   }
 
   // The context text colored by fill level: green (ok), yellow (warn),
-  // red (high).
+  // red (high). A leading marker repeats the level as TEXT, so the signal
+  // survives on a terminal without color and for a color-blind operator.
   _contextText(): string {
     const ctx = this._contextForRender()
     if (!ctx) return ''
     const level = tokenStatusLevel(this.contextTokens, this.contextLimit)
-    if (level === 'high') return theme.error(ctx)
-    if (level === 'warn') return theme.warn(ctx)
+    if (level === 'high') return theme.error('⛔ ' + ctx)
+    if (level === 'warn') return theme.warn('▲ ' + ctx)
     return theme.success(ctx)
   }
 

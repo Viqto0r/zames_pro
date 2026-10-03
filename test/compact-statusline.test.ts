@@ -98,6 +98,21 @@ test('onContextQuery refreshes the context on every render', () => {
   assert.equal(e._contextForRender(), null)
 })
 
+test('context text carries a text marker at warn/high (color-blind safe)', () => {
+  const e = new LineEditor()
+  e._render = () => {}
+  e.contextTokens = 0
+  e.contextStatus = formatTokenStatus(0)
+  assert.ok(!e._contextText().includes('▲'))
+  assert.ok(!e._contextText().includes('⛔'))
+  e.contextTokens = 600_000
+  e.contextStatus = formatTokenStatus(600_000)
+  assert.ok(e._contextText().includes('▲'))
+  e.contextTokens = 900_000
+  e.contextStatus = formatTokenStatus(900_000)
+  assert.ok(e._contextText().includes('⛔'))
+})
+
 test('a throwing onContextQuery does not break the render', () => {
   const e = new LineEditor()
   e._render = () => {}
