@@ -569,9 +569,14 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     en: 'Opening chat {id}...',
   },
   'msg.chat_opened': { ru: 'Чат открыт.', en: 'Chat opened.' },
+  'msg.version': { ru: 'Версия: {v}', en: 'Version: {v}' },
   'msg.interactive': {
     ru: 'Интерактивный режим. Введите задачу. Команды — /help. Выход — /exit.',
     en: 'Interactive mode. Enter a task. Commands — /help. Exit — /exit.',
+  },
+  'msg.first_hint': {
+    ru: 'Подсказка: «/» — список команд, Ctrl+R — поиск по истории, картинку можно вставить через Ctrl+Shift+V.',
+    en: 'Hint: "/" lists commands, Ctrl+R searches history, paste an image with Ctrl+Shift+V.',
   },
   'msg.queue_hint': {
     ru: 'Пока агент работает, можно печатать следующее сообщение — оно уйдёт в очередь (Enter — отправить, Esc — прервать).',

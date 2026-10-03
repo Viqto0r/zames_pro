@@ -1436,11 +1436,14 @@ async function runTask(
 // ---------- main ----------
 
 async function main(): Promise<void> {
+  // Read the package version once: --version prints it and the interactive
+  // banner shows it (a version in the first lines is what a bug report needs).
+  const pkgVersion = await fs
+    .readFile(path.join(__dirname, '..', 'package.json'), 'utf-8')
+    .then((raw) => JSON.parse(raw).version as string)
+    .catch(() => '')
   if (hasFlag('--version') || hasFlag('-v')) {
-    const pkg = JSON.parse(
-      await fs.readFile(path.join(__dirname, '..', 'package.json'), 'utf-8'),
-    )
-    console.log(pkg.version)
+    console.log(pkgVersion || 'unknown')
     return
   }
 
@@ -1467,6 +1470,7 @@ async function main(): Promise<void> {
   }
 
   console.log(theme.system(t('msg.working_dir', { v: currentWorkdir })))
+  console.log(theme.system(t('msg.version', { v: pkgVersion || '?' })))
 
   const transcript = new Transcript({
     dir: config.transcript.dir,
@@ -1594,6 +1598,7 @@ async function main(): Promise<void> {
 
   console.log(theme.system(t('msg.interactive')))
   console.log(theme.system(t('msg.queue_hint')))
+  console.log(theme.dim(t('msg.first_hint')))
 
   let freshChatNext = true
   let sendSystemPromptNext = true
