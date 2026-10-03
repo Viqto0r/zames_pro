@@ -470,6 +470,7 @@ ${theme.bold(t('help.commands'))}
   ${t('help.cmd.resume_id')}
   ${t('help.cmd.chats')}
   ${t('help.cmd.resume')}
+  ${t('help.cmd.last')}
   ${t('help.cmd.chat')}
   ${t('help.cmd.cd')}
   ${t('help.cmd.pwd')}
@@ -536,6 +537,7 @@ const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
   { name: '/chats', key: 'help.cmd.chats' },
   { name: '/resume', key: 'help.cmd.resume' },
   { name: '/resume-id', key: 'help.cmd.resume_id' },
+  { name: '/last', key: 'help.cmd.last' },
   { name: '/chat', key: 'help.cmd.chat' },
   { name: '/cd', key: 'help.cmd.cd' },
   { name: '/pwd', key: 'help.cmd.pwd' },
@@ -2805,6 +2807,38 @@ async function main(): Promise<void> {
           )
         })
         console.log(theme.system(t('sessions.restore_hint')))
+      }
+      continue
+    }
+
+    if (lower === '/last') {
+      // Quick resume of the last chat for THIS working directory — otherwise
+      // finding it meant /chats (a network fetch) or copying the id.
+      const last = loadLastSession(currentWorkdir)
+      if (!last || !last.id) {
+        console.error(theme.error(t('sessions.none')))
+        continue
+      }
+      if (editor) editor.lock(t('msg.input_locked'))
+      try {
+        if (editor) editor.clearScreen()
+        console.log(theme.system(t('msg.opening_chat', { id: last.id })))
+        await browser.openChat(last.id)
+        currentChatId = last.id
+        freshChatNext = false
+        sendSystemPromptNext = promptOnResume()
+        saveLastChat(last.id, currentWorkdir, last.title)
+        transcript.log('resume_chat', { id: last.id, title: last.title })
+        console.log(theme.assistant(t('msg.chat_opened')))
+        loadSessionTodos(last.id)
+        await printRestoredHistory(browser, editor, last.id)
+      } catch (e) {
+        console.error(
+          theme.error(t('msg.open_chat_error', { v: '' })),
+          (e as Error).message,
+        )
+      } finally {
+        if (editor) editor.unlock()
       }
       continue
     }

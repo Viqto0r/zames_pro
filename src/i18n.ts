@@ -157,6 +157,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: '/resume <n>              открыть чат №n из /chats',
     en: '/resume <n>              open chat #n from /chats',
   },
+  'help.cmd.last': {
+    ru: '/last                    открыть последний чат этого каталога',
+    en: '/last                    open the last chat of this directory',
+  },
   'help.cmd.chat': {
     ru: '/chat                    показать текущий chat id',
     en: '/chat                    show current chat id',
