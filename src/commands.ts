@@ -122,6 +122,27 @@ export function formatDuration(
   return s + units.s
 }
 
+// Short relative age ("just now", "5m ago", "3h ago", "2d ago") for the
+// /sessions and /chats lists. The operator cares about RECENCY, not a raw
+// ISO timestamp, when picking a session to restore.
+export function formatRelativeTime(
+  iso: string | null | undefined,
+  t: TranslateFn = translate('en'),
+  now = Date.now(),
+): string {
+  if (!iso) return ''
+  const then = Date.parse(iso)
+  if (!Number.isFinite(then)) return ''
+  const diff = Math.max(0, now - then)
+  const min = Math.floor(diff / 60_000)
+  if (min < 1) return t('time.now')
+  if (min < 60) return t('time.min_ago', { n: String(min) })
+  const hours = Math.floor(min / 60)
+  if (hours < 24) return t('time.hour_ago', { n: String(hours) })
+  const days = Math.floor(hours / 24)
+  return t('time.day_ago', { n: String(days) })
+}
+
 export function renderCost(
   stats: SessionStats,
   transcriptFile: string | null,

@@ -6,6 +6,7 @@ import {
   summarizeTranscript,
   parseTranscript,
   formatDuration,
+  formatRelativeTime,
   renderCost,
   formatExport,
   defaultExportPath,
@@ -154,6 +155,31 @@ test('summarizeTranscript counts auto-compacts', () => {
   ])
   assert.equal(s.autoCompacts, 2)
   assert.equal(s.turns, 1)
+})
+
+// ---------- relative time ----------
+
+test('formatRelativeTime: now/minutes/hours/days', () => {
+  const now = Date.parse('2026-01-01T12:00:00Z')
+  assert.equal(
+    formatRelativeTime('2026-01-01T11:59:40Z', undefined, now),
+    'just now',
+  )
+  assert.equal(
+    formatRelativeTime('2026-01-01T11:55:00Z', undefined, now),
+    '5m ago',
+  )
+  assert.equal(
+    formatRelativeTime('2026-01-01T09:00:00Z', undefined, now),
+    '3h ago',
+  )
+  assert.equal(
+    formatRelativeTime('2025-12-30T12:00:00Z', undefined, now),
+    '2d ago',
+  )
+  // Invalid/missing input -> empty string, never a bogus age.
+  assert.equal(formatRelativeTime(null, undefined, now), '')
+  assert.equal(formatRelativeTime('nonsense', undefined, now), '')
 })
 
 // ---------- /export ----------

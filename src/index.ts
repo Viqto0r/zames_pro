@@ -74,6 +74,7 @@ import {
   resolveExtraDir,
   buildReviewPrompt,
   formatDuration,
+  formatRelativeTime,
   trimRestoredMessages,
   RESTORED_HISTORY_LIMIT,
   mergeMessages,
@@ -2811,8 +2812,10 @@ async function main(): Promise<void> {
           const mark = s.id === currentChatId ? theme.user(' *') : ''
           const title = s.title ? `  ${s.title}` : ''
           const wd = s.workdir ? theme.dim(`  [${dirLabel(s.workdir)}]`) : ''
+          const age = formatRelativeTime(s.updatedAt, t)
+          const ageText = age ? theme.dim('  ' + age) : ''
           console.log(
-            `  ${theme.user(n)}. ${s.id.slice(0, 8)}…${title}${wd}${mark}`,
+            `  ${theme.user(n)}. ${s.id.slice(0, 8)}…${title}${wd}${ageText}${mark}`,
           )
         })
         console.log(theme.system(t('sessions.restore_hint')))

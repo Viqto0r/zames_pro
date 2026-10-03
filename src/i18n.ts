@@ -1105,6 +1105,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   },
   'chats.history_you': { ru: 'Вы', en: 'You' },
   'chats.history_agent': { ru: 'Агент', en: 'Agent' },
+  'time.now': { ru: 'только что', en: 'just now' },
+  'time.min_ago': { ru: '{n} мин назад', en: '{n}m ago' },
+  'time.hour_ago': { ru: '{n} ч назад', en: '{n}h ago' },
+  'time.day_ago': { ru: '{n} дн назад', en: '{n}d ago' },
   'sessions.dir': { ru: 'Папка сессий: {v}', en: 'Sessions dir: {v}' },
   'sessions.none': {
     ru: 'Сохранённых сессий нет. Они появятся после первой задачи/чата.',
