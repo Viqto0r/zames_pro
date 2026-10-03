@@ -154,3 +154,30 @@ export function listSessions(): Session[] {
 export function sessionsDir(): string {
   return SESSIONS_DIR
 }
+
+// ---------- input history ----------
+
+// The LineEditor history otherwise dies with the process (it was in-memory
+// only), so the arrow keys / Ctrl+R could not recall anything from a previous
+// run. We persist it in ~/.zames/history.json, capped so the file cannot grow
+// without bound.
+const HISTORY_FILE = path.join(os.homedir(), '.zames', 'history.json')
+const HISTORY_LIMIT = 500
+
+export function loadHistory(): string[] {
+  try {
+    const raw = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf-8'))
+    if (!Array.isArray(raw)) return []
+    return raw.filter((x): x is string => typeof x === 'string')
+  } catch {
+    return []
+  }
+}
+
+export function saveHistory(history: string[]): void {
+  try {
+    ensureDir()
+    const trimmed = history.slice(-HISTORY_LIMIT)
+    atomicWriteJson(HISTORY_FILE, trimmed)
+  } catch {}
+}

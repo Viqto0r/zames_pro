@@ -425,6 +425,9 @@ export class LineEditor {
   _searchQuery: string
   _searchIndex: number
   _searchSavedBuf: string
+  // Called after every submit with the new full history, so the caller can
+  // persist it (the history otherwise dies with the process).
+  onHistoryChange: ((history: string[]) => void) | null
   // Slash-command hints (shown when you type «/»).
   slashCommands: SlashCommand[]
   _suggestCount: number
@@ -536,6 +539,7 @@ export class LineEditor {
     this._searchQuery = ''
     this._searchIndex = -1
     this._searchSavedBuf = ''
+    this.onHistoryChange = null
     this.slashCommands = commands
     this._suggestCount = 0
     this.pastes = []
@@ -1393,6 +1397,8 @@ export class LineEditor {
     // Add to history only non-empty messages that don't duplicate the previous one.
     if (text.trim() && this.history[this.history.length - 1] !== text) {
       this.history.push(text)
+      // Persist the new entry: the in-memory history dies with the process.
+      if (this.onHistoryChange) this.onHistoryChange(this.history.slice())
     }
     this._histIndex = this.history.length
     this._histDraft = ''

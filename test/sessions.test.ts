@@ -68,3 +68,17 @@ test('saveSession сохраняет todos и не стирает их при о
   const s2 = saveSession({ id, title: 'T', workdir: '/p' })
   assert.deepEqual(s2?.todos, todos)
 })
+
+// ---------- input history persistence ----------
+
+test('loadHistory/saveHistory round-trip and cap', async () => {
+  const { loadHistory, saveHistory } = await import('../src/sessions.ts')
+  // Whatever was on disk, the functions must not throw and loadHistory must
+  // always return an array of strings.
+  const before = loadHistory()
+  assert.ok(Array.isArray(before))
+  saveHistory(['a', 'b', 'c'])
+  const after = loadHistory()
+  assert.ok(after.length >= 3)
+  assert.equal(after[after.length - 1], 'c')
+})

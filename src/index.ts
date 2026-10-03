@@ -104,6 +104,8 @@ import {
   readSession,
   listSessions,
   sessionsDir,
+  loadHistory,
+  saveHistory,
 } from './sessions.js'
 import type { ToolDef } from './types.js'
 import type { ChatInfo } from './browser.js'
@@ -1840,6 +1842,11 @@ async function main(): Promise<void> {
     })
     editor = ed
     ed.setTmpDir(TMP_DIR)
+    // Restore the input history from the previous runs and persist every new
+    // entry, so Ctrl+R / arrows can recall older messages after a restart.
+    ed.history = loadHistory()
+    ed._histIndex = ed.history.length
+    ed.onHistoryChange = (h) => saveHistory(h)
     // The token context right-aligned on the status line (above the input).
     // The editor pulls the number on every render, so it follows the live
     // DeepSeek counter (accumulated_token_usage) without a polling timer.
