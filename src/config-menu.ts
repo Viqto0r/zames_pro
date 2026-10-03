@@ -12,6 +12,7 @@
 import { theme } from './theme.js'
 import type { TranslateFn } from './i18n.js'
 import type { ConfigField } from './config.js'
+import { visLen } from './input.js'
 
 export interface ConfigMenuOptions {
   fields: ConfigField[]
@@ -32,6 +33,15 @@ const ESC = String.fromCharCode(27)
 // Strip ANSI sequences to compute the visible length of a line.
 function stripAnsi(s: string): string {
   return s.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
+}
+
+// Visible COLUMNS of a line (ANSI removed, wide chars counted as 2). Using the
+// code-point count made the block height disagree with the real screen on lines
+// with emoji/wide chars, so the erase moved to the wrong row and the config list
+// duplicated. A row that fills the terminal exactly also triggers autowrap on
+// some terminals, so we keep one column free here as the editor does.
+function visCols(s: string): number {
+  return visLen(stripAnsi(s))
 }
 
 function displayValue(
@@ -119,9 +129,11 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
     // (accounting for wrapping by terminal width), otherwise on narrow
     // terminals you get "garbage" from unerased tails.
     const cols = output.columns || 80
+    // Reserve the last column like the editor does: a row that fills the
+    // terminal exactly can autowrap, which desyncs the block height.
+    const usable = Math.max(1, cols - 1)
     const rowsOf = (s: string): number => {
-      const len = stripAnsi(s).length
-      return Math.max(1, Math.ceil(len / Math.max(1, cols)))
+      return Math.max(1, Math.ceil(visCols(s) / usable))
     }
     if (lastRows > 0) {
       output.write(ESC + '[' + lastRows + 'A')

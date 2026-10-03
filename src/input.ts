@@ -204,7 +204,16 @@ export function layoutInput(
   cursor: number,
   cols: number,
 ): LayoutResult {
-  const width = Math.max(20, Number(cols) || 80)
+  // Reserve the LAST column. If a printed row reaches exactly `cols` columns,
+  // terminals with autowrap (Tabby, iTerm, Windows Terminal, xterm's default
+  // deferred wrap) either wrap the cursor to the next line or leave it in the
+  // last cell with a "pending wrap". In both cases the editor's row count
+  // disagrees with the real screen by one, so the cursor/erase arithmetic in
+  // `_renderInputOnly`/`_writeBlock` walks one row too far and the input line
+  // climbs. This was most visible in an EMPTY chat with a single long,
+  // space-less line (which fills the row exactly) and when moving the cursor
+  // with the arrow keys.
+  const width = Math.max(2, (Number(cols) || 80) - 1)
   const promptW = visLen(promptStr)
   const pad = ' '.repeat(promptW)
   const chars = Array.from(String(buf))
@@ -393,6 +402,13 @@ export class LineEditor {
   // keeping the status untouched removes that flicker. Cleared whenever the
   // status genuinely changes so the cache can never go stale.
   _lastStatusBlock: string
+  // Rows occupied by the WHOLE block (status + input + hints) at the last
+  // write. When the block SHRINKS (the pause status disappears, the input
+  // unwraps) the erase leaves the cursor at the old block top; printing a
+  // shorter block then ends above the screen bottom, so the footer floated with
+  // blank rows below it. Padding the redraw with (prev - new) newlines pushes
+  // it back down to the bottom (see _padShrink).
+  _blockRows: number
   _wasRaw: boolean
   _onData: (b: Buffer) => void
   // On SIGWINCH we redraw the whole block so the layout follows the new
@@ -487,6 +503,7 @@ export class LineEditor {
     this._thinkBase = ''
     this._sendState = ''
     this._lastStatusBlock = ''
+    this._blockRows = 0
     this._wasRaw = false
     this._onData = (b: Buffer) => this._handle(b)
     this._resizeTimer = null
@@ -939,6 +956,12 @@ export class LineEditor {
               '   ' + translate(this.locale)('editor.more', { n: hidden }),
             )
       }
+      // The input may have UNWRAPPED (fewer rows than before) — push the block
+      // back to the bottom BEFORE the new content is printed (the padding is
+      // plain newlines at the top of the block, which scroll the screen).
+      const blockRowsOnly = top + layOnly.rows.length + linesBelowOnly
+      this._padShrink(blockRowsOnly, this._blockRows)
+      this._blockRows = blockRowsOnly
       process.stdout.write(outOnly)
       const upOnly =
         layOnly.rows.length - 1 - layOnly.cursorRow + linesBelowOnly
@@ -977,19 +1000,39 @@ export class LineEditor {
           )
     }
 
+    const linesBelow = shown.length
+      ? shown.length + (sugg.length > shown.length ? 1 : 0)
+      : 0
+    // If the block SHRANK (the pause status went away, the input unwrapped),
+    // the erase left the cursor at the old block top; printing a shorter block
+    // would end above the screen bottom and the footer would float with blank
+    // rows below it. Padding with the difference pushes it back to the bottom.
+    const blockRows = top + lay.rows.length + linesBelow
+    this._padShrink(blockRows, this._blockRows)
+    this._blockRows = blockRows
+
     process.stdout.write(out)
     const lastRow = lay.rows.length - 1
     // Move the cursor up: first to the input line within lay, then further by
     // the hint lines (if any) — the cursor must sit on the input.
-    const linesBelow = shown.length
-      ? shown.length + (sugg.length > shown.length ? 1 : 0)
-      : 0
     const up = lastRow - lay.cursorRow + linesBelow
     if (up > 0) process.stdout.write(ESC + '[' + up + 'A')
     process.stdout.write(CR)
     if (lay.cursorCol > 0) process.stdout.write(ESC + '[' + lay.cursorCol + 'C')
     this.rendered = true
     this.cursorRowFromTop = top + lay.cursorRow
+  }
+
+  // Push the redrawn block back down to the bottom when it got SHORTER than
+  // the previous one. `_eraseBlock`/`_eraseInputOnly` put the cursor at the old
+  // block top, so emitting (prev - next) newlines scrolls the screen just
+  // enough for the new, shorter block to end at the screen bottom again. See
+  // _blockRows.
+  _padShrink(nextRows: number, prevRows: number): void {
+    if (prevRows <= nextRows) return
+    const rows = process.stdout.rows || 24
+    const pad = Math.min(prevRows - nextRows, Math.max(0, rows - 1))
+    if (pad > 0) process.stdout.write(NL.repeat(pad))
   }
 
   // Public repaint hook: called when an external state that the status line
@@ -1012,6 +1055,10 @@ export class LineEditor {
     process.stdout.write(ESC + '[2J' + ESC + '[H')
     this.rendered = false
     this._lastStatusBlock = ''
+    // We are about to re-pin the block to the bottom ourselves, so forget the
+    // previous block height — otherwise the shrink padding would add extra
+    // rows on top of the padding below.
+    this._blockRows = 0
     // Re-pin the block to the bottom after the screen was cleared.
     this._padToBottom()
     this._writeBlock()
@@ -1055,6 +1102,13 @@ export class LineEditor {
             '   ' + translate(this.locale)('editor.more', { n: hidden }),
           )
     }
+    // A buffer change can UNWRAP the input (backspace on a wrapped line), so
+    // the block can get shorter here too — push it back to the bottom BEFORE
+    // the new content is printed (the padding is plain newlines at the top of
+    // the block, which scroll the screen).
+    const blockRows = this._statusTop + lay.rows.length + linesBelow
+    this._padShrink(blockRows, this._blockRows)
+    this._blockRows = blockRows
     process.stdout.write(out)
     const up = lay.rows.length - 1 - lay.cursorRow + linesBelow
     if (up > 0) process.stdout.write(ESC + '[' + up + 'A')
