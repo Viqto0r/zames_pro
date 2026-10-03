@@ -477,20 +477,20 @@ ${theme.bold(t('help.commands'))}
   ${t('help.cmd.undo')}
   ${t('help.cmd.undo_list')}
   ${t('help.cmd.transcript')}
- ${t('help.cmd.diff')}
- ${t('help.cmd.cost')}
- ${t('help.cmd.export')}
- ${t('help.cmd.doctor')}
- ${t('help.cmd.permissions')}
- ${t('help.cmd.add_dir')}
- ${t('help.cmd.review')}
- ${t('help.cmd.goal')}
- ${t('help.cmd.loop')}
- ${t('help.cmd.cron')}
- ${t('help.cmd.jobs')}
- ${t('help.cmd.thinking')}
- ${t('help.cmd.web')}
- ${t('help.cmd.compact')}
+  ${t('help.cmd.diff')}
+  ${t('help.cmd.cost')}
+  ${t('help.cmd.export')}
+  ${t('help.cmd.doctor')}
+  ${t('help.cmd.permissions')}
+  ${t('help.cmd.add_dir')}
+  ${t('help.cmd.review')}
+  ${t('help.cmd.goal')}
+  ${t('help.cmd.loop')}
+  ${t('help.cmd.cron')}
+  ${t('help.cmd.jobs')}
+  ${t('help.cmd.thinking')}
+  ${t('help.cmd.web')}
+  ${t('help.cmd.compact')}
   ${t('help.cmd.queue')}
   ${t('help.cmd.tasks')}
   ${t('help.cmd.config')}
