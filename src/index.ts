@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import './color.js'
 import path from 'path'
 import fs from 'fs/promises'
 import { existsSync, statSync } from 'fs'
@@ -456,6 +457,7 @@ ${theme.bold(t('help.options'))}
   --debug            ${t('help.opt.debug')}
   --calibrate        ${t('help.opt.calibrate')}
   --dev              ${t('help.opt.dev')}
+  --no-color         ${t('help.opt.no_color')}
   --version, -v      ${t('help.opt.version')}
   --help, -h         ${t('help.opt.help')}
 

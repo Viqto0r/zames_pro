@@ -99,6 +99,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     en: 'dev mode: auto-reload modules',
   },
   'help.opt.version': { ru: 'показать версию', en: 'show version' },
+  'help.opt.no_color': {
+    ru: 'отключить цвет (то же, что NO_COLOR=1)',
+    en: 'disable color (same as NO_COLOR=1)',
+  },
   'help.opt.help': { ru: 'эта справка', en: 'this help' },
   'help.while_working': {
     ru: 'Пока агент работает:',
