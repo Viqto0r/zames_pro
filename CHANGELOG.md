@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.54.0]
+
 ### Added
 
 - New unit tests for previously uncovered modules: `diff.ts` (unified/color
@@ -50,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Session banner warns when no saved DeepSeek session exists.
 - `--no-color` flag (explicit `NO_COLOR`).
 
-[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.53.1...HEAD
+[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.54.0...HEAD
+[2.54.0]: https://github.com/Viqto0r/zames_pro/compare/v2.53.1...v2.54.0
 [2.53.1]: https://github.com/Viqto0r/zames_pro/compare/v2.53.0...v2.53.1
 [2.53.0]: https://github.com/Viqto0r/zames_pro/releases/tag/v2.53.0
