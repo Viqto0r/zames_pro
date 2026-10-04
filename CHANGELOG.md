@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `WebFetch` now blocks private/loopback/link-local addresses (SSRF guard,
+  including cloud metadata `169.254.169.254`) and retries transient network
+  errors and 5xx responses with exponential backoff.
+- CI prints per-file test coverage (`node --experimental-test-coverage`) so
+  untested modules are visible in the log (informational, does not fail).
+
+### Changed
+
+- The `pre-push` git hook no longer runs the full test suite (it was fragile
+  and timed out on tag pushes); tests stay in `pre-commit` and CI.
+
 ## [2.53.1]
 
 ### Fixed

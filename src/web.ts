@@ -1,4 +1,6 @@
 import { chromium } from 'playwright'
+import { lookup } from 'node:dns/promises'
+import { isIP } from 'node:net'
 import type { ToolArgs, ToolDef } from './types.js'
 
 const DEFAULT_TIMEOUT = 20_000
@@ -54,6 +56,98 @@ function htmlToText(html: string): string {
     .join('\n')
 
   return s
+}
+
+// ---------- SSRF guard ----------
+//
+// WebFetch takes an arbitrary URL from the model. Without a guard it could be
+// talked into reading cloud metadata (169.254.169.254), internal admin panels
+// or localhost services. We resolve the hostname and refuse private / loopback
+// / link-local addresses. Best-effort: a DNS rebind between the check and the
+// fetch is out of scope for a CLI tool, but the common cases are covered.
+export function isPrivateIp(ip: string): boolean {
+  const v4 = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+  if (v4) {
+    const [a, b] = v4.slice(1).map(Number)
+    if (a === 10 || a === 127 || a === 0) return true
+    if (a === 169 && b === 254) return true // link-local + cloud metadata
+    if (a === 172 && b >= 16 && b <= 31) return true
+    if (a === 192 && b === 168) return true
+    if (a === 100 && b >= 64 && b <= 127) return true // CGNAT
+    return false
+  }
+  const low = ip.toLowerCase()
+  if (low === '::1' || low === '::') return true
+  if (low.startsWith('fe80') || low.startsWith('fc') || low.startsWith('fd')) {
+    return true
+  }
+  const mapped = low.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/)
+  if (mapped) return isPrivateIp(mapped[1])
+  return false
+}
+
+export function isPrivateHostname(host: string): boolean {
+  const h = host.toLowerCase().replace(/\.$/, '')
+  if (!h) return true
+  if (h === 'localhost' || h.endsWith('.localhost')) return true
+  if (h === 'metadata.google.internal') return true
+  return false
+}
+
+async function assertPublicUrl(rawUrl: string): Promise<void> {
+  const u = new URL(rawUrl)
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+    throw new Error(`unsupported protocol: ${u.protocol}`)
+  }
+  const host = u.hostname
+  if (isPrivateHostname(host)) {
+    throw new Error(`blocked private host: ${host}`)
+  }
+  if (isIP(host)) {
+    if (isPrivateIp(host)) throw new Error(`blocked private address: ${host}`)
+    return
+  }
+  try {
+    const addrs = await lookup(host, { all: true })
+    for (const a of addrs) {
+      if (isPrivateIp(a.address)) {
+        throw new Error(`blocked private address for ${host}: ${a.address}`)
+      }
+    }
+  } catch (e) {
+    // Re-throw our own block, but let a DNS failure fall through so fetch()
+    // surfaces the real network error instead of a misleading one.
+    if ((e as Error).message.startsWith('blocked')) throw e
+  }
+}
+
+const sleep = (ms: number): Promise<void> =>
+  new Promise((r) => setTimeout(r, ms))
+
+// fetch with retries for transient network errors and 5xx responses.
+async function httpFetchWithRetry(
+  url: string,
+  opts: { timeout?: number; headers?: Record<string, string> } = {},
+  retries = 2,
+): Promise<{ status: number; url: string; contentType: string; body: string }> {
+  let lastErr: unknown
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const r = await httpFetch(url, opts)
+      if (r.status >= 500 && attempt < retries) {
+        await sleep(300 * 2 ** attempt)
+        continue
+      }
+      return r
+    } catch (e) {
+      lastErr = e
+      if (attempt < retries) {
+        await sleep(300 * 2 ** attempt)
+        continue
+      }
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr))
 }
 
 // fetch with redirects and a timeout
@@ -155,13 +249,15 @@ export function createWebTools(): ToolDef[] {
         const limit = Math.min(Number(maxChars) || MAX_TEXT, 60_000)
 
         try {
+          await assertPublicUrl(String(url))
+
           if (render) {
             const r = await renderWithHeadless(String(url))
             const text = htmlToText(r.html)
             return formatResult(r.status, r.url, text, limit)
           }
 
-          const r = await httpFetch(String(url))
+          const r = await httpFetchWithRetry(String(url))
 
           // If it's JSON/plain text — return as is
           if (
@@ -208,7 +304,7 @@ export function createWebTools(): ToolDef[] {
         const limit = Math.min(Math.max(Number(maxResults) || 8, 1), 20)
 
         try {
-          const r = await httpFetch(
+          const r = await httpFetchWithRetry(
             `https://html.duckduckgo.com/html/?q=${q}`,
             {
               timeout: 25_000,

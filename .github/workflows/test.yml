@@ -38,8 +38,11 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Tests
-        run: npm test
+      # The coverage run IS the test run (same exit code), with a per-file
+      # line/branch report printed so dead or untested modules are visible.
+      # It is informational only — a coverage dip never fails the build.
+      - name: Tests (with coverage)
+        run: npx tsx --test --experimental-test-coverage test/*.test.ts
 
       - name: Build
         run: npm run build
