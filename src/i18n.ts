@@ -125,8 +125,8 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     en: 'Ctrl+← / Ctrl+→           move by words',
   },
   'help.key.slash': {
-    ru: '/ + Tab                  подсказка и автодополнение slash-команд',
-    en: '/ + Tab                   slash-command hints and completion',
+    ru: '/ + Tab                  подсказка и автодополнение slash-команд (Ctrl+N/P — листать)',
+    en: '/ + Tab                   slash-command hints and completion (Ctrl+N/P to page)',
   },
   'help.key.newline': {
     ru: 'Ctrl+J / Ctrl+Enter      новая строка (Shift+Enter в терминалах с поддержкой)',
@@ -505,6 +505,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   // flight. 'paused'/'settled' have no label (see LineEditor._stateLabel).
   'state.generating': { ru: '▶ генерация', en: '▶ generating' },
   'editor.more': { ru: '…ещё {n}', en: '…{n} more' },
+  'editor.page_hint': {
+    ru: '(Ctrl+N/Ctrl+P — листать, Tab — вставить)',
+    en: '(Ctrl+N/Ctrl+P to page, Tab to insert)',
+  },
   'editor.answer': { ru: '● Ответ', en: '● Answer' },
   // Reverse search (Ctrl+R) status line. The query may be empty.
   'editor.search_prompt': {

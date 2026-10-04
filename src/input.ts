@@ -48,6 +48,21 @@ const PASTE_END = ESC + '[201~'
 // as-is (small pastes are usually short and don't clutter the line).
 export const PASTE_MIN_LINES = 3
 
+// How many slash-command hints are shown at once (the rest are paged with
+// Ctrl+N/P). The list used to be hard-capped at 8 with a "...more" note and no
+// way to reach the rest.
+export const SUGGEST_PAGE = 8
+
+// True when `q` is a subsequence of `s` (e.g. "hst" in "/history"). Used for
+// the fuzzy fallback in _suggestions().
+export function isSubsequence(q: string, s: string): boolean {
+  let i = 0
+  for (let j = 0; j < s.length && i < q.length; j++) {
+    if (s[j] === q[i]) i++
+  }
+  return i === q.length
+}
+
 export interface PasteBlock {
   marker: string
   text: string
@@ -438,6 +453,14 @@ export class LineEditor {
   // Slash-command hints (shown when you type «/»).
   slashCommands: SlashCommand[]
   _suggestCount: number
+  // Scroll window of the suggestion list and the currently highlighted entry
+  // (Ctrl+N/P move the highlight; Enter inserts it). Without these the list
+  // was capped at 8 and the rest were unreachable.
+  _suggestOffset: number
+  _suggestSelected: number
+  // The buffer the suggestion highlight/scroll was computed for; when the
+  // buffer changes the selection resets to the top.
+  _suggestQuery: string
   // Pasted blocks collapsed into markers (expanded back on submit).
   pastes: PasteBlock[]
   _pasteBuf: string
@@ -551,6 +574,9 @@ export class LineEditor {
     this._typingRun = false
     this.slashCommands = commands
     this._suggestCount = 0
+    this._suggestOffset = 0
+    this._suggestSelected = -1
+    this._suggestQuery = ''
     this.pastes = []
     this._pasteBuf = ''
     this.attachments = new AttachmentStore()
@@ -678,13 +704,97 @@ export class LineEditor {
 
   // List of hints for the current input. We show them only when the line
   // starts with «/» and is a single word (no spaces/newlines) — like
-  // command completion in Claude Code.
+  // command completion in Claude Code. The match is fuzzy: an exact prefix
+  // first, then a substring, then a subsequence (e.g. "hst" -> "/history"),
+  // so a half-remembered command name still surfaces. Order is preserved.
   _suggestions(): SlashCommand[] {
     const b = this.buf
     if (!b.startsWith('/')) return []
     if (b.includes(NL) || b.includes(' ')) return []
+    if (b.length > 40) return []
     const q = b.toLowerCase()
-    return this.slashCommands.filter((c) => c.name.toLowerCase().startsWith(q))
+    if (q === '/') return this.slashCommands
+    // Match on the part AFTER the leading slash: comparing the raw query
+    // (which itself starts with '/') against the full name made the fuzzy
+    // subsequence match fire on the slash alone (e.g. "/x" matched
+    // "/self-fix"), so a stray letter pulled in unrelated commands.
+    const body = q.slice(1)
+    const prefix: SlashCommand[] = []
+    const substring: SlashCommand[] = []
+    const fuzzy: SlashCommand[] = []
+    // A single character only matches by PREFIX: a one-letter substring /
+    // subsequence match is far too loose ("x" would pull in "/self-fix").
+    const loose = body.length >= 2
+    for (const c of this.slashCommands) {
+      const name = c.name.toLowerCase().slice(1)
+      if (name.startsWith(body)) prefix.push(c)
+      else if (loose && name.includes(body)) substring.push(c)
+      else if (loose && isSubsequence(body, name)) fuzzy.push(c)
+    }
+    return prefix.concat(substring, fuzzy)
+  }
+
+  // Render the suggestion block for the current query. `offset` scrolls the
+  // window so Ctrl+N/P can page through more than the visible size (the list
+  // used to be silently capped at 8). Returns the lines to print BELOW the
+  // input and how many rows they occupy.
+  _suggestionLines(offset: number): { lines: string[]; rows: number } {
+    const sugg = this._suggestions()
+    // The buffer changed since the last highlight -> drop the selection and
+    // reset the window to the top, so a stale highlight never sticks to an
+    // unrelated entry.
+    if (this.buf !== this._suggestQuery) {
+      this._suggestQuery = this.buf
+      this._suggestSelected = 0
+      this._suggestOffset = 0
+    }
+    if (!sugg.length) return { lines: [], rows: 0 }
+    const pageSize = SUGGEST_PAGE
+    const maxOffset = Math.max(0, sugg.length - pageSize)
+    const off = Math.max(0, Math.min(offset, maxOffset))
+    const shown = sugg.slice(off, off + pageSize)
+    this._suggestOffset = off
+    this._suggestCount = sugg.length
+    const maxName = Math.max(...shown.map((c) => c.name.length))
+    const lines = shown.map((c, i) => {
+      const selected =
+        off + i === this._suggestSelected && this._suggestSelected > 0
+      const name = theme.prompt(c.name.padEnd(maxName))
+      const desc = theme.dim('  ' + c.description)
+      return (selected ? theme.prompt(' ▸ ') : '   ') + name + desc
+    })
+    if (sugg.length > pageSize) {
+      const t = translate(this.locale)
+      lines.push(
+        theme.dim(
+          '   ' +
+            t('editor.more', {
+              n: String(sugg.length - shown.length),
+            }) +
+            '  ' +
+            t('editor.page_hint'),
+        ),
+      )
+    }
+    return { lines, rows: lines.length }
+  }
+
+  // Move the highlight in the suggestion list (Ctrl+N/Ctrl+P). The window
+  // scrolls so the highlighted entry stays visible. -1 means "no explicit
+  // selection" (Tab then falls back to the common-prefix completion).
+  _suggestMove(delta: number): void {
+    const sugg = this._suggestions()
+    if (!sugg.length) return
+    const next = this._suggestSelected + delta
+    this._suggestSelected = Math.max(-1, Math.min(sugg.length - 1, next))
+    if (this._suggestSelected < 0) {
+      this._suggestOffset = 0
+    } else if (this._suggestSelected < this._suggestOffset) {
+      this._suggestOffset = this._suggestSelected
+    } else if (this._suggestSelected >= this._suggestOffset + SUGGEST_PAGE) {
+      this._suggestOffset = this._suggestSelected - SUGGEST_PAGE + 1
+    }
+    this._renderInputOnly()
   }
 
   // Tab: complete the command up to the common prefix; if there is a single
@@ -692,6 +802,11 @@ export class LineEditor {
   _completeCommand() {
     const sugg = this._suggestions()
     if (!sugg.length) return
+    if (this._suggestSelected >= 0 && this._suggestSelected < sugg.length) {
+      this.buf = sugg[this._suggestSelected].name + ' '
+      this.cursor = Array.from(this.buf).length
+      return
+    }
     if (sugg.length === 1) {
       this.buf = sugg[0].name + ' '
       this.cursor = Array.from(this.buf).length
@@ -965,31 +1080,15 @@ export class LineEditor {
     if (statusUnchanged) {
       // Count the real input rows via layout (wrapping aware).
       const layOnly = layoutInput(this.promptStr, this.buf, this.cursor, cols)
-      const suggOnly = this._suggestions()
-      const shownOnly = suggOnly.slice(0, 8)
-      const linesBelowOnly = shownOnly.length
-        ? shownOnly.length + (suggOnly.length > shownOnly.length ? 1 : 0)
-        : 0
+      const suggOnly = this._suggestionLines(this._suggestOffset)
+      const linesBelowOnly = suggOnly.rows
       // Move up to the INPUT top using the OLD cursor row (the position that is
       // on screen right now), never the input's height.
       this._eraseInputOnly(this.cursorRowFromTop - this._statusTop)
       let outOnly = ''
       outOnly += layOnly.rows.map((r) => r.prefix + r.text).join(NL)
-      if (shownOnly.length) {
-        const maxName = Math.max(...shownOnly.map((c) => c.name.length))
-        const lines = shownOnly.map((c) => {
-          const name = theme.prompt(c.name.padEnd(maxName))
-          const desc = theme.dim('  ' + c.description)
-          return '   ' + name + desc
-        })
-        outOnly += NL + lines.join(NL)
-        const hidden = suggOnly.length - shownOnly.length
-        if (hidden > 0)
-          outOnly +=
-            NL +
-            theme.dim(
-              '   ' + translate(this.locale)('editor.more', { n: hidden }),
-            )
+      if (suggOnly.lines.length) {
+        outOnly += NL + suggOnly.lines.join(NL)
       }
       // The input may have UNWRAPPED (fewer rows than before) — push the block
       // back to the bottom BEFORE the new content is printed (the padding is
@@ -1015,29 +1114,10 @@ export class LineEditor {
 
     // We draw the slash-command hints BELOW the input line. We then move the
     // cursor back up to the input line, so cursorRowFromTop doesn't change.
-    const sugg = this._suggestions()
-    const shown = sugg.slice(0, 8)
-    this._suggestCount = shown.length
-    if (shown.length) {
-      const maxName = Math.max(...shown.map((c) => c.name.length))
-      const lines = shown.map((c) => {
-        const name = theme.prompt(c.name.padEnd(maxName))
-        const desc = theme.dim('  ' + c.description)
-        return '   ' + name + desc
-      })
-      out += NL + lines.join(NL)
-      const hidden = sugg.length - shown.length
-      if (hidden > 0)
-        out +=
-          NL +
-          theme.dim(
-            '   ' + translate(this.locale)('editor.more', { n: hidden }),
-          )
-    }
+    const sugg = this._suggestionLines(this._suggestOffset)
+    if (sugg.lines.length) out += NL + sugg.lines.join(NL)
 
-    const linesBelow = shown.length
-      ? shown.length + (sugg.length > shown.length ? 1 : 0)
-      : 0
+    const linesBelow = sugg.rows
     // If the block SHRANK (the pause status went away, the input unwrapped),
     // the erase left the cursor at the old block top; printing a shorter block
     // would end above the screen bottom and the footer would float with blank
@@ -1941,6 +2021,16 @@ export class LineEditor {
       if (code === 18) {
         // Ctrl+R — incremental reverse search over the input history.
         this._searchStart()
+        continue
+      }
+      if (code === 14) {
+        // Ctrl+N — move the suggestion highlight down (like a menu).
+        this._suggestMove(1)
+        continue
+      }
+      if (code === 16) {
+        // Ctrl+P — move the suggestion highlight up.
+        this._suggestMove(-1)
         continue
       }
       if (code === 23) {
