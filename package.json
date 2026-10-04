@@ -45,7 +45,6 @@
     "chalk": "^5.3.0",
     "cli-highlight": "^2.1.11",
     "markdansi": "^0.3.4",
-    "marked": "^15.0.12",
     "ora": "^8.0.1",
     "playwright": "^1.48.0"
   },

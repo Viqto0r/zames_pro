@@ -14,6 +14,14 @@ export function projectConfigPath(): string {
   return path.join(process.cwd(), '.zamesrc.json')
 }
 
+// Write via a temp file + rename so a crash or Ctrl+C mid-write can never
+// leave a truncated/broken config (it is read at every startup).
+function atomicWriteJson(file: string, value: unknown): void {
+  const tmp = `${file}.tmp-${process.pid}`
+  fs.writeFileSync(tmp, JSON.stringify(value, null, 2) + '\n', 'utf-8')
+  fs.renameSync(tmp, file)
+}
+
 export const DEFAULTS: ZamesConfig = {
   maxIterations: 0,
   // Headless by default: the browser runs without a visible window. Set
@@ -480,7 +488,7 @@ export function readConfigFile(file: string): Record<string, unknown> {
   } catch (e) {
     const err = e as NodeJS.ErrnoException
     if (err.code !== 'ENOENT') {
-      throw new Error(`не удалось прочитать ${file}: ${err.message}`)
+      throw new Error(`failed to read ${file}: ${err.message}`)
     }
   }
   return {}
@@ -502,7 +510,7 @@ export function writeConfigValue(
   const data = readConfigFile(file)
   setByPath(data, key, value)
   fs.mkdirSync(path.dirname(file), { recursive: true })
-  fs.writeFileSync(file, JSON.stringify(data, null, 2) + '\n', 'utf-8')
+  atomicWriteJson(file, data)
   return { value, file }
 }
 
@@ -524,7 +532,7 @@ export function resetConfigValue(scope: ConfigScope, key: string): string {
   }
   if (cur) delete cur[parts[parts.length - 1]]
   fs.mkdirSync(path.dirname(file), { recursive: true })
-  fs.writeFileSync(file, JSON.stringify(data, null, 2) + '\n', 'utf-8')
+  atomicWriteJson(file, data)
   return file
 }
 

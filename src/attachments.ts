@@ -1,6 +1,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
+import { existsSync } from 'fs'
 import { createHash } from 'crypto'
 import { execFileSync } from 'child_process'
 import { extractPathToken } from './path-token.js'
@@ -267,7 +268,7 @@ export function windowsReachable(): boolean {
   if (process.platform === 'win32') return true
   if (process.platform !== 'linux') return false
   try {
-    return require('fs').existsSync('/mnt/c/Windows')
+    return existsSync('/mnt/c/Windows')
   } catch {
     return false
   }

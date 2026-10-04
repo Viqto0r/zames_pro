@@ -38,7 +38,7 @@ export function normalizeLocale(v: unknown): Locale {
 export type TranslateParams = Record<string, string | number>
 
 // String catalog. Key -> { ru, en }. If a key is missing — we return the key itself.
-const CATALOG: Record<string, { ru: string; en: string }> = {
+export const CATALOG: Record<string, { ru: string; en: string }> = {
   'app.tagline': {
     ru: 'агент поверх chat.deepseek.com через Playwright',
     en: 'coding agent over chat.deepseek.com via Playwright',

@@ -43,7 +43,10 @@ export class UndoStore {
   }
 
   async _writeIndex(history: UndoRecord[]): Promise<void> {
-    await fs.writeFile(INDEX, JSON.stringify(history, null, 2))
+    // Atomic write: a crash mid-write must not corrupt the undo history.
+    const tmp = `${INDEX}.tmp-${process.pid}`
+    await fs.writeFile(tmp, JSON.stringify(history, null, 2))
+    await fs.rename(tmp, INDEX)
   }
 
   async backup(

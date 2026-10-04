@@ -1,5 +1,6 @@
 import path from 'path'
 import fs from 'fs/promises'
+import { readdirSync } from 'fs'
 import { theme, divider } from './theme.js'
 import { translate, DEFAULT_LOCALE, type Locale } from './i18n.js'
 import { fileURLToPath } from 'url'
@@ -17,7 +18,7 @@ function resolveSrcDir(): string {
   const candidates = [__dirname, path.join(__dirname, '..', 'src')]
   for (const dir of candidates) {
     try {
-      const entries = require('fs').readdirSync(dir)
+      const entries = readdirSync(dir)
       if (entries.some((e: string) => e.endsWith('.ts'))) return dir
     } catch {}
   }

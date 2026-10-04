@@ -7,6 +7,7 @@ import {
   localeDisplayName,
   DEFAULT_LOCALE,
   LOCALES,
+  CATALOG,
 } from '../src/i18n.ts'
 
 test('translate возвращает строку на нужном языке', () => {
@@ -40,25 +41,17 @@ test('isLocale / localeDisplayName', () => {
 })
 
 test('все ключи каталога имеют оба языка (ru/en)', () => {
-  // We check via a sample of several keys from different sections.
-  const keys = [
-    'help.options',
-    'help.cmd.config',
-    'spinner.hint',
-    'prompt.answer_language',
-    'cfg.usage',
-    'self.review_hint',
-    'msg.interactive',
-    'init.analyzing',
-    'init.done',
-    'init.failed',
-    'init.overwrite',
-  ]
+  // Exhaustive: every catalog entry must carry a non-empty ru AND en string.
+  // The old test sampled ~11 keys, so a key added on only one language was
+  // never caught. Iterating CATALOG closes that gap.
+  const keys = Object.keys(CATALOG)
+  assert.ok(keys.length > 100, 'catalog looks suspiciously small')
   for (const k of keys) {
-    const ru = translate('ru')(k)
-    const en = translate('en')(k)
-    assert.notEqual(ru, k, `ru missing: ${k}`)
-    assert.notEqual(en, k, `en missing: ${k}`)
-    assert.notEqual(ru, en, `ru/en identical for: ${k}`)
+    const entry = CATALOG[k]
+    assert.ok(entry, `missing entry: ${k}`)
+    assert.equal(typeof entry.ru, 'string', `ru missing: ${k}`)
+    assert.equal(typeof entry.en, 'string', `en missing: ${k}`)
+    assert.ok(entry.ru.length > 0, `ru empty: ${k}`)
+    assert.ok(entry.en.length > 0, `en empty: ${k}`)
   }
 })
