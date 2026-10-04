@@ -47,11 +47,25 @@ function highlighter(code: string, lang?: string): string {
   }
 }
 
+// Configured maximum answer width (columns). 0 = auto: terminal width, capped
+// at 100. Set once from config (ui.answerWidth) so every render path honors it
+// without threading the option through every call site.
+let configuredWidth = 0
+
+export function setAnswerWidth(width: number): void {
+  configuredWidth = typeof width === 'number' && width > 0 ? width : 0
+}
+
 export function renderMarkdown(text: string): string {
   if (!text) return ''
   try {
+    const cols = process.stdout.columns || 80
+    const width =
+      configuredWidth > 0
+        ? Math.min(configuredWidth, cols)
+        : Math.min(cols, 100)
     return render(String(text), {
-      width: Math.min(process.stdout.columns || 80, 100),
+      width,
       theme: theme as unknown as Parameters<typeof render>[1] extends
         { theme?: infer T } | undefined
         ? T

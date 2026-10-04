@@ -97,7 +97,7 @@ import {
   formatJobLine,
   parseCron,
 } from './scheduler.js'
-import { renderMarkdown } from './markdown.js'
+import { renderMarkdown, setAnswerWidth } from './markdown.js'
 import { closeWeb } from './web.js'
 import {
   saveSession,
@@ -200,6 +200,9 @@ function getPositional(): string[] {
 const COMPACT_FALLBACK_LIMIT = 40
 
 const config = loadConfig()
+
+// Apply the configured answer width to the markdown renderer (0 = auto).
+setAnswerWidth(config.ui?.answerWidth ?? 0)
 
 // Current interface/agent language. Changed by the /config lang <ru|en> command.
 let currentLocale: Locale = isLocale(config.ui?.locale)
@@ -2131,6 +2134,11 @@ async function main(): Promise<void> {
         editor.setCommands(buildSlashCommands())
         editor.setPrompt(buildPrompt())
       }
+    }
+    // Apply a live change to the answer width immediately, so the next
+    // rendered answer uses the new width without a restart.
+    if (path === 'ui.answerWidth') {
+      setAnswerWidth(typeof value === 'number' ? value : Number(value) || 0)
     }
     // Reflect browser toggles on the LIVE browser object. The browser is
     // created once at startup, so without this a /config set browser.*

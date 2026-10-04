@@ -131,6 +131,12 @@ export interface UiConfig {
    * only the denominator. Configurable so it can be tuned per build.
    */
   contextLimit: number
+  /**
+   * Maximum width (columns) of a rendered answer. 0 = auto: use the terminal
+   * width, capped at 100 (the historical behavior). A wider setting lets a
+   * full-width answer use a wide terminal instead of a narrow column.
+   */
+  answerWidth: number
 }
 
 export interface ZamesConfig {

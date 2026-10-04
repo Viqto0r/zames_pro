@@ -1247,6 +1247,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: 'Язык интерфейса и ответов агента',
     en: 'Interface and agent reply language',
   },
+  'cfg.f.ui_answerWidth': {
+    ru: 'Максимальная ширина ответа в колонках (0 — авто, до 100)',
+    en: 'Max answer width in columns (0 = auto, capped at 100)',
+  },
   'cfg.f.maxIterations': {
     ru: 'Лимит итераций на задачу',
     en: 'Max agent loop iterations per task',

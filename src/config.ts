@@ -78,6 +78,8 @@ export const DEFAULTS: ZamesConfig = {
   ui: {
     locale: DEFAULT_LOCALE,
     contextLimit: 1_000_000,
+    // 0 = auto: terminal width, capped at 100 columns (the historical width).
+    answerWidth: 0,
   },
 }
 
@@ -163,6 +165,14 @@ export const CONFIG_SCHEMA: ConfigField[] = [
     max: 100000,
     labelKey: 'cfg.f.maxIterations',
     groupKey: 'cfg.group.agent',
+  },
+  {
+    path: 'ui.answerWidth',
+    type: 'number',
+    min: 0,
+    max: 1000,
+    labelKey: 'cfg.f.ui_answerWidth',
+    groupKey: 'cfg.group.ui',
   },
   {
     path: 'headless',
