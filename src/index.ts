@@ -2736,23 +2736,32 @@ async function main(): Promise<void> {
 
     // ---------- Regular commands ----------
 
-    if (lower === '/chats') {
+    if (lower === '/chats' || lower.startsWith('/chats ')) {
+      const filter = trimmed.slice('/chats'.length).trim().toLowerCase()
       const spin = editor || mod.createSpinner(currentLocale)
       if (editor) editor.lock(t('msg.input_locked'))
       spin.thinking()
       try {
         lastChats = await browser.listChats(30)
         spin.stop()
-        if (!lastChats.length) {
+        // An optional query filters by title (substring, case-insensitive),
+        // so a long chat list does not have to be scanned by eye.
+        const shown = filter
+          ? lastChats.filter((c) => c.title.toLowerCase().includes(filter))
+          : lastChats
+        if (!shown.length) {
           console.log(theme.system(t('chats.none_hint')))
         } else {
           console.log(theme.system(t('chats.recent')))
-          lastChats.forEach((c, i) => {
-            const n = String(i + 1).padStart(2, ' ')
+          // The number is the index in the FULL list, so `/resume <n>` keeps
+          // pointing at the same chat even when a filter narrows the view.
+          for (const c of shown) {
+            const idx = lastChats.indexOf(c)
+            const n = String(idx + 1).padStart(2, ' ')
             console.log(
               `  ${theme.user(n)}. ${c.title}  ${theme.system('(' + c.id.slice(0, 8) + '…)')}`,
             )
-          })
+          }
           console.log(theme.system(t('chats.use_resume')))
         }
       } catch (e) {
@@ -2838,8 +2847,24 @@ async function main(): Promise<void> {
       continue
     }
 
-    if (lower === '/sessions' || lower === '/session') {
-      const all = listSessions()
+    if (
+      lower === '/sessions' ||
+      lower === '/session' ||
+      lower.startsWith('/sessions ') ||
+      lower.startsWith('/session ')
+    ) {
+      const filter = trimmed
+        .replace(/^\/sessions?/i, '')
+        .trim()
+        .toLowerCase()
+      // /sessions <query> filters by title or workdir (substring). Sorted by
+      // recency already (listSessions).
+      const all = listSessions().filter(
+        (s) =>
+          !filter ||
+          (s.title || '').toLowerCase().includes(filter) ||
+          (s.workdir || '').toLowerCase().includes(filter),
+      )
       console.log(theme.system(t('sessions.dir', { v: sessionsDir() })))
       if (!all.length) {
         console.log(theme.system(t('sessions.none')))

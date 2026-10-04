@@ -150,16 +150,16 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     en: '/new, /clear             new chat (reset context)',
   },
   'help.cmd.sessions': {
-    ru: '/sessions                список сохранённых сессий',
-    en: '/sessions                list saved sessions',
+    ru: '/sessions [фильтр]        список сохранённых сессий (можно фильтровать)',
+    en: '/sessions [filter]        list saved sessions (optionally filtered)',
   },
   'help.cmd.resume_id': {
     ru: '/resume-id <id>          восстановить сессию по полному id',
     en: '/resume-id <id>          resume a session by full id',
   },
   'help.cmd.chats': {
-    ru: '/chats                   список последних чатов DeepSeek',
-    en: '/chats                   recent DeepSeek chats',
+    ru: '/chats [фильтр]          список последних чатов DeepSeek',
+    en: '/chats [filter]          recent DeepSeek chats',
   },
   'help.cmd.resume': {
     ru: '/resume <n>              открыть чат №n из /chats',
