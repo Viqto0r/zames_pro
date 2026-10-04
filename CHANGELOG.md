@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- New unit tests for previously uncovered modules: `diff.ts` (unified/color
+  diff), `spinner.ts` (ellipsis/dots/UI surface), `confirm.ts`
+  (confirmation logic + alwaysConfirm fallback) and `markdown.ts`
+  (rendering of headings, lists, code, tables).
+
 - `WebFetch` now blocks private/loopback/link-local addresses (SSRF guard,
   including cloud metadata `169.254.169.254`) and retries transient network
   errors and 5xx responses with exponential backoff.
