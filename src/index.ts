@@ -2248,6 +2248,20 @@ async function main(): Promise<void> {
     writeConfigValue('home', field.path, raw)
     setConfigRuntime(field.path, value)
   }
+
+  // Human-readable hint of the accepted values for a field, used in the error
+  // message when /config set gets a bad value. Enum -> the allowed list,
+  // number -> a range, boolean -> "true|false".
+  function configValueHint(field: ConfigField): string {
+    if (field.values && field.values.length) return field.values.join('|')
+    if (field.type === 'boolean') return 'true|false'
+    if (field.type === 'number') {
+      const lo = field.min !== undefined ? String(field.min) : '-'
+      const hi = field.max !== undefined ? String(field.max) : '-'
+      return t('cfg.range_hint', { min: lo, max: hi })
+    }
+    return field.type
+  }
   function configResetField(field: ConfigField): void {
     resetConfigValue('home', field.path)
     // Reset the runtime value to the default.
@@ -2419,7 +2433,7 @@ async function main(): Promise<void> {
           theme.error(
             t('cfg.bad_value', {
               v: key,
-              type: field.values ? field.values.join('|') : field.type,
+              type: configValueHint(field),
             }),
           ),
         )

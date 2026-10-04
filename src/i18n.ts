@@ -1441,8 +1441,8 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     en: '⚙ Settings — choose a parameter',
   },
   'cfg.menu.hint': {
-    ru: '↑/↓ — выбор, Enter — изменить, q/Esc — выйти',
-    en: '↑/↓ select, Enter edit, q/Esc quit',
+    ru: '↑/↓ — выбор, Enter — изменить, g — след. группа, / — поиск, q/Esc — выйти',
+    en: '↑/↓ select, Enter edit, g next group, / search, q/Esc quit',
   },
   'cfg.menu.edit_hint': {
     ru: 'Введи значение и Enter (пусто — отмена)',
@@ -1490,6 +1490,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   'cfg.bad_value': {
     ru: 'Неверное значение для {v}: ожидалось {type}',
     en: 'Invalid value for {v}: expected {type}',
+  },
+  'cfg.range_hint': {
+    ru: 'число от {min} до {max}',
+    en: 'a number from {min} to {max}',
   },
   'cfg.write_error': {
     ru: 'Не удалось записать конфиг: {v}',

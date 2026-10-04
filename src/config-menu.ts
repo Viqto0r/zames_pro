@@ -135,9 +135,12 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
   let lastRows = 0
   const render = (): void => {
     const lines: string[] = []
-    lines.push(theme.bold(t('cfg.menu.title')))
     const vis = visible()
     if (cursor >= vis.length) cursor = Math.max(0, vis.length - 1)
+    // Title with a position counter ("Settings — 12/49") so the operator knows
+    // how far down a long list they are; a filter narrows both numbers.
+    const pos = vis.length ? '  ' + (cursor + 1) + '/' + vis.length : ''
+    lines.push(theme.bold(t('cfg.menu.title')) + theme.dim(pos))
     let lastGroup = ''
     for (let i = 0; i < vis.length; i++) {
       const f = vis[i]
@@ -381,9 +384,27 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
         const n = visible().length
         if (n > 0) cursor = (cursor - 1 + n) % n
         message = null
+        pendingReset = null
       } else if (ch === 'j') {
         const n = visible().length
         if (n > 0) cursor = (cursor + 1) % n
+        message = null
+        pendingReset = null
+      } else if (ch === 'g') {
+        // Jump to the first field of the NEXT group (and back to the top after
+        // the last), so a long grouped list can be navigated quickly.
+        const vis = visible()
+        if (vis.length) {
+          let target = -1
+          const curGroup = vis[cursor] ? vis[cursor].groupKey : ''
+          for (let k = cursor + 1; k < vis.length; k++) {
+            if (vis[k].groupKey !== curGroup) {
+              target = k
+              break
+            }
+          }
+          cursor = target >= 0 ? target : 0
+        }
         message = null
       } else if (ch === '\r' || ch === '\n' || ch === ' ') {
         toggle()
