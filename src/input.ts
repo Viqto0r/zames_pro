@@ -1268,14 +1268,18 @@ export class LineEditor {
   }
 
   // The lifecycle phase prefix for the status line, colored by meaning:
-  // generating (brown). There is NO prefix for 'settled' (the answer block
-  // already marks completion) and none for 'paused' (the base status itself
-  // reads "пауза Ns"). Returns '' when no phase is active, so an idle status
-  // is not prefixed.
+  // generating (brown) and settled (green check) both get a prefix, so the
+  // transition from "still generating" to "answer done" is visible; 'paused'
+  // has none (the base status itself reads "пауза Ns"). Returns '' when no
+  // phase is active, so an idle status is not prefixed.
   _stateLabel(): string {
     if (this._sendState === 'generating')
       return (
         theme.brown(translate(this.locale)('state.generating')) + theme.dim(':')
+      )
+    if (this._sendState === 'settled')
+      return (
+        theme.success(translate(this.locale)('state.settled')) + theme.dim(':')
       )
     return ''
   }

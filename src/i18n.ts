@@ -504,6 +504,7 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
   // animated thinking phrase, it says explicitly that a generation is in
   // flight. 'paused'/'settled' have no label (see LineEditor._stateLabel).
   'state.generating': { ru: '▶ генерация', en: '▶ generating' },
+  'state.settled': { ru: '✓ готово', en: '✓ done' },
   'editor.more': { ru: '…ещё {n}', en: '…{n} more' },
   'editor.page_hint': {
     ru: '(Ctrl+N/Ctrl+P — листать, Tab — вставить)',

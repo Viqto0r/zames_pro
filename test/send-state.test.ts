@@ -84,10 +84,10 @@ test('LineEditor setSendState renders the phase prefix and stop() clears it', ()
   // An unknown value clears the phase (idle).
   e.setSendState('nonsense')
   assert.equal(e._sendState, '')
-  // 'settled' has no status prefix: the answer block already marks completion,
-  // so a lingering "готово:" would leak onto the next tool line.
+  // 'settled' shows a short "done" prefix so the transition from "generating"
+  // to "answer finished" is visible; stop() still clears it below.
   e.setSendState('settled')
-  assert.equal(e._stateLabel(), '')
+  assert.ok(e._stateLabel().length > 0)
   // stop() also drops the phase so it cannot leak into the next status.
   e.stop()
   assert.equal(e._sendState, '')
