@@ -607,6 +607,10 @@ const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: 'Интерактивный режим. Введите задачу. Команды — /help. Выход — /exit.',
     en: 'Interactive mode. Enter a task. Commands — /help. Exit — /exit.',
   },
+  'msg.first_login_hint': {
+    ru: 'Сохранённой сессии DeepSeek нет — при первом запросе потребуется вход (логин/пароль спросят в терминале или открой --headed).',
+    en: 'No saved DeepSeek session — the first task will need a sign-in (login/password are asked in the terminal, or use --headed).',
+  },
   'msg.first_hint': {
     ru: 'Подсказка: «/» — список команд, Ctrl+R — поиск по истории, картинку можно вставить через Ctrl+Shift+V.',
     en: 'Hint: "/" lists commands, Ctrl+R searches history, paste an image with Ctrl+Shift+V.',

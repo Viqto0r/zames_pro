@@ -1614,6 +1614,12 @@ async function main(): Promise<void> {
   console.log(theme.system(t('msg.interactive')))
   console.log(theme.system(t('msg.queue_hint')))
   console.log(theme.dim(t('msg.first_hint')))
+  // No stored session yet (auth.json absent): DeepSeek will ask for a sign-in.
+  // The auto-login handles it, but a heads-up in the banner saves the operator
+  // from wondering why the first task pauses on a login form.
+  if (!authMarkerExists()) {
+    console.log(theme.warn(t('msg.first_login_hint')))
+  }
 
   let freshChatNext = true
   let sendSystemPromptNext = true
