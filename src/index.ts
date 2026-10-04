@@ -3690,6 +3690,11 @@ async function main(): Promise<void> {
 
     // Dev mode: pick up fresh logic modules before the task.
     await autoReload()
+    // Re-scan skills/custom commands before every task: a SKILL.md or a
+    // command .md created during this session would otherwise not appear in
+    // the «/» hints until a /reload.
+    await refreshDynamicCommands(currentWorkdir)
+    if (editor) editor.setCommands(buildSlashCommands())
 
     transcript.log('user_task', { task: taskText, workdir: currentWorkdir })
 
