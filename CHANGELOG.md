@@ -43,7 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   never called by the runtime, so `confirmation.write/edit/bash`,
   `alwaysConfirm` and the `/permissions` command did nothing. Removed the
   module, its tests, the config keys, the `/permissions` command and the
-  related i18n strings (BACKLOG item 16).
+  related i18n strings.
 
 ## [2.54.0]
 
