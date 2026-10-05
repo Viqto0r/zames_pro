@@ -68,6 +68,48 @@ async function copyDirJsFiles(from: string, to: string): Promise<string[]> {
   return copied
 }
 
+// Root files and folders a review often needs but that are NOT part of the
+// editable src/ set (scripts, lint/ts configs). They are copied into a
+// read-only `_context/` subfolder so the reviewer can READ them while the
+// .ts-only diff/apply logic stays untouched (a stray edit here would never be
+// applied back and would only confuse the report).
+const CONTEXT_FILES = [
+  'package.json',
+  'eslint.config.js',
+  '.prettierrc',
+  'tsconfig.json',
+  'tsconfig.build.json',
+]
+
+async function copyContextFiles(
+  srcDir: string,
+  snapDir: string,
+): Promise<void> {
+  const repoRoot = path.resolve(srcDir, '..')
+  const ctxDir = path.join(snapDir, '_context')
+  for (const rel of CONTEXT_FILES) {
+    const data = await fs
+      .readFile(path.join(repoRoot, rel), 'utf-8')
+      .catch(() => null)
+    if (data === null) continue
+    await ensureDir(ctxDir)
+    await fs.writeFile(path.join(ctxDir, rel), data, 'utf-8')
+  }
+  const scripts = await fs
+    .readdir(path.join(repoRoot, 'scripts'))
+    .catch(() => [])
+  if (scripts.length) {
+    await ensureDir(path.join(ctxDir, 'scripts'))
+    for (const f of scripts) {
+      const data = await fs
+        .readFile(path.join(repoRoot, 'scripts', f), 'utf-8')
+        .catch(() => null)
+      if (data === null) continue
+      await fs.writeFile(path.join(ctxDir, 'scripts', f), data, 'utf-8')
+    }
+  }
+}
+
 // ---------- /self-review ----------
 
 export async function selfReview({
@@ -96,14 +138,9 @@ export async function selfReview({
     throw new Error(t('self.no_src_err'))
   }
 
-  // Copy package.json for context — so the agent sees the dependencies
-  try {
-    const pkg = await fs.readFile(
-      path.resolve(SRC_DIR, '..', 'package.json'),
-      'utf-8',
-    )
-    await fs.writeFile(path.join(snapDir, 'package.json'), pkg, 'utf-8')
-  } catch {}
+  // Copy root configs/scripts into a read-only _context/ subfolder so the
+  // reviewer can read them (the editable set stays .ts-only).
+  await copyContextFiles(SRC_DIR, snapDir)
 
   console.log(theme.system('\n' + t('self.snapshot', { dir: snapDir })))
   console.log(
@@ -330,6 +367,8 @@ function buildReviewPrompt({
   return `You are a senior JavaScript/Node.js engineer. You are reviewing your own source code — a Playwright-based coding agent that talks to the DeepSeek web chat as an LLM backend.
 
 All source files are in your working directory: ${snapDir}
+Root configs and scripts (package.json, tsconfig, eslint, scripts/) are copied
+into the read-only _context/ subfolder there — read them when relevant.
 ${focusLine}
 ## Your job
 

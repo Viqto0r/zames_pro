@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.55.0]
+
+### Added
+
+- `!command` in the prompt runs a shell command directly, bypassing the model
+  (like Claude Code's bash mode). The same sandbox guard as the `Bash` tool
+  applies, so a direct command cannot leave the project.
+- `/remember <text>` appends a durable note to the project `MEMORY.md`, so a
+  fact worth keeping across sessions is written to disk instead of living only
+  in the chat.
+- `/skills`, `/memory`, `/remember`, `/init` and `/mcp` are now listed in the
+  `/help` output (they were only in the «/» completion list before).
+
+### Changed
+
+- The shell runner moved to `src/shell.ts`, shared by the `Bash` tool and the
+  new `!command` escape (one sandbox guard, one abort wiring).
+- `/self-review` now copies root configs (`package.json`, `eslint.config.js`,
+  `tsconfig*.json`, `.prettierrc`) and `scripts/**` into a read-only `_context/`
+  folder of the snapshot, so the reviewer can read them. The editable set
+  (diff/apply) stays `.ts`-only.
+- `package.json` gained `packageManager: npm@11.19.0`.
+
+### Fixed
+
+- The status line no longer prefixes a running-tool indicator with the
+  previous answer's "done" phase (e.g. `✓ done: running Bash`): `toolCall()`
+  clears the send-phase state before starting the tool animation.
+
+### Removed
+
+- The never-wired tool-confirmation subsystem: `src/confirm.ts`
+  (`ConfirmManager`/`formatDiffPreview`) was fully implemented and tested but
+  never called by the runtime, so `confirmation.write/edit/bash`,
+  `alwaysConfirm` and the `/permissions` command did nothing. Removed the
+  module, its tests, the config keys, the `/permissions` command and the
+  related i18n strings (BACKLOG item 16).
+
 ## [2.54.0]
 
 ### Added
@@ -52,7 +90,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Session banner warns when no saved DeepSeek session exists.
 - `--no-color` flag (explicit `NO_COLOR`).
 
-[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.54.0...HEAD
+[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.55.0...HEAD
+[2.55.0]: https://github.com/Viqto0r/zames_pro/compare/v2.54.0...v2.55.0
 [2.54.0]: https://github.com/Viqto0r/zames_pro/compare/v2.53.1...v2.54.0
 [2.53.1]: https://github.com/Viqto0r/zames_pro/compare/v2.53.0...v2.53.1
 [2.53.0]: https://github.com/Viqto0r/zames_pro/releases/tag/v2.53.0

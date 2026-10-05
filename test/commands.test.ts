@@ -11,7 +11,6 @@ import {
   formatExport,
   defaultExportPath,
   renderDoctor,
-  renderPermissions,
   resolveExtraDir,
   buildReviewPrompt,
   trimRestoredMessages,
@@ -301,21 +300,6 @@ test('renderDoctor shows the headless UA-cache row only in headless', () => {
       'no cached UA',
     ),
   )
-})
-
-// ---------- /permissions ----------
-
-test('renderPermissions shows modes and alwaysConfirm', () => {
-  const out = renderPermissions({
-    write: true,
-    edit: false,
-    bash: true,
-    alwaysConfirm: ['rm' + Q + 's+-rf'],
-  })
-  assert.ok(out.includes('Write: ask'))
-  assert.ok(out.includes('Edit: allow'))
-  assert.ok(out.includes('Bash: ask'))
-  assert.ok(out.includes('Always confirm'))
 })
 
 // ---------- /add-dir ----------

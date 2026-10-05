@@ -71,7 +71,6 @@ import {
   formatExport,
   defaultExportPath,
   renderDoctor,
-  renderPermissions,
   resolveExtraDir,
   buildReviewPrompt,
   formatDuration,
@@ -100,6 +99,7 @@ import {
 } from './scheduler.js'
 import { renderMarkdown, setAnswerWidth } from './markdown.js'
 import { closeWeb } from './web.js'
+import { assertCommandInsideRoot, runShell } from './shell.js'
 import {
   saveSession,
   loadLastSession,
@@ -303,7 +303,6 @@ const RELOADABLE = [
   'self-review',
   'diff',
   'undo',
-  'confirm',
   'transcript',
   'spinner',
   'config',
@@ -474,6 +473,7 @@ ${theme.bold(t('help.while_working'))}
   ${t('help.key.backslash')}
   ${t('help.key.attach')}
   ${t('help.key.esc')}
+  ${t('help.key.bang')}
 
 ${theme.bold(t('help.commands'))}
   ${t('help.cmd.new')}
@@ -494,7 +494,6 @@ ${theme.bold(t('help.commands'))}
   ${t('help.cmd.cost')}
   ${t('help.cmd.export')}
   ${t('help.cmd.doctor')}
-  ${t('help.cmd.permissions')}
   ${t('help.cmd.add_dir')}
   ${t('help.cmd.review')}
   ${t('help.cmd.goal')}
@@ -508,6 +507,11 @@ ${theme.bold(t('help.commands'))}
   ${t('help.cmd.tasks')}
   ${t('help.cmd.config')}
   ${t('help.cmd.lang')}
+  ${t('help.cmd.skills')}
+  ${t('help.cmd.memory')}
+  ${t('help.cmd.remember')}
+  ${t('help.cmd.init')}
+  ${t('help.cmd.mcp')}
   ${t('help.cmd.debug_dom')}
   ${t('help.cmd.help')}
   ${t('help.cmd.exit')}
@@ -563,7 +567,6 @@ const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
   { name: '/cost', key: 'help.cmd.cost' },
   { name: '/export', key: 'help.cmd.export' },
   { name: '/doctor', key: 'help.cmd.doctor' },
-  { name: '/permissions', key: 'help.cmd.permissions' },
   { name: '/add-dir', key: 'help.cmd.add_dir' },
   { name: '/review', key: 'help.cmd.review' },
   { name: '/goal', key: 'help.cmd.goal' },
@@ -578,6 +581,7 @@ const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
   { name: '/config', key: 'help.cmd.config' },
   { name: '/skills', key: 'help.cmd.skills' },
   { name: '/memory', key: 'help.cmd.memory' },
+  { name: '/remember', key: 'help.cmd.remember' },
   { name: '/init', key: 'help.cmd.init' },
   { name: '/mcp', key: 'help.cmd.mcp' },
   { name: '/debug-dom', key: 'help.cmd.debug_dom' },
@@ -2516,6 +2520,33 @@ async function main(): Promise<void> {
 
     if (['/exit', '/quit', 'exit', 'quit'].includes(lower)) break
 
+    // `!command` — run a shell command directly, without asking the model
+    // (like Claude Code's bash mode). The same sandbox guard as the Bash tool
+    // applies, so a direct command cannot leave the project either.
+    if (trimmed.startsWith('!')) {
+      const cmd = trimmed.slice(1).trim()
+      if (!cmd) {
+        console.error(theme.warn(t('shell.empty')))
+        continue
+      }
+      try {
+        assertCommandInsideRoot(currentWorkdir, cmd)
+      } catch (e) {
+        console.error(theme.error((e as Error).message))
+        continue
+      }
+      transcript.log('shell_command', { command: cmd })
+      if (editor) editor.lock(t('shell.running'))
+      try {
+        const out = await runShell(currentWorkdir, cmd)
+        console.log(theme.system(out))
+        transcript.log('shell_result', { command: cmd, result: out })
+      } finally {
+        if (editor) editor.unlock()
+      }
+      continue
+    }
+
     if (
       lower === '/help' ||
       lower === 'help' ||
@@ -3203,6 +3234,33 @@ async function main(): Promise<void> {
       continue
     }
 
+    // `/remember <text>` — append a durable note to the project MEMORY.md.
+    // Claude Code has the same idea (# shortcut): a fact worth keeping across
+    // sessions is written to disk instead of living only in this chat. We
+    // write to the workdir's own MEMORY.md (the deepest file the loader reads)
+    // and create it when missing.
+    if (lower === '/remember' || lower.startsWith('/remember ')) {
+      const note = trimmed.slice('/remember'.length).trim()
+      if (!note) {
+        console.error(theme.warn(t('remember.usage')))
+        continue
+      }
+      const memFile = path.join(currentWorkdir, 'MEMORY.md')
+      const stamp = new Date().toISOString().slice(0, 10)
+      let body: string
+      try {
+        body = await fs.readFile(memFile, 'utf-8')
+      } catch {
+        body = '# MEMORY\n\nDurable notes accumulated across sessions.\n'
+      }
+      if (body.length && !body.endsWith(NL)) body += NL
+      body += NL + '- (' + stamp + ') ' + note + NL
+      await fs.writeFile(memFile, body, 'utf-8')
+      transcript.log('remember', { note, file: memFile })
+      console.log(theme.assistant(t('remember.saved', { v: memFile })))
+      continue
+    }
+
     if (lower === '/init' || lower.startsWith('/init ')) {
       const force = lower.includes('--force')
       const target = path.join(currentWorkdir, 'AGENTS.md')
@@ -3533,23 +3591,6 @@ async function main(): Promise<void> {
               sshRemote: !!(process.env.SSH_CONNECTION || process.env.SSH_TTY),
               headless: !!headless,
               headlessUaCached: await headlessUACacheReady().catch(() => false),
-            },
-            t,
-          ),
-        ),
-      )
-      continue
-    }
-
-    if (lower === '/permissions' || lower === '/allowed-tools') {
-      console.log(
-        theme.system(
-          renderPermissions(
-            {
-              write: config.confirmation.write,
-              edit: config.confirmation.edit,
-              bash: config.confirmation.bash,
-              alwaysConfirm: config.confirmation.alwaysConfirm,
             },
             t,
           ),

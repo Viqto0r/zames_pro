@@ -30,22 +30,6 @@ export const DEFAULTS: ZamesConfig = {
   debug: false,
   browserChannel: null,
 
-  confirmation: {
-    write: true,
-    edit: true,
-    bash: true,
-    alwaysConfirm: [
-      'rm\s+-rf',
-      'rmdir\s+/s',
-      'del\s+/[sqf]',
-      'format\s+[a-z]:',
-      'shutdown',
-      'reg\s+delete',
-      'remove-item.*-recurse',
-      'git\s+push\s+--force',
-    ],
-  },
-
   undo: {
     enabled: true,
     maxBackups: 200,
@@ -143,7 +127,7 @@ function deepMerge(
 export type ConfigValueType = 'boolean' | 'number' | 'string' | 'enum'
 
 export interface ConfigField {
-  /** Path in the config object, e.g. 'confirmation.write'. */
+  /** Path in the config object, e.g. 'undo.enabled'. */
   path: string
   type: ConfigValueType
   /** i18n key of the label (see src/i18n.ts, section cfg.f.*). */
@@ -217,24 +201,6 @@ export const CONFIG_SCHEMA: ConfigField[] = [
     type: 'boolean',
     labelKey: 'cfg.f.hotReload',
     groupKey: 'cfg.group.agent',
-  },
-  {
-    path: 'confirmation.write',
-    type: 'boolean',
-    labelKey: 'cfg.f.confirmation_write',
-    groupKey: 'cfg.group.confirmation',
-  },
-  {
-    path: 'confirmation.edit',
-    type: 'boolean',
-    labelKey: 'cfg.f.confirmation_edit',
-    groupKey: 'cfg.group.confirmation',
-  },
-  {
-    path: 'confirmation.bash',
-    type: 'boolean',
-    labelKey: 'cfg.f.confirmation_bash',
-    groupKey: 'cfg.group.confirmation',
   },
   {
     path: 'undo.enabled',

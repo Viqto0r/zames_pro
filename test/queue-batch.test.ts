@@ -59,4 +59,7 @@ test('isSlashCommand detects commands (trimmed)', () => {
   assert.equal(isSlashCommand('  /new '), true)
   assert.equal(isSlashCommand('обычный текст'), false)
   assert.equal(isSlashCommand(''), false)
+  // `!command` (direct shell escape) must not be batched into a task.
+  assert.equal(isSlashCommand('!git status'), true)
+  assert.equal(isSlashCommand('  !ls '), true)
 })

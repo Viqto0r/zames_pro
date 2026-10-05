@@ -3,7 +3,7 @@ import { isImageName } from './attachments.js'
 import { translate, type TranslateFn } from './i18n.js'
 
 // Helpers for the extra slash commands (/diff, /cost, /export, /doctor,
-// /permissions, /review, /add-dir). Pure functions, unit-tested without a
+// /review, /add-dir). Pure functions, unit-tested without a
 // live agent/browser. index.ts only renders their output.
 
 const NL = String.fromCharCode(10)
@@ -357,34 +357,6 @@ export function renderDoctor(
   return t('doctor.title') + NL + rows.join(NL)
 }
 
-// ---------- /permissions ----------
-
-export interface PermissionsInput {
-  write: boolean
-  edit: boolean
-  bash: boolean
-  alwaysConfirm: string[]
-}
-
-export function renderPermissions(
-  p: PermissionsInput,
-  t: TranslateFn = translate('en'),
-): string {
-  const onoff = (b: boolean): string => (b ? t('perm.ask') : t('perm.allow'))
-  const lines: string[] = []
-  lines.push(t('perm.title'))
-  lines.push(t('perm.write', { v: onoff(p.write) }))
-  lines.push(t('perm.edit', { v: onoff(p.edit) }))
-  lines.push(t('perm.bash', { v: onoff(p.bash) }))
-  if (p.alwaysConfirm.length) {
-    lines.push(t('perm.always'))
-    for (const re of p.alwaysConfirm) lines.push(' ' + re)
-  }
-  lines.push('')
-  lines.push(t('perm.change_hint'))
-  return lines.join(NL)
-}
-
 // ---------- /add-dir ----------
 
 export function resolveExtraDir(
@@ -674,9 +646,10 @@ export function hasQueuedJob(
 // True when the queued message is a slash-command. It must NOT be merged into
 // a task: the main loop has to execute it (e.g. /compact, /new).
 export function isSlashCommand(text: string): boolean {
-  return String(text ?? '')
-    .trim()
-    .startsWith('/')
+  const s = String(text ?? '').trim()
+  // `!command` is also an operator command (run the shell directly) — it
+  // must NOT be batched into a task sent to the model.
+  return s.startsWith('/') || s.startsWith('!')
 }
 
 // Parse a live toggle command that can be applied IMMEDIATELY while the agent

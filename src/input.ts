@@ -1394,6 +1394,11 @@ export class LineEditor {
     // dots) and keep it running until toolResult()/assistant()/stop(). Esc now
     // really aborts the tool (the Bash child process is killed via the
     // AbortSignal), so the "Esc — стоп" hint is shown.
+    //
+    // The tool status is NOT a send phase: clear the lifecycle prefix first,
+    // otherwise the previous answer's "✓ done" sticks and the status reads
+    // "✓ done: running Bash" on one line.
+    this._sendState = ''
     this._startAnimated(
       translate(this.locale)('spinner.running_tool', { name }),
     )

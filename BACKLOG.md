@@ -148,21 +148,40 @@ Ctrl+C — обычное дело), `~/.zames/config.json` или файл се
 «зелёными у меня» тестами (в AGENTS.md даже описано, что Node 22
 отменяет тесты из-за unref-таймеров).
 
-Как чинить: добавить `.nvmrc` с 24 и, при желании, поле `packageManager`
-(`npm@...`), чтобы версии были зафиксированы явно.
+Сделано: `.nvmrc` с 24 (950c7ee) и поле `packageManager: npm@11.19.0` в
+`package.json`, чтобы версия менеджера тоже была зафиксирована.
 
 ---
 
 ## P3 — Полезные мелочи
 
-### 12. `/self-review` умеет только `.ts`
+### 16. [x] ConfirmManager — мёртвый код — удалён
 
-`copyDirJsFiles` копирует лишь `*.ts` из `SRC_DIR`. После фикса п.1 это
-будет работать, но снапшот не включает `scripts/`, `eslint.config.js`,
-`tsconfig*.json` и т.п., хотя ревью часто их касается.
+`src/confirm.ts` (`ConfirmManager`, `formatDiffPreview`) был полностью
+реализован и покрыт тестами, но нигде в рантайме не вызывался:
+`agent-loop.ts` выполнял инструмент сразу, без `shouldAsk()`. Поэтому
+`confirmation.write/edit/bash`, `alwaysConfirm` и `/permissions` были
+декоративны (ни на что не влияли).
 
-Как чинить: сделать список расширений/файлов настраиваемым и включать
-хотя бы `scripts/**` и конфиги.
+Сделано: удалён весь мёртвый слой — `src/confirm.ts` и его тесты, ключи
+`confirmation.*` из `DEFAULTS`/`CONFIG_SCHEMA`, тип `ConfirmationConfig`,
+команда `/permissions` (и её i18n-строки `perm.*`,
+`cfg.f.confirmation_*`, `cfg.group.confirmation`), запись в README.
+Если подтверждения когда-нибудь понадобятся, их надо реализовать в
+`agent-loop.ts` заново, а не «включать» конфигом.
+
+### 12. [x] `/self-review` умеет только `.ts` — сделано
+
+`copyDirJsFiles` копирует лишь `*.ts` из `SRC_DIR`. Снапшот не включал
+`scripts/`, `eslint.config.js`, `tsconfig*.json` и т.п., хотя ревью часто
+их касается.
+
+Сделано: `copyContextFiles()` кладёт root-конфиги (`package.json`,
+`eslint.config.js`, `.prettierrc`, `tsconfig*.json`) и `scripts/**` в
+read-only подпапку `_context/` снапшота, а `buildReviewPrompt` сообщает
+модели, что эти файлы можно читать там. Редактируемый набор (diff/apply)
+остаётся `.ts`-only, чтобы правка контекстных файлов не терялась при
+`/self-apply`.
 
 ### 13. [x] `self-smoke` задокументирован в CONTRIBUTING.md (в CI не гоняем: нужны креды) — 950c7ee
 

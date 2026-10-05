@@ -1,6 +1,6 @@
 import fs from 'fs/promises'
 import path from 'path'
-import { exec, type ExecOptions } from 'child_process'
+import { assertCommandInsideRoot, runShell } from './shell.js'
 import { createGitTools } from './gitTools.js'
 import { createWebTools } from './web.js'
 import { createExtraTools, type TodoStore } from './extraTools.js'
@@ -27,78 +27,6 @@ export function createTools(
     }
     return resolved
   }
-
-  // Sandbox (option A): don't let the command go above root.
-  // This is a protective barrier, not full OS isolation.
-  const assertCommandInsideRoot = (command: string): void => {
-    const cmd = String(command || '')
-    const cdRe = /(?:^|[;&|]|\s)(?:cd|pushd)\s+([^;&|]+)/gi
-    let m
-    while ((m = cdRe.exec(cmd))) {
-      const raw = m[1].trim()
-      if (!raw || raw === '-') continue
-      const target = path.resolve(root, raw)
-      const rel = path.relative(root, target)
-      if (rel.startsWith('..') || path.isAbsolute(rel)) {
-        throw new Error(
-          'Sandbox: leaving ' + root + ' is forbidden (cd ' + raw + ')',
-        )
-      }
-    }
-  }
-  const runShell = (
-    command: string,
-    timeout = 30_000,
-    signal?: AbortSignal,
-  ): Promise<string> =>
-    new Promise((resolve) => {
-      const options: ExecOptions = {
-        cwd: workdir,
-        timeout,
-        maxBuffer: 1024 * 1024 * 8,
-        windowsHide: true,
-        env: { ...process.env },
-        // Abort the child process when the operator pressed Esc/Ctrl+C.
-        // Without it a long `npm test` kept running even after the stop.
-        signal,
-      }
-
-      if (process.platform === 'win32') {
-        options.shell = process.env.ComSpec || 'C:\\Windows\\System32\\cmd.exe'
-      } else {
-        options.shell = '/bin/sh'
-      }
-
-      exec(command, options, (err, stdout, stderr) => {
-        const out = (stdout || '').toString()
-        const errStr = (stderr || '').toString()
-
-        if (!err) {
-          const combined = (out + errStr).trim()
-          resolve(combined || '(command produced no output)')
-          return
-        }
-
-        const parts = []
-
-        if (err.killed) {
-          parts.push(`⏱ Timeout after ${timeout}ms — process killed.`)
-        } else if ((err as { code?: string }).code === 'ABORT_ERR') {
-          parts.push('(aborted by the operator)')
-        } else if (err.code !== undefined && err.code !== null) {
-          parts.push(`Exit code: ${err.code}`)
-        } else if (err.signal) {
-          parts.push(`Killed by signal: ${err.signal}`)
-        } else {
-          parts.push(`Error: ${err.message}`)
-        }
-
-        if (out.trim()) parts.push(`stdout:\n${out.trim()}`)
-        if (errStr.trim()) parts.push(`stderr:\n${errStr.trim()}`)
-
-        resolve(parts.join('\n'))
-      })
-    })
 
   // Extracts text from content/content_base64. base64 is needed because the
   // channel that delivers the model's answer may corrupt characters ($,
@@ -233,8 +161,9 @@ export function createTools(
         'For git use the Git* tools. For the web use WebFetch / WebSearch.',
       parameters: { command: 'string', timeout: 'number?' },
       fn: async ({ command, timeout }: ToolArgs, ctx?: ToolContext) => {
-        assertCommandInsideRoot(req(command, 'command'))
+        assertCommandInsideRoot(root, req(command, 'command'))
         return runShell(
+          workdir,
           req(command, 'command'),
           timeout as number | undefined,
           ctx?.signal,
@@ -283,12 +212,13 @@ export function createTools(
         if (process.platform === 'win32') {
           const escaped = pat.replace(/"/g, '\\"')
           const scope = searchPath ? '"' + target + '\\*' : '*'
-          return runShell(`findstr /s /n /r /c:"${escaped}" ` + scope)
+          return runShell(workdir, `findstr /s /n /r /c:"${escaped}" ` + scope)
         }
         const flags =
           mode === 'files_only' ? '-rlE' : mode === 'count' ? '-rcE' : '-rnE'
         const includeArg = inc ? ' --include=' + JSON.stringify(inc) : ''
         return runShell(
+          workdir,
           `grep ${flags}${includeArg} ${JSON.stringify(pat)} ` +
             `${JSON.stringify(target)} || true`,
         )

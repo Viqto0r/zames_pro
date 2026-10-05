@@ -90,6 +90,9 @@ The prompt is a small line editor with persistent history:
   delete the word before the cursor, `Ctrl+←`/`Ctrl+→` — move by words.
 - `\` + `Enter`, `Ctrl+J`, `Ctrl+Enter` or `Shift+Enter` — insert a newline.
 - `/` + `Tab` — slash-command hints and completion.
+- `!command` — run a shell command directly, bypassing the model (like
+  Claude Code's bash mode). The same sandbox guard as the `Bash` tool applies,
+  so a direct command cannot leave the project either.
 
 Set `NO_COLOR=1` to disable colors (a calm default palette is used otherwise).
 
@@ -160,8 +163,6 @@ Codex CLI:
 - /export [file] — write the session transcript to a Markdown file
   (zames-export-<stamp>.md by default).
 - /doctor — diagnose node, git, config, browser, clipboard and MCP.
-- /permissions — show the confirmation settings (Write/Edit/Bash + the
-  alwaysConfirm regex list).
 - /add-dir <path> — validate an extra directory (the sandbox is fixed at
   startup; relaunch with --dir to write there).
 - /resume <n> (after /chats) and /resume-id <id> — open a chat and PRINT its
@@ -207,7 +208,8 @@ workflows from your repository and from `~/.zames`.
   will explore the project and write an AGENTS.md based on the real build/test
   commands and conventions (use `/init --force` to overwrite an existing file).
 - **MEMORY.md** — durable notes that persist between sessions. The agent
-  appends useful facts here; you can edit it by hand.
+  appends useful facts here; you can edit it by hand, or add one from the
+  prompt with `/remember <text>`.
 - **Skills** — a folder with a `SKILL.md` file (YAML frontmatter: `name`,
   `description`, optional `allowed-tools`, `user-invokable`) plus any helper
   files. Discovered under `.zames/skills/`, `.claude/skills/`,
@@ -223,6 +225,7 @@ Skills and custom commands show up in the «/» completion list and in `/help`.
 ```
 /skills                       list discovered skills
 /memory                       show AGENTS.md / MEMORY.md in effect
+/remember <text>              append a durable note to MEMORY.md
 /init [--force]               analyze the project and create AGENTS.md
 ```
 
@@ -286,7 +289,6 @@ Examples:
 
 ```
 /config set maxIterations 20
-/config set confirmation.bash false
 /config set browser.deepThinking true   # DeepSeek Deep thinking (slow; reasoning is hidden)
 /config set browser.webSearch false     # DeepSeek Smart web search
 /config lang en

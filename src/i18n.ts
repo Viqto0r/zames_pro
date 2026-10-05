@@ -148,6 +148,10 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: 'Esc, Ctrl+C              прервать текущую генерацию',
     en: 'Esc, Ctrl+C               abort current generation',
   },
+  'help.key.bang': {
+    ru: '!команда                  выполнить shell-команду напрямую (мимо модели)',
+    en: '!command                  run a shell command directly (bypass the model)',
+  },
   'help.commands': { ru: 'Обычные команды:', en: 'Commands:' },
   'help.cmd.new': {
     ru: '/new, /clear             новый чат (сброс контекста)',
@@ -217,10 +221,6 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
   'help.cmd.doctor': {
     ru: '/doctor диагностика установки и конфига',
     en: '/doctor diagnose install and config',
-  },
-  'help.cmd.permissions': {
-    ru: '/permissions настройки подтверждений',
-    en: '/permissions confirmation settings',
   },
   'help.cmd.add_dir': {
     ru: '/add-dir <path> проверить директорию',
@@ -406,6 +406,14 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
     en: 'Instructions (AGENTS.md):',
   },
   'memory.memory': { ru: 'Память (MEMORY.md):', en: 'Memory (MEMORY.md):' },
+  'remember.usage': {
+    ru: 'Использование: /remember <текст заметки>',
+    en: 'Usage: /remember <note text>',
+  },
+  'remember.saved': {
+    ru: '🧠 Заметка добавлена в {v}',
+    en: '🧠 Note appended to {v}',
+  },
   'init.exists': {
     ru: 'AGENTS.md уже существует: {v}',
     en: 'AGENTS.md already exists: {v}',
@@ -436,6 +444,10 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
   'help.cmd.memory': {
     ru: '/memory                  показать MEMORY.md и AGENTS.md',
     en: '/memory                  show MEMORY.md and AGENTS.md',
+  },
+  'help.cmd.remember': {
+    ru: '/remember <текст>        дописать заметку в MEMORY.md',
+    en: '/remember <text>         append a note to MEMORY.md',
   },
   'help.cmd.init': {
     ru: '/init [--force]          изучить проект и создать AGENTS.md',
@@ -624,6 +636,14 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
     en: 'Unknown command: {v}. Type /help.',
   },
   'msg.bye': { ru: 'Выход.', en: 'Bye.' },
+  'shell.empty': {
+    ru: 'После ! нужна команда, например !git status.',
+    en: 'A command is required after !, e.g. !git status.',
+  },
+  'shell.running': {
+    ru: 'выполняю shell-команду...',
+    en: 'running shell command...',
+  },
   'msg.exit_summary': {
     ru: 'Транскрипт: {transcript} · чат: {chat}',
     en: 'Transcript: {transcript} · chat: {chat}',
@@ -741,25 +761,6 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
   'doctor.ua_not_cached': {
     ru: 'UA ещё не закэширован (первый запуск перезапустится один раз)',
     en: 'no cached UA yet (first start relaunches once)',
-  },
-
-  // ---------- /permissions ----------
-  'perm.title': {
-    ru: 'Права инструментов (настройки подтверждений):',
-    en: 'Tool permissions (confirmation settings):',
-  },
-  'perm.write': { ru: ' Write: {v}', en: ' Write: {v}' },
-  'perm.edit': { ru: ' Edit: {v}', en: ' Edit: {v}' },
-  'perm.bash': { ru: ' Bash: {v}', en: ' Bash: {v}' },
-  'perm.ask': { ru: 'спрашивать', en: 'ask' },
-  'perm.allow': { ru: 'разрешить', en: 'allow' },
-  'perm.always': {
-    ru: ' Всегда подтверждать (regex):',
-    en: ' Always confirm (regex):',
-  },
-  'perm.change_hint': {
-    ru: 'Изменить: /config set confirmation.write false (и .edit / .bash)',
-    en: 'Change with: /config set confirmation.write false (and .edit / .bash)',
   },
 
   // ---------- /add-dir ----------
@@ -1242,7 +1243,6 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
   // ---------- config menu ----------
   'cfg.group.ui': { ru: 'Интерфейс', en: 'Interface' },
   'cfg.group.agent': { ru: 'Агент', en: 'Agent' },
-  'cfg.group.confirmation': { ru: 'Подтверждения', en: 'Confirmations' },
   'cfg.group.undo': { ru: 'Откат (undo)', en: 'Undo' },
   'cfg.group.transcript': { ru: 'Транскрипт', en: 'Transcript' },
   'cfg.group.browser': { ru: 'Браузер / DeepSeek', en: 'Browser / DeepSeek' },
@@ -1271,18 +1271,6 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
   'cfg.f.hotReload': {
     ru: 'Авто-перечитывание модулей перед задачей',
     en: 'Auto-reload logic modules before each task',
-  },
-  'cfg.f.confirmation_write': {
-    ru: 'Спрашивать перед Write',
-    en: 'Ask before Write',
-  },
-  'cfg.f.confirmation_edit': {
-    ru: 'Спрашивать перед Edit',
-    en: 'Ask before Edit',
-  },
-  'cfg.f.confirmation_bash': {
-    ru: 'Спрашивать перед Bash',
-    en: 'Ask before Bash',
   },
   'cfg.f.undo_enabled': {
     ru: 'Включить бэкапы для отката',
@@ -1525,8 +1513,8 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
     en: 'Config write scope: {v} ({file})',
   },
   'cfg.scope_usage': {
-    ru: 'Использование: /config scope <project|home>. project = .zamesrc.json (в git), home = ~/.zames/. Для личных настроек (confirmations) выбери home, чтобы не коммитить их.',
-    en: 'Usage: /config scope <project|home>. project = .zamesrc.json (committed), home = ~/.zames/. Use home for personal settings (confirmations) so they are not committed.',
+    ru: 'Использование: /config scope <project|home>. project = .zamesrc.json (в git), home = ~/.zames/. Для личных настроек выбери home, чтобы не коммитить их.',
+    en: 'Usage: /config scope <project|home>. project = .zamesrc.json (committed), home = ~/.zames/. Use home for personal settings so they are not committed.',
   },
   'cfg.scope_set': {
     ru: 'Запись конфига: {v} ({file})',

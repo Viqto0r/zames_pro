@@ -37,13 +37,6 @@ export interface ToolDef {
 
 // ---------- config ----------
 
-export interface ConfirmationConfig {
-  write: boolean
-  edit: boolean
-  bash: boolean
-  alwaysConfirm: string[]
-}
-
 export interface UndoConfig {
   enabled: boolean
   maxBackups: number
@@ -145,7 +138,6 @@ export interface ZamesConfig {
   debug: boolean
   browserChannel: string | null
   hotReload?: boolean
-  confirmation: ConfirmationConfig
   undo: UndoConfig
   transcript: TranscriptConfig
   browser: BrowserConfig
