@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.56.0]
+
+### Added
+
+- `/context` — show what is loaded into the prompt (AGENTS.md, MEMORY.md,
+  skills, custom commands) plus the system-prompt size.
+- `/retry` — resend the last task into the same chat (handy after a truncated
+  or empty answer).
+- `/rename <title>` — set the current session title (shown in `/sessions`).
+- `/diffstat` — a one-line `git diff --stat` change summary.
+- `/copy` — copy the last assistant answer to the OS clipboard (wl-copy /
+  xclip / xsel / pbcopy / clip).
+- `GitShow` and `GitBranchList` git tools (read-only).
+- The status line now shows the elapsed time of the current phase ("45s",
+  "2m 05s") in BOTH the LineEditor and the non-TTY spinner, and the spinner
+  shows the same "tasks: 2/5" badge the editor does.
+- A one-time hint when the context reaches ~80% while auto-compact is off,
+  pointing at `/compact`.
+- Tests: dead-i18n-key guard, agent-facing-no-Cyrillic guard, CLI flag
+  consistency, binary content-type handling for `WebFetch`.
+
+### Changed
+
+- `WebFetch` returns a short human note for binary content types (PDF, images,
+  archives, ...) instead of dumping raw bytes into the model context.
+- `npm run build` now wipes `dist/` first (`scripts/clean-dist.mjs`), so a
+  removed source file no longer leaves an orphan `.js` in the package.
+
+### Fixed
+
+- `/undo` failure reasons are localized: `src/undo.ts` returned hardcoded
+  Russian strings that showed up in an English UI. It now returns machine codes
+  ('empty' / 'disabled') localized by the caller.
+- Removed the dead `--project` flag (it only swallowed the following argument)
+  and the no-op `--calibrate` flag together with their help/i18n entries.
+- Removed the orphaned `confirm.hint` / `confirm.ask_label` i18n keys left by
+  the confirm-subsystem removal.
+- README Node requirement aligned with `engines` / `.nvmrc` (>= 20).
+- `GitBranchList` quotes its `--format` argument so the POSIX shell does not
+  choke on the parentheses/brackets in the format string.
+
 ## [2.55.0]
 
 ### Added
@@ -90,7 +131,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Session banner warns when no saved DeepSeek session exists.
 - `--no-color` flag (explicit `NO_COLOR`).
 
-[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.55.0...HEAD
+[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.56.0...HEAD
+[2.56.0]: https://github.com/Viqto0r/zames_pro/compare/v2.55.0...v2.56.0
 [2.55.0]: https://github.com/Viqto0r/zames_pro/compare/v2.54.0...v2.55.0
 [2.54.0]: https://github.com/Viqto0r/zames_pro/compare/v2.53.1...v2.54.0
 [2.53.1]: https://github.com/Viqto0r/zames_pro/compare/v2.53.0...v2.53.1

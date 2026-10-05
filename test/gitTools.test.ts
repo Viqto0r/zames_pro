@@ -48,3 +48,18 @@ test('formatGitContext подставляет значения ветки и и�
   assert.ok(s.includes('ahead 1'), s)
   assert.ok(s.includes('behind 2'), s)
 })
+
+test('GitShow возвращает коммит (или ошибку репозитория), не падая', async () => {
+  const tools = createGitTools(process.cwd())
+  const out = String(
+    await tool(tools, 'GitShow').fn({ ref: 'HEAD', stat: true }),
+  )
+  assert.ok(!/Syntax error/i.test(out), out)
+  assert.ok(!/Exit code/i.test(out) || /Not a git repository/i.test(out), out)
+})
+
+test('GitBranchList перечисляет ветки или сообщает об отсутствии репозитория', async () => {
+  const tools = createGitTools(process.cwd())
+  const out = String(await tool(tools, 'GitBranchList').fn({}))
+  assert.ok(!/Syntax error/i.test(out), out)
+})

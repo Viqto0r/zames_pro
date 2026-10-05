@@ -1,6 +1,6 @@
 {
   "name": "zames_pro",
-  "version": "2.55.0",
+  "version": "2.56.0",
   "description": "Terminal coding agent over chat.deepseek.com via Playwright",
   "type": "module",
   "bin": {
@@ -16,7 +16,9 @@
   "scripts": {
     "start": "node ./dist/index.js",
     "dev": "ZAMES_NET_DEBUG=1 tsx ./src/index.ts --dev --headed",
-    "build": "tsc -p tsconfig.build.json",
+    "clean": "node scripts/clean-dist.mjs",
+    "build": "node scripts/clean-dist.mjs && tsc -p tsconfig.build.json",
+    "coverage:gate": "node scripts/coverage-gate.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "node scripts/eslint-ts6.mjs",
     "lint:fix": "node scripts/eslint-ts6.mjs --fix",

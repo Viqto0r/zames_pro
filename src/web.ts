@@ -124,6 +124,36 @@ async function assertPublicUrl(rawUrl: string): Promise<void> {
 const sleep = (ms: number): Promise<void> =>
   new Promise((r) => setTimeout(r, ms))
 
+// True for content types whose bodies are not meant to be shown as text.
+// WebFetch dumps the body into the context, so a PDF or an image would flood
+// the model with garbage; the caller returns a short human note instead.
+export function isBinaryContentType(contentType: string): boolean {
+  const ct = String(contentType || '')
+    .toLowerCase()
+    .split(';')[0]
+    .trim()
+  if (!ct) return false
+  if (ct.startsWith('text/')) return false
+  // Textual application/* types must stay readable.
+  if (
+    /^(application\/(json|xml|xhtml\+xml|javascript|ecmascript|x-httpd-php|rtf|sql|graphql|x-sh|x-yaml|yaml|toml|ld\+json|x-ndjson))$/.test(
+      ct,
+    )
+  ) {
+    return false
+  }
+  if (/\+(json|xml)$/.test(ct)) return false
+  if (
+    /^(image|audio|video|font|model)\//.test(ct) ||
+    /^application\/(pdf|zip|gzip|x-gzip|x-tar|octet-stream|msword|vnd\.|x-7z|x-rar|x-bzip|x-protobuf|wasm)/.test(
+      ct,
+    )
+  ) {
+    return true
+  }
+  return false
+}
+
 // fetch with retries for transient network errors and 5xx responses.
 async function httpFetchWithRetry(
   url: string,
@@ -258,6 +288,16 @@ export function createWebTools(): ToolDef[] {
           }
 
           const r = await httpFetchWithRetry(String(url))
+
+          // Binary content (PDF, images, archives, ...) must NOT be dumped
+          // into the context as raw bytes — tell the model what it is instead.
+          if (isBinaryContentType(r.contentType)) {
+            return (
+              `HTTP ${r.status}  ${r.url}\n` +
+              `Content-Type: ${r.contentType}\n\n` +
+              `(binary content is not returned as text; content-type: ${r.contentType})`
+            )
+          }
 
           // If it's JSON/plain text — return as is
           if (

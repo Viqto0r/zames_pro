@@ -188,6 +188,44 @@ export function createGitTools(workdir: string): ToolDef[] {
     },
 
     {
+      name: 'GitShow',
+      description:
+        'Show a commit or object: git show <ref> (ref defaults to HEAD). ' +
+        'Read-only — use it to inspect an old version without checking out.',
+      parameters: { ref: 'string?', stat: 'boolean?' },
+      fn: async ({ ref, stat }) => {
+        const err = await ensureRepo()
+        if (err) return err
+        const r = ref && String(ref).trim() ? String(ref).trim() : 'HEAD'
+        // `stat` gives the cheap file list; the default dumps the full diff.
+        const flag = stat ? '--stat ' : ''
+        return runGit(`git show ${flag}${JSON.stringify(r)}`, workdir, 20_000)
+      },
+    },
+
+    {
+      name: 'GitBranchList',
+      description:
+        'List local git branches (name, current marker, last commit). ' +
+        'Read-only — use it to pick a base branch without a raw `git branch`.',
+      parameters: {},
+      fn: async () => {
+        const err = await ensureRepo()
+        if (err) return err
+        // The format string contains parentheses/brackets, which the POSIX
+        // shell would treat as syntax — quote it as one JSON arg.
+        const format = JSON.stringify(
+          '%(HEAD) %(refname:short) %(committerdate:relative) %(subject)',
+        )
+        return runGit(
+          'git branch --sort=-committerdate --format=' + format,
+          workdir,
+          10_000,
+        )
+      },
+    },
+
+    {
       name: 'GitAdd',
       description:
         'Stage files. If paths is not given — git add -A (everything).',

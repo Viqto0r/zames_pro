@@ -90,10 +90,6 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
     en: 'show the browser window (debug/sign-in)',
   },
   'help.opt.debug': { ru: 'подробный лог', en: 'verbose log' },
-  'help.opt.calibrate': {
-    ru: 'режим калибровки селекторов',
-    en: 'selector calibration mode',
-  },
   'help.opt.dev': {
     ru: 'режим разработки: авто-перечитывание модулей',
     en: 'dev mode: auto-reload modules',
@@ -212,6 +208,26 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
   'help.cmd.diff': {
     ru: '/diff [--staged] показать git diff',
     en: '/diff [--staged] show working tree git diff',
+  },
+  'help.cmd.diffstat': {
+    ru: '/diffstat сводка изменений (git diff --stat)',
+    en: '/diffstat change summary (git diff --stat)',
+  },
+  'help.cmd.retry': {
+    ru: '/retry повторить последнюю задачу в этом чате',
+    en: '/retry resend the last task into this chat',
+  },
+  'help.cmd.rename': {
+    ru: '/rename <title> задать имя текущей сессии',
+    en: '/rename <title> set the current session title',
+  },
+  'help.cmd.context': {
+    ru: '/context что загружено в промпт (AGENTS/MEMORY/skills/commands)',
+    en: '/context what is loaded into the prompt (AGENTS/MEMORY/skills/commands)',
+  },
+  'help.cmd.copy': {
+    ru: '/copy скопировать последний ответ в буфер обмена',
+    en: '/copy copy the last answer to the clipboard',
   },
   'help.cmd.cost': { ru: '/cost статистика сессии', en: '/cost session stats' },
   'help.cmd.export': {
@@ -369,8 +385,8 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
     en: 'No such directory: {v}',
   },
   'adddir.note': {
-    ru: 'Директория существует: {v}. Песочница фиксируется при запуске.',
-    en: 'Directory exists: {v}. The sandbox is fixed at startup.',
+    ru: 'Директория существует: {v}. Только проверка — песочница фиксируется при запуске, доступ не расширяется (перезапустите с --dir, чтобы работать там).',
+    en: 'Directory exists: {v}. Check only — the sandbox is fixed at startup, access is NOT granted (relaunch with --dir to work there).',
   },
   'help.cmd.config': {
     ru: '/config                  настройки: показать и изменить',
@@ -702,6 +718,64 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
   },
 
   // ---------- /cost ----------
+  // ---------- /context ----------
+  'context.title': {
+    ru: 'Загружено в промпт:',
+    en: 'Loaded into the prompt:',
+  },
+  'context.system_prompt': {
+    ru: '  системный промпт: {n} символов',
+    en: '  system prompt: {n} chars',
+  },
+  'context.agents': {
+    ru: 'AGENTS.md / инструкции:',
+    en: 'AGENTS.md / instructions:',
+  },
+  'context.memory': {
+    ru: 'MEMORY.md:',
+    en: 'MEMORY.md:',
+  },
+  'context.skills': {
+    ru: 'Скиллы:',
+    en: 'Skills:',
+  },
+  'context.commands': {
+    ru: 'Кастомные команды:',
+    en: 'Custom commands:',
+  },
+  'context.none': { ru: '(нет)', en: '(none)' },
+  'context.near_full': {
+    ru: '⚠ Контекст заполнен на {pct}% — подумайте о /compact, чтобы сжать историю.',
+    en: '⚠ Context is {pct}% full — consider /compact to shrink the history.',
+  },
+
+  // ---------- /retry, /rename ----------
+  'retry.none': {
+    ru: 'Нет последней задачи для повтора.',
+    en: 'No last task to retry.',
+  },
+  'copy.none': {
+    ru: 'Нет ответа для копирования.',
+    en: 'No answer to copy.',
+  },
+  'copy.done': {
+    ru: 'Скопировано в буфер обмена ({tool}).',
+    en: 'Copied to clipboard ({tool}).',
+  },
+  'copy.failed': {
+    ru: 'Не удалось скопировать (нет {tool} или он недоступен).',
+    en: 'Could not copy ({tool} missing or unavailable).',
+  },
+  'retry.running': { ru: 'Повторяю задачу…', en: 'Retrying the task...' },
+  'rename.usage': {
+    ru: 'Использование: /rename <title>',
+    en: 'Usage: /rename <title>',
+  },
+  'rename.done': {
+    ru: 'Сессия переименована: {v}',
+    en: 'Session renamed: {v}',
+  },
+
   'cost.title': { ru: 'Статистика сессии:', en: 'Session stats:' },
   'cost.context_known': {
     ru: ' контекст: ~{n} токенов (DeepSeek accumulated_token_usage)',
@@ -799,11 +873,6 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
   },
   'msg.critical': { ru: 'Критическая ошибка:', en: 'Critical error:' },
   'msg.error': { ru: 'Ошибка:', en: 'Error:' },
-  'confirm.hint': {
-    ru: 'всегда для этого типа',
-    en: 'always for this kind',
-  },
-  'confirm.ask_label': { ru: 'Разрешить', en: 'Allow' },
   'msg.reloaded': {
     ru: 'Перезагружено модулей: {n}. Браузер и чат не тронуты.',
     en: 'Modules reloaded: {n}. Browser and chat untouched.',
@@ -1164,6 +1233,11 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
   },
   'undo.changed': { ru: 'изменён', en: 'changed' },
   'undo.created': { ru: 'создан', en: 'created' },
+  'undo.reason_empty': { ru: 'история пуста', en: 'history is empty' },
+  'undo.reason_disabled': {
+    ru: 'undo отключён в конфиге',
+    en: 'undo is disabled in the config',
+  },
   'dom.saved': { ru: 'HTML сохранён: {v}', en: 'HTML saved: {v}' },
   'dom.selectors': { ru: 'Селекторы:', en: 'Selectors:' },
   'dom.save_error': {
@@ -1188,10 +1262,6 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
     en: 'Failed to change directory: {v}',
   },
 
-  calibrate: {
-    ru: '\n🔧 Режим калибровки селекторов\n',
-    en: '\n🔧 Selector calibration mode\n',
-  },
   'reload.auto_partial': {
     ru: '⚠ авто-reload: часть модулей не загрузилась, работаю на прежней версии:',
     en: '⚠ auto-reload: some modules failed, using previous version:',

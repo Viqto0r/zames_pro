@@ -256,6 +256,12 @@ export async function runAgentLoop({
   }
   transcript?.log('task', { task })
 
+  // Each guard keeps its OWN cap IN ADDITION to the shared budget below.
+  // Reason: the shared budget is replenished after every successful tool, so
+  // over a long chain of tools a single misbehaving guard could re-ask more
+  // than intended; the per-guard cap keeps any one failure mode bounded. The
+  // named counters are all reset together after a tool runs (see the reset
+  // block after the tool loop).
   let malformedRetries = 0
   const MAX_MALFORMED_RETRIES = 3
 
@@ -312,6 +318,10 @@ export async function runAgentLoop({
   // short answer. We key on the STRUCTURE (work already started), not words.
   let toolsRanInTask = 0
   const MAX_AFTER_TOOL_RETRIES = Math.max(0, Math.floor(maxAfterToolRetries))
+  // One-time hint when the context nears full while auto-compact is OFF:
+  // the operator is told about /compact instead of silently degrading. Set
+  // once per task so the terminal is not spammed.
+  let contextHintShown = false
   // Token count at which the last auto-compact fired. Re-arm only after
   // the (fresh) chat grows past this plus a margin, so a chat that starts
   // above the threshold does not compact on every tool call.
@@ -943,6 +953,22 @@ export async function runAgentLoop({
               error: (e as Error).message,
             })
           }
+        }
+      }
+    } else if (getTokenUsage && !contextHintShown) {
+      // Auto-compact is OFF (the default). The context can still fill up and
+      // silently degrade the answers, so tell the operator ONCE that /compact
+      // exists. Same 80% threshold the status line uses to turn red.
+      const tokens = getTokenUsage()
+      if (tokens !== null && Number.isFinite(tokens) && tokens > 0) {
+        const pct = (tokens / contextLimit) * 100
+        if (pct >= 80) {
+          contextHintShown = true
+          safeWarning(
+            translate(locale)('context.near_full', {
+              pct: String(Math.round(pct)),
+            }),
+          )
         }
       }
     }

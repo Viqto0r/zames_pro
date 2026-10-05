@@ -4,6 +4,8 @@ import { renderMarkdown } from './markdown.js'
 import { translate, type Locale } from './i18n.js'
 
 export interface SpinnerUI {
+  /** Optional task-list badge source ("tasks: 2/5"), like LineEditor. */
+  onTasksQuery?: (() => string) | null
   thinking: () => void
   sendPause: (seconds: number) => void
   setPending: (text: string | null) => void
@@ -44,6 +46,9 @@ export function renderDots(n: number): string {
 }
 
 export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
+  // Set by the caller (index.ts) to the same todos summary the LineEditor
+  // shows, so the non-TTY path has parity.
+  let onTasksQuery: (() => string) | null = null
   let spinner: Ora | null = null
   let dotTimer: ReturnType<typeof setInterval> | null = null
   let dotPhase = 0
@@ -54,6 +59,10 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
   // zero every second and look frozen on a single dot.
   let animBase = ''
   let animating = false
+  // When the current animated phase began, so a long reasoning turn can show
+  // "12s" / "2m 05s" instead of looking identical to a hung one. Parity with
+  // the LineEditor status line (src/input.ts).
+  let animStart = 0
 
   const start = (text: string) => {
     if (!spinner) spinner = ora(text).start()
@@ -77,15 +86,40 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
   // "running" dot sequence. Shared by the thinking spinner and the send-pause
   // indicator, so the pause is animated too (before, it was a static line and
   // the dots did not move — the operator saw a frozen spinner).
+  // Elapsed label of the current animated phase ("0s", "45s", "2m 05s").
+  // Empty when nothing is animating. Localized units come from the catalog.
+  const elapsedLabel = (): string => {
+    if (!animating || !animStart) return ''
+    const sec = Math.floor((Date.now() - animStart) / 1000)
+    const m = Math.floor(sec / 60)
+    const s = sec % 60
+    const text = m > 0 ? m + 'm ' + String(s).padStart(2, '0') + 's' : s + 's'
+    return theme.dim(' · ' + text)
+  }
+
+  // Task-list badge, refreshed from onTasksQuery on every animation tick.
+  // Mirrors the LineEditor so the non-TTY spinner shows the same "tasks: 2/5".
+  const tasksBadge = (): string => {
+    if (!onTasksQuery) return ''
+    try {
+      const s = onTasksQuery()
+      return s ? theme.system(s) + ' ' : ''
+    } catch {
+      return ''
+    }
+  }
+
   const startAnimated = (baseText: string) => {
     animBase = theme.brown(stripEllipsis(baseText))
-    start(animBase + renderDots(0) + HINT)
+    animStart = Date.now()
+    start(animBase + renderDots(0) + elapsedLabel() + tasksBadge() + HINT)
     dotPhase = 0
     if (dotTimer) clearInterval(dotTimer)
     dotTimer = setInterval(() => {
       if (!spinner) return
       dotPhase = (dotPhase + 1) % DOTS.length
-      spinner.text = animBase + renderDots(dotPhase) + HINT
+      spinner.text =
+        animBase + renderDots(dotPhase) + elapsedLabel() + tasksBadge() + HINT
     }, 400)
     animating = true
     if (dotTimer.unref) dotTimer.unref()
@@ -110,6 +144,13 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
   }
 
   return {
+    get onTasksQuery() {
+      return onTasksQuery
+    },
+    set onTasksQuery(fn: (() => string) | null) {
+      onTasksQuery = fn
+    },
+
     thinking: () => {
       if (pending) {
         showPending()
@@ -129,7 +170,7 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
       // so the countdown refreshes without resetting the dots.
       if (animating && dotTimer && spinner) {
         animBase = theme.brown(stripEllipsis(label))
-        spinner.text = animBase + renderDots(dotPhase) + HINT
+        spinner.text = animBase + renderDots(dotPhase) + elapsedLabel() + HINT
         return
       }
       startAnimated(label)

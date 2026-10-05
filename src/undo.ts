@@ -90,14 +90,17 @@ export class UndoStore {
   }
 
   async undoLast(): Promise<UndoResult> {
-    if (!this.enabled) return { ok: false, reason: 'undo отключён в конфиге' }
+    // Machine codes, NOT prose: the caller (index.ts) localizes them through
+    // the i18n catalog. Hardcoding a Russian reason here leaked Russian into
+    // an English UI (`/undo` with an empty history).
+    if (!this.enabled) return { ok: false, reason: 'disabled' }
     await this._ensure()
 
     const history = await this._readIndex()
-    if (!history.length) return { ok: false, reason: 'история пуста' }
+    if (!history.length) return { ok: false, reason: 'empty' }
 
     const record = history.pop()
-    if (!record) return { ok: false, reason: 'история пуста' }
+    if (!record) return { ok: false, reason: 'empty' }
     const { originalPath, existed, backupFile } = record
 
     try {

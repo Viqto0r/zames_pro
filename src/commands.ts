@@ -33,6 +33,69 @@ export function diffGitArgs(staged = false): string {
   return staged ? 'git diff --staged' : 'git diff'
 }
 
+// ---------- /diffstat ----------
+
+/** Render `git diff --stat` output (a compact change summary) for display. */
+export function formatDiffStat(
+  statText: string,
+  opts: { maxLines?: number } = {},
+  t: TranslateFn = translate('en'),
+): string {
+  const maxLines = opts.maxLines ?? 60
+  const trimmed = String(statText ?? '')
+    .split(CR + NL)
+    .join(NL)
+    .trimEnd()
+  if (!trimmed || trimmed === '(command produced no output)') {
+    return t('diff.no_changes')
+  }
+  const lines = trimmed.split(NL)
+  if (lines.length <= maxLines) return trimmed
+  const head = lines.slice(0, maxLines).join(NL)
+  return (
+    head + NL + t('diff.more_lines', { n: String(lines.length - maxLines) })
+  )
+}
+
+// ---------- /context ----------
+
+/** One renderable line per loaded context source (file + char count). */
+export function formatContextSources(
+  agents: Array<{ path: string; content: string }>,
+  memory: Array<{ path: string; content: string }>,
+  skills: Array<{ name: string; description?: string; path?: string }>,
+  commands: Array<{ name: string; description?: string }>,
+  opts: { systemPromptChars?: number } = {},
+  t: TranslateFn = translate('en'),
+): string {
+  const lines: string[] = []
+  lines.push(t('context.title'))
+  if (typeof opts.systemPromptChars === 'number') {
+    lines.push(
+      t('context.system_prompt', { n: String(opts.systemPromptChars) }),
+    )
+  }
+  const fileLine = (p: string, content: string): string =>
+    '  ' + p + '  (' + content.length + ' chars)'
+  lines.push(t('context.agents'))
+  if (agents.length)
+    for (const a of agents) lines.push(fileLine(a.path, a.content))
+  else lines.push('  ' + t('context.none'))
+  lines.push(t('context.memory'))
+  if (memory.length)
+    for (const m of memory) lines.push(fileLine(m.path, m.content))
+  else lines.push('  ' + t('context.none'))
+  lines.push(t('context.skills'))
+  if (skills.length)
+    for (const s of skills)
+      lines.push('  ' + s.name + (s.path ? '  ' + s.path : ''))
+  else lines.push('  ' + t('context.none'))
+  lines.push(t('context.commands'))
+  if (commands.length) for (const c of commands) lines.push('  /' + c.name)
+  else lines.push('  ' + t('context.none'))
+  return lines.join(NL)
+}
+
 // ---------- /cost ----------
 
 export interface TranscriptEntry {

@@ -40,9 +40,13 @@ jobs:
 
       # The coverage run IS the test run (same exit code), with a per-file
       # line/branch report printed so dead or untested modules are visible.
-      # It is informational only — a coverage dip never fails the build.
       - name: Tests (with coverage)
         run: npx tsx --test --experimental-test-coverage test/*.test.ts
+
+      # Soft floor for the pure logic modules (commands/scheduler/net-capture/
+      # xml-toolcall/diff/theme). Catches a module silently losing its tests.
+      - name: Coverage gate (critical modules)
+        run: npm run coverage:gate
 
       - name: Build
         run: npm run build

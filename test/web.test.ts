@@ -1,6 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { isPrivateIp, isPrivateHostname } from '../src/web.ts'
+import {
+  isPrivateIp,
+  isPrivateHostname,
+  isBinaryContentType,
+} from '../src/web.ts'
 
 test('isPrivateIp: IPv4 private/loopback/link-local ranges', () => {
   assert.equal(isPrivateIp('127.0.0.1'), true)
@@ -40,4 +44,23 @@ test('isPrivateHostname blocks localhost and metadata host', () => {
   assert.equal(isPrivateHostname('metadata.google.internal'), true)
   assert.equal(isPrivateHostname('example.com'), false)
   assert.equal(isPrivateHostname(''), true)
+})
+
+test('isBinaryContentType: binary bodies are not dumped as text', () => {
+  assert.equal(isBinaryContentType('application/pdf'), true)
+  assert.equal(isBinaryContentType('image/png'), true)
+  assert.equal(isBinaryContentType('application/zip'), true)
+  assert.equal(isBinaryContentType('application/octet-stream'), true)
+  assert.equal(isBinaryContentType('audio/mpeg'), true)
+  assert.equal(isBinaryContentType('application/vnd.ms-excel'), true)
+})
+
+test('isBinaryContentType: textual types stay readable', () => {
+  assert.equal(isBinaryContentType('text/html; charset=utf-8'), false)
+  assert.equal(isBinaryContentType('text/plain'), false)
+  assert.equal(isBinaryContentType('application/json'), false)
+  assert.equal(isBinaryContentType('application/ld+json'), false)
+  assert.equal(isBinaryContentType('application/xml'), false)
+  assert.equal(isBinaryContentType('application/javascript'), false)
+  assert.equal(isBinaryContentType(''), false)
 })

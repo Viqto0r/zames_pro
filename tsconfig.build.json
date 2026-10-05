@@ -8,13 +8,6 @@
     "declaration": false,
     "allowImportingTsExtensions": false
   },
-  "include": [
-    "src/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "tmp",
-    "test"
-  ]
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "tmp", "test"]
 }

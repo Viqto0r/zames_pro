@@ -403,6 +403,41 @@ function tryCommand(bin: string, args: string[]): Buffer | null {
   }
 }
 
+// Write text to the OS clipboard. Mirrors readClipboardImageDetailed: every
+// platform has its own tool, and a failure is returned (not thrown) so the
+// caller can tell the operator which tool was missing.
+export function writeClipboardText(text: string): {
+  ok: boolean
+  via: string
+} {
+  const data = Buffer.from(String(text ?? ''), 'utf-8')
+  const win = process.platform === 'win32'
+  const mac = process.platform === 'darwin'
+  const candidates: Array<{ bin: string; args: string[] }> = win
+    ? [{ bin: 'clip', args: [] }]
+    : mac
+      ? [{ bin: 'pbcopy', args: [] }]
+      : [
+          { bin: 'wl-copy', args: [] },
+          { bin: 'xclip', args: ['-selection', 'clipboard'] },
+          { bin: 'xsel', args: ['--clipboard', '--input'] },
+        ]
+  for (const c of candidates) {
+    try {
+      execFileSync(c.bin, c.args, {
+        input: data,
+        stdio: ['pipe', 'ignore', 'ignore'],
+        timeout: 8000,
+        windowsHide: true,
+      })
+      return { ok: true, via: c.bin }
+    } catch {
+      // try the next tool
+    }
+  }
+  return { ok: false, via: candidates.map((c) => c.bin).join('/') }
+}
+
 export async function findFileByName(
   workdir: string,
   name: string,

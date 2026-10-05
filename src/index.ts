@@ -37,6 +37,7 @@ import {
   sniffMime,
   readWindowsClipboardFiles,
   hasClipboardTool,
+  writeClipboardText,
   contentHash,
 } from './attachments.js'
 import {
@@ -64,6 +65,8 @@ import { UndoStore } from './undo.js'
 import { selfReview, selfDiff, selfApply, selfList } from './self-review.js'
 import {
   formatDiff,
+  formatDiffStat,
+  formatContextSources,
   diffGitArgs,
   parseTranscript,
   summarizeTranscript,
@@ -138,6 +141,10 @@ interface RunTaskOptions {
   getTokenUsage?: (() => number | null) | null
   /** Long-lived session goal, prepended to every task message. */
   goal?: string | null
+  /** Task-list summary ("tasks: 2/5") for the non-TTY spinner badge. */
+  todosQuery?: (() => string) | null
+  /** Called with the final assistant message of each task (/copy source). */
+  onAssistantFinal?: ((msg: string) => void) | null
 }
 
 interface ReviewMode {
@@ -148,6 +155,11 @@ interface ReviewMode {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const NL = String.fromCharCode(10)
+
+// The last final assistant message, for the /copy command. Module-level
+// because runTask() (which sees the answers) and the main loop (which handles
+// /copy) are separate functions.
+let lastAssistantMessage = ''
 
 // Floor for a /loop interval. A loop faster than the send throttle (15s)
 // cannot do anything useful and would just hammer the rate limit, so we refuse
@@ -181,7 +193,7 @@ function getPositional(): string[] {
   const positional = []
   for (let i = 0; i < args.length; i++) {
     const a = args[i]
-    if (['--dir', '--task', '--max-iter', '--project', '--chat'].includes(a)) {
+    if (['--dir', '--task', '--max-iter', '--chat'].includes(a)) {
       i++
       continue
     }
@@ -220,7 +232,6 @@ const headless = hasFlag('--headed')
   ? false
   : hasFlag('--headless') || config.headless
 const debug = hasFlag('--debug') || config.debug
-const calibrate = hasFlag('--calibrate')
 const maxIterArg = getArg('--max-iter', null)
 const maxIter = maxIterArg !== null ? Number(maxIterArg) : config.maxIterations
 
@@ -454,7 +465,6 @@ ${theme.bold(t('help.options'))}
   --headless         ${t('help.opt.headless')}
   --headed           ${t('help.opt.headed')}
   --debug            ${t('help.opt.debug')}
-  --calibrate        ${t('help.opt.calibrate')}
   --dev              ${t('help.opt.dev')}
   --no-color         ${t('help.opt.no_color')}
   --version, -v      ${t('help.opt.version')}
@@ -482,6 +492,10 @@ ${theme.bold(t('help.commands'))}
   ${t('help.cmd.chats')}
   ${t('help.cmd.resume')}
   ${t('help.cmd.last')}
+  ${t('help.cmd.retry')}
+  ${t('help.cmd.rename')}
+  ${t('help.cmd.context')}
+  ${t('help.cmd.copy')}
   ${t('help.cmd.chat')}
   ${t('help.cmd.cd')}
   ${t('help.cmd.pwd')}
@@ -491,6 +505,7 @@ ${theme.bold(t('help.commands'))}
   ${t('help.cmd.undo_list')}
   ${t('help.cmd.transcript')}
   ${t('help.cmd.diff')}
+  ${t('help.cmd.diffstat')}
   ${t('help.cmd.cost')}
   ${t('help.cmd.export')}
   ${t('help.cmd.doctor')}
@@ -555,6 +570,10 @@ const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
   { name: '/resume', key: 'help.cmd.resume' },
   { name: '/resume-id', key: 'help.cmd.resume_id' },
   { name: '/last', key: 'help.cmd.last' },
+  { name: '/retry', key: 'help.cmd.retry' },
+  { name: '/rename', key: 'help.cmd.rename' },
+  { name: '/context', key: 'help.cmd.context' },
+  { name: '/copy', key: 'help.cmd.copy' },
   { name: '/chat', key: 'help.cmd.chat' },
   { name: '/cd', key: 'help.cmd.cd' },
   { name: '/pwd', key: 'help.cmd.pwd' },
@@ -564,6 +583,7 @@ const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
   { name: '/undo-list', key: 'help.cmd.undo_list' },
   { name: '/transcript', key: 'help.cmd.transcript' },
   { name: '/diff', key: 'help.cmd.diff' },
+  { name: '/diffstat', key: 'help.cmd.diffstat' },
   { name: '/cost', key: 'help.cmd.cost' },
   { name: '/export', key: 'help.cmd.export' },
   { name: '/doctor', key: 'help.cmd.doctor' },
@@ -1245,6 +1265,7 @@ async function runTask(
     contextLimit = 1_000_000,
     getTokenUsage = null,
     goal = null,
+    todosQuery = null,
   } = opts
 
   // In TTY mode the UI is a LineEditor: it owns the input (queue, Esc,
@@ -1255,6 +1276,11 @@ async function runTask(
   browser._abort = false
 
   const ui = editor || mod.createSpinner(currentLocale)
+  // Non-TTY parity: the ora spinner shows the same "tasks: 2/5" badge the
+  // LineEditor shows (the editor gets it via onTasksQuery in main()).
+  if (!editor && todosQuery && 'onTasksQuery' in ui) {
+    ;(ui as { onTasksQuery?: (() => string) | null }).onTasksQuery = todosQuery
+  }
   // Mark the editor busy for the WHOLE task, not only for /init and /self-fix.
   // Esc / Ctrl+C abort the current generation only while busy; without this a
   // long-running tool (Bash, npm, MCP) could not be interrupted — Esc did
@@ -1333,7 +1359,14 @@ async function runTask(
           ui.toolCall(name, toolArgs)
         },
         onToolResult: (result) => ui.toolResult(result),
-        onAssistantMessage: (msg) => ui.assistant(msg),
+        onAssistantMessage: (msg) => {
+          // Remember the last answer so /copy can put it on the clipboard
+          // without re-reading the chat. Wrapped: a UI failure is swallowed
+          // by agent-loop anyway.
+          lastAssistantMessage = msg
+          opts.onAssistantFinal?.(msg)
+          ui.assistant(msg)
+        },
         onWarning: (msg) => ui.warning(msg),
         onChatReady,
         debugLog: debug,
@@ -1469,10 +1502,6 @@ async function main(): Promise<void> {
   if (hasFlag('--help') || hasFlag('-h')) {
     printHelp()
     return
-  }
-
-  if (calibrate) {
-    console.log(theme.warn(t('calibrate')))
   }
 
   await cleanTmpDir()
@@ -1635,6 +1664,8 @@ async function main(): Promise<void> {
     resendPrompt || config.browser.resendPromptOnResume === true
   let lastChats: ChatInfo[] = []
   let currentChatId: string | null = null
+  // The last task the operator sent (used by /retry). Plain text only.
+  let lastTaskText = ''
   let running = true
   // The agent's TodoWrite checklist, shared with the tool factory and
   // persisted in the session JSON. A store (not module state) so /reload does
@@ -3475,6 +3506,103 @@ async function main(): Promise<void> {
       continue
     }
 
+    if (lower === '/context') {
+      // Show what buildSystemPrompt() injects (AGENTS/MEMORY/skills/commands)
+      // so the operator can see why the context is large. Best-effort: a broken
+      // file must not break the command.
+      try {
+        const { loadProjectContext } = await import('./context.js')
+        const ctx = await loadProjectContext(currentWorkdir)
+        const sysLen = mod.buildSystemPrompt({
+          workdir: currentWorkdir,
+          tools: mod.createTools(currentWorkdir, { undo, todos: todoStore }),
+          locale: currentLocale,
+          context: ctx,
+        }).length
+        console.log(
+          theme.system(
+            formatContextSources(
+              ctx.agents,
+              ctx.memory,
+              ctx.skills,
+              ctx.commands,
+              { systemPromptChars: sysLen },
+              t,
+            ),
+          ),
+        )
+      } catch (e) {
+        console.error(theme.error((e as Error).message))
+      }
+      continue
+    }
+
+    if (lower === '/rename' || lower.startsWith('/rename ')) {
+      const title = trimmed.slice('/rename'.length).trim()
+      if (!title) {
+        console.log(theme.dim(t('rename.usage')))
+        continue
+      }
+      if (!currentChatId) {
+        currentChatId = await browser.getCurrentChatId()
+      }
+      if (!currentChatId) {
+        console.error(theme.error(t('chats.not_created')))
+        continue
+      }
+      saveLastChat(currentChatId, currentWorkdir, title)
+      console.log(theme.assistant(t('rename.done', { v: title })))
+      continue
+    }
+
+    if (lower === '/copy') {
+      if (!lastAssistantMessage) {
+        console.log(theme.dim(t('copy.none')))
+        continue
+      }
+      const res = writeClipboardText(lastAssistantMessage)
+      if (res.ok) {
+        console.log(theme.assistant(t('copy.done', { tool: res.via })))
+      } else {
+        console.error(theme.warn(t('copy.failed', { tool: res.via })))
+      }
+      continue
+    }
+
+    if (lower === '/retry') {
+      if (!lastTaskText) {
+        console.log(theme.dim(t('retry.none')))
+        continue
+      }
+      console.log(theme.system(t('retry.running')))
+      // Re-send the last task into the SAME chat (no new chat, no system
+      // prompt), so a truncated/empty answer can be retried cheaply.
+      const tools = mod.createTools(currentWorkdir, { undo, todos: todoStore })
+      if (mcpPool) tools.push(...mcpPool.tools)
+      if (editor) editor.busy = true
+      try {
+        await runTask(browser, tools, lastTaskText, currentWorkdir, {
+          transcript,
+          freshChat: false,
+          sendSystemPrompt: false,
+          queue: pendingQueue,
+          ui: editor || null,
+          onChatReady: (chatId) => {
+            if (chatId) {
+              currentChatId = chatId
+              saveLastChat(chatId, currentWorkdir)
+            }
+          },
+          contextLimit: config.ui.contextLimit,
+          getTokenUsage: () => browser.getLastTokenUsage(),
+          goal: sessionGoal,
+        })
+      } finally {
+        if (editor) editor.busy = false
+      }
+      continue
+    }
+
     if (lower === '/diff' || lower.startsWith('/diff ')) {
       const staged = lower.indexOf('--staged') !== -1
       const { runGit } = await import('./gitTools.js')
@@ -3489,6 +3617,22 @@ async function main(): Promise<void> {
       }
       const out = await runGit(diffGitArgs(staged), currentWorkdir, 20_000)
       console.log(theme.system(formatDiff(out, { maxLines: 400 }, t)))
+      continue
+    }
+
+    if (lower === '/diffstat') {
+      const { runGit } = await import('./gitTools.js')
+      const probe = await runGit(
+        'git rev-parse --is-inside-work-tree',
+        currentWorkdir,
+        5000,
+      )
+      if (probe.trim() !== 'true') {
+        console.error(theme.error(t('diff.not_repo')))
+        continue
+      }
+      const out = await runGit('git diff --stat', currentWorkdir, 20_000)
+      console.log(theme.system(formatDiffStat(out, { maxLines: 60 }, t)))
       continue
     }
 
@@ -3686,9 +3830,16 @@ async function main(): Promise<void> {
         )
         transcript.log('undo', { path: result.record.originalPath })
       } else {
-        console.error(
-          theme.error(t('undo.failed', { v: String(result.reason ?? '') })),
-        )
+        // undo.ts returns machine codes ('empty'/'disabled') — localize here so
+        // an English UI never shows a Russian reason.
+        const reasonKey =
+          result.reason === 'empty'
+            ? 'undo.reason_empty'
+            : result.reason === 'disabled'
+              ? 'undo.reason_disabled'
+              : null
+        const reason = reasonKey ? t(reasonKey) : String(result.reason ?? '')
+        console.error(theme.error(t('undo.failed', { v: reason })))
       }
       continue
     }
@@ -3775,6 +3926,7 @@ async function main(): Promise<void> {
     // ---- Regular task (including in review mode) ----
 
     const taskText = expandedTask !== null ? expandedTask : trimmed
+    lastTaskText = taskText
 
     // Dev mode: pick up fresh logic modules before the task.
     await autoReload()
@@ -3844,6 +3996,7 @@ async function main(): Promise<void> {
           contextLimit: config.ui.contextLimit,
           getTokenUsage: () => browser.getLastTokenUsage(),
           goal: sessionGoal,
+          todosQuery: () => todosSummary(),
         },
         inputAttachments,
       )

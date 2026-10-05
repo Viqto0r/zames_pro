@@ -8,7 +8,7 @@ directory, reads and edits files, runs commands, and commits to git.
 
 ## Requirements
 
-- Node.js >= 18
+- Node.js >= 20 (CI and development use Node 24; see `.nvmrc`)
 - A DeepSeek account. On first launch zames asks for your DeepSeek
   login/password in the terminal (and stores them in `~/.zames/config.json`
   after a successful sign-in, so a later logout is handled automatically
@@ -142,7 +142,8 @@ The agent has the same style of tools as Claude Code / Codex CLI:
 - **Extra tools** — `LS` (list a directory), `MultiEdit` (several edits to one
   file applied atomically), `TodoWrite` (session task checklist), `ApplyPatch`
   (multi-file patch in Codex's V4A format: `*** Begin Patch` … `*** End Patch`).
-- **Git** — `GitStatus`, `GitDiff`, `GitLog`, `GitAdd`, `GitCommit`, `GitPush`.
+- **Git** — `GitStatus`, `GitDiff`, `GitLog`, `GitShow`, `GitBranchList`,
+  `GitAdd`, `GitCommit`, `GitPush`.
 - **Web** — `WebFetch`, `WebSearch`.
 - **Service** — `respond` (final answer to the operator, ends the task).
 
@@ -158,6 +159,13 @@ config commands (/new, /chats, /resume, /cd, /status, /config,
 Codex CLI:
 
 - /diff [--staged] — show the working-tree git diff (--staged for the index).
+- /diffstat — a one-line change summary (`git diff --stat`).
+- /context — show what is loaded into the prompt (AGENTS.md, MEMORY.md,
+  skills, custom commands) and the system-prompt size.
+- /retry — resend the last task into the same chat (handy after a truncated
+  or empty answer).
+- /rename <title> — set the current session title (shown in /sessions).
+- /copy — copy the last assistant answer to the OS clipboard.
 - /cost (alias /usage) — session stats: tasks, tool calls, duration, and the
   context size in tokens (DeepSeek's `accumulated_token_usage`).
 - /export [file] — write the session transcript to a Markdown file
