@@ -303,6 +303,13 @@ export function createGitTools(workdir: string): ToolDef[] {
             ? String(branch).trim()
             : (await runGit('git branch --show-current', workdir, 5000)).trim()
         if (!b) return 'Error: could not determine the branch to push.'
+        // The branch name reaches the shell command below. Validate it as a
+        // real ref so a model-supplied value cannot smuggle shell metacharacters
+        // (`;`, backticks, `$()`) into `git push`. The remote stays a literal
+        // 'origin' and is not user-controlled.
+        if (!/^[A-Za-z0-9._/-]+$/.test(b) || b.startsWith('-')) {
+          return `Error: invalid branch name: ${b}`
+        }
 
         const flag = setUpstream ? '-u ' : ''
         const target = quoteArgs(b)

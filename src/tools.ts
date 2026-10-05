@@ -14,7 +14,11 @@ import type { UndoStore } from './undo.js'
 
 export function createTools(
   workdir: string,
-  { undo, todos }: { undo?: UndoStore | null; todos?: TodoStore } = {},
+  {
+    undo,
+    todos,
+    readOnly = false,
+  }: { undo?: UndoStore | null; todos?: TodoStore; readOnly?: boolean } = {},
 ): ToolDef[] {
   const root = path.resolve(workdir)
   const safe = (p: string): string => {
@@ -237,5 +241,33 @@ export function createTools(
     fn: async ({ message }: ToolArgs) => message,
   }
 
-  return [...baseTools, ...extraTools, ...gitTools, ...webTools, respondTool]
+  const all = [
+    ...baseTools,
+    ...extraTools,
+    ...gitTools,
+    ...webTools,
+    respondTool,
+  ]
+  return readOnly ? filterToolsForReadOnly(all) : all
+}
+
+// Tools that mutate the working tree or run arbitrary commands. In "plan"
+// (read-only) mode they are REMOVED from the tool set entirely, so the model
+// cannot write by accident while it is still investigating. Removing (rather
+// than rejecting at call time) is the honest signal: the agent never sees a
+// tool it is not allowed to use, so it does not waste a turn trying.
+export const MUTATING_TOOLS = new Set([
+  'Write',
+  'Edit',
+  'MultiEdit',
+  'ApplyPatch',
+  'Bash',
+  'GitAdd',
+  'GitCommit',
+  'GitPush',
+])
+
+/** Drop mutating tools for read-only / plan mode. Pure; unit-tested. */
+export function filterToolsForReadOnly(tools: ToolDef[]): ToolDef[] {
+  return tools.filter((t) => !MUTATING_TOOLS.has(t.name))
 }

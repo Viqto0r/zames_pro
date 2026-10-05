@@ -247,6 +247,11 @@ const resendPrompt = hasFlag('--resend-prompt')
 // --new-chat: kept for compatibility — this is the default behavior anyway.
 const newChatFlag = hasFlag('--new-chat')
 const resumeLastFlag = hasFlag('--resume-last')
+// Plan mode (read-only): start with it ON via --plan, toggle with /plan. When
+// on, mutating tools are filtered out of the tool set entirely (see
+// filterToolsForReadOnly). Declared here because tool creation happens before
+// the main loop.
+let planMode = hasFlag('--plan')
 
 // ---------- session persistence ----------
 // We store sessions (DeepSeek chats) in ~/.zames/.sessions so they survive
@@ -317,6 +322,7 @@ const RELOADABLE = [
   'transcript',
   'spinner',
   'config',
+  'fsutil',
 ]
 
 interface ModBag {
@@ -464,6 +470,7 @@ ${theme.bold(t('help.options'))}
   --max-iter <n>     ${t('help.opt.max_iter', { n: config.maxIterations })}
   --headless         ${t('help.opt.headless')}
   --headed           ${t('help.opt.headed')}
+  --plan             ${t('help.opt.plan')}
   --debug            ${t('help.opt.debug')}
   --dev              ${t('help.opt.dev')}
   --no-color         ${t('help.opt.no_color')}
@@ -517,6 +524,7 @@ ${theme.bold(t('help.commands'))}
   ${t('help.cmd.jobs')}
   ${t('help.cmd.thinking')}
   ${t('help.cmd.web')}
+  ${t('help.cmd.plan')}
   ${t('help.cmd.compact')}
   ${t('help.cmd.queue')}
   ${t('help.cmd.tasks')}
@@ -595,6 +603,7 @@ const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
   { name: '/jobs', key: 'help.cmd.jobs' },
   { name: '/thinking', key: 'help.cmd.thinking' },
   { name: '/web', key: 'help.cmd.web' },
+  { name: '/plan', key: 'help.cmd.plan' },
   { name: '/compact', key: 'help.cmd.compact' },
   { name: '/queue', key: 'help.cmd.queue' },
   { name: '/tasks', key: 'help.cmd.tasks' },
@@ -1595,7 +1604,10 @@ async function main(): Promise<void> {
 
   // One-shot mode
   if (task) {
-    const tools = mod.createTools(currentWorkdir, { undo })
+    const tools = mod.createTools(currentWorkdir, {
+      undo,
+      readOnly: planMode,
+    })
     if (mcpPool) tools.push(...mcpPool.tools)
 
     let freshChat = true
@@ -3199,6 +3211,28 @@ async function main(): Promise<void> {
       }
     }
 
+    if (lower === '/plan' || lower.startsWith('/plan ')) {
+      const arg = trimmed.slice('/plan'.length).trim().toLowerCase()
+      if (arg === '' || arg === 'toggle') planMode = !planMode
+      else if (arg === 'on' || arg === '1' || arg === 'true' || arg === 'вкл')
+        planMode = true
+      else if (
+        arg === 'off' ||
+        arg === '0' ||
+        arg === 'false' ||
+        arg === 'выкл'
+      )
+        planMode = false
+      else {
+        console.error(theme.warn(t('msg.unknown_cmd', { v: trimmed })))
+        continue
+      }
+      const line = t(planMode ? 'plan.on' : 'plan.off')
+      if (editor) editor.printAbove(theme.system(line))
+      else console.log(theme.system(line))
+      continue
+    }
+
     if (lower === '/mcp') {
       if (!mcpPool) {
         console.log(theme.dim(t('mcp.none')))
@@ -3577,7 +3611,11 @@ async function main(): Promise<void> {
       console.log(theme.system(t('retry.running')))
       // Re-send the last task into the SAME chat (no new chat, no system
       // prompt), so a truncated/empty answer can be retried cheaply.
-      const tools = mod.createTools(currentWorkdir, { undo, todos: todoStore })
+      const tools = mod.createTools(currentWorkdir, {
+        undo,
+        todos: todoStore,
+        readOnly: planMode,
+      })
       if (mcpPool) tools.push(...mcpPool.tools)
       if (editor) editor.busy = true
       try {
@@ -3938,7 +3976,11 @@ async function main(): Promise<void> {
 
     transcript.log('user_task', { task: taskText, workdir: currentWorkdir })
 
-    const tools = mod.createTools(currentWorkdir, { undo, todos: todoStore })
+    const tools = mod.createTools(currentWorkdir, {
+      undo,
+      todos: todoStore,
+      readOnly: planMode,
+    })
     if (mcpPool) tools.push(...mcpPool.tools)
     if (editor) editor.busy = true
     try {

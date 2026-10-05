@@ -73,7 +73,7 @@ When a change touches one concern, start in the module that owns it:
   toggles, Continue, login, chats, attachments, history. Large by nature; the
   pure parts (answer cleaning, signal detection) live in `src/net-capture.ts`.
 - `src/commands.ts` — PURE helpers for the slash commands (`/diff`, `/cost`,
-  `/export`, `/doctor`, `/permissions`, `/add-dir`, `/review`, `/compact`,
+  `/export`, `/doctor`, `/add-dir`, `/review`, `/compact`,
   `/queue`, `/goal`, live toggles) and the restored-history rendering. No
   browser/terminal access — unit-tested.
 - `src/scheduler.ts` — PURE interval/cron parsing and the `Scheduler` (loop and
@@ -621,9 +621,8 @@ interactive launch.
 - `/cost` (alias `/usage`) — session stats from the transcript
 - `/export [file]` — write the session transcript to a Markdown file
 - `/doctor` — diagnose node, git, config, browser, clipboard, MCP
-- `/permissions` — show the confirmation settings
 - commands.ts - pure helpers for /diff, /cost, /export, /doctor,
-  /permissions, /add-dir, /review (tested in test/commands.test.ts)
+  /add-dir, /review (tested in test/commands.test.ts)
 - `/add-dir <path>` — validate an extra directory
 - `/compact` — DeepSeek compresses the current chat into a handover summary,
   then a NEW chat is opened with the system prompt resent and the summary
@@ -710,12 +709,12 @@ list and in `/help`.
 Global: `~/.zames/config.json`
 Local: `<project>/.zamesrc.json`
 Defaults and merging — in DEFAULTS/deepMerge. Key sections: maxIterations,
-headless, debug, confirmation, undo, transcript, browser, ui.
+headless, debug, undo, transcript, browser, ui.
 
 ### Editing via /config
 
 `CONFIG_SCHEMA` (src/config.ts) is the list of settings that can be changed
-from `/config`. Each entry: `path` (e.g. `confirmation.write`), `type`
+from `/config`. Each entry: `path` (e.g. `undo.enabled`), `type`
 (boolean/number/string/enum), `labelKey`/`groupKey` (i18n keys of the label and
 group), optionally `values`/`min`/`max`. The schema is the single source of
 truth: `set` is validated against it, and the menu and text list are built from it.
@@ -736,7 +735,7 @@ Text subcommands (for scripts and non-TTY): `/config [menu|list]`,
 `/config get <path>`, `/config set <path> <val>`, `/config reset <path>`,
 /config path, /config lang <ru|en>. Values are written to the home
 config ~/.zames/config.json, NOT the project .zamesrc.json (personal
-toggles such as confirmation.* must not leak into git and change defaults
+toggles such as browser.auth.* must not leak into git and change defaults
 for other users; .zamesrc.json is ignored by git for the same reason).
 Writing does not freeze defaults into the file. After a change the runtime
 config object is updated - the value takes effect immediately.
@@ -1056,9 +1055,8 @@ ONLY tool-calls yields "service only" — that is expected, not a bug.
 - `theme.ts` — output palette (chalk)
 - `spinner.ts` — the "agent is working" spinner (random phrases)
 - `markdown.ts` — rendering the model's answers
-- `confirm.ts` — confirmations for dangerous operations
 - commands.ts - pure helpers for /diff, /cost, /export, /doctor,
-  /permissions, /add-dir, /review (tested in test/commands.test.ts)
+  /add-dir, /review (tested in test/commands.test.ts)
 - `diff.ts` — showing diffs
 - `undo.ts` — backups/revert
 - `transcript.ts` — transcript writing
@@ -1111,7 +1109,7 @@ In prod mode these are `dist/*.js`, in dev — `src/*.ts` via tsx (tsx resolves 
 
 IMPORTANT: only the modules in `RELOADABLE` (src/index.ts) are hot-reloaded —
 `agent-loop`, `system-prompt`, `tools`, `extraTools`, `config`, `gitTools`,
-`web`, `self-review`, `diff`, `undo`, `confirm`, `transcript`, `spinner`, `mcp`.
+`web`, `self-review`, `diff`, `undo`, `transcript`, `spinner`, `mcp`.
 **`browser.ts` is NOT in the list and is imported statically ONCE**: the live
 `DeepSeekBrowser` instance owns the Playwright context/page/timers, so a hot
 swap is unsafe. Consequence: in dev mode (`npm run dev` = tsx over `src/`) an

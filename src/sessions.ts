@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import type { Session } from './types.js'
+import { writeJsonAtomic } from './fsutil.js'
 
 // We store sessions (DeepSeek chats) in a separate folder so they aren't lost
 // after a process restart. Each session is a separate JSON file
@@ -17,12 +18,6 @@ interface SessionsIndex {
 }
 
 export const SESSIONS_FORMAT_VERSION = 1
-
-function atomicWriteJson(file: string, value: unknown): void {
-  const tmp = file + '.tmp-' + process.pid
-  fs.writeFileSync(tmp, JSON.stringify(value, null, 2), 'utf-8')
-  fs.renameSync(tmp, file)
-}
 
 function ensureDir(): void {
   fs.mkdirSync(SESSIONS_DIR, { recursive: true })
@@ -66,7 +61,7 @@ export function saveSession({
     // saveLastChat() calls this for title/workdir only and must not wipe it.
     const nextTodos = todos !== undefined ? todos : prev.todos
     if (nextTodos !== undefined) data.todos = nextTodos
-    atomicWriteJson(file, data)
+    writeJsonAtomic(file, data)
     writeIndex({ id, workdir: data.workdir })
     return data
   } catch {
@@ -89,7 +84,7 @@ function writeIndex({ id, workdir }: { id: string; workdir: string }): void {
     index.byWorkdir[key] = id
     index.last = id
     index.updatedAt = new Date().toISOString()
-    atomicWriteJson(INDEX_FILE, index)
+    writeJsonAtomic(INDEX_FILE, index)
   } catch {}
 }
 
@@ -178,6 +173,6 @@ export function saveHistory(history: string[]): void {
   try {
     ensureDir()
     const trimmed = history.slice(-HISTORY_LIMIT)
-    atomicWriteJson(HISTORY_FILE, trimmed)
+    writeJsonAtomic(HISTORY_FILE, trimmed)
   } catch {}
 }

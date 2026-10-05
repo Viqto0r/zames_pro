@@ -127,6 +127,7 @@ zames --resend-prompt
 zames --dir <path>
 zames --headless
 zames --headed
+zames --plan
 zames --debug
 zames --version
 zames --help
@@ -182,6 +183,10 @@ Codex CLI:
   instead of the whole list.
 - /review [focus] [--staged] — ask the agent to review uncommitted changes
   and report findings (no code changes).
+- /plan [on|off] — plan (read-only) mode. While it is on, the mutating tools
+  (Write/Edit/MultiEdit/ApplyPatch/Bash, GitAdd/GitCommit/GitPush) are removed
+  from the tool set, so the agent can investigate without touching the tree.
+  Start in it with `--plan`.
 - /compact — ask DeepSeek to compress the current chat into a handover
   summary, then open a NEW chat, resend the system prompt and post the summary
   as the carried-over context. Use it when the context gets long.

@@ -3,6 +3,7 @@ import path from 'path'
 import os from 'os'
 import type { ZamesConfig } from './types.js'
 import { DEFAULT_LOCALE } from './i18n.js'
+import { writeJsonAtomic } from './fsutil.js'
 
 const ZAMES_HOME = path.join(os.homedir(), '.zames')
 const HOME_CONFIG = path.join(ZAMES_HOME, 'config.json')
@@ -12,14 +13,6 @@ const HOME_CONFIG = path.join(ZAMES_HOME, 'config.json')
 // working directory was never read (and writes went to the OLD directory).
 export function projectConfigPath(): string {
   return path.join(process.cwd(), '.zamesrc.json')
-}
-
-// Write via a temp file + rename so a crash or Ctrl+C mid-write can never
-// leave a truncated/broken config (it is read at every startup).
-function atomicWriteJson(file: string, value: unknown): void {
-  const tmp = `${file}.tmp-${process.pid}`
-  fs.writeFileSync(tmp, JSON.stringify(value, null, 2) + '\n', 'utf-8')
-  fs.renameSync(tmp, file)
 }
 
 export const DEFAULTS: ZamesConfig = {
@@ -476,7 +469,7 @@ export function writeConfigValue(
   const data = readConfigFile(file)
   setByPath(data, key, value)
   fs.mkdirSync(path.dirname(file), { recursive: true })
-  atomicWriteJson(file, data)
+  writeJsonAtomic(file, data)
   return { value, file }
 }
 
@@ -498,7 +491,7 @@ export function resetConfigValue(scope: ConfigScope, key: string): string {
   }
   if (cur) delete cur[parts[parts.length - 1]]
   fs.mkdirSync(path.dirname(file), { recursive: true })
-  atomicWriteJson(file, data)
+  writeJsonAtomic(file, data)
   return file
 }
 

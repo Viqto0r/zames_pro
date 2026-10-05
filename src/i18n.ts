@@ -270,6 +270,22 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: '/goal [текст|clear] задать долгоживущую цель сессии',
     en: '/goal [text|clear] set a long-lived session goal',
   },
+  'help.cmd.plan': {
+    ru: '/plan [on|off] режим плана: только чтение, без правок и команд',
+    en: '/plan [on|off] plan mode: read-only, no edits or commands',
+  },
+  'plan.on': {
+    ru: 'Режим плана ВКЛ: доступны только инструменты чтения. Правки и команды запрещены. /plan off — выключить.',
+    en: 'Plan mode ON: only read tools are available. Edits and commands are disabled. /plan off to disable.',
+  },
+  'plan.off': {
+    ru: 'Режим плана ВЫКЛ: агент снова может писать и запускать команды.',
+    en: 'Plan mode OFF: the agent can edit and run commands again.',
+  },
+  'help.opt.plan': {
+    ru: 'стартовать в режиме плана (только чтение)',
+    en: 'start in plan mode (read-only)',
+  },
   'help.cmd.loop': {
     ru: '/loop <интервал> <задача> периодически повторять задачу (напр. 10m)',
     en: '/loop <interval> <task> repeat a task periodically (e.g. 10m)',

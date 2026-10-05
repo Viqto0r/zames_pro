@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.57.0]
+
+### Added
+
+- Plan mode (read-only): start with `--plan` or toggle with `/plan [on|off]`.
+  In this mode mutating tools (Write/Edit/MultiEdit/ApplyPatch/Bash, GitAdd/
+  GitCommit/GitPush) are removed from the tool set entirely, so the agent can
+  investigate without touching the tree.
+- `src/fsutil.ts` — one shared atomic writer (`writeFileAtomic`/`writeJsonAtomic`).
+
+### Changed
+
+- config, sessions and undo now share the single atomic writer (the
+  temp-file+rename logic used to be copy-pasted in three places).
+
+### Fixed
+
+- `GitPush` validates the branch name (`^[A-Za-z0-9._/-]+# Changelog
+
+All notable changes to this project are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+, no leading dash)
+before building the shell command — a model-supplied branch can no longer
+smuggle shell metacharacters.
+
+- `SECURITY.md` no longer promises a `/permissions` command / `alwaysConfirm`
+  list that was removed in 2.55.0; `AGENTS.md` cleaned of the same dead refs.
+
 ## [2.56.0]
 
 ### Added
@@ -131,7 +162,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Session banner warns when no saved DeepSeek session exists.
 - `--no-color` flag (explicit `NO_COLOR`).
 
-[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.56.0...HEAD
+[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.57.0...HEAD
+[2.57.0]: https://github.com/Viqto0r/zames_pro/compare/v2.56.0...v2.57.0
 [2.56.0]: https://github.com/Viqto0r/zames_pro/compare/v2.55.0...v2.56.0
 [2.55.0]: https://github.com/Viqto0r/zames_pro/compare/v2.54.0...v2.55.0
 [2.54.0]: https://github.com/Viqto0r/zames_pro/compare/v2.53.1...v2.54.0

@@ -1,6 +1,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
+import { writeJsonAtomic } from './fsutil.js'
 
 const UNDO_DIR = path.join(os.homedir(), '.zames', 'undo')
 const INDEX = path.join(UNDO_DIR, 'index.json')
@@ -44,9 +45,7 @@ export class UndoStore {
 
   async _writeIndex(history: UndoRecord[]): Promise<void> {
     // Atomic write: a crash mid-write must not corrupt the undo history.
-    const tmp = `${INDEX}.tmp-${process.pid}`
-    await fs.writeFile(tmp, JSON.stringify(history, null, 2))
-    await fs.rename(tmp, INDEX)
+    writeJsonAtomic(INDEX, history)
   }
 
   async backup(

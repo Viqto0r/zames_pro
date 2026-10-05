@@ -20,8 +20,10 @@ is not a sandbox:
 - `WebFetch` blocks private/loopback/link-local addresses (including the cloud
   metadata endpoint `169.254.169.254`) to limit SSRF, but this is best-effort
   (a DNS rebind between the check and the fetch is out of scope).
-- Confirmation prompts (Write/Edit/Bash + the `alwaysConfirm` regex list) are a
-  safety net, not a security boundary. Review them in `/permissions`.
+- There are currently NO confirmation prompts: mutating tools (Write/Edit/Bash)
+  run without asking. `Write`/`Edit` and the multi-file tools keep a backup
+  (`/undo`, `/undo-list`), but that is an undo safety net, not a security
+  boundary. Give the agent only tasks you are willing to run.
 
 ## Supported versions
 
