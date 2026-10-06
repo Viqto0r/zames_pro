@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `AGENTS.md` уменьшен (BACKLOG C2): глубокие root-cause разборы («агент
+  остановился», чтение ответа из DOM, send-хуки, `LineEditor`, вложения) и
+  терминальная механика вынесены в `docs/DESIGN-NOTES.md` (progressive
+  disclosure — не грузится в каждую задачу). В AGENTS.md остались действующие
+  правила и краткая выжимка со ссылкой.
+
 ### Added
 
 - Реальные подтверждения действий (BACKLOG C1): политика approval в
