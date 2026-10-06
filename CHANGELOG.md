@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Реальные подтверждения действий (BACKLOG C1): политика approval в
+  `.zames/permissions.json` (`default` + `rules` с regexp по `tool`/`command`/
+  `path` и действием `allow`|`deny`|`ask`). Вызывается в `agent-loop.ts` ПЕРЕД
+  каждым инструментом: `deny` блокирует вызов, `ask` спрашивает оператора через
+  `onAskPermission` (в TTY — интерактивный промпт над инпут-линией, в non-TTY —
+  запрет). Новый чистый модуль `src/permissions.ts` + тесты
+  (test/permissions.test.ts, test/permissions-loop.test.ts).
+
 - Кастомные команды: аргументы и подсказки (BACKLOG B7). Frontmatter
   `argument-hint:` показывается в списке «/» и в `/help` (не вставляется в
   строку ввода), а `arguments:` объявляет обязательные позиционные аргументы.

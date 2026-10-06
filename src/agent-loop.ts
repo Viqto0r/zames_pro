@@ -19,6 +19,12 @@ import {
   runPostToolUse,
   type HooksConfig,
 } from './hooks.js'
+import {
+  loadPermissions,
+  decidePermission,
+  type PermissionPolicy,
+  type PermissionDecision,
+} from './permissions.js'
 
 export interface RunAgentLoopOptions {
   browser: BrowserLike
@@ -93,6 +99,21 @@ export interface RunAgentLoopOptions {
    */
   hooks?: HooksConfig | null
   /**
+   * Approval policy (see src/permissions.ts). When omitted (undefined) the
+   * loop loads `.zames/permissions.json` from `workdir` once per task; an
+   * explicit null disables it. A `deny` rule blocks the call; an `ask` rule
+   * prompts the operator through `onAskPermission`.
+   */
+  permissions?: PermissionPolicy | null
+  /**
+   * Ask the operator to approve a tool call matched by an `ask` rule.
+   * Returns true to allow, false to deny. When omitted, an `ask` rule is
+   * treated as `allow` (best-effort: a non-interactive run must not stall).
+   */
+  onAskPermission?: (
+    info: PermissionDecision & { tool: string },
+  ) => Promise<boolean>
+  /**
    * Dev mode: inject the BACKLOG self-improvement note into the system prompt
    * (see system-prompt.ts). Off in a normal run — an unrelated project must
    * never be told to edit a BACKLOG.md.
@@ -129,6 +150,8 @@ export async function runAgentLoop({
   contextLimit = 1_000_000,
   getTokenUsage = null,
   hooks = undefined,
+  permissions = undefined,
+  onAskPermission = undefined,
   selfImprovement = false,
 }: RunAgentLoopOptions): Promise<string> {
   // Resolve the hook config ONCE per task: a read per tool call would be
@@ -137,6 +160,9 @@ export async function runAgentLoop({
   // hooks entirely.
   const hookConfig: HooksConfig =
     hooks === undefined ? loadHooks(workdir) : (hooks ?? {})
+  // Same for the approval policy (C1): read `.zames/permissions.json` once.
+  const permissionPolicy: PermissionPolicy | null =
+    permissions === undefined ? loadPermissions(workdir) : permissions
   // UI callbacks must NEVER break the agent loop. A rendering error (a huge
   // tool result, a broken markdown frame, a closed terminal) used to throw
   // out of the loop right after a tool call — the session looked "stopped
@@ -917,6 +943,47 @@ export async function runAgentLoop({
         })
         results.push({ tool: call.tool, result: blocked })
         continue
+      }
+
+      // Approval policy (C1): a `deny` rule blocks the call (like a PreToolUse
+      // denial); an `ask` rule prompts the operator. Hooks stay authoritative
+      // for programmatic guards — this is the human-in-the-loop layer.
+      const decision = decidePermission(permissionPolicy, call.tool, call.args)
+      if (decision.action === 'deny') {
+        const blocked = `Blocked by permission policy: ${decision.reason}`
+        transcript?.log('permission_deny', {
+          tool: call.tool,
+          reason: decision.reason,
+        })
+        safeToolResult(blocked)
+        transcript?.log('tool_result', {
+          tool: call.tool,
+          result: blocked,
+        })
+        results.push({ tool: call.tool, result: blocked })
+        continue
+      }
+      if (decision.action === 'ask' && onAskPermission) {
+        let allowed: boolean
+        try {
+          allowed = await onAskPermission({ ...decision, tool: call.tool })
+        } catch {
+          allowed = false
+        }
+        if (!allowed) {
+          const blocked = `Denied by operator: ${decision.reason}`
+          transcript?.log('permission_denied', {
+            tool: call.tool,
+            reason: decision.reason,
+          })
+          safeToolResult(blocked)
+          transcript?.log('tool_result', {
+            tool: call.tool,
+            result: blocked,
+          })
+          results.push({ tool: call.tool, result: blocked })
+          continue
+        }
       }
 
       let result

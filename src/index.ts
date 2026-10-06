@@ -1426,6 +1426,26 @@ async function printRestoredHistory(
 
 // ---------- task runner ----------
 
+// Ask the operator to approve a tool call flagged by an `ask` permission rule
+// (C1). While the LineEditor owns the terminal it must be paused first, or the
+// confirmation prompt and the input line fight for the same keys. A non-TTY run
+// has no way to answer, so it DENIES (never silently allows a guarded call).
+async function askOperatorConfirm(
+  editor: LineEditor | null,
+  question: string,
+): Promise<boolean> {
+  if (!(process.stdin.isTTY && process.stdout.isTTY)) return false
+  if (editor) editor.pause()
+  try {
+    const a = await promptOnce(question + ' [y/N] ')
+    return /^(y|yes|д|да)$/i.test(a.trim())
+  } catch {
+    return false
+  } finally {
+    if (editor) editor.resume()
+  }
+}
+
 async function runTask(
   browser: DeepSeekBrowser,
   tools: ToolDef[],
@@ -1550,6 +1570,19 @@ async function runTask(
           ui.assistant(msg)
         },
         onWarning: (msg) => ui.warning(msg),
+        onAskPermission: async (info) => {
+          // C1: a rule with action "ask". Show the reason and wait for the
+          // operator. In non-TTY this denies (see askOperatorConfirm).
+          ui.warning(t('perm.ask', { tool: info.tool, reason: info.reason }))
+          const ok = await askOperatorConfirm(editor || null, t('perm.confirm'))
+          ui.warning(ok ? t('perm.allowed') : t('perm.denied'))
+          transcript?.log('permission_ask', {
+            tool: info.tool,
+            reason: info.reason,
+            allowed: ok,
+          })
+          return ok
+        },
         onChatReady,
         debugLog: debug,
         locale: currentLocale,

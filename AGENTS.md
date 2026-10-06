@@ -93,8 +93,21 @@ When a change touches one concern, start in the module that owns it:
   fallback UI. Both draw an animated dot status; shared formatting is imported
   from one another (`randomThinkingPhrase`, `stripEllipsis`).
 - `src/context.ts` — AGENTS.md / MEMORY.md / skills / custom commands loading.
+  `loadProjectContext(workdir, touchPaths?)` also pulls NESTED AGENTS.md/MEMORY.md
+  from the directories a task touches (B6, path-scoped rules) into a separate
+  `scopedAgents` list; `renderContextSection()` renders them as their own
+  section.
+- `src/permissions.ts` — PURE approval policy for tool calls (C1): parses
+  `.zames/permissions.json` (`default` + `rules` with `tool`/`command`/`path`
+  regexes and an `allow`|`deny`|`ask` action) and `decidePermission()` returns
+  the action. Wired in `agent-loop.ts` BEFORE each tool: `deny` blocks the call,
+  `ask` goes through the `onAskPermission` callback (index.ts prompts the
+  operator). Unit-tested (test/permissions.test.ts, test/permissions-loop.test.ts).
 - `src/config.ts`, `src/config-menu.ts` — config defaults/schema and the menu.
 - `src/sessions.ts`, `src/transcript.ts`, `src/undo.ts` — persistence.
+- `src/checkpoint.ts` — tar snapshot/restore of the working tree (B3);
+  `/rewind` uses it. `src/hooks.ts` — PreToolUse/PostToolUse hooks
+  (`.zames/hooks.json`).
 
 ## Tools
 
@@ -632,6 +645,17 @@ If you change the marker format, update `AttachmentStore` (src/attachments.ts),
 the `## Attachments` section in src/system-prompt.ts and the note in
 `runAgentLoop`.
 
+### `@file`-ссылки в задаче (B5)
+
+`@path` в тексте задачи — это сокращение «вот этот файл». `extractAtFileRefs()`
+(src/path-token.ts, чистая, без regexp) находит все ссылки: `@` учитывается
+только на границе слова (начало строки или после пробела/скобки/кавычки), поэтому
+`user@host.com` и `@Component` ссылками НЕ считаются. `inlineAtRefs()`
+(src/index.ts) читает существующие файлы и дописывает их содержимое в конец
+задачи отдельной секцией `## Files referenced with @ in the task`. Лимиты:
+60 КБ на файл, 200 КБ суммарно, сверх — усечение с пометкой. Несуществующие/
+нечитаемые ссылки остаются в тексте как есть (задача не падает).
+
 IMPORTANT when editing this code: do not put "raw" control characters (CR/LF)
 into string literals — only the escape sequences `\r`/`
 ` (in src/input.ts
@@ -762,12 +786,19 @@ What is loaded, in priority order:
   Project skills override global ones with the same name.
 - **custom commands** — `.md` files under `.zames/commands`, `.claude/commands`,
   `.agents/commands`, `~/.zames/commands`, `~/.claude/commands`. The body
-  supports `$ARGUMENTS` and `{{args}}` placeholders.
+  supports `$ARGUMENTS` and `{{args}}` placeholders, plus positional `$1`..`$N`
+  and named `$name` tokens. Two optional frontmatter fields (B7):
+  `argument-hint:` (e.g. `<file> [focus]`) is shown in the «/» suggest list and
+  `/help` as a display-only `hint` on the entry (NEVER inserted into the input
+  line), and `arguments:` declares mandatory positional names.
 
 When the operator types `/<name>`, `expandSlashTarget()` (src/index.ts) looks
 it up among commands (prompt template) and skills (instruction body) and turns
-it into the task text. Skills and commands also show up in the «/» completion
-list and in `/help`.
+it into the task text. The pure helpers `splitCommandArgs()`,
+`expandCommandArgs()` and `missingCommandArgs()` (src/commands.ts) do the
+substitution: a command whose declared `arguments:` are not all supplied on the
+command line is REJECTED with `msg.missing_args` instead of being sent.
+Skills and commands also show up in the «/» completion list and in `/help`.
 
 ## Configuration (src/config.ts)
 

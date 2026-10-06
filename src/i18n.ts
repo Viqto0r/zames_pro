@@ -739,6 +739,22 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: 'Не хватает обязательных аргументов: {v}.',
     en: 'Missing required arguments: {v}.',
   },
+  'perm.ask': {
+    ru: '⚠ Запрос подтверждения: {tool} ({reason})',
+    en: '⚠ Approval required: {tool} ({reason})',
+  },
+  'perm.confirm': {
+    ru: 'Разрешить выполнение?',
+    en: 'Allow this call?',
+  },
+  'perm.allowed': {
+    ru: '✔ Разрешено оператором.',
+    en: '✔ Allowed by operator.',
+  },
+  'perm.denied': {
+    ru: '✖ Отклонено оператором — вызов не выполнен.',
+    en: '✖ Denied by operator — the call was not run.',
+  },
   'msg.dev_only': {
     ru: 'Команда {v} доступна только в dev-режиме (--dev или hotReload).',
     en: 'The {v} command is only available in dev mode (--dev or hotReload).',
