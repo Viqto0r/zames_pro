@@ -218,7 +218,9 @@ export async function runAgentLoop({
 
     let context: Awaited<ReturnType<typeof loadProjectContext>> | null
     try {
-      context = await loadProjectContext(workdir)
+      // Pass the task text so nested AGENTS.md/MEMORY.md for the directories
+      // this task actually touches are pulled in (B6, path-scoped rules).
+      context = await loadProjectContext(workdir, [task])
     } catch {
       context = null
     }
@@ -235,6 +237,7 @@ export async function runAgentLoop({
       length: systemPrompt.length,
       gitContext: gitText,
       agents: context?.agents.map((f) => f.path) ?? [],
+      scopedAgents: context?.scopedAgents?.map((f) => f.path) ?? [],
       memory: context?.memory.map((f) => f.path) ?? [],
       skills: context?.skills.map((s) => s.name) ?? [],
       commands: context?.commands.map((c) => c.name) ?? [],

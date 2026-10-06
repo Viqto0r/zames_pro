@@ -120,6 +120,41 @@ test('skillBody strips frontmatter', () => {
   assert.equal(skillBody(raw), 'hello world')
 })
 
+// B6: a nested AGENTS.md is pulled in only when the task touches its directory.
+test('loadProjectContext includes scoped AGENTS.md for touched dirs', async () => {
+  const root = await mkTmp()
+  await fs.mkdir(path.join(root, 'src', 'deep'), { recursive: true })
+  await fs.writeFile(
+    path.join(root, 'src', 'deep', 'AGENTS.md'),
+    'SCOPED-RULE-42',
+    'utf-8',
+  )
+  // Without a touched path the nested file is not loaded.
+  const plain = await loadProjectContext(root)
+  assert.ok(!(plain.scopedAgents || []).some((f) => /deep/.test(f.path)))
+  // With a path into src/deep it is loaded.
+  const scoped = await loadProjectContext(root, ['fix src/deep/util.ts'])
+  assert.ok(
+    (scoped.scopedAgents || []).some((f) => f.path.endsWith('AGENTS.md')),
+    'nested AGENTS.md should be loaded',
+  )
+  assert.match(scoped.scopedAgents![0].content, /SCOPED-RULE-42/)
+})
+
+test('buildSystemPrompt renders scoped instructions in their own section', async () => {
+  const { buildSystemPrompt } = await import('../src/system-prompt.ts')
+  const ctx = {
+    agents: [],
+    scopedAgents: [{ path: '/p/src/deep/AGENTS.md', content: 'SCOPED-XYZ' }],
+    memory: [],
+    skills: [],
+    commands: [],
+  }
+  const sp = buildSystemPrompt({ workdir: '/p', tools: [], context: ctx })
+  assert.match(sp, /## Scoped instructions/)
+  assert.match(sp, /SCOPED-XYZ/)
+})
+
 test('buildSystemPrompt includes context sections', async () => {
   const { buildSystemPrompt } = await import('../src/system-prompt.ts')
   const ctx = {

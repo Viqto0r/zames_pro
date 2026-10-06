@@ -1,4 +1,5 @@
 import type { ToolDef } from './types.js'
+import path from 'path'
 import { translate, type Locale } from './i18n.js'
 import type { LoadedContext } from './context.js'
 
@@ -67,6 +68,21 @@ export function renderContextSection(
       f.path +
       ')\n\n' +
       'Durable notes accumulated across sessions. Treat as background knowledge; update this file when you learn something worth remembering.\n\n' +
+      f.content +
+      '\n'
+  }
+
+  // B6: nested AGENTS.md/MEMORY.md from the directories this task touches.
+  // Deliberately a SEPARATE section: these apply only to part of the tree and
+  // must not be mistaken for project-wide rules.
+  for (const f of context.scopedAgents || []) {
+    out +=
+      '\n## Scoped instructions (' +
+      f.path +
+      ')\n\n' +
+      'These rules apply ONLY to files under ' +
+      path.dirname(f.path) +
+      ' (the current task touches that directory). Follow them for those files, in addition to the project instructions above.\n\n' +
       f.content +
       '\n'
   }

@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Path-scoped правила (BACKLOG B6): вложенные `AGENTS.md`/`MEMORY.md` из
+  подпапок, которых касается задача, подтягиваются автоматически. Текст задачи
+  сканируется на path-токены, для найденных директорий (и их предков ниже
+  рабочей) читаются ближайшие инструкции и рендерятся отдельной секцией
+  `## Scoped instructions (...)` — явно помечены как действующие только для
+  этих файлов. `loadProjectContext(workdir, touchPaths?)` и
+  `renderContextSection()` (src/context.ts, src/system-prompt.ts; покрыто
+  тестами).
+
 - `@file`-ссылки в задаче (BACKLOG B5): `реши задачу @src/browser.ts`
   подставляет содержимое указанного файла прямо в задачу, экономя отдельный
   ход агента на чтение. Распознаётся `@path` на границе слова (в начале строки

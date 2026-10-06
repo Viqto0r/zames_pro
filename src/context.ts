@@ -1,4 +1,5 @@
 import fs from 'fs/promises'
+import { statSync } from 'fs'
 import path from 'path'
 import os from 'os'
 
@@ -122,6 +123,10 @@ export interface CustomCommand {
 
 export interface LoadedContext {
   agents: ContextFile[]
+  /** Nested AGENTS.md found in the subdirectories the current task touches
+   *  (B6). Rendered in their own section so it is clear they apply only to
+   *  part of the tree, not to the whole project. Optional: absent means none. */
+  scopedAgents?: ContextFile[]
   memory: ContextFile[]
   skills: SkillInfo[]
   commands: CustomCommand[]
@@ -454,6 +459,7 @@ async function loadMemoryChain(workdir: string): Promise<ContextFile[]> {
 
 export async function loadProjectContext(
   workdir: string,
+  touchPaths: string[] = [],
 ): Promise<LoadedContext> {
   const [agents, memory, skills, commands] = await Promise.all([
     loadAgentsChain(workdir).catch(() => []),
@@ -461,6 +467,9 @@ export async function loadProjectContext(
     loadSkills(workdir).catch(() => []),
     loadCommands(workdir).catch(() => []),
   ])
+  const scopedAgents = await loadScopedAgents(workdir, touchPaths).catch(
+    () => [],
+  )
   let used = 0
   const withinBudget = (files: ContextFile[]): ContextFile[] => {
     const kept = []
@@ -473,8 +482,79 @@ export async function loadProjectContext(
   }
   return {
     agents: withinBudget(agents),
+    // Scoped files are dropped silently when the total budget is already spent
+    // on the main chain: a nested AGENTS.md is an optimization, not a hard
+    // requirement, and must never push out a top-level instruction.
+    scopedAgents: withinBudget(scopedAgents),
     memory: withinBudget(memory),
     skills,
     commands,
   }
+}
+
+// A directory is "touched" by a task when the task text mentions a path inside
+// it (a `@ref`, a quoted path, a bare `src/foo.ts`). We look for the deepest
+// existing directories named in the text and collect AGENTS.md/MEMORY.md from
+// them and their ancestors below `workdir`. Implemented by scanning word tokens
+// rather than a regex over the whole text so a long prompt stays cheap.
+function touchedDirs(workdir: string, text: string): string[] {
+  const root = path.resolve(workdir)
+  const out = new Set<string>()
+  const words = String(text || '')
+    .split(/\s+/)
+    .map((w) => w.replace(/^[\('"\[]+/, '').replace(/[\),.;:'"\]]+$/, ''))
+  for (const w of words) {
+    if (!w || w.length > 300) continue
+    // Only path-looking tokens (contain a separator or a known file extension).
+    if (!/[\\/]/.test(w) && !/\.[A-Za-z0-9]{1,8}$/.test(w)) continue
+    const abs = path.isAbsolute(w) ? w : path.resolve(root, w)
+    if (abs !== root && !abs.startsWith(root + path.sep)) continue
+    // Walk from the deepest directory that actually exists up to the root.
+    let dir = abs
+    let st = statSyncSafe(dir)
+    while (!st && dir !== root && dir.startsWith(root + path.sep)) {
+      dir = path.dirname(dir)
+      st = statSyncSafe(dir)
+    }
+    if (!st || !st.isDirectory()) continue
+    let cur = dir
+    while (cur.startsWith(root + path.sep)) {
+      out.add(cur)
+      cur = path.dirname(cur)
+    }
+  }
+  return [...out]
+}
+
+function statSyncSafe(p: string): import('fs').Stats | null {
+  try {
+    return statSync(p)
+  } catch {
+    return null
+  }
+}
+
+async function loadScopedAgents(
+  workdir: string,
+  touchPaths: string[],
+): Promise<ContextFile[]> {
+  if (!touchPaths.length) return []
+  const root = path.resolve(workdir)
+  // Collect every directory named by the task, deepest first, so the most
+  // specific instructions come first and win the budget.
+  const dirs = touchedDirs(root, touchPaths.join(' '))
+  dirs.sort((a, b) => b.length - a.length)
+  const out: ContextFile[] = []
+  const seen = new Set<string>()
+  for (const dir of dirs) {
+    for (const names of [AGENT_NAMES, MEMORY_NAMES]) {
+      const p = await findNamedFile(dir, names)
+      if (!p || seen.has(p)) continue
+      const f = await readIfFile(p, MAX_FILE_BASE)
+      if (!f) continue
+      seen.add(p)
+      out.push(f)
+    }
+  }
+  return out
 }
