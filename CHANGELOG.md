@@ -5,22 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Added
-
-- `/cost` — разбивка по времени инструментов (BACKLOG D3): каждый
-  `tool_result` в транскрипте несёт `durationMs`, `summarizeTranscript()`
-  копит суммарное время в инструментах и по каждому инструменту, а `/cost`
-  показывает общее время и топ по времени (`cost.by_time`).
-
-### Changed
-
-- `AGENTS.md` уменьшен (BACKLOG C2): глубокие root-cause разборы («агент
-  остановился», чтение ответа из DOM, send-хуки, `LineEditor`, вложения) и
-  терминальная механика вынесены в `docs/DESIGN-NOTES.md` (progressive
-  disclosure — не грузится в каждую задачу). В AGENTS.md остались действующие
-  правила и краткая выжимка со ссылкой.
+## [2.63.0] - 2026-10-06
 
 ### Added
 
@@ -58,6 +43,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (лимит 60 КБ на файл, 200 КБ суммарно — сверх этого усечение с пометкой),
   несуществующие остаются как есть. Хелпер `extractAtFileRefs()` в
   `src/path-token.ts` (чистый, покрыт тестами).
+
+### Changed
+
+- `AGENTS.md` уменьшен (BACKLOG C2): глубокие root-cause разборы («агент
+  остановился», чтение ответа из DOM, send-хуки, `LineEditor`, вложения) и
+  терминальная механика вынесены в `docs/DESIGN-NOTES.md` (progressive
+  disclosure — не грузится в каждую задачу). В AGENTS.md остались действующие
+  правила и краткая выжимка со ссылкой.
 
 ## [2.62.0]
 
@@ -316,7 +309,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Session banner warns when no saved DeepSeek session exists.
 - `--no-color` flag (explicit `NO_COLOR`).
 
-[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.61.0...HEAD
+[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.63.0...HEAD
+[2.63.0]: https://github.com/Viqto0r/zames_pro/compare/v2.61.0...v2.63.0
 [2.61.0]: https://github.com/Viqto0r/zames_pro/compare/v2.60.0...v2.61.0
 [2.60.0]: https://github.com/Viqto0r/zames_pro/compare/v2.59.0...v2.60.0
 [2.59.0]: https://github.com/Viqto0r/zames_pro/compare/v2.58.0...v2.59.0
