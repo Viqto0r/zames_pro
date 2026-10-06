@@ -33,7 +33,7 @@ jobs:
 
       - name: Fetch Dependabot metadata
         id: meta
-        uses: dependabot/fetch-metadata@v2
+        uses: dependabot/fetch-metadata@v3
 
       # Auto-merge only patch / minor bumps. A major (or a routine bump of a
       # dev toolchain like ESLint/TypeScript) needs a human review, and the
