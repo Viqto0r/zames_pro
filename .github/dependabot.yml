@@ -1,21 +1,24 @@
 version: 2
 updates:
   # Keep GitHub Actions pinned versions fresh (security + deprecation warnings).
+  # MONTHLY: routine bumps are not urgent, and a weekly cadence only added
+  # PR noise. Security updates (CVE) are NOT governed by this schedule.
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
+      interval: monthly
+    open-pull-requests-limit: 3
     commit-message:
       prefix: ci
 
   # Runtime + dev dependencies. Grouped so one PR carries a batch of minor /
-  # patch bumps instead of dozens of separate PR s.
+  # patch bumps instead of dozens of separate PR s. MONTHLY: with majors
+  # ignored and minors auto-merged after green CI, this is low-noise.
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
+      interval: monthly
+    open-pull-requests-limit: 3
     commit-message:
       prefix: chore
     groups:
