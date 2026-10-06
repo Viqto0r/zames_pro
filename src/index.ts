@@ -76,6 +76,9 @@ import {
   renderDoctor,
   resolveExtraDir,
   buildReviewPrompt,
+  parseBacklogItems,
+  nextBacklogItem,
+  buildImprovePrompt,
   formatDuration,
   formatRelativeTime,
   trimRestoredMessages,
@@ -563,6 +566,7 @@ ${theme.bold(t('help.sec.files'))}
   ${t('help.cmd.doctor')}
   ${t('help.cmd.add_dir')}
   ${t('help.cmd.review')}
+  ${t('help.cmd.improve')}
   ${t('help.cmd.debug_dom')}
   ${t('help.cmd.help')}
   ${t('help.cmd.exit')}
@@ -625,6 +629,7 @@ const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
   { name: '/doctor', key: 'help.cmd.doctor' },
   { name: '/add-dir', key: 'help.cmd.add_dir' },
   { name: '/review', key: 'help.cmd.review' },
+  { name: '/improve', key: 'help.cmd.improve' },
   { name: '/goal', key: 'help.cmd.goal' },
   { name: '/loop', key: 'help.cmd.loop' },
   { name: '/cron', key: 'help.cmd.cron' },
@@ -3855,6 +3860,69 @@ async function main(): Promise<void> {
         freshChatNext = false
         // The new chat already carries the system prompt and the context.
         sendSystemPromptNext = false
+      }
+      continue
+    }
+
+    if (lower === '/improve' || lower.startsWith('/improve ')) {
+      // Backlog-driven self-improvement: pick the next open BACKLOG item (or a
+      // specific id) and run the standard task loop on it. The agent reads
+      // BACKLOG.md itself for the details, so a FRESH agent needs no external
+      // context — this is the reproducible hand-off path.
+      const arg = trimmed.slice('/improve'.length).trim()
+      let backlogText: string
+      try {
+        backlogText = await fs.readFile(
+          path.join(currentWorkdir, 'BACKLOG.md'),
+          'utf-8',
+        )
+      } catch {
+        console.error(theme.warn(t('improve.no_backlog')))
+        continue
+      }
+      const items = parseBacklogItems(backlogText)
+      const item = nextBacklogItem(items, arg || undefined)
+      if (!item) {
+        console.log(
+          theme.dim(
+            arg ? t('improve.not_found', { v: arg }) : t('improve.all_done'),
+          ),
+        )
+        continue
+      }
+      console.log(
+        theme.system(t('improve.start', { id: item.id, title: item.title })),
+      )
+      const improveTools = mod.createTools(currentWorkdir, {
+        undo,
+        todos: todoStore,
+        readOnly: planMode,
+      })
+      if (mcpPool) improveTools.push(...mcpPool.tools)
+      if (editor) editor.busy = true
+      try {
+        await runTask(
+          browser,
+          improveTools,
+          buildImprovePrompt(item),
+          currentWorkdir,
+          {
+            transcript,
+            freshChat: false,
+            sendSystemPrompt: false,
+            queue: pendingQueue,
+            ui: editor || null,
+            onChatReady: (chatId) => {
+              if (chatId) {
+                currentChatId = chatId
+                saveLastChat(chatId, currentWorkdir)
+              }
+            },
+            getTokenUsage: () => browser.getLastTokenUsage(),
+          },
+        )
+      } finally {
+        if (editor) editor.busy = false
       }
       continue
     }

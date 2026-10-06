@@ -252,6 +252,26 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: '/review [focus] ревью незакоммиченных изменений',
     en: '/review [focus] review uncommitted changes',
   },
+  'help.cmd.improve': {
+    ru: '/improve [id] взять следующий пункт BACKLOG и довести до тестов',
+    en: '/improve [id] take the next BACKLOG item and drive it to green tests',
+  },
+  'improve.no_backlog': {
+    ru: 'BACKLOG.md не найден в рабочей директории.',
+    en: 'BACKLOG.md was not found in the working directory.',
+  },
+  'improve.all_done': {
+    ru: 'Открытых пунктов в BACKLOG нет.',
+    en: 'There are no open BACKLOG items.',
+  },
+  'improve.not_found': {
+    ru: 'Пункт {v} не найден в BACKLOG.',
+    en: 'Item {v} was not found in BACKLOG.',
+  },
+  'improve.start': {
+    ru: 'Улучшение {id}: {title}',
+    en: 'Improving {id}: {title}',
+  },
   'help.cmd.compact': {
     ru: '/compact сжать историю и открыть новый чат с резюме',
     en: '/compact compact the history and open a new chat with the summary',

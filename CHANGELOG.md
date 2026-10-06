@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.59.0]
+
+### Added
+
+- `/improve [id]` — a backlog-driven self-improvement loop. It picks the
+  next open item from `BACKLOG.md` (highest priority, or an explicit id),
+  runs the standard task loop on it (implement, typecheck/lint/test, mark
+  the item done, add a CHANGELOG entry) and leaves the changes uncommitted
+  for review. This is the reproducible hand-off path for a fresh agent.
+
 ## [2.58.0]
 
 ### Added
@@ -198,7 +208,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Session banner warns when no saved DeepSeek session exists.
 - `--no-color` flag (explicit `NO_COLOR`).
 
-[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.58.0...HEAD
+[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.59.0...HEAD
+[2.59.0]: https://github.com/Viqto0r/zames_pro/compare/v2.58.0...v2.59.0
 [2.58.0]: https://github.com/Viqto0r/zames_pro/compare/v2.57.1...v2.58.0
 [2.57.1]: https://github.com/Viqto0r/zames_pro/compare/v2.57.0...v2.57.1
 [2.57.0]: https://github.com/Viqto0r/zames_pro/compare/v2.56.0...v2.57.0

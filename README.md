@@ -247,6 +247,10 @@ Codex CLI:
   instead of the whole list.
 - /review [focus] [--staged] — ask the agent to review uncommitted changes
   and report findings (no code changes).
+- /improve [id] — self-improvement loop: take the next open item from
+  `BACKLOG.md` (or a specific id, e.g. `/improve B3`), implement it, run the
+  typecheck/lint/tests, mark it done and add a CHANGELOG entry. Nothing is
+  committed — the changes stay in the working tree for review.
 - /plan [on|off] — plan (read-only) mode. While it is on, the mutating tools
   (Write/Edit/MultiEdit/ApplyPatch/Bash, GitAdd/GitCommit/GitPush) are removed
   from the tool set, so the agent can investigate without touching the tree.

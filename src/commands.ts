@@ -927,6 +927,95 @@ export function mergeMessages(msgs: QueuedMessage[]): MergedMessage {
   return { text, attachments }
 }
 
+// ---------- /improve ----------
+
+// A single actionable BACKLOG item parsed from BACKLOG.md.
+export interface BacklogItem {
+  id: string
+  title: string
+  status: 'done' | 'open'
+  priority: string
+  /** Path to read, if the item mentions one (e.g. src/commands.ts). */
+}
+
+// Parse BACKLOG.md into actionable items. Recognizes headings of the form
+// `### A1. ...`, `### D7. ...` and marks an item done when its heading carries
+// a `[x]` marker. Pure; unit-tested. We deliberately do NOT parse the whole
+// markdown structure — only the headings the file contract promises.
+export function parseBacklogItems(text: string): BacklogItem[] {
+  const out: BacklogItem[] = []
+  let priority = ''
+  for (const raw of String(text ?? '').split(NL)) {
+    const line = raw.trimEnd()
+    const p = /^##\s+(P[0-3])\b/.exec(line)
+    if (p) {
+      priority = p[1]
+      continue
+    }
+    const m = /^###\s+([A-Z]\d+)\.\s+(.*)$/.exec(line)
+    if (!m) continue
+    const id = m[1]
+    const rest = m[2]
+    // The `[x]` rewrite in BACKLOG keeps the ORIGINAL heading under a
+    // <details> block wrapped in `~~`. That archived copy must not be counted
+    // as a second, open item — skip a heading whose text starts with `~~`.
+    if (rest.trim().startsWith('~~')) continue
+    const done = /^\[x\]/i.test(rest.trim())
+    // The title is the heading text with the [x] marker and the `~~` strike
+    // wrappers removed, so a done item still has a clean label.
+    const title = rest
+      .replace(/^\[x\]\s*/i, '')
+      .replace(/~~/g, '')
+      .trim()
+    out.push({ id, title, status: done ? 'done' : 'open', priority })
+  }
+  return out
+}
+
+// The next item to work on: the highest-priority OPEN item, in file order.
+// P0 first, then P1..P3. An explicit id overrides the priority search.
+export function nextBacklogItem(
+  items: BacklogItem[],
+  wanted?: string,
+): BacklogItem | null {
+  const open = items.filter((i) => i.status === 'open')
+  if (wanted) {
+    const w = wanted.trim().toUpperCase()
+    return items.find((i) => i.id.toUpperCase() === w) || null
+  }
+  if (!open.length) return null
+  const rank = (p: string): number => {
+    const m = /P(\d)/.exec(p || '')
+    return m ? Number(m[1]) : 9
+  }
+  return open.slice().sort((a, b) => rank(a.priority) - rank(b.priority))[0]
+}
+
+// The task text sent to the agent for a chosen item. Agent-facing English,
+// like the rest of the loop. Keeps the working rules explicit so a fresh agent
+// does not need any external context.
+export function buildImprovePrompt(item: BacklogItem): string {
+  return (
+    'Implement BACKLOG item ' +
+    item.id +
+    ' (priority ' +
+    (item.priority || '?') +
+    '): ' +
+    item.title +
+    NL +
+    NL +
+    'Read the full item text in BACKLOG.md for the details and the rationale. ' +
+    'Then: (1) implement it with the smallest reasonable change; ' +
+    '(2) run `npm run typecheck`, `npm run lint`, `npm run format:check` and ' +
+    '`npm test` and fix any failure; (3) mark the item done in BACKLOG.md by ' +
+    'prefixing its heading with `[x]` and wrapping the original heading text ' +
+    'in `~~ ~~`; (4) add a CHANGELOG entry if the change is user-visible; ' +
+    '(5) do NOT commit or push — leave the changes staged in the working tree ' +
+    'for the operator to review. When done, call respond with a short report ' +
+    '(files changed, tests run, whether BACKLOG/CHANGELOG were updated).'
+  )
+}
+
 // ---------- /review ----------
 
 export function buildReviewPrompt(focus: string, hasStaged = false): string {
