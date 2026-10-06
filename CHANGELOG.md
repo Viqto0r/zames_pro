@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.63.1] - 2026-10-06
+
+### Fixed
+
+- Мигание таймера в статусе паузы перед отправкой: `sendPause()` (и
+  `LineEditor`, и non-TTY `SpinnerUI`) перерисовывал статус БЕЗ хвоста
+  «elapsed»/бейджа задач, а тик анимации рисовал его С ним — раз в секунду
+  подпись `· 1m 50s` исчезала и появлялась. Теперь обновление собирает тот же
+  хвост, что и тик. Регрессионный тест в test/compact-statusline.test.ts.
+
+### Changed
+
+- README: центрированная шапка, логотип крупнее (640px-ассет, 430px показ),
+  диаграмма «How it works», оглавление и секция Links.
+- Dependabot: мажорные обновления игнорируются (`semver-major`), расписание
+  раз в месяц, авто-мерж только для patch/minor и только для PR бота
+  (проверка автора и ветки); workflow авто-мержа. Ветка `master` защищена
+  ruleset: PR обязателен, required-check — стабильный job `ci`.
+
 ## [2.63.0] - 2026-10-06
 
 ### Added
@@ -309,7 +328,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Session banner warns when no saved DeepSeek session exists.
 - `--no-color` flag (explicit `NO_COLOR`).
 
-[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.63.0...HEAD
+[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.63.1...HEAD
+[2.63.1]: https://github.com/Viqto0r/zames_pro/compare/v2.63.0...v2.63.1
 [2.63.0]: https://github.com/Viqto0r/zames_pro/compare/v2.61.0...v2.63.0
 [2.61.0]: https://github.com/Viqto0r/zames_pro/compare/v2.60.0...v2.61.0
 [2.60.0]: https://github.com/Viqto0r/zames_pro/compare/v2.59.0...v2.60.0
