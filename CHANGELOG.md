@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.57.1]
 
+### Changed
+
+- CI workflows use actions/checkout@v5 and actions/setup-node@v5 (the v4
+  actions run on the deprecated Node 20 runtime and showed up as an
+  annotation on every run).
+
 ### Added
 
 - README badges (npm version/downloads, CI status, license, Node, PRs) and a
