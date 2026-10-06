@@ -117,6 +117,8 @@ test('renderCost contains key lines', () => {
       turns: 2,
       toolCalls: 3,
       toolCounts: { Read: 2, Bash: 1 },
+      toolMs: 5000,
+      toolTime: { Read: 2000, Bash: 3000 },
       durationMs: 8000,
       startedAt: 'x',
       autoCompacts: 0,
@@ -140,6 +142,8 @@ test('renderCost shows the token context when known', () => {
       turns: 1,
       toolCalls: 0,
       toolCounts: {},
+      toolMs: 0,
+      toolTime: {},
       durationMs: 0,
       startedAt: null,
       autoCompacts: 0,
@@ -149,6 +153,39 @@ test('renderCost shows the token context when known', () => {
   )
   assert.ok(out.includes('12345 tokens'))
   assert.ok(!out.includes('context: unknown'))
+})
+
+test('renderCost shows the per-tool time breakdown', () => {
+  const out = renderCost(
+    {
+      turns: 1,
+      toolCalls: 2,
+      toolCounts: { Bash: 1, Read: 1 },
+      toolMs: 8000,
+      toolTime: { Bash: 5000, Read: 3000 },
+      durationMs: 9000,
+      startedAt: null,
+      autoCompacts: 0,
+    },
+    null,
+  )
+  assert.ok(out.includes('time in tools'), 'total time line present')
+  // Bash took longer, so it is listed first.
+  const b = out.indexOf('Bash:')
+  const r = out.indexOf('Read:')
+  assert.ok(b !== -1 && r !== -1 && b < r, 'sorted by total time desc')
+})
+
+test('summarizeTranscript sums per-tool time from tool_result.durationMs', () => {
+  const s = summarizeTranscript([
+    { type: 'tool_result', tool: 'Bash', durationMs: 1500 },
+    { type: 'tool_result', tool: 'Bash', durationMs: 500 },
+    { type: 'tool_result', tool: 'Read', durationMs: 200 },
+    { type: 'tool_result', tool: 'Read' },
+  ])
+  assert.equal(s.toolMs, 2200)
+  assert.equal(s.toolTime['Bash'], 2000)
+  assert.equal(s.toolTime['Read'], 200)
 })
 
 test('summarizeTranscript counts auto-compacts', () => {

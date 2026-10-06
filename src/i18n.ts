@@ -905,6 +905,11 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
   },
   'cost.auto_compacts': { ru: ' авто-сжатий: {n}', en: ' auto-compacts: {n}' },
   'cost.by_tool': { ru: ' по инструментам:', en: ' by tool:' },
+  // T-D3: total time spent inside tools, then a top-N per-tool breakdown.
+  'cost.by_time': {
+    ru: ' время в инструментах: {dur}; топ по времени:',
+    en: ' time in tools: {dur}; top by time:',
+  },
   'cost.duration': { ru: ' длительность: {dur}', en: ' duration: {dur}' },
   'cost.started': { ru: ' начало: {v}', en: ' started: {v}' },
   'cost.transcript': { ru: ' транскрипт: {v}', en: ' transcript: {v}' },

@@ -993,6 +993,9 @@ export async function runAgentLoop({
       // makes Esc feel immediate.
       const poll = setInterval(syncToolAbort, 100)
       if (typeof poll.unref === 'function') poll.unref()
+      // Time the tool (T-D3): the transcript carries durationMs so /cost can
+      // show where the time goes (frequent Read→Edit cycles vs slow Bash).
+      const toolStart = Date.now()
       try {
         result = await tool.fn(call.args, { signal: toolAbort.signal })
       } catch (e) {
@@ -1000,6 +1003,7 @@ export async function runAgentLoop({
       } finally {
         clearInterval(poll)
       }
+      const toolMs = Date.now() - toolStart
 
       // PostToolUse hooks run AFTER the tool; their stdout is appended to the
       // result (e.g. `prettier` output) before it is fed back to the model.
@@ -1023,6 +1027,7 @@ ${post}`
       transcript?.log('tool_result', {
         tool: call.tool,
         result: String(result),
+        durationMs: toolMs,
       })
       results.push({ tool: call.tool, result })
 

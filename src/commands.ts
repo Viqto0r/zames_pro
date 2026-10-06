@@ -110,6 +110,10 @@ export interface SessionStats {
   turns: number
   toolCalls: number
   toolCounts: Record<string, number>
+  /** Total time spent inside tools (sum of tool_result.durationMs), ms. */
+  toolMs: number
+  /** Per-tool total time in ms, for the top-N breakdown. */
+  toolTime: Record<string, number>
   durationMs: number
   startedAt: string | null
   /** How many times the chat was auto-compacted (context neared the limit). */
@@ -121,6 +125,8 @@ export function summarizeTranscript(entries: TranscriptEntry[]): SessionStats {
     turns: 0,
     toolCalls: 0,
     toolCounts: {},
+    toolMs: 0,
+    toolTime: {},
     durationMs: 0,
     startedAt: null,
     autoCompacts: 0,
@@ -133,6 +139,14 @@ export function summarizeTranscript(entries: TranscriptEntry[]): SessionStats {
       stats.toolCalls++
       const tool = String(e.tool ?? '?')
       stats.toolCounts[tool] = (stats.toolCounts[tool] || 0) + 1
+    }
+    if (e.type === 'tool_result') {
+      const ms = Number(e.durationMs)
+      if (Number.isFinite(ms) && ms > 0) {
+        stats.toolMs += ms
+        const tool = String(e.tool ?? '?')
+        stats.toolTime[tool] = (stats.toolTime[tool] || 0) + ms
+      }
     }
     if (typeof e.elapsed === 'number' && e.elapsed > stats.durationMs) {
       stats.durationMs = e.elapsed
@@ -228,6 +242,19 @@ export function renderCost(
   if (top.length) {
     lines.push(t('cost.by_tool'))
     for (const [name, n] of top) lines.push(' ' + name + ': ' + n)
+  }
+  // T-D3: where the time went. Sort by total ms, show the top tools with the
+  // count and a human duration, so Read→Edit cycles and slow Bash calls are
+  // visible at a glance.
+  const byTime = Object.entries(stats.toolTime || {})
+    .filter(([, ms]) => ms > 0)
+    .sort((a, b) => b[1] - a[1])
+  if (byTime.length) {
+    lines.push(t('cost.by_time', { dur: formatDuration(stats.toolMs) }))
+    for (const [name, ms] of byTime.slice(0, 8)) {
+      const count = stats.toolCounts[name] ?? 0
+      lines.push(' ' + name + ': ' + formatDuration(ms) + ' ×' + count)
+    }
   }
   lines.push(t('cost.duration', { dur: formatDuration(stats.durationMs) }))
   if (stats.startedAt) lines.push(t('cost.started', { v: stats.startedAt }))

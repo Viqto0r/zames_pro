@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `/cost` — разбивка по времени инструментов (BACKLOG D3): каждый
+  `tool_result` в транскрипте несёт `durationMs`, `summarizeTranscript()`
+  копит суммарное время в инструментах и по каждому инструменту, а `/cost`
+  показывает общее время и топ по времени (`cost.by_time`).
+
 ### Changed
 
 - `AGENTS.md` уменьшен (BACKLOG C2): глубокие root-cause разборы («агент
