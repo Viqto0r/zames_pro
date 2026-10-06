@@ -19,6 +19,9 @@ import {
   formatRestoredHistory,
   isDisplayableMessage,
   RESTORED_HISTORY_LIMIT,
+  splitCommandArgs,
+  expandCommandArgs,
+  missingCommandArgs,
 } from '../src/commands.ts'
 
 const NL = String.fromCharCode(10)
@@ -490,4 +493,42 @@ test('parseAssistantToolCall returns the tool name and the message', () => {
   assert.equal(r?.tool, 'respond')
   assert.equal(r?.message, 'привет')
   assert.equal(parseAssistantToolCall('просто текст'), null)
+})
+
+// ---------- B7: custom-command arguments ----------
+
+test('splitCommandArgs splits on spaces and honors quotes', () => {
+  assert.deepEqual(splitCommandArgs('a b c'), ['a', 'b', 'c'])
+  assert.deepEqual(splitCommandArgs('"a b" c'), ['a b', 'c'])
+  assert.deepEqual(splitCommandArgs('  x   y  '), ['x', 'y'])
+  assert.deepEqual(splitCommandArgs(''), [])
+})
+
+test('expandCommandArgs substitutes {{args}} and $ARGUMENTS', () => {
+  assert.equal(expandCommandArgs('do {{args}}', 'x y'), 'do x y')
+  assert.equal(expandCommandArgs('do $ARGUMENTS!', 'x'), 'do x!')
+})
+
+test('expandCommandArgs substitutes positional $1 $2', () => {
+  assert.equal(expandCommandArgs('$1 then $2', 'a b'), 'a then b')
+  assert.equal(expandCommandArgs('$2 then $1', 'a b'), 'b then a')
+})
+
+test('expandCommandArgs substitutes named positions', () => {
+  assert.equal(
+    expandCommandArgs('file=$file focus=$focus', 'a.ts bugs', [
+      'file',
+      'focus',
+    ]),
+    'file=a.ts focus=bugs',
+  )
+  // $foobar must not be treated as the name `foo`.
+  assert.equal(expandCommandArgs('$foobar', 'x', ['foo']), '$foobar')
+})
+
+test('missingCommandArgs reports unsupplied positions', () => {
+  assert.deepEqual(missingCommandArgs(['a', 'b'], 'x y'), [])
+  assert.deepEqual(missingCommandArgs(['a', 'b'], 'x'), ['b'])
+  assert.deepEqual(missingCommandArgs(['a'], ''), ['a'])
+  assert.deepEqual(missingCommandArgs(undefined, ''), [])
 })

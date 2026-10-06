@@ -831,6 +831,131 @@ export function rewriteFailedAttachments(
   return out
 }
 
+// Split a custom-command argument string into positional tokens, honoring
+// single/double quotes (so two quoted words stay one token). Pure, so it is
+// unit-tested.
+export function splitCommandArgs(rest: string): string[] {
+  const out: string[] = []
+  const s = String(rest ?? '')
+  const SQ = String.fromCharCode(39)
+  const DQ = String.fromCharCode(34)
+  let cur = ''
+  let quote = ''
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i]
+    if (quote) {
+      if (ch === quote) {
+        quote = ''
+        continue
+      }
+      cur += ch
+      continue
+    }
+    if (ch === SQ || ch === DQ) {
+      quote = ch
+      continue
+    }
+    if (ch.charCodeAt(0) <= 32) {
+      if (cur) {
+        out.push(cur)
+        cur = ''
+      }
+      continue
+    }
+    cur += ch
+  }
+  if (cur) out.push(cur)
+  return out
+}
+
+function isAllDigits(tok: string): boolean {
+  if (!tok) return false
+  for (let i = 0; i < tok.length; i++) {
+    const c = tok.charCodeAt(i)
+    if (c < 48 || c > 57) return false
+  }
+  return true
+}
+
+function isWordChar(ch: string): boolean {
+  const c = ch.charCodeAt(0)
+  return (
+    (c >= 48 && c <= 57) ||
+    (c >= 65 && c <= 90) ||
+    (c >= 97 && c <= 122) ||
+    ch === '_'
+  )
+}
+
+// Replace $1..$N and $name tokens in an already-expanded body. A whole word is
+// read after $ so $foobar never matches the name foo. Pure.
+function replaceDollarTokens(
+  s: string,
+  parts: string[],
+  names: string[],
+): string {
+  let res = ''
+  let i = 0
+  while (i < s.length) {
+    const ch = s[i]
+    if (ch !== '$') {
+      res += ch
+      i++
+      continue
+    }
+    let j = i + 1
+    let tok = ''
+    while (j < s.length && isWordChar(s[j])) {
+      tok += s[j]
+      j++
+    }
+    if (!tok) {
+      res += ch
+      i++
+      continue
+    }
+    if (isAllDigits(tok)) {
+      res += parts[Number(tok) - 1] ?? ''
+    } else {
+      const idx = names.indexOf(tok)
+      res += idx >= 0 ? (parts[idx] ?? '') : '$' + tok
+    }
+    i = j
+  }
+  return res
+}
+
+// Expand a custom-command body: {{args}} / $ARGUMENTS become the whole argument
+// string, $1..$N the positional tokens, $name the declared positions. Pure, so
+// it is unit-tested.
+export function expandCommandArgs(
+  body: string,
+  rest: string,
+  names: string[] = [],
+): string {
+  const parts = splitCommandArgs(rest)
+  let out = String(body ?? '')
+  out = out.split('{{args}}').join(rest)
+  out = out.split('$ARGUMENTS').join(rest)
+  out = replaceDollarTokens(out, parts, names)
+  return out.trim()
+}
+
+// Names declared in `arguments:` but not supplied on the command line (by
+// position). Pure, so the caller can refuse an incomplete invocation.
+export function missingCommandArgs(
+  names: string[] | undefined,
+  rest: string,
+): string[] {
+  if (!names || !names.length) return []
+  const parts = splitCommandArgs(rest)
+  const missing: string[] = []
+  for (let i = 0; i < names.length; i++) {
+    if (!parts[i]) missing.push(names[i])
+  }
+  return missing
+}
+
 // True when a `/config ...` line can be handled LIVE (while the agent is busy):
 // the text subcommands only touch config values, never the chat. The bare
 // `/config` and `/config menu` (which pause the editor and read keys) are NOT

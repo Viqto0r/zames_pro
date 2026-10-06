@@ -119,6 +119,10 @@ export interface CustomCommand {
   description: string
   path: string
   body: string
+  /** Shown in the «/» suggest list, e.g. "<file> [focus]". */
+  argumentHint?: string
+  /** Named positional arguments (from frontmatter `arguments:`), in order. */
+  arguments?: string[]
 }
 
 export interface LoadedContext {
@@ -206,6 +210,8 @@ interface FrontMatter {
   description?: string
   allowedTools?: string[]
   userInvokable?: boolean
+  argumentHint?: string
+  arguments?: string[]
 }
 
 const PROJECT_SKILL_DIRS = [
@@ -258,11 +264,23 @@ function parseFrontmatter(raw: string): FrontMatter {
     typeof out['user-invokable'] === 'string'
       ? out['user-invokable'].toLowerCase() !== 'false'
       : undefined
+  const argumentsList =
+    typeof out['arguments'] === 'string'
+      ? out['arguments']
+          .split(/[,\s]+/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : undefined
   return {
     name: out.name,
     description: out.description,
     allowedTools,
     userInvokable,
+    argumentHint:
+      typeof out['argument-hint'] === 'string'
+        ? out['argument-hint']
+        : undefined,
+    arguments: argumentsList,
   }
 }
 
@@ -382,6 +400,8 @@ async function loadCommandsFromDir(dir: string): Promise<CustomCommand[]> {
       description: (fm.description || '').replace(/\s+/g, ' ').trim(),
       path: full,
       body: skillBody(raw),
+      argumentHint: fm.argumentHint,
+      arguments: fm.arguments,
     })
   }
   return out

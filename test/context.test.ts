@@ -187,3 +187,19 @@ test('buildSystemPrompt includes context sections', async () => {
   assert.match(sp, /## Custom commands/)
   assert.match(sp, /\/review/)
 })
+
+test('loadCommands parses argument-hint and arguments frontmatter (B7)', async () => {
+  const root = await mkTmp()
+  const dir = path.join(root, '.zames', 'commands')
+  await fs.mkdir(dir, { recursive: true })
+  await fs.writeFile(
+    path.join(dir, 'fix.md'),
+    '---\ndescription: fix it\nargument-hint: <file> [focus]\narguments: file, focus\n---\nFix $file ($focus)',
+    'utf-8',
+  )
+  const cmds = await loadCommands(root)
+  const c = cmds.find((x) => x.name === 'fix')
+  assert.ok(c)
+  assert.equal(c!.argumentHint, '<file> [focus]')
+  assert.deepEqual(c!.arguments, ['file', 'focus'])
+})

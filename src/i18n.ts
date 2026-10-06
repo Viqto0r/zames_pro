@@ -735,6 +735,10 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: 'Неизвестная команда: {v}. Набери /help.',
     en: 'Unknown command: {v}. Type /help.',
   },
+  'msg.missing_args': {
+    ru: 'Не хватает обязательных аргументов: {v}.',
+    en: 'Missing required arguments: {v}.',
+  },
   'msg.dev_only': {
     ru: 'Команда {v} доступна только в dev-режиме (--dev или hotReload).',
     en: 'The {v} command is only available in dev mode (--dev or hotReload).',

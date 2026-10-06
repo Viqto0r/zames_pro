@@ -306,6 +306,9 @@ export function layoutInput(
 export interface SlashCommand {
   name: string
   description: string
+  /** Optional argument hint shown after the name in the suggest list (B7),
+   *  e.g. `<file> [focus]`. Display only — never inserted into the line. */
+  hint?: string
 }
 
 export interface LineEditorOptions {
@@ -755,11 +758,13 @@ export class LineEditor {
     const shown = sugg.slice(off, off + pageSize)
     this._suggestOffset = off
     this._suggestCount = sugg.length
-    const maxName = Math.max(...shown.map((c) => c.name.length))
+    const label = (c: SlashCommand): string =>
+      c.hint ? c.name + ' ' + c.hint : c.name
+    const maxName = Math.max(...shown.map((c) => label(c).length))
     const lines = shown.map((c, i) => {
       const selected =
         off + i === this._suggestSelected && this._suggestSelected > 0
-      const name = theme.prompt(c.name.padEnd(maxName))
+      const name = theme.prompt(label(c).padEnd(maxName))
       const desc = theme.dim('  ' + c.description)
       return (selected ? theme.prompt(' ▸ ') : '   ') + name + desc
     })

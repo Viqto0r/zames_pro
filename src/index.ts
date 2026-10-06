@@ -95,6 +95,8 @@ import {
   withGoal,
   formatQueueList,
   ctrlCEscalation,
+  expandCommandArgs,
+  missingCommandArgs,
   type RestoredMessage,
 } from './commands.js'
 import { performCompact } from './compact.js'
@@ -639,7 +641,7 @@ ${theme.bold(t('help.sec.files'))}
   ${t('help.cmd.doctor')}
   ${t('help.cmd.add_dir')}
   ${t('help.cmd.review')}
-${devHelp}${dynamicCommands.length ? '\n' + theme.bold(t('help.skills')) + '\n' + dynamicCommands.map((d) => '  ' + d.name.padEnd(24) + ' ' + d.description).join('\n') : ''}
+${devHelp}${dynamicCommands.length ? '\n' + theme.bold(t('help.skills')) + '\n' + dynamicCommands.map((d) => '  ' + (d.hint ? d.name + ' ' + d.hint : d.name).padEnd(24) + ' ' + d.description).join('\n') : ''}
 
 ${theme.bold(t('help.files'))}
   ${t('help.files.logs')}        ${config.transcript.dir}
@@ -731,10 +733,14 @@ const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
 // Dynamically discovered skills and custom commands for the current workdir.
 // Filled in by refreshDynamicCommands() and shown in the «/» hint list and
 // help. Skills are surfaced as /skill-name entries (user-invokable only).
-let dynamicCommands: Array<{ name: string; description: string }> = []
+let dynamicCommands: Array<{
+  name: string
+  description: string
+  hint?: string
+}> = []
 
 async function refreshDynamicCommands(workdir: string): Promise<void> {
-  const out: Array<{ name: string; description: string }> = []
+  const out: Array<{ name: string; description: string; hint?: string }> = []
   try {
     const { loadSkills, loadCommands } = await import('./context.js')
     const skills = await loadSkills(workdir)
@@ -747,9 +753,12 @@ async function refreshDynamicCommands(workdir: string): Promise<void> {
     }
     const cmds = await loadCommands(workdir)
     for (const c of cmds) {
+      // B7: carry the declared argument hint as a separate field so the hint is
+      // SHOWN in the suggest list but never inserted into the input line.
       out.push({
         name: '/' + c.name,
         description: c.description || t('help.cmd.custom'),
+        hint: c.argumentHint,
       })
     }
   } catch {
@@ -759,12 +768,15 @@ async function refreshDynamicCommands(workdir: string): Promise<void> {
 }
 
 // Expand a slash target (skill or custom command) into a task string.
-// Returns null when the name is neither a skill nor a custom command.
+// Returns null when the name is neither a skill nor a custom command. When a
+// custom command declares mandatory `arguments:` and some are missing, returns
+// `{ missing }` so the caller can print the usage hint instead of sending an
+// incomplete prompt.
 async function expandSlashTarget(
   workdir: string,
   name: string,
   rest: string,
-): Promise<string | null> {
+): Promise<{ text: string } | { missing: string[] } | null> {
   try {
     const { loadSkills, loadCommands, skillBody } = await import('./context.js')
     const commands = await loadCommands(workdir)
@@ -772,9 +784,11 @@ async function expandSlashTarget(
       (c) => c.name.toLowerCase() === name.toLowerCase(),
     )
     if (cmd) {
-      let body = cmd.body.replace(/\{\{args\}\}/g, rest)
-      body = body.replace(/\$ARGUMENTS/g, rest)
-      return body.trim() || rest
+      // B7: refuse to run when declared positional arguments are missing.
+      const missing = missingCommandArgs(cmd.arguments, rest)
+      if (missing.length) return { missing }
+      const body = expandCommandArgs(cmd.body, rest, cmd.arguments)
+      return { text: body || rest }
     }
     const skills = await loadSkills(workdir)
     const skill = skills.find(
@@ -797,7 +811,7 @@ async function expandSlashTarget(
       const extra = rest
         ? '\n\nAdditional instructions from the operator: ' + rest
         : ''
-      return header + '\n\n' + body + extra
+      return { text: header + '\n\n' + body + extra }
     }
   } catch {
     // fall through: treated as an unknown command
@@ -4381,10 +4395,22 @@ async function main(): Promise<void> {
     // task. Skills are instructions the agent follows; custom commands are
     // prompt templates with $ARGUMENTS / {{args}} placeholders.
     let expandedTask: string | null = null
+    let missingArgs: string[] | null = null
     if (lower.startsWith('/')) {
       const name = trimmed.slice(1).split(/\s+/)[0]
       const rest = trimmed.slice(1 + name.length).trim()
-      expandedTask = await expandSlashTarget(currentWorkdir, name, rest)
+      const res = await expandSlashTarget(currentWorkdir, name, rest)
+      if (res && 'missing' in res) missingArgs = res.missing
+      else if (res) expandedTask = res.text
+    }
+
+    // B7: a custom command with mandatory `arguments:` refuses to run until the
+    // operator supplies them (by position).
+    if (missingArgs) {
+      console.error(
+        theme.error(t('msg.missing_args', { v: missingArgs.join(', ') })),
+      )
+      continue
     }
 
     if (lower.startsWith('/') && expandedTask === null) {
