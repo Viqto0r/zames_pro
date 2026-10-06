@@ -10,7 +10,7 @@ updates:
       prefix: ci
 
   # Runtime + dev dependencies. Grouped so one PR carries a batch of minor /
-  # patch bumps instead of dozens of separate PRs.
+  # patch bumps instead of dozens of separate PR s.
   - package-ecosystem: npm
     directory: /
     schedule:
@@ -24,3 +24,10 @@ updates:
         update-types:
           - minor
           - patch
+    # A major bump of a loose dependency needs a human decision (breaking
+    # changes, toolchain compatibility), so do not open PR s for it. This blocks
+    # the whole major category; a wanted major is done by hand.
+    ignore:
+      - dependency-name: '*'
+        update-types:
+          - version-update:semver-major
