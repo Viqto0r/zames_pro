@@ -1,12 +1,20 @@
-# zames_pro
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/logo-small.jpg" alt="zames logo" width="180">
+</p>
 
-[![npm version](https://img.shields.io/npm/v/zames_pro.svg)](https://www.npmjs.com/package/zames_pro)
-[![npm downloads](https://img.shields.io/npm/dm/zames_pro.svg)](https://www.npmjs.com/package/zames_pro)
-[![tests](https://github.com/Viqto0r/zames_pro/actions/workflows/test.yml/badge.svg)](https://github.com/Viqto0r/zames_pro/actions/workflows/test.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](package.json)
+<h1 align="center">zames_pro</h1>
 
-![zames logo](https://raw.githubusercontent.com/Viqto0r/zames_pro/master/logo.jpg)
+<p align="center">
+  <strong>A terminal coding agent that drives chat.deepseek.com through Playwright — no API key required.</strong>
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/zames_pro"><img src="https://img.shields.io/npm/v/zames_pro.svg" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/zames_pro"><img src="https://img.shields.io/npm/dm/zames_pro.svg" alt="npm downloads"></a>
+  <a href="https://github.com/Viqto0r/zames_pro/actions/workflows/test.yml"><img src="https://github.com/Viqto0r/zames_pro/actions/workflows/test.yml/badge.svg" alt="tests"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg" alt="Node.js"></a>
+</p>
 
 A terminal coding agent that works on top of [chat.deepseek.com](https://chat.deepseek.com/) through Playwright.
 In spirit it is similar to Claude Code / Codex CLI: it starts in the current
@@ -14,6 +22,44 @@ directory, reads and edits files, runs commands, and commits to git.
 
 > No API key required — it drives the DeepSeek web chat like a regular user
 > through a real (headless) browser.
+
+## How it works
+
+zames does not call the model API. It launches a headless Chromium with a
+persistent profile, signs in to `chat.deepseek.com` like a human, types the task
+into the chat box, and reads the answer back.
+
+```
+ terminal (you)                 zames                          chat.deepseek.com
+ ───────────────                ─────                          ─────────────────
+   task ──────────────────────▶ system prompt + task ────────▶  browser types it
+                                       ▲                              │
+                                       │                        model answers
+                                       │                              │
+   answer  ◀──── render ◀─────  parse tool-call  ◀──── raw answer ◀────┘
+                                       │
+                                       ▼
+                         run tool (Read/Edit/Bash/…) → feed result back
+```
+
+Key pieces:
+
+- **The answer is read from the raw network stream** (SSE), not the rendered
+  DOM, so tool-call JSON with template strings and escapes survives intact.
+- **A persistent profile** (`~/.zames/profile`) keeps you signed in; the
+  headless User-Agent is patched so DeepSeek's CDN does not 403 the login.
+- **A send throttle** (15 s by default) keeps the web chat's rate limit happy
+  during long tool-heavy runs.
+- **The agent is sandboxed** to the directory it was started in — no tool can
+  read or write above it.
+
+## Table of contents
+
+- [Features](#features) · [Why zames?](#why-zames) · [Requirements](#requirements)
+- [How it works](#how-it-works) · [Installation](#installation) · [Signing in](#signing-in) · [Usage](#usage)
+- [Tools](#tools) · [Slash commands](#slash-commands)
+- [Project context, skills and memory](#project-context-skills-and-memory) · [MCP (external tools)](#mcp-external-tools) · [Configuration](#configuration)
+- [FAQ](#faq) · [Links](#links) · [License](#license)
 
 ## Features
 
@@ -81,12 +127,6 @@ version). You do not need `--headed` just to log in.
 
 Credentials and toggles can also be edited from `/config`
 (`browser.auth.username`, `browser.auth.password`, `browser.auth.saveSession`).
-
-## Links
-
-- npm: <https://www.npmjs.com/package/zames_pro>
-- Changelog: [`CHANGELOG.md`](CHANGELOG.md)
-- Security policy: [`SECURITY.md`](SECURITY.md)
 
 ## Installation
 
@@ -405,6 +445,15 @@ the rate limit.
 Same shape (tools, `AGENTS.md`, skills, MCP, slash commands) but it runs on your
 DeepSeek account instead of an API, as a browser automation rather than a
 first-party API client.
+
+## Links
+
+- **npm:** <https://www.npmjs.com/package/zames_pro>
+- **GitHub:** <https://github.com/Viqto0r/zames_pro>
+- **Changelog:** [`CHANGELOG.md`](CHANGELOG.md)
+- **Contributing:** [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- **Security policy:** [`SECURITY.md`](SECURITY.md)
+- **Code of conduct:** [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
 
 ## License
 
