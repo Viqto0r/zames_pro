@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.64.0] - 2026-10-06
+
 ### Added
 
 - Генератор черновика CHANGELOG из conventional-commits (BACKLOG D2):
@@ -346,7 +348,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Session banner warns when no saved DeepSeek session exists.
 - `--no-color` flag (explicit `NO_COLOR`).
 
-[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.63.1...HEAD
+[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.64.0...HEAD
+[2.64.0]: https://github.com/Viqto0r/zames_pro/compare/v2.63.1...v2.64.0
 [2.63.1]: https://github.com/Viqto0r/zames_pro/compare/v2.63.0...v2.63.1
 [2.63.0]: https://github.com/Viqto0r/zames_pro/compare/v2.61.0...v2.63.0
 [2.61.0]: https://github.com/Viqto0r/zames_pro/compare/v2.60.0...v2.61.0
