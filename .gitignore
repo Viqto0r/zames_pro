@@ -15,3 +15,8 @@ undefined
 # Per-project session goal (/goal) — personal state, not part of the package.
 .zames-goal
 commit-msg.tmp
+
+# Agent-generated working notes. The agent rewrites this file constantly and
+# used to commit it on every task; keep it OUT of the repo so a self-update
+# never lands it in a release.
+BACKLOG.md

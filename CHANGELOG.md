@@ -11,11 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Plan mode (read-only): start with `--plan` or toggle with `/plan [on|off]`.
+- Plan mode (read-only): start with --plan or toggle with /plan [on|off].
   In this mode mutating tools (Write/Edit/MultiEdit/ApplyPatch/Bash, GitAdd/
   GitCommit/GitPush) are removed from the tool set entirely, so the agent can
   investigate without touching the tree.
-- `src/fsutil.ts` — one shared atomic writer (`writeFileAtomic`/`writeJsonAtomic`).
+- src/fsutil.ts - one shared atomic writer (writeFileAtomic/writeJsonAtomic).
 
 ### Changed
 
@@ -24,19 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `GitPush` validates the branch name (`^[A-Za-z0-9._/-]+# Changelog
-
-All notable changes to this project are documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-, no leading dash)
-before building the shell command — a model-supplied branch can no longer
-smuggle shell metacharacters.
-
-- `SECURITY.md` no longer promises a `/permissions` command / `alwaysConfirm`
-  list that was removed in 2.55.0; `AGENTS.md` cleaned of the same dead refs.
+- BACKLOG.md is now git-ignored and untracked: it is the agent's own
+  improvement-notes file, rewritten constantly, and used to be published with
+  the package.
+- GitPush validates the branch name before building the shell command, so a
+  model-supplied branch cannot smuggle shell metacharacters.
+- SECURITY.md no longer promises a /permissions command / alwaysConfirm list
+  that was removed in 2.55.0; AGENTS.md cleaned of the same dead refs.
 
 ## [2.56.0]
 

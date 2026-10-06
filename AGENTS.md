@@ -252,6 +252,14 @@ Additional safeguards against "stalls" (verified on real transcripts):
   `DSML`, `function_call`) but is not recognized — the model is asked to
   resend the call (up to `MAX_MALFORMED_RETRIES`) instead of finishing the task.
 
+## BACKLOG.md is gitignored
+
+`BACKLOG.md` is the agent's own improvement-notes file. It is listed in
+`.gitignore` and MUST NOT be committed: it is rewritten constantly and would
+otherwise be published with every release (it was committed once by mistake).
+The agent reads and edits it locally; a `git add -A` silently skips it, which
+is the intended behavior.
+
 ## Talking to the operator
 
 The operator does NOT read the model's free text. The only thing that reaches
