@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.60.0]
+
+### Added
+
+- PreToolUse / PostToolUse hooks (see `src/hooks.ts`): a project policy can
+  attach an external script to every tool call via `.zames/hooks.json`
+  (`{ "PreToolUse": [{matcher, command}], "PostToolUse": [...] }`). A
+  PreToolUse hook that exits non-zero BLOCKS the call (its output becomes the
+  tool result); a PostToolUse hook's stdout is appended to the result.
+  Hooks are best-effort: a missing/malformed config, a crash or a 10s timeout
+  never fails the agent loop.
+
 ## [2.59.0]
 
 ### Added
@@ -208,7 +220,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Session banner warns when no saved DeepSeek session exists.
 - `--no-color` flag (explicit `NO_COLOR`).
 
-[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.59.0...HEAD
+[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.60.0...HEAD
+[2.60.0]: https://github.com/Viqto0r/zames_pro/compare/v2.59.0...v2.60.0
 [2.59.0]: https://github.com/Viqto0r/zames_pro/compare/v2.58.0...v2.59.0
 [2.58.0]: https://github.com/Viqto0r/zames_pro/compare/v2.57.1...v2.58.0
 [2.57.1]: https://github.com/Viqto0r/zames_pro/compare/v2.57.0...v2.57.1

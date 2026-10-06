@@ -13,6 +13,12 @@ import type {
 import { translate, type Locale } from './i18n.js'
 import { substituteAttachmentMarkers } from './commands.js'
 import { normText } from './browser.js'
+import {
+  loadHooks,
+  runPreToolUse,
+  runPostToolUse,
+  type HooksConfig,
+} from './hooks.js'
 
 export interface RunAgentLoopOptions {
   browser: BrowserLike
@@ -80,6 +86,12 @@ export interface RunAgentLoopOptions {
   getTokenUsage?: (() => number | null) | null
   /** Files/images to attach to the FIRST message (the task). */
   attachments?: Array<{ path: string; name: string; mime: string }>
+  /**
+   * PreToolUse/PostToolUse hooks (see src/hooks.ts). When omitted (undefined)
+   * the loop loads `.zames/hooks.json` from `workdir` once per task; pass an
+   * explicit object, or null to disable hooks (tests, read-only sub-runs).
+   */
+  hooks?: HooksConfig | null
 }
 
 export async function runAgentLoop({
@@ -110,7 +122,14 @@ export async function runAgentLoop({
   autoCompactPct = 95,
   contextLimit = 1_000_000,
   getTokenUsage = null,
+  hooks = undefined,
 }: RunAgentLoopOptions): Promise<string> {
+  // Resolve the hook config ONCE per task: a read per tool call would be
+  // wasteful, and a mid-task edit of hooks.json is not something to chase.
+  // `undefined` means "read .zames/hooks.json"; an explicit null disables
+  // hooks entirely.
+  const hookConfig: HooksConfig =
+    hooks === undefined ? loadHooks(workdir) : (hooks ?? {})
   // UI callbacks must NEVER break the agent loop. A rendering error (a huge
   // tool result, a broken markdown frame, a closed terminal) used to throw
   // out of the loop right after a tool call — the session looked "stopped
@@ -868,6 +887,27 @@ export async function runAgentLoop({
       safeToolCall(call.tool, call.args)
       transcript?.log('tool_call', { tool: call.tool, args: call.args })
 
+      // PreToolUse hooks run BEFORE the tool. A non-zero exit BLOCKS the call:
+      // its output becomes the tool result and the tool itself never runs.
+      // Best-effort by design — hooks must not be able to kill the loop.
+      const denial = await runPreToolUse(
+        hookConfig,
+        call.tool,
+        call.args,
+        workdir,
+      )
+      if (denial !== null) {
+        const blocked = `Blocked by PreToolUse hook: ${denial}`
+        transcript?.log('hook_pre_deny', { tool: call.tool, reason: denial })
+        safeToolResult(blocked)
+        transcript?.log('tool_result', {
+          tool: call.tool,
+          result: blocked,
+        })
+        results.push({ tool: call.tool, result: blocked })
+        continue
+      }
+
       let result
       // While the tool runs, poll for an Esc/Ctrl+C: the abort flag is a plain
       // boolean set by stopGeneration(), so the only way to turn it into a
@@ -881,6 +921,24 @@ export async function runAgentLoop({
         result = `Error: ${(e as Error).message}`
       } finally {
         clearInterval(poll)
+      }
+
+      // PostToolUse hooks run AFTER the tool; their stdout is appended to the
+      // result (e.g. `prettier` output) before it is fed back to the model.
+      // Best-effort: a hook failure is ignored, the tool result still stands.
+      const post = await runPostToolUse(
+        hookConfig,
+        call.tool,
+        call.args,
+        String(result),
+        workdir,
+      )
+      if (post) {
+        transcript?.log('hook_post_output', { tool: call.tool, output: post })
+        result = `${String(result)}
+
+[PostToolUse hook]
+${post}`
       }
 
       safeToolResult(result)
