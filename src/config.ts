@@ -28,6 +28,13 @@ export const DEFAULTS: ZamesConfig = {
     maxBackups: 200,
   },
 
+  // BACKLOG B3: snapshot the whole working tree at the start of each task so
+  // /rewind can roll a risky task back in one step.
+  checkpoint: {
+    enabled: true,
+    maxBackups: 50,
+  },
+
   transcript: {
     enabled: true,
     dir: path.join(os.homedir(), '.zames', 'logs'),
@@ -208,6 +215,20 @@ export const CONFIG_SCHEMA: ConfigField[] = [
     max: 100000,
     labelKey: 'cfg.f.undo_maxBackups',
     groupKey: 'cfg.group.undo',
+  },
+  {
+    path: 'checkpoint.enabled',
+    type: 'boolean',
+    labelKey: 'cfg.f.checkpoint_enabled',
+    groupKey: 'cfg.group.checkpoint',
+  },
+  {
+    path: 'checkpoint.maxBackups',
+    type: 'number',
+    min: 1,
+    max: 1000,
+    labelKey: 'cfg.f.checkpoint_maxBackups',
+    groupKey: 'cfg.group.checkpoint',
   },
   {
     path: 'transcript.enabled',

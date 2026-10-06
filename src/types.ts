@@ -42,6 +42,11 @@ export interface UndoConfig {
   maxBackups: number
 }
 
+export interface CheckpointConfig {
+  enabled: boolean
+  maxBackups: number
+}
+
 export interface TranscriptConfig {
   enabled: boolean
   dir: string
@@ -139,6 +144,7 @@ export interface ZamesConfig {
   browserChannel: string | null
   hotReload?: boolean
   undo: UndoConfig
+  checkpoint: CheckpointConfig
   transcript: TranscriptConfig
   browser: BrowserConfig
   ui: UiConfig

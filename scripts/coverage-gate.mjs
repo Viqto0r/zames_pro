@@ -28,6 +28,7 @@ const FLOORS = {
   'tools.ts': 90,
   'system-prompt.ts': 90,
   'undo.ts': 85,
+  'checkpoint.ts': 80,
 }
 
 const run = spawnSync(

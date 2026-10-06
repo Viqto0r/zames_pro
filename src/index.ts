@@ -62,6 +62,7 @@ import {
 } from './i18n.js'
 import { Transcript } from './transcript.js'
 import { UndoStore } from './undo.js'
+import { CheckpointStore, pickRecord as pickCheckpoint } from './checkpoint.js'
 import { selfReview, selfDiff, selfApply, selfList } from './self-review.js'
 import {
   formatDiff,
@@ -343,6 +344,7 @@ const RELOADABLE = [
   'self-review',
   'diff',
   'undo',
+  'checkpoint',
   'transcript',
   'spinner',
   'config',
@@ -628,6 +630,8 @@ ${theme.bold(t('help.sec.files'))}
   ${t('help.cmd.transcript')}
   ${t('help.cmd.undo')}
   ${t('help.cmd.undo_list')}
+  ${t('help.cmd.rewind')}
+  ${t('help.cmd.rewind_list')}
   ${t('help.cmd.export')}
   ${t('help.cmd.cost')}
   ${t('help.cmd.copy')}
@@ -639,6 +643,7 @@ ${devHelp}${dynamicCommands.length ? '\n' + theme.bold(t('help.skills')) + '\n' 
 ${theme.bold(t('help.files'))}
   ${t('help.files.logs')}        ${config.transcript.dir}
   ${t('help.files.undo')}        ~/.zames/undo
+  ${t('help.files.checkpoints')}   ~/.zames/checkpoints
   ${t('help.files.sessions')}      ${sessionsDir()}
   ${t('help.files.profile')}     ~/.zames/profile
   ${t('help.files.snapshots')}    ~/.zames/snapshots
@@ -683,6 +688,8 @@ const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
   { name: '/reload', key: 'help.cmd.reload' },
   { name: '/undo', key: 'help.cmd.undo' },
   { name: '/undo-list', key: 'help.cmd.undo_list' },
+  { name: '/rewind', key: 'help.cmd.rewind' },
+  { name: '/rewind-list', key: 'help.cmd.rewind_list' },
   { name: '/transcript', key: 'help.cmd.transcript' },
   { name: '/diff', key: 'help.cmd.diff' },
   { name: '/diffstat', key: 'help.cmd.diffstat' },
@@ -1644,6 +1651,7 @@ async function main(): Promise<void> {
   }
 
   const undo = new UndoStore(config.undo)
+  const checkpoints = new CheckpointStore(config.checkpoint)
 
   // MCP servers: optional external tool providers (e.g. @playwright/mcp).
   let mcpPool: McpPool | null = null
@@ -3639,6 +3647,13 @@ async function main(): Promise<void> {
       )
       console.log(
         theme.system(
+          t('status.checkpoint', {
+            v: config.checkpoint.enabled ? t('common.on') : t('common.off'),
+          }),
+        ),
+      )
+      console.log(
+        theme.system(
           t('status.transcript', {
             v: transcript.file || t('common.off'),
           }),
@@ -4177,6 +4192,90 @@ async function main(): Promise<void> {
       continue
     }
 
+    if (lower === '/rewind-list' || lower === '/checkpoints') {
+      const list = await checkpoints.list(10)
+      if (!list.length) {
+        console.log(theme.system(t('rewind.empty')))
+      } else {
+        console.log(theme.system(t('rewind.list_title')))
+        list.forEach((r, i) => {
+          const stamp = new Date(r.stamp).toLocaleString()
+          const label = r.label ? '  [' + t('rewind.label_backup') + ']' : ''
+          console.log(
+            theme.system(`  ${i + 1}. ${stamp}  ${r.workdir}${label}`),
+          )
+        })
+      }
+      continue
+    }
+
+    if (lower === '/rewind' || lower.startsWith('/rewind ')) {
+      const selector = trimmed.slice('/rewind'.length).trim() || '1'
+      if (editor) editor.lock(t('msg.input_locked'))
+      try {
+        const list = await checkpoints.list(10)
+        const target = pickCheckpoint(list, selector)
+        if (!target) {
+          console.error(theme.error(t('rewind.failed', { v: selector })))
+          continue
+        }
+        // Confirmation: a rewind overwrites the working tree, so it must never
+        // happen on a muscle-memory Enter.
+        const stamp = new Date(target.stamp).toLocaleString()
+        let answer = 'n'
+        if (process.stdin.isTTY && process.stdout.isTTY) {
+          // promptOnce reads stdin itself. While the LineEditor owns the
+          // terminal we must hand it over first (the same pause/resume the
+          // /config menu uses), or both readers fight for the same keys.
+          if (editor) editor.pause()
+          try {
+            answer = await promptOnce(
+              theme.warn(t('rewind.confirm', { v: stamp })) + ' [y/N] ',
+            )
+          } finally {
+            if (editor) editor.resume()
+          }
+        } else if (trimmed.indexOf('--yes') !== -1) {
+          // Non-TTY (piped): do not guess. Require an explicit --yes.
+          answer = 'y'
+        }
+        if (!/^(y|yes|д|да)$/i.test(answer.trim())) {
+          console.log(theme.system(t('rewind.cancelled')))
+          continue
+        }
+        const res = await checkpoints.restore(selector)
+        if (res.ok && res.record) {
+          console.log(
+            theme.assistant(
+              t('rewind.reverted', { v: String(res.record.stamp) }),
+            ),
+          )
+          if (res.backup) {
+            console.log(
+              theme.system(t('rewind.backup', { v: String(res.backup.stamp) })),
+            )
+          }
+          transcript.log('rewind', { stamp: res.record.stamp })
+        } else {
+          const reasonKey =
+            res.reason === 'not_found'
+              ? 'rewind.reason_not_found'
+              : res.reason === 'archive_missing'
+                ? 'rewind.reason_archive_missing'
+                : res.reason === 'extract_failed'
+                  ? 'rewind.reason_extract_failed'
+                  : res.reason === 'disabled'
+                    ? 'rewind.reason_disabled'
+                    : null
+          const reason = reasonKey ? t(reasonKey) : String(res.reason ?? '')
+          console.error(theme.error(t('rewind.failed', { v: reason })))
+        }
+      } finally {
+        if (editor) editor.unlock()
+      }
+      continue
+    }
+
     if (lower === '/debug-dom') {
       const stamp = new Date().toISOString().replace(/[:.]/g, '-')
       const file = path.join(config.transcript.dir, `dom-${stamp}.html`)
@@ -4256,6 +4355,15 @@ async function main(): Promise<void> {
     if (editor) editor.setCommands(buildSlashCommands())
 
     transcript.log('user_task', { task: taskText, workdir: currentWorkdir })
+
+    // BACKLOG B3: snapshot the working tree BEFORE the task so /rewind can
+    // undo the whole task in one step. Best-effort: create() never throws, so
+    // a missing tar cannot abort the task it was meant to protect. Skipped
+    // while reviewing a snapshot (workdir is a throwaway copy).
+    if (!reviewMode) {
+      const cp = await checkpoints.create(currentWorkdir)
+      if (cp) transcript.log('checkpoint', { stamp: cp.stamp })
+    }
 
     const tools = mod.createTools(currentWorkdir, {
       undo,

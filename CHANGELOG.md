@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.62.0]
+
+### Added
+
+- Checkpoints / rewind (BACKLOG B3): at the start of every task the working
+  tree is snapshotted into a tarball under `~/.zames/checkpoints/`, and
+  `/rewind [n]` rolls it back in one step (with a confirmation prompt and an
+  automatic `pre-rewind` backup of the current state, so the rewind itself is
+  reversible). `/rewind-list` shows the recent checkpoints. `node_modules`,
+  `.git`, `dist` and `tmp` are never snapshotted or deleted. Unlike a manual
+  git stash, this works in a non-git directory and never touches the
+  operator's index. New module `src/checkpoint.ts` (pure helpers + `CheckpointStore`,
+  unit-tested); configurable via `checkpoint.enabled` / `checkpoint.maxBackups`
+  (default 50) in `/config`.
+
 ## [2.61.0]
 
 ### Added

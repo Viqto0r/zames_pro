@@ -207,6 +207,14 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: '/undo-list               список того, что можно откатить',
     en: '/undo-list               list revertable changes',
   },
+  'help.cmd.rewind': {
+    ru: '/rewind [n]              откатить рабочее дерево к чекпойнту',
+    en: '/rewind [n]              roll the working tree back to a checkpoint',
+  },
+  'help.cmd.rewind_list': {
+    ru: '/rewind-list             список чекпойнтов',
+    en: '/rewind-list             list checkpoints',
+  },
   'help.cmd.transcript': {
     ru: '/transcript              путь к файлу транскрипта',
     en: '/transcript              transcript file path',
@@ -578,6 +586,7 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
   'help.files': { ru: 'Файлы:', en: 'Files:' },
   'help.files.logs': { ru: 'Логи:', en: 'Logs:' },
   'help.files.undo': { ru: 'Undo:', en: 'Undo:' },
+  'help.files.checkpoints': { ru: 'Чекпойнты:', en: 'Checkpoints:' },
   'help.files.sessions': { ru: 'Сессии:', en: 'Sessions:' },
   'help.files.profile': { ru: 'Профиль:', en: 'Profile:' },
   'help.files.snapshots': { ru: 'Снапшоты:', en: 'Snapshots:' },
@@ -664,6 +673,7 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
   'status.headless': { ru: 'Headless: {v}', en: 'Headless: {v}' },
   'status.debug': { ru: 'Debug: {v}', en: 'Debug: {v}' },
   'status.undo': { ru: 'Undo: {v}', en: 'Undo: {v}' },
+  'status.checkpoint': { ru: 'Чекпойнты: {v}', en: 'Checkpoints: {v}' },
   'status.transcript': { ru: 'Транскрипт: {v}', en: 'Transcript: {v}' },
   'status.locale': { ru: 'Язык: {v}', en: 'Language: {v}' },
   'status.goal': { ru: 'Цель сессии: {v}', en: 'Session goal: {v}' },
@@ -1320,6 +1330,46 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: 'undo отключён в конфиге',
     en: 'undo is disabled in the config',
   },
+  'rewind.empty': { ru: 'Чекпойнтов нет.', en: 'No checkpoints.' },
+  'rewind.created': {
+    ru: '📸 Чекпойнт: {v}',
+    en: '📸 Checkpoint: {v}',
+  },
+  'rewind.list_title': { ru: 'Чекпойнты:', en: 'Checkpoints:' },
+  'rewind.reverted': {
+    ru: '↶ Откатили рабочее дерево к чекпойнту {v}',
+    en: '↶ Rolled the working tree back to checkpoint {v}',
+  },
+  'rewind.backup': {
+    ru: 'Текущее состояние сохранено как чекпойнт {v}',
+    en: 'Current state saved as checkpoint {v}',
+  },
+  'rewind.failed': {
+    ru: 'Не удалось откатить: {v}',
+    en: 'Failed to rewind: {v}',
+  },
+  'rewind.reason_not_found': {
+    ru: 'чекпойнт не найден',
+    en: 'checkpoint not found',
+  },
+  'rewind.reason_archive_missing': {
+    ru: 'архив чекпойнта отсутствует',
+    en: 'checkpoint archive is missing',
+  },
+  'rewind.reason_extract_failed': {
+    ru: 'не удалось распаковать архив',
+    en: 'failed to unpack the archive',
+  },
+  'rewind.reason_disabled': {
+    ru: 'чекпойнты отключены в конфиге',
+    en: 'checkpoints are disabled in the config',
+  },
+  'rewind.confirm': {
+    ru: 'Откатить рабочее дерево к чекпойнту {v}? Текущее состояние будет сохранено как бэкап.',
+    en: 'Roll the working tree back to checkpoint {v}? The current state will be saved as a backup.',
+  },
+  'rewind.cancelled': { ru: 'Отменено.', en: 'Cancelled.' },
+  'rewind.label_backup': { ru: 'бэкап', en: 'backup' },
   'dom.saved': { ru: 'HTML сохранён: {v}', en: 'HTML saved: {v}' },
   'dom.selectors': { ru: 'Селекторы:', en: 'Selectors:' },
   'dom.save_error': {
@@ -1396,6 +1446,7 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
   'cfg.group.ui': { ru: 'Интерфейс', en: 'Interface' },
   'cfg.group.agent': { ru: 'Агент', en: 'Agent' },
   'cfg.group.undo': { ru: 'Откат (undo)', en: 'Undo' },
+  'cfg.group.checkpoint': { ru: 'Чекпойнты', en: 'Checkpoints' },
   'cfg.group.transcript': { ru: 'Транскрипт', en: 'Transcript' },
   'cfg.group.browser': { ru: 'Браузер / DeepSeek', en: 'Browser / DeepSeek' },
 
@@ -1431,6 +1482,14 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
   'cfg.f.undo_maxBackups': {
     ru: 'Сколько бэкапов хранить',
     en: 'Max undo backups kept',
+  },
+  'cfg.f.checkpoint_enabled': {
+    ru: 'Чекпойнт в начале каждой задачи (для /rewind)',
+    en: 'Checkpoint at the start of each task (for /rewind)',
+  },
+  'cfg.f.checkpoint_maxBackups': {
+    ru: 'Сколько чекпойнтов хранить',
+    en: 'How many checkpoints to keep',
   },
   'cfg.f.transcript_enabled': {
     ru: 'Вести транскрипт',
