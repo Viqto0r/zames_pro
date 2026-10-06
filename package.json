@@ -21,6 +21,7 @@
     "clean": "node scripts/clean-dist.mjs",
     "build": "node scripts/clean-dist.mjs && tsc -p tsconfig.build.json",
     "coverage:gate": "node scripts/coverage-gate.mjs",
+    "changelog:draft": "tsx scripts/changelog-draft.mts",
     "typecheck": "tsc --noEmit",
     "lint": "node scripts/eslint-ts6.mjs",
     "lint:fix": "node scripts/eslint-ts6.mjs --fix",

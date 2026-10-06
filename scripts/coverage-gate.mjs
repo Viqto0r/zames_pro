@@ -30,6 +30,7 @@ const FLOORS = {
   'undo.ts': 85,
   'checkpoint.ts': 80,
   'permissions.ts': 85,
+  'changelog.ts': 85,
 }
 
 const run = spawnSync(
