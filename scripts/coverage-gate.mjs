@@ -31,12 +31,17 @@ const FLOORS = {
   'checkpoint.ts': 80,
   'permissions.ts': 85,
   'changelog.ts': 85,
+  'attach-refs.ts': 85,
 }
 
 const run = spawnSync(
   'npx',
   ['tsx', '--test', '--experimental-test-coverage', 'test/*.test.ts'],
-  { encoding: 'utf-8', shell: process.platform === 'win32', maxBuffer: 1024 * 1024 * 64 },
+  {
+    encoding: 'utf-8',
+    shell: process.platform === 'win32',
+    maxBuffer: 1024 * 1024 * 64,
+  },
 )
 
 const out = (run.stdout || '') + (run.stderr || '')

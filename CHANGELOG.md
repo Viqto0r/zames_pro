@@ -5,6 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Генератор черновика CHANGELOG из conventional-commits (BACKLOG D2):
+  `npm run changelog:draft [ref]` печатает готовый блок для «Unreleased» из
+  коммитов после последнего тега (или указанного ref). Чистый модуль
+  `src/changelog.ts` (`parseConventionalCommit` / `groupCommits` /
+  `renderChangelogDraft`, покрыт тестами). Файл `CHANGELOG.md` НЕ
+  перезаписывается автоматически — черновик ревьюится вручную.
+
+### Changed
+
+- Рефакторинг (BACKLOG C3, шаг 1): разрешение путей вложения и инлайн
+  `@file`-ссылок вынесены из `src/index.ts` в `src/attach-refs.ts`
+  (`resolveAttachPath` / `inlineAtRefs`) — теперь это отдельный тестируемый
+  модуль.
+
 ## [2.63.1] - 2026-10-06
 
 ### Fixed
