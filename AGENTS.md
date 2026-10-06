@@ -252,6 +252,268 @@ Additional safeguards against "stalls" (verified on real transcripts):
   `DSML`, `function_call`) but is not recognized — the model is asked to
   resend the call (up to `MAX_MALFORMED_RETRIES`) instead of finishing the task.
 
+## Editing text files: prefer Edit/Write over `sed -i`
+
+Do NOT rewrite markdown or source with `sed -i`. In practice an in-place
+`sed` on `CHANGELOG.md` spliced the file header into a section and the
+corruption was committed (it had to be rebuilt from git). `sed` mangles
+multi-line content and special characters. Use the Edit/Write tools (or a
+small node script) for anything with newlines, backticks or `# AGENTS.md — internal structure of zames
+
+This file is for those who work on the agent itself (including the agent
+during self-review). README.md is for users.
+
+## NEVER touch a running browser or another agent's processes
+
+HARD RULE for anyone working on zames: never kill, restart or clean up a
+browser process you did not start yourself. The agent runs on the same
+machine as the browser it drives, and possibly alongside ANOTHER running
+zames/agent instance that uses Playwright too.
+
+- Do NOT run pkill/kill/taskkill/Stop-Process on chrome/chromium/playwright.
+- Do NOT delete ~/.zames/profile or its Singleton* files while a browser may
+  be running - that is the profile the live agent uses, and removing it
+  mid-run breaks the agent <-> chat connection.
+- Do NOT call browser.close() / browser.stopGeneration() from an
+  out-of-band script to clean up. Only the agent loop owns those calls.
+- If you need a browser for a test, launch a SEPARATE one with its own
+  --user-data-dir (or --isolated for MCP). Never point a test at
+  ~/.zames/profile.
+
+Reason: a browser on the SAME --user-data-dir cannot coexist with another
+one. The second launch gets "Something went wrong when opening your
+profile" and both sides lose state. This actually happened: a verification
+run of @playwright/mcp (without --isolated) grabbed ~/.zames/profile,
+conflicted with the live agent, and the cleanup killed the agent browser.
+
+## MCP and the shared profile
+
+@playwright/mcp uses the SAME default profile directory as zames
+(~/.zames/profile) unless told otherwise. Two consequences:
+
+1. When configuring the playwright MCP server for zames, ALWAYS pass
+   --isolated (in-memory profile) or an explicit separate
+   --user-data-dir. Otherwise the MCP browser and the agent browser fight
+   over one profile and the chat breaks.
+2. When testing MCP by hand, also use --isolated / a temp --user-data-dir
+   and never the agent profile.
+
+## What it is
+
+zames is a terminal coding agent. It does not use the model API directly; it
+drives a browser (Playwright) and talks to [chat.deepseek.com](https://chat.deepseek.com/) like a regular
+user: it types the prompt into the input field and reads the answer from the page.
+
+It runs in the project directory (`process.cwd()`), which is the sandbox
+root: tools cannot read/write above it.
+
+## Execution flow
+
+1. `src/index.ts` — CLI, argument parsing, the main input loop, `/...` commands.
+2. `src/agent-loop.ts` — the agent loop: sends the task, parses the model's
+   answer, looks for a tool-call, runs the tool, returns the result to the
+   model. Up to `maxIterations` iterations (0 = UNLIMITED by default).
+3. `src/browser.ts` — all Playwright work: finding the input field, inserting
+   text (a paste event for contenteditable), waiting for the answer, reading
+   the answer, Stop/Esc, determining the current chat id, listing chats.
+4. `src/system-prompt.ts` — builds the system-prompt (tool descriptions,
+   working directory, git context).
+5. `src/tools.ts`, `src/gitTools.ts`, `src/web.ts` — tool implementations.
+
+### Module map (who owns what)
+
+When a change touches one concern, start in the module that owns it:
+
+- `src/index.ts` — CLI, main loop, slash-command dispatch, `runTask`, the
+  message queue, the `/goal` and `/loop`|`/cron`|`/jobs` commands, the scheduler
+  ticker. Command _logic_ that can be pure lives in `src/commands.ts`.
+- `src/agent-loop.ts` — one task: send → parse → run tools → loop; the retry
+  budgets, the protocol/stale guards, the auto-compact seam.
+- `src/browser.ts` — the DeepSeekBrowser facade over Playwright: send/answer,
+  toggles, Continue, login, chats, attachments, history. Large by nature; the
+  pure parts (answer cleaning, signal detection) live in `src/net-capture.ts`.
+- `src/commands.ts` — PURE helpers for the slash commands (`/diff`, `/cost`,
+  `/export`, `/doctor`, `/add-dir`, `/review`, `/compact`,
+  `/queue`, `/goal`, live toggles) and the restored-history rendering. No
+  browser/terminal access — unit-tested.
+- `src/scheduler.ts` — PURE interval/cron parsing and the `Scheduler` (loop and
+  cron jobs). The 1-second ticker lives in `src/index.ts`.
+- `src/compact.ts` — `performCompact()`, shared by the manual `/compact` and the
+  auto-compact seam in the loop.
+- `src/net-capture.ts` — parse the raw SSE/JSON the model sends (answer text,
+  token counter, truncation/no-answer/rate-limit detection).
+- `src/i18n.ts` — the localized `CATALOG` (ru/en) for everything the operator
+  sees; `src/input.ts` and `src/spinner.ts` read labels from it.
+- `src/input.ts` — the custom `LineEditor` (permanent input line, status above,
+  paste/attachments, history, slash hints). `src/spinner.ts` is the non-TTY
+  fallback UI. Both draw an animated dot status; shared formatting is imported
+  from one another (`randomThinkingPhrase`, `stripEllipsis`).
+- `src/context.ts` — AGENTS.md / MEMORY.md / skills / custom commands loading.
+- `src/config.ts`, `src/config-menu.ts` — config defaults/schema and the menu.
+- `src/sessions.ts`, `src/transcript.ts`, `src/undo.ts` — persistence.
+
+## Tools
+
+File tools (src/tools.ts): Read, Write, Edit, Bash, Glob, Grep.
+Extra tools (src/extraTools.ts): LS, MultiEdit, TodoWrite, ApplyPatch.
+Git (src/gitTools.ts): GitStatus, GitDiff, GitLog, GitAdd, GitCommit, GitPush.
+Web (src/web.ts): WebFetch, WebSearch.
+Service: respond (final answer to the user, finishes the task).
+
+`Read` returns RAW file content by default (the contract Edit relies on: the
+model copies `old_string` from the Read output). Optional `numbered=true`
+prepends `cat -n`-style line numbers — purely for reference, the model must
+NOT copy the prefix into Edit. Very long lines (>2000 chars) are truncated in
+both modes so one minified line can't flood the context; an empty file returns
+a `(file is empty)` note instead of an empty string. When changing this format,
+keep the raw default: `Edit`/`MultiEdit` string matching would break otherwise.
+
+The tool list is assembled in `createTools()` (src/tools.ts) and passed into
+the system-prompt. Extra tools (LS, MultiEdit, TodoWrite, ApplyPatch) live in
+`createExtraTools()` (src/extraTools.ts) and are merged in by `createTools()`.
+To add a tool — describe it in the relevant module and add
+it to the shared list.
+
+### Required-argument guard (the `undefined` file bug)
+
+Every tool that takes a required string arg (`path`, `command`, `pattern`) must
+pass it through the `req(v, name)` helper (in `src/tools.ts` and
+`src/extraTools.ts`) before use. Reason: the model sometimes emits a call that
+OMITS the required key (e.g. `{"tool":"Write","args":{"content":"..."}}`).
+`String(undefined)` is the literal `"undefined"`, so the old `safe(String(p))`
+happily created a file literally named `undefined` in the working directory.
+This really happened, repeatedly. `req()` throws
+`Missing required argument: <name>` for undefined/null/empty/`"undefined"`/
+`"null"`. Safety nets: `.gitignore` ignores `undefined`, and
+`test/undefined-guard.test.ts` covers it. When you add a tool with a required
+arg — use `req()`.
+
+## Language policy (agent-facing vs user-facing)
+
+Two different languages live in the code and MUST NOT be mixed up:
+
+- **Agent-facing text is ENGLISH.** Everything the MODEL sees — tool
+  descriptions, tool parameters, tool-result strings and errors, the
+  corrective/nudge messages in `agent-loop.ts`, the labels in the
+  system-prompt (`### <Tool>`, `Parameters:`), MCP tool descriptions — must be
+  in English (like Claude Code / Codex). These files must contain NO Cyrillic:
+  `src/tools.ts`, `src/extraTools.ts`, `src/gitTools.ts`, `src/web.ts`,
+  `src/system-prompt.ts`.
+- **User-facing text is LOCALIZED.** Everything the OPERATOR sees in the
+  terminal (help, service messages, spinner, warnings, `/config` labels) goes
+  through `src/i18n.ts` (`CATALOG`, picked by `ui.locale`). Do not hardcode a
+  user string in a module — add a key to CATALOG (both ru and en).
+- **Functional Cyrillic stays.** DOM selectors and regexes that match
+  DeepSeek's Russian UI (`button[aria-label*="отправ"]`, `/остановить/`,
+  rate-limit matchers), the `(прервано пользователем)` sentinel and the
+  bilingual `looksLikeUnfinishedWork` matchers are NOT prose — leave them.
+
+When adding a tool: write its description/params in English. When adding a
+message the operator sees: add it to CATALOG. Never put Russian prose into a
+tool description or an agent-loop nudge.
+
+## Comments in code
+
+A comment must explain **WHY**, not **WHAT**. Code already says what it does;
+a comment is valuable only when it carries something a reader cannot infer:
+
+- the non-obvious REASON for a choice, a hidden coupling, a platform/server
+  quirk, or a past bug it prevents (e.g. why a 15s throttle exists, why the
+  `HeadlessChrome` UA must be stripped, why a detector reads the RAW SSE body);
+- a WARNING (race, side effect, ordering requirement);
+- a short rationale for a workaround.
+
+Do NOT:
+
+- restate the code (`// set the flag`, `// return the result`) or the function
+  name;
+- reference backlog/task numbers (`A1`, `B12`, …) — those files get deleted and
+  the references rot. For traceability use a commit SHA (`// see 9fa866c`) and
+  only when it genuinely helps;
+- leave commented-out code (delete it; git remembers);
+- narrate progress or history in the code.
+
+When editing, keep existing "why" comments even if the code around them moves.
+
+## tool-call format
+
+IMPORTANT: the model's answer is read NOT from the DOM but by intercepting the
+network (`src/net-capture.ts`, `browser._installNetHook`). DeepSeek renders the
+answer (markdown+LaTeX) and distorts the arguments: the dollar sign in formulas
+is lost, escaped newlines become real, names are auto-linked. The interception
+returns the raw text from SSE/JSON. Answers are written to ~/.zames/net-log
+ONLY when the debug env flag `ZAMES_NET_DEBUG=1` is set (`dumpNetBody`); by
+default nothing is dumped (thousands of files / tens of MB otherwise).
+Additionally the interception yields the chat id earlier than it appears in the
+URL (browser._netChatId is used in getCurrentChatId as a fallback).
+Details — in the comments of src/net-capture.ts and src/browser.ts.
+
+The SAME interception also captures the CONTEXT SIZE: DeepSeek sends
+`accumulated_token_usage` (a cumulative token counter for the whole chat) in
+the SSE stream (`v.response.accumulated_token_usage` and BATCH updates).
+`extractTokenUsage(body)` (src/net-capture.ts) returns the latest value;
+`browser._lastTokenUsage` (exposed via `getLastTokenUsage()`) is updated in
+`_onResponse` and from `fetchChatMessages` (every message of
+history_messages carries the counter). `/cost` and `/status` print it, and
+`printRestoredHistory` shows it on `/resume`. This is the closest thing to
+"used context" the web UI exposes — there is no prompt_tokens/completion_tokens
+like the API. We do NOT add a tokenizer dependency: the server counter is the
+truth and a local BPE estimate would be wrong.
+
+Write/Edit accept base64 variants of the arguments (content_base64,
+old_base64/new_base64) — this works around channel distortions: base64 consists
+only of [A-Za-z0-9+/=] and is not corrupted. The system-prompt advises the model
+to use them for text with special characters.
+
+The model returns a tool call as text. `agent-loop.ts` parses it (there is a
+strict and a permissive parser). The format is described in the system-prompt.
+If you add a tool — sync its description in the system-prompt.
+
+The parser in `parseToolCall()` tries in order: a JSON object/array (including
+in a ``` block and with "repaired" backslashes), permissive parsing of dirty
+JSON, a tail after prose and, at the very end, an XML/DSML block
+(`src/xml-toolcall.ts`). The latter is needed because the model sometimes
+answers not with JSON but with
+`<invoke name="Tool"><parameter name="x">…</parameter></invoke>` (the tag may
+carry an arbitrary prefix) or a DSML block
+`<｜｜DSML｜｜invoke name="Read">…`. Without this parsing such an answer is not
+considered a tool-call, and the agent silently finishes the task — "called a
+tool and stopped". If you change the answer format — update `src/xml-toolcall.ts` too.
+
+Additional safeguards against "stalls" (verified on real transcripts):
+
+- `repairRawControlChars()` escapes raw newlines/tabs inside JSON string
+  values (`old_string`, `new_string`, `content`) — otherwise `JSON.parse`
+  fails and a multiline call is not recognized;
+- for `Edit` and for dirty JSON, args are parsed from the "tail" to the end of
+  the text (`parseEditArgs`/`parseArgsPermissive`/`parseArgsGreedy`), because
+  bracket balancing breaks on raw quotes inside strings (a common case for
+  `Bash`/`Write` with code inside);
+- trimming the XML/DSML tail uses `<[^>]*>` (not `<[^>]>`), otherwise
+  multi-character tags (`<|DSML|invoke ...>`) are not trimmed;
+- `parseInlineJsonArgs()` in `src/xml-toolcall.ts` handles the "hybrid" form:
+  the tool name is an attribute AND the args are inline JSON in the SAME
+  opening tag, without any `<parameter>` children. A real case from the
+  transcript: `<|DSML|invoke name="GitAdd", "args" {"paths": "AGENTS.md"}>`.
+  The `<parameter>` parser missed it, and the call was silently lost (the
+  agent stalled). Now the first balanced `{...}` inside the tag is parsed as
+  args;
+- `parseToolCallPermissive()` also handles a call whose argument keys are
+  INLINE with `"tool"`, with no `"args"` wrapper at all —
+  `{"tool": "Bash", "command_note": "", "command": "git push ..."}}`.
+  The strict parser rejects it (there is no `obj.args`), and the permissive
+  one used to bail out early (`indexOf('"args"') === -1`), so the call was
+  counted as malformed and re-asked; after `MAX_MALFORMED_RETRIES` the run
+  stopped with the model's text as the final answer (a real "stopped after a
+  tool call" case from the transcript, `git push`). Now the object's keys are
+  flattened into `args` (the `tool` key is dropped);
+- in `runAgentLoop()` the `looksLikeToolCall` guard kicks in: if the answer
+  looks like a call (there is `"tool":`, `invoke`, `parameter`, `tool_calls`,
+  `DSML`, `function_call`) but is not recognized — the model is asked to
+  resend the call (up to `MAX_MALFORMED_RETRIES`) instead of finishing the task.
+
+.
+
 ## BACKLOG.md is gitignored
 
 `BACKLOG.md` is the agent's own improvement-notes file. It is listed in
