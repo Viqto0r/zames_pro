@@ -106,6 +106,7 @@ import {
   parseCron,
 } from './scheduler.js'
 import { renderMarkdown, setAnswerWidth } from './markdown.js'
+import { extractAtFileRefs } from './path-token.js'
 import { closeWeb } from './web.js'
 import { assertCommandInsideRoot, runShell } from './shell.js'
 import {
@@ -860,6 +861,56 @@ async function resolveAttachPath(
     if (st && st.isFile()) return c
   }
   return null
+}
+
+// Per-file and total caps for `@path` inlining (B5). A reference should SAVE
+// round-trips, not flood the context: a huge file is truncated with a note
+// telling the agent to read the rest itself.
+const AT_REF_FILE_CAP = 60 * 1024
+const AT_REF_TOTAL_CAP = 200 * 1024
+
+// Inline `@path` references found in a task text (B5). Returns the augmented
+// text plus the list of files actually inlined (for the operator notice).
+// Unknown/unreadable references are left in place untouched — they may be part
+// of the prose; we never fail the task over a missing file.
+async function inlineAtRefs(
+  workdir: string,
+  text: string,
+): Promise<{ text: string; inlined: string[] }> {
+  const refs = extractAtFileRefs(text)
+  if (!refs.length) return { text, inlined: [] }
+  const blocks: string[] = []
+  const inlined: string[] = []
+  let total = 0
+  for (const ref of refs) {
+    if (total >= AT_REF_TOTAL_CAP) break
+    const file = await resolveAttachPath(workdir, ref)
+    if (!file) continue
+    let raw: string
+    try {
+      raw = await fs.readFile(file, 'utf-8')
+    } catch {
+      continue
+    }
+    let body = raw
+    let note = ''
+    if (body.length > AT_REF_FILE_CAP) {
+      body = body.slice(0, AT_REF_FILE_CAP)
+      note = NL + NL + '(truncated at ' + AT_REF_FILE_CAP + ' chars)'
+    }
+    total += body.length
+    inlined.push(path.relative(workdir, file) || file)
+    blocks.push('### ' + ref + NL + '```' + NL + body + NL + '```' + note)
+  }
+  if (!blocks.length) return { text, inlined: [] }
+  const section =
+    NL +
+    NL +
+    '## Files referenced with @ in the task' +
+    NL +
+    NL +
+    blocks.join(NL + NL)
+  return { text: text + section, inlined }
 }
 
 async function cleanTmpDir(): Promise<void> {
@@ -4344,7 +4395,25 @@ async function main(): Promise<void> {
     // ---- Regular task (including in review mode) ----
 
     const taskText = expandedTask !== null ? expandedTask : trimmed
-    lastTaskText = taskText
+
+    // B5: inline any `@path` references into the task so the agent does not
+    // spend a round-trip reading a file the operator already pointed at. Only
+    // existing files are inlined; a bare `@name` in prose is left untouched.
+    let finalTaskText = taskText
+    {
+      const refRes = await inlineAtRefs(currentWorkdir, taskText)
+      if (refRes.inlined.length) {
+        finalTaskText = refRes.text
+        console.log(
+          theme.system(
+            t('msg.at_refs', { n: refRes.inlined.length }) +
+              ' ' +
+              refRes.inlined.join(', '),
+          ),
+        )
+      }
+    }
+    lastTaskText = finalTaskText
 
     // Dev mode: pick up fresh logic modules before the task.
     await autoReload()
@@ -4354,7 +4423,10 @@ async function main(): Promise<void> {
     await refreshDynamicCommands(currentWorkdir)
     if (editor) editor.setCommands(buildSlashCommands())
 
-    transcript.log('user_task', { task: taskText, workdir: currentWorkdir })
+    transcript.log('user_task', {
+      task: finalTaskText,
+      workdir: currentWorkdir,
+    })
 
     // BACKLOG B3: snapshot the working tree BEFORE the task so /rewind can
     // undo the whole task in one step. Best-effort: create() never throws, so
@@ -4376,7 +4448,7 @@ async function main(): Promise<void> {
       await runTask(
         browser,
         tools,
-        taskText,
+        finalTaskText,
         currentWorkdir,
         {
           transcript,
@@ -4404,7 +4476,7 @@ async function main(): Promise<void> {
                   currentChatId,
                   workdir: currentWorkdir,
                   locale: currentLocale,
-                  task: taskText,
+                  task: finalTaskText,
                   transcript,
                   ui: editor,
                   buildSystemPrompt: mod.buildSystemPrompt,

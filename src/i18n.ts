@@ -776,6 +776,11 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: '📎 Вложен файл {marker} {name} ({size}) — {path}',
     en: '📎 Attached file {marker} {name} ({size}) — {path}',
   },
+  // B5: shown when `@path` references in a task were inlined as file contents.
+  'msg.at_refs': {
+    ru: '📄 Встроено файлов по @-ссылкам: {n} —',
+    en: '📄 Inlined @-referenced files: {n} —',
+  },
   'msg.clip_empty': {
     ru: '⚠ В буфере обмена нет картинки (проверено: {via}).',
     en: '⚠ No image found in the clipboard (tried: {via}).',

@@ -50,6 +50,88 @@ function stripPunct(tok: string): string {
   return t
 }
 
+// Characters that may directly precede an '@' for it to count as a file
+// reference rather than a decorator/email. Without this guard `user@host` and
+// `@Component` would be misread as paths.
+function isRefBoundary(ch: string): boolean {
+  return (
+    ch === ' ' ||
+    ch === '\t' ||
+    ch === '\n' ||
+    ch === '\r' ||
+    ch === '(' ||
+    ch === '[' ||
+    ch === '{' ||
+    ch === String.fromCharCode(34) ||
+    ch === String.fromCharCode(39) ||
+    ch === '<'
+  )
+}
+
+// End of a reference token: whitespace, a closing bracket/quote, or an
+// angle bracket (so `@a.ts>` stops at `>`).
+function isRefEnd(ch: string): boolean {
+  return (
+    ch === ' ' ||
+    ch === '\t' ||
+    ch === '\n' ||
+    ch === '\r' ||
+    ch === ')' ||
+    ch === ']' ||
+    ch === '}' ||
+    ch === String.fromCharCode(34) ||
+    ch === String.fromCharCode(39) ||
+    ch === '<' ||
+    ch === '>'
+  )
+}
+
+// Strip trailing punctuation a path may have picked up from prose, e.g.
+// "see @src/a.ts, please" -> `src/a.ts`.
+function stripRefPunct(tok: string): string {
+  let t = tok
+  while (t.length && ',.;:!?'.includes(t[t.length - 1])) t = t.slice(0, -1)
+  return t
+}
+
+// Find all `@path` references in a task text (B5). Returns the unique paths in
+// order of appearance. A reference is an '@' at a word boundary followed by a
+// token that looks like a file name/path (a known extension). Implemented
+// without regular expressions, like extractPathToken, to keep the source free
+// of escaping pitfalls.
+export function extractAtFileRefs(text: string): string[] {
+  const s = String(text || '')
+  const chars = Array.from(s)
+  const n = chars.length
+  const out: string[] = []
+  const seen = new Set<string>()
+  let i = 0
+  while (i < n) {
+    if (chars[i] !== '@') {
+      i++
+      continue
+    }
+    const prev = i > 0 ? chars[i - 1] : ''
+    if (prev && !isRefBoundary(prev)) {
+      i++
+      continue
+    }
+    let j = i + 1
+    let tok = ''
+    while (j < n && !isRefEnd(chars[j])) {
+      tok += chars[j]
+      j++
+    }
+    const cleaned = stripRefPunct(tok)
+    if (cleaned && looksLikeToken(cleaned) && !seen.has(cleaned)) {
+      seen.add(cleaned)
+      out.push(cleaned)
+    }
+    i = j > i + 1 ? j : i + 1
+  }
+  return out
+}
+
 function looksLikeToken(tok: string): boolean {
   const t = String(tok || '')
   if (!t || t.length > 500) return false
