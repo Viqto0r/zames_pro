@@ -11,7 +11,36 @@ export interface BuildSystemPromptOptions {
   attachments?: string[]
   /** Project context: AGENTS.md, MEMORY, skills, custom commands. */
   context?: LoadedContext | null
+  /**
+   * True in the operator's dev mode (running zames on its own sources). The
+   * loop then tells the model it may record improvement ideas in BACKLOG.md.
+   * Off in a normal run so an unrelated project is never told to edit a
+   * BACKLOG.md it does not own.
+   */
+  selfImprovement?: boolean
 }
+
+// The dev-mode BACKLOG instruction. English (agent-facing) like the rest of the
+// prompt. Deliberately narrow: one short note at most, and only when the idea
+// is OUTSIDE the current task — otherwise the model documents trivia instead
+// of doing the work, and BACKLOG.md grows on every run.
+const BACKLOG_SECTION = `## Self-improvement notes (dev mode)
+
+You are running in the operator's dev mode, so this project is zames itself
+and you may improve it. While working, if you notice a concrete improvement
+that is OUTSIDE the current task — a bug in another module, a cleanup, a
+missing test — append ONE short bullet to BACKLOG.md (Write/Edit) instead of
+silently forgetting it, then continue the task.
+
+Rules for that note:
+- at most one or two per task; do NOT let it distract from the task;
+- do NOT duplicate an item already in BACKLOG.md (read it first if unsure);
+- keep it to a single line: what, why it matters, and a one-line fix sketch;
+- put it under the matching priority section (P0 bug/data loss, P1 noticeable
+  pain, P2 quality, P3 nice-to-have);
+- this is the ONE exception to "do not touch unrelated files". If nothing
+  worth noting, add nothing.
+`
 
 /** Render the AGENTS.md / MEMORY / skills / commands blocks of the prompt. */
 export function renderContextSection(
@@ -95,6 +124,7 @@ export function buildSystemPrompt({
   locale = 'ru',
   attachments = [],
   context = null,
+  selfImprovement = false,
 }: BuildSystemPromptOptions): string {
   const t = translate(locale)
   const toolDescriptions = tools
@@ -114,6 +144,7 @@ export function buildSystemPrompt({
     : ''
 
   const contextSection = renderContextSection(context)
+  const selfSection = selfImprovement ? '\n' + BACKLOG_SECTION + '\n' : ''
 
   return `You are a coding agent running in a terminal. You help the user with software engineering tasks by reading files, writing code, running commands, and iterating until the task is done.
 
@@ -167,7 +198,7 @@ task is done (or when you must ask the operator), not between tool calls.
 You have access to the following tools:
 
 ${toolDescriptions}
-${gitSection}${attachSection}${contextSection}
+${gitSection}${attachSection}${contextSection}${selfSection}
 ## Choosing the right tool
 
 Prefer the most specific tool; a wrong choice wastes a turn:

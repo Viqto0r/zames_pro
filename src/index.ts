@@ -76,6 +76,7 @@ import {
   renderDoctor,
   resolveExtraDir,
   buildReviewPrompt,
+  isDevOnlyCommand,
   parseBacklogItems,
   nextBacklogItem,
   buildImprovePrompt,
@@ -148,6 +149,11 @@ interface RunTaskOptions {
   todosQuery?: (() => string) | null
   /** Called with the final assistant message of each task (/copy source). */
   onAssistantFinal?: ((msg: string) => void) | null
+  /**
+   * Dev mode: inject the BACKLOG self-improvement note into the system prompt
+   * of a FRESH chat and into the auto-compact handover. Off in a normal run.
+   */
+  selfImprovement?: boolean
 }
 
 interface ReviewMode {
@@ -341,6 +347,7 @@ const RELOADABLE = [
   'spinner',
   'config',
   'fsutil',
+  'backlog',
 ]
 
 interface ModBag {
@@ -354,6 +361,10 @@ interface ModBag {
   closeWeb: typeof closeWeb
   createSpinner: typeof createSpinner
   createMcpPool: typeof import('./mcp.js').createMcpPool
+  collapseBacklog: typeof import('./backlog.js').collapseBacklog
+  appendBacklogItem: typeof import('./backlog.js').appendBacklogItem
+  backlogStats: typeof import('./backlog.js').backlogStats
+  backlogNeedsPruning: typeof import('./backlog.js').backlogNeedsPruning
 }
 
 const mod: ModBag = {
@@ -367,6 +378,10 @@ const mod: ModBag = {
   closeWeb,
   createSpinner,
   createMcpPool: null as unknown as ModBag['createMcpPool'],
+  collapseBacklog: null as unknown as ModBag['collapseBacklog'],
+  appendBacklogItem: null as unknown as ModBag['appendBacklogItem'],
+  backlogStats: null as unknown as ModBag['backlogStats'],
+  backlogNeedsPruning: null as unknown as ModBag['backlogNeedsPruning'],
 }
 
 async function reloadModules(): Promise<{ count: number; errors: string[] }> {
@@ -417,6 +432,23 @@ async function reloadModules(): Promise<{ count: number; errors: string[] }> {
 
   if (pick('mcp', 'createMcpPool'))
     mod.createMcpPool = pick('mcp', 'createMcpPool') as ModBag['createMcpPool']
+  if (pick('backlog', 'collapseBacklog'))
+    mod.collapseBacklog = pick(
+      'backlog',
+      'collapseBacklog',
+    ) as ModBag['collapseBacklog']
+  if (pick('backlog', 'appendBacklogItem'))
+    mod.appendBacklogItem = pick(
+      'backlog',
+      'appendBacklogItem',
+    ) as ModBag['appendBacklogItem']
+  if (pick('backlog', 'backlogStats'))
+    mod.backlogStats = pick('backlog', 'backlogStats') as ModBag['backlogStats']
+  if (pick('backlog', 'backlogNeedsPruning'))
+    mod.backlogNeedsPruning = pick(
+      'backlog',
+      'backlogNeedsPruning',
+    ) as ModBag['backlogNeedsPruning']
 
   return { count: loaded.size, errors }
 }
@@ -475,6 +507,42 @@ function warnIfBrowserChanged(): void {
 // ---------- helpers ----------
 
 function printHelp(): void {
+  // Self-development commands (backlog / self-review) are shown ONLY in dev
+  // mode. A regular package install must not advertise them to the user — and
+  // the main loop rejects them too (see the guard at the dispatch).
+  const devHelp = devMode
+    ? '  ' +
+      t('help.cmd.improve') +
+      '\n  ' +
+      t('help.cmd.backlog') +
+      '\n  ' +
+      t('help.cmd.debug_dom') +
+      '\n  ' +
+      t('help.cmd.help') +
+      '\n  ' +
+      t('help.cmd.exit') +
+      '\n\n' +
+      theme.bold(t('help.self_review')) +
+      '\n  ' +
+      t('help.self.review') +
+      '\n  ' +
+      t('help.self.fix') +
+      '\n  ' +
+      t('help.self.done') +
+      '\n  ' +
+      t('help.self.list') +
+      '\n  ' +
+      t('help.self.diff') +
+      '\n  ' +
+      t('help.self.apply') +
+      '\n\n'
+    : '  ' +
+      t('help.cmd.debug_dom') +
+      '\n  ' +
+      t('help.cmd.help') +
+      '\n  ' +
+      t('help.cmd.exit') +
+      '\n'
   console.log(`
 ${theme.bold('zames')} — ${t('app.tagline')}
 
@@ -566,19 +634,7 @@ ${theme.bold(t('help.sec.files'))}
   ${t('help.cmd.doctor')}
   ${t('help.cmd.add_dir')}
   ${t('help.cmd.review')}
-  ${t('help.cmd.improve')}
-  ${t('help.cmd.debug_dom')}
-  ${t('help.cmd.help')}
-  ${t('help.cmd.exit')}
-
-${theme.bold(t('help.self_review'))}
-  ${t('help.self.review')}
-  ${t('help.self.fix')}
-  ${t('help.self.done')}
-  ${t('help.self.list')}
-  ${t('help.self.diff')}
-  ${t('help.self.apply')}
-${dynamicCommands.length ? '\n' + theme.bold(t('help.skills')) + '\n' + dynamicCommands.map((d) => '  ' + d.name.padEnd(24) + ' ' + d.description).join('\n') : ''}
+${devHelp}${dynamicCommands.length ? '\n' + theme.bold(t('help.skills')) + '\n' + dynamicCommands.map((d) => '  ' + d.name.padEnd(24) + ' ' + d.description).join('\n') : ''}
 
 ${theme.bold(t('help.files'))}
   ${t('help.files.logs')}        ${config.transcript.dir}
@@ -601,6 +657,12 @@ function dirLabel(p: string): string {
 // List of slash commands for completion when you type «/» (Tab — complete).
 // The description is localized by the help.cmd.* key at display time — see
 // buildSlashCommands().
+//
+// Dev-only commands (backlog-driven self-improvement, self-review snapshots)
+// are filtered out of the hints and rejected by the main loop unless the
+// operator is in dev mode — a regular package install must never advertise
+// them, and a muscle-memory `/improve` must not edit the user's BACKLOG.md.
+// The list itself lives in commands.ts (`isDevOnlyCommand`), one source.
 const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
   { name: '/help', key: 'help.cmd.help' },
   { name: '/new', key: 'help.cmd.new' },
@@ -630,6 +692,7 @@ const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
   { name: '/add-dir', key: 'help.cmd.add_dir' },
   { name: '/review', key: 'help.cmd.review' },
   { name: '/improve', key: 'help.cmd.improve' },
+  { name: '/backlog', key: 'help.cmd.backlog' },
   { name: '/goal', key: 'help.cmd.goal' },
   { name: '/loop', key: 'help.cmd.loop' },
   { name: '/cron', key: 'help.cmd.cron' },
@@ -735,8 +798,12 @@ async function expandSlashTarget(
 }
 
 // Slash-command descriptions in the current language (for LineEditor hints).
+// Dev-only commands are filtered out unless the operator is in dev mode, so a
+// regular install never advertises (or accepts) them.
 function buildSlashCommands(): Array<{ name: string; description: string }> {
-  const base = SLASH_COMMANDS.map((c) => ({
+  const base = SLASH_COMMANDS.filter(
+    (c) => devMode || !isDevOnlyCommand(c.name),
+  ).map((c) => ({
     name: c.name,
     description: t(c.key),
   }))
@@ -1308,6 +1375,7 @@ async function runTask(
     getTokenUsage = null,
     goal = null,
     todosQuery = null,
+    selfImprovement = false,
   } = opts
 
   // In TTY mode the UI is a LineEditor: it owns the input (queue, Esc,
@@ -1424,6 +1492,7 @@ async function runTask(
         autoCompactPct,
         contextLimit,
         getTokenUsage,
+        selfImprovement,
       })
 
       // The loop may end WITHOUT a model answer: an exhausted iteration
@@ -1682,6 +1751,7 @@ async function main(): Promise<void> {
       transcript,
       freshChat,
       sendSystemPrompt,
+      selfImprovement: devMode,
       onChatReady: (chatId) => {
         if (chatId) saveLastChat(chatId, currentWorkdir)
       },
@@ -1701,6 +1771,27 @@ async function main(): Promise<void> {
   // from wondering why the first task pauses on a login form.
   if (!authMarkerExists()) {
     console.log(theme.warn(t('msg.first_login_hint')))
+  }
+  // Nudge when BACKLOG.md has grown large: /improve reads the whole file, so a
+  // bloated backlog costs tokens on every self-improvement run. Best-effort.
+  if (devMode) {
+    try {
+      const bl = await fs.readFile(
+        path.join(currentWorkdir, 'BACKLOG.md'),
+        'utf-8',
+      )
+      const st = mod.backlogStats(bl)
+      if (mod.backlogNeedsPruning(st)) {
+        console.log(
+          theme.warn(
+            t('backlog.warn', {
+              lines: String(st.lines),
+              chars: String(st.chars),
+            }),
+          ),
+        )
+      }
+    } catch {}
   }
 
   let freshChatNext = true
@@ -2599,6 +2690,17 @@ async function main(): Promise<void> {
     const lower = trimmed.toLowerCase()
 
     if (['/exit', '/quit', 'exit', 'quit'].includes(lower)) break
+
+    // Dev-only commands (backlog / self-review) must not run outside dev mode.
+    // Hiding them from /help is not enough: a user could type the command by
+    // hand, and it would rewrite their project's BACKLOG.md or snapshot src/.
+    if (!devMode) {
+      const devCmd = isDevOnlyCommand(lower)
+      if (devCmd) {
+        console.error(theme.warn(t('msg.dev_only', { v: devCmd })))
+        continue
+      }
+    }
 
     // `!command` — run a shell command directly, without asking the model
     // (like Claude Code's bash mode). The same sandbox guard as the Bash tool
@@ -3853,6 +3955,7 @@ async function main(): Promise<void> {
         tools: mod.createTools(currentWorkdir, { undo, todos: todoStore }),
         answerTimeoutMs: config.browser.answerTimeoutMs,
         fallbackLimit: COMPACT_FALLBACK_LIMIT,
+        selfImprovement: devMode,
       })
       if (res.ok) {
         currentChatId = res.chatId
@@ -3919,11 +4022,88 @@ async function main(): Promise<void> {
               }
             },
             getTokenUsage: () => browser.getLastTokenUsage(),
+            selfImprovement: devMode,
           },
         )
       } finally {
         if (editor) editor.busy = false
       }
+      // Auto-prune: a finished item keeps its summary line but loses the
+      // archived <details> copy of its original text, so BACKLOG.md does not
+      // grow on every /improve. Best-effort — a read/write failure must not
+      // break the command.
+      try {
+        const raw = await fs.readFile(
+          path.join(currentWorkdir, 'BACKLOG.md'),
+          'utf-8',
+        )
+        const col = mod.collapseBacklog(raw)
+        if (col.changed) {
+          await fs.writeFile(
+            path.join(currentWorkdir, 'BACKLOG.md'),
+            col.text,
+            'utf-8',
+          )
+          console.log(
+            theme.dim(t('improve.collapsed', { n: String(col.collapsed) })),
+          )
+        }
+      } catch {}
+      continue
+    }
+
+    if (lower === '/backlog' || lower.startsWith('/backlog ')) {
+      // Record an improvement idea without implementing it. `/backlog
+      // collapse` prunes the archived blocks instead. The LLM only PLACES
+      // the item; the pure helpers in src/backlog.ts own the format.
+      const note = trimmed.slice('/backlog'.length).trim()
+      const backlogFile = path.join(currentWorkdir, 'BACKLOG.md')
+      let backlogText: string
+      try {
+        backlogText = await fs.readFile(backlogFile, 'utf-8')
+      } catch {
+        console.error(theme.warn(t('backlog.none')))
+        continue
+      }
+      if (!note) {
+        console.log(theme.dim(t('backlog.usage')))
+        continue
+      }
+      if (note === 'collapse') {
+        const col = mod.collapseBacklog(backlogText)
+        if (!col.changed) {
+          console.log(theme.dim(t('backlog.empty')))
+        } else {
+          await fs.writeFile(backlogFile, col.text, 'utf-8')
+          console.log(
+            theme.system(t('improve.collapsed', { n: String(col.collapsed) })),
+          )
+        }
+        continue
+      }
+      // Deterministic append: no model round-trip is needed to record a
+      // one-line note, and a pure helper cannot invent a different id than
+      // the one the operator is shown. An optional leading `P0..P3` sets the
+      // priority; the first line is the title, the rest becomes the body.
+      let priority = 'P2'
+      let body = note
+      for (const p of ['P0', 'P1', 'P2', 'P3']) {
+        if (note.toUpperCase().startsWith(p + ' ')) {
+          priority = p
+          body = note.slice(p.length + 1)
+          break
+        }
+      }
+      const bodyLines = body.split(String.fromCharCode(10))
+      const title = bodyLines[0]
+      const rest = bodyLines.slice(1).join(String.fromCharCode(10)).trim()
+      const res = mod.appendBacklogItem(backlogText, {
+        title,
+        priority,
+        note: rest || undefined,
+      })
+      await fs.writeFile(backlogFile, res.text, 'utf-8')
+      console.log(theme.system(t('backlog.adding', { v: res.id })))
       continue
     }
 
@@ -4127,6 +4307,7 @@ async function main(): Promise<void> {
                   answerTimeoutMs: config.browser.answerTimeoutMs,
                   quiet: true,
                   skipUiLock: true,
+                  selfImprovement: devMode,
                 })
                 if (res.ok) {
                   currentChatId = res.chatId
@@ -4140,6 +4321,7 @@ async function main(): Promise<void> {
           getTokenUsage: () => browser.getLastTokenUsage(),
           goal: sessionGoal,
           todosQuery: () => todosSummary(),
+          selfImprovement: devMode,
         },
         inputAttachments,
       )

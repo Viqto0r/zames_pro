@@ -1018,6 +1018,30 @@ export function buildImprovePrompt(item: BacklogItem): string {
 
 // ---------- /review ----------
 
+// Commands that only make sense while developing zames itself. A regular user
+// who installed the package must not see them in /help or the «/» hints, and
+// the main loop rejects them unless dev mode is on (--dev / config.hotReload).
+// Kept here (pure) so the list has ONE source of truth and is unit-tested.
+export const DEV_ONLY_COMMANDS = [
+  '/improve',
+  '/backlog',
+  '/self-review',
+  '/self-fix',
+  '/self-done',
+  '/self-list',
+  '/self-diff',
+  '/self-apply',
+]
+
+/** True when the typed line invokes a dev-only command. */
+export function isDevOnlyCommand(text: string): string | null {
+  const name = String(text ?? '')
+    .trim()
+    .split(/\s+/)[0]
+    .toLowerCase()
+  return DEV_ONLY_COMMANDS.find((c) => c === name) || null
+}
+
 export function buildReviewPrompt(focus: string, hasStaged = false): string {
   const scope = hasStaged ? 'staged' : 'uncommitted'
   const f = String(focus ?? '').trim()

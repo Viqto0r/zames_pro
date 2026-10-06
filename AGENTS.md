@@ -76,6 +76,10 @@ When a change touches one concern, start in the module that owns it:
   `/export`, `/doctor`, `/add-dir`, `/review`, `/compact`,
   `/queue`, `/goal`, live toggles) and the restored-history rendering. No
   browser/terminal access — unit-tested.
+- `src/backlog.ts` — PURE BACKLOG.md maintenance: `collapseBacklog()`,
+  `backlogStats()`, `nextBacklogId()`, `appendBacklogItem()`. `index.ts` only
+  reads/writes the file; `/backlog` appends deterministically, `/improve`
+  prunes the archived `<details>` blocks afterwards. Unit-tested.
 - `src/scheduler.ts` — PURE interval/cron parsing and the `Scheduler` (loop and
   cron jobs). The 1-second ticker lives in `src/index.ts`.
 - `src/compact.ts` — `performCompact()`, shared by the manual `/compact` and the
@@ -261,6 +265,38 @@ mangles multi-line content and special characters. Use the Edit/Write
 tools (or a small node script) for anything with newlines or special
 characters.
 
+## Developer docs
+
+`README.md` is for USERS of the package — it must stay free of anything about
+developing zames itself (no BACKLOG, no self-review, no `/improve`, no test/
+build internals, no module map). The self-development material lives in
+`DEVELOPING.md`: dev mode, the dev-only commands, BACKLOG.md maintenance and
+the pre-release checks. When a change is about the agent improving itself, put
+the prose there, not in the README. (This file, AGENTS.md, is agent-facing and
+is NOT shipped in the npm package.)
+
+## Dev-only commands (self-development)
+
+Commands that only make sense while developing zames itself are DEV-ONLY:
+`/improve`, `/backlog`, `/self-review`, `/self-fix`, `/self-done`, `/self-list`,
+`/self-diff`, `/self-apply`. A regular user who installed the package must
+never see or run them — `/improve` on an arbitrary project would edit that
+project's BACKLOG.md, and `/self-review` would snapshot its `src/`.
+
+Enforced in three places, all keyed on `devMode` (`--dev` / `config.hotReload`,
+set by `npm run dev`):
+
+- `printHelp()` omits the block unless `devMode`;
+- `buildSlashCommands()` filters `isDevOnlyCommand(c.name)` out of the «/» hints
+  unless `devMode`;
+- the main loop, right after `/exit`, REJECTS a dev-only command with
+  `msg.dev_only` when not in dev mode (hiding is not enough — a user can type
+  the command by hand).
+
+The list has ONE source of truth: `DEV_ONLY_COMMANDS` / `isDevOnlyCommand()` in
+`src/commands.ts` (pure, tested). Add a new self-development command there and
+the filter covers both the help and the dispatch guard.
+
 ## BACKLOG.md is gitignored
 
 `BACKLOG.md` is the agent's own improvement-notes file. It is listed in
@@ -268,6 +304,18 @@ characters.
 otherwise be published with every release (it was committed once by mistake).
 The agent reads and edits it locally; a `git add -A` silently skips it, which
 is the intended behavior.
+
+Two commands keep it in shape. `/backlog <text>` records an idea (fresh `N<n>`
+id, placed under the `P0..P3` section; an optional leading `P0..P3` sets it)
+WITHOUT implementing it — deterministic, no model round-trip. `/improve`
+auto-prunes after a successful run: `collapseBacklog()` drops the archived
+`<details>` copy of a finished item but keeps its `### X. [x] ... done` summary
+line. The collapser is tolerant of an UNCLOSED `<details>` (a real file had one,
+making the whole document a single block) — it ends an archive at the next REAL
+heading, not only at `</details>`. In `--dev` mode the system prompt
+(`selfImprovement`) lets the model append ONE short note itself when it spots an
+improvement outside the current task, and a startup warning fires past 500
+lines / 60 KB.
 
 ## Talking to the operator
 

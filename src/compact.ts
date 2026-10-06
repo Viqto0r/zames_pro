@@ -33,6 +33,7 @@ export type BuildSystemPromptFn = (opts: {
   workdir: string
   tools: ToolDef[]
   locale: Locale
+  selfImprovement?: boolean
 }) => string
 
 export interface PerformCompactOptions {
@@ -56,6 +57,8 @@ export interface PerformCompactOptions {
   skipUiLock?: boolean
   /** Suppress the human-readable console output (auto path uses notices). */
   quiet?: boolean
+  /** Dev-mode BACKLOG note in the rebuilt system prompt (see system-prompt). */
+  selfImprovement?: boolean
 }
 
 export interface PerformCompactResult {
@@ -94,6 +97,7 @@ export async function performCompact(
     fallbackLimit = COMPACT_FALLBACK_LIMIT,
     skipUiLock = false,
     quiet = false,
+    selfImprovement = false,
   } = opts
   const t = translate(locale)
   const log = (msg: string): void => {
@@ -207,10 +211,13 @@ export async function performCompact(
 
     // 2) New chat + system prompt + the summary as the first message.
     await browser.newChat()
-    await browser.ask(buildSystemPrompt({ workdir, tools, locale }), {
-      timeout: 60_000,
-      agent: false,
-    })
+    await browser.ask(
+      buildSystemPrompt({ workdir, tools, locale, selfImprovement }),
+      {
+        timeout: 60_000,
+        agent: false,
+      },
+    )
     await browser.ask(buildCompactCarryover(summary, task), {
       timeout: 60_000,
       agent: false,

@@ -13,6 +13,8 @@ import {
   renderDoctor,
   resolveExtraDir,
   buildReviewPrompt,
+  isDevOnlyCommand,
+  DEV_ONLY_COMMANDS,
   trimRestoredMessages,
   formatRestoredHistory,
   isDisplayableMessage,
@@ -322,6 +324,30 @@ test('buildReviewPrompt includes scope and focus', () => {
   const staged = buildReviewPrompt('', true)
   assert.ok(staged.includes('staged'))
   assert.ok(!staged.includes('Extra focus'))
+})
+
+// ---------- dev-only commands ----------
+
+test('isDevOnlyCommand flags self-development commands', () => {
+  assert.equal(isDevOnlyCommand('/improve'), '/improve')
+  assert.equal(isDevOnlyCommand('/improve B3'), '/improve')
+  assert.equal(isDevOnlyCommand('/backlog note here'), '/backlog')
+  assert.equal(isDevOnlyCommand('/SELF-REVIEW src'), '/self-review')
+  assert.equal(isDevOnlyCommand('/self-apply snap1'), '/self-apply')
+})
+
+test('isDevOnlyCommand ignores normal commands', () => {
+  assert.equal(isDevOnlyCommand('/help'), null)
+  assert.equal(isDevOnlyCommand('/diff --staged'), null)
+  assert.equal(isDevOnlyCommand('/review'), null)
+  assert.equal(isDevOnlyCommand('just a task'), null)
+  assert.equal(isDevOnlyCommand(''), null)
+})
+
+test('DEV_ONLY_COMMANDS covers every self-* command', () => {
+  for (const c of DEV_ONLY_COMMANDS) {
+    assert.equal(isDevOnlyCommand(c), c, `not flagged: ${c}`)
+  }
 })
 
 // ---------- restored dialogue ----------

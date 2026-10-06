@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.61.0]
+
+### Added
+
+- `/backlog <text>` — record an improvement idea in `BACKLOG.md` without
+  implementing it. Deterministic: a fresh `N<n>` id under the matching
+  `P0..P3` section; an optional leading `P0..P3` picks the section, the first
+  line is the title, the rest the body. `/backlog collapse` prunes the
+  archived blocks.
+- BACKLOG.md maintenance (`src/backlog.ts`, pure/tested): `/improve` now
+  auto-prunes a finished item's archived `<details>` copy after a successful
+  run (the `### X. [x] ... done` summary line is kept), and a startup warning
+  fires when BACKLOG.md exceeds 500 lines / 60 KB. The collapser tolerates an
+  UNCLOSED `<details>` (a real file had one).
+- Dev-mode self-improvement note: in `--dev` the system prompt tells the model
+  it may append ONE short BACKLOG.md bullet when it spots an improvement
+  outside the current task (off in a normal run).
+
+### Changed
+
+- Self-development commands (`/improve`, `/backlog`, `/self-review`,
+  `/self-fix`, `/self-done`, `/self-list`, `/self-diff`, `/self-apply`) are now
+  DEV-ONLY: they are hidden from `/help` and the «/» hints, and rejected by the
+  main loop, unless the operator runs in dev mode (`--dev` or
+  `config.hotReload`). A regular package install no longer advertises them, and
+  a hand-typed `/improve` can no longer edit an unrelated project's
+  BACKLOG.md. The list is `DEV_ONLY_COMMANDS` / `isDevOnlyCommand()` in
+  `src/commands.ts` (pure, tested).
+
 ## [2.60.0]
 
 ### Added
@@ -220,7 +249,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Session banner warns when no saved DeepSeek session exists.
 - `--no-color` flag (explicit `NO_COLOR`).
 
-[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.60.0...HEAD
+[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.61.0...HEAD
+[2.61.0]: https://github.com/Viqto0r/zames_pro/compare/v2.60.0...v2.61.0
 [2.60.0]: https://github.com/Viqto0r/zames_pro/compare/v2.59.0...v2.60.0
 [2.59.0]: https://github.com/Viqto0r/zames_pro/compare/v2.58.0...v2.59.0
 [2.58.0]: https://github.com/Viqto0r/zames_pro/compare/v2.57.1...v2.58.0

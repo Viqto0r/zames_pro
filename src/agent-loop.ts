@@ -92,6 +92,12 @@ export interface RunAgentLoopOptions {
    * explicit object, or null to disable hooks (tests, read-only sub-runs).
    */
   hooks?: HooksConfig | null
+  /**
+   * Dev mode: inject the BACKLOG self-improvement note into the system prompt
+   * (see system-prompt.ts). Off in a normal run — an unrelated project must
+   * never be told to edit a BACKLOG.md.
+   */
+  selfImprovement?: boolean
 }
 
 export async function runAgentLoop({
@@ -123,6 +129,7 @@ export async function runAgentLoop({
   contextLimit = 1_000_000,
   getTokenUsage = null,
   hooks = undefined,
+  selfImprovement = false,
 }: RunAgentLoopOptions): Promise<string> {
   // Resolve the hook config ONCE per task: a read per tool call would be
   // wasteful, and a mid-task edit of hooks.json is not something to chase.
@@ -222,6 +229,7 @@ export async function runAgentLoop({
       gitContext: gitText,
       locale,
       context,
+      selfImprovement,
     })
     transcript?.log('system_prompt', {
       length: systemPrompt.length,

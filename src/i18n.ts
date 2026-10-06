@@ -272,6 +272,34 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: 'Улучшение {id}: {title}',
     en: 'Improving {id}: {title}',
   },
+  'improve.collapsed': {
+    ru: 'BACKLOG свёрнут: удалено архивных блоков — {n}.',
+    en: 'BACKLOG collapsed: {n} archived block(s) removed.',
+  },
+  'help.cmd.backlog': {
+    ru: '/backlog <текст> записать идею в BACKLOG.md',
+    en: '/backlog <text> record an idea in BACKLOG.md',
+  },
+  'backlog.usage': {
+    ru: 'Использование: /backlog <текст идеи>',
+    en: 'Usage: /backlog <idea text>',
+  },
+  'backlog.none': {
+    ru: 'BACKLOG.md не найден в рабочей директории.',
+    en: 'BACKLOG.md was not found in the working directory.',
+  },
+  'backlog.adding': {
+    ru: 'Записываю в BACKLOG: {v}',
+    en: 'Recording in BACKLOG: {v}',
+  },
+  'backlog.warn': {
+    ru: 'BACKLOG.md разросся ({lines} строк, {chars} символов). Сверни сделанное: /backlog collapse',
+    en: 'BACKLOG.md has grown large ({lines} lines, {chars} chars). Collapse it: /backlog collapse',
+  },
+  'backlog.empty': {
+    ru: 'Свёртывать нечего: архивных блоков нет.',
+    en: 'Nothing to collapse: there are no archived blocks.',
+  },
   'help.cmd.compact': {
     ru: '/compact сжать историю и открыть новый чат с резюме',
     en: '/compact compact the history and open a new chat with the summary',
@@ -696,6 +724,10 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
   'msg.unknown_cmd': {
     ru: 'Неизвестная команда: {v}. Набери /help.',
     en: 'Unknown command: {v}. Type /help.',
+  },
+  'msg.dev_only': {
+    ru: 'Команда {v} доступна только в dev-режиме (--dev или hotReload).',
+    en: 'The {v} command is only available in dev mode (--dev or hotReload).',
   },
   'msg.bye': { ru: 'Выход.', en: 'Bye.' },
   'shell.empty': {

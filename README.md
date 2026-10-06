@@ -5,7 +5,6 @@
 [![tests](https://github.com/Viqto0r/zames_pro/actions/workflows/test.yml/badge.svg)](https://github.com/Viqto0r/zames_pro/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](package.json)
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 ![zames logo](https://raw.githubusercontent.com/Viqto0r/zames_pro/master/logo.jpg)
 
@@ -29,8 +28,6 @@ directory, reads and edits files, runs commands, and commits to git.
   custom commands from the repo and `~/.zames`, the same idea as Codex / Claude
   Code.
 - **MCP support** — plug in external tool servers (e.g. `@playwright/mcp`).
-- **Self-review** — `/self-review` snapshots `src/` so the agent can review and
-  fix itself in a sandbox (`/self-fix`, `/self-apply`).
 - **Scheduling** — `/loop`, `/cron` and `/jobs` repeat tasks on a timer.
 - **Bilingual UI** — Russian / English (`/config lang`).
 
@@ -47,7 +44,7 @@ directory, reads and edits files, runs commands, and commits to git.
 
 ## Requirements
 
-- Node.js >= 20 (CI and development use Node 24; see `.nvmrc`)
+- Node.js >= 20
 - A DeepSeek account. On first launch zames asks for your DeepSeek
   login/password in the terminal (and stores them in `~/.zames/config.json`
   after a successful sign-in, so a later logout is handled automatically
@@ -89,7 +86,6 @@ Credentials and toggles can also be edited from `/config`
 
 - npm: <https://www.npmjs.com/package/zames_pro>
 - Changelog: [`CHANGELOG.md`](CHANGELOG.md)
-- Contributing: [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - Security policy: [`SECURITY.md`](SECURITY.md)
 
 ## Installation
@@ -247,10 +243,6 @@ Codex CLI:
   instead of the whole list.
 - /review [focus] [--staged] — ask the agent to review uncommitted changes
   and report findings (no code changes).
-- /improve [id] — self-improvement loop: take the next open item from
-  `BACKLOG.md` (or a specific id, e.g. `/improve B3`), implement it, run the
-  typecheck/lint/tests, mark it done and add a CHANGELOG entry. Nothing is
-  committed — the changes stay in the working tree for review.
 - /plan [on|off] — plan (read-only) mode. While it is on, the mutating tools
   (Write/Edit/MultiEdit/ApplyPatch/Bash, GitAdd/GitCommit/GitPush) are removed
   from the tool set, so the agent can investigate without touching the tree.
@@ -384,7 +376,7 @@ Changes are written to the project `.zamesrc.json` and applied right away
 (help, messages, spinner) and the language the agent answers you in. The
 locale lives in `ui.locale` in the config file.
 
-Agent data is stored in `~/.zames`: browser profile, logs, undo history, self-review snapshots.
+Agent data is stored in `~/.zames`: browser profile, logs, undo history, sessions.
 
 ## FAQ
 
