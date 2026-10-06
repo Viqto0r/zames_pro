@@ -230,3 +230,27 @@ test('isUsableCompactSummary: rejects empty / too short answers', () => {
   assert.equal(isUsableCompactSummary('   '), false)
   assert.equal(isUsableCompactSummary('ok'), false)
 })
+
+// Regression: the per-second sendPause() refresh used to rebuild the status
+// WITHOUT the elapsed tail, so the "1m 50s" label blinked once per second
+// (the 400ms dot timer drew it, the 1s update erased it).
+test('sendPause keeps the elapsed tail while the animation runs', () => {
+  const e = new LineEditor()
+  e._render = () => {}
+  // Pretend the dot animation is already running (sendPause takes this path).
+  e._animating = true
+  e._dotTimer = setInterval(() => {}, 10_000)
+  e._animStart = Date.now() - 65_000
+  let captured = ''
+  e.setStatus = (text: string) => {
+    captured = text
+  }
+  e.sendPause(201)
+  clearInterval(e._dotTimer!)
+  // The label must survive the per-second update, exactly as it does on the
+  // dot-timer tick.
+  assert.ok(
+    /1m/.test(captured),
+    'elapsed label missing after sendPause: ' + captured,
+  )
+})

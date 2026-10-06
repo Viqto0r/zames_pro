@@ -170,7 +170,10 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
       // so the countdown refreshes without resetting the dots.
       if (animating && dotTimer && spinner) {
         animBase = theme.brown(stripEllipsis(label))
-        spinner.text = animBase + renderDots(dotPhase) + elapsedLabel() + HINT
+        // Same tail as the timer renders (elapsed + tasks + hint), or the
+        // per-second update blinks the elapsed label / task badge away.
+        spinner.text =
+          animBase + renderDots(dotPhase) + elapsedLabel() + tasksBadge() + HINT
         return
       }
       startAnimated(label)

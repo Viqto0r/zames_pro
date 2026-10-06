@@ -1363,8 +1363,14 @@ export class LineEditor {
     const label = translate(this.locale)('spinner.pause', { n: seconds })
     if (this._animating && this._dotTimer) {
       this._thinkBase = theme.brown(stripEllipsis(label))
+      // Keep the SAME tail as the dot timer renders (elapsed + hint). Omitting
+      // the elapsed label here made it blink once per second: the timer showed
+      // "· 1m 50s" and the per-second sendPause update erased it.
       this.setStatus(
-        this._thinkBase + this._dots(this._dotPhase) + this._hint(),
+        this._thinkBase +
+          this._dots(this._dotPhase) +
+          this._elapsedLabel() +
+          this._hint(),
       )
       return
     }
