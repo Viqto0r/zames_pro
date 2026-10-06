@@ -252,6 +252,15 @@ Additional safeguards against "stalls" (verified on real transcripts):
   `DSML`, `function_call`) but is not recognized — the model is asked to
   resend the call (up to `MAX_MALFORMED_RETRIES`) instead of finishing the task.
 
+## Editing text files: prefer Edit/Write over sed -i
+
+Do NOT rewrite markdown or source with an in-place sed. In practice an
+in-place sed on CHANGELOG.md spliced the file header into a section and
+that corruption was committed (it had to be rebuilt from git). sed
+mangles multi-line content and special characters. Use the Edit/Write
+tools (or a small node script) for anything with newlines or special
+characters.
+
 ## BACKLOG.md is gitignored
 
 `BACKLOG.md` is the agent's own improvement-notes file. It is listed in
