@@ -1,10 +1,38 @@
 # zames_pro
 
+[![npm version](https://img.shields.io/npm/v/zames_pro.svg)](https://www.npmjs.com/package/zames_pro)
+[![npm downloads](https://img.shields.io/npm/dm/zames_pro.svg)](https://www.npmjs.com/package/zames_pro)
+[![tests](https://github.com/Viqto0r/zames_pro/actions/workflows/test.yml/badge.svg)](https://github.com/Viqto0r/zames_pro/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](package.json)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 ![zames logo](https://raw.githubusercontent.com/Viqto0r/zames_pro/master/logo.jpg)
 
 A terminal coding agent that works on top of [chat.deepseek.com](https://chat.deepseek.com/) through Playwright.
 In spirit it is similar to Claude Code / Codex CLI: it starts in the current
 directory, reads and edits files, runs commands, and commits to git.
+
+> No API key required — it drives the DeepSeek web chat like a regular user
+> through a real (headless) browser.
+
+## Features
+
+- **Tools like Claude Code / Codex** — `Read`, `Write`, `Edit`, `Bash`,
+  `Glob`, `Grep`, plus `MultiEdit`, `ApplyPatch`, `LS`, `TodoWrite`, git and web
+  tools. Every edit is backed by `/undo`.
+- **Runs while you keep typing** — queue messages during a task; they run right
+  after it, in the same chat (like typing during generation on the web).
+- **Plan mode** — `/plan` (or `--plan`) drops all mutating tools, so the agent
+  can investigate the code without touching the tree.
+- **Project context** — reads `AGENTS.md`, `MEMORY.md`, skills (`SKILL.md`) and
+  custom commands from the repo and `~/.zames`, the same idea as Codex / Claude
+  Code.
+- **MCP support** — plug in external tool servers (e.g. `@playwright/mcp`).
+- **Self-review** — `/self-review` snapshots `src/` so the agent can review and
+  fix itself in a sandbox (`/self-fix`, `/self-apply`).
+- **Scheduling** — `/loop`, `/cron` and `/jobs` repeat tasks on a timer.
+- **Bilingual UI** — Russian / English (`/config lang`).
 
 ## Requirements
 
@@ -45,6 +73,13 @@ version). You do not need `--headed` just to log in.
 
 Credentials and toggles can also be edited from `/config`
 (`browser.auth.username`, `browser.auth.password`, `browser.auth.saveSession`).
+
+## Links
+
+- npm: <https://www.npmjs.com/package/zames_pro>
+- Changelog: [`CHANGELOG.md`](CHANGELOG.md)
+- Contributing: [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- Security policy: [`SECURITY.md`](SECURITY.md)
 
 ## Installation
 

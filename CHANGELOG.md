@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.57.1]
+
+### Added
+
+- README badges (npm version/downloads, CI status, license, Node, PRs) and a
+  Features section, so the GitHub landing page and the npm page show what the
+  project is at a glance.
+- Community files: issue forms (bug report, feature request), a PR template
+  and CODE_OF_CONDUCT.md.
+- package.json: a fuller description and more keywords (npm search), and
+  CHANGELOG.md is now included in the published files.
+
 ## [2.57.0]
 
 ### Added
@@ -156,7 +168,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Session banner warns when no saved DeepSeek session exists.
 - `--no-color` flag (explicit `NO_COLOR`).
 
-[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.57.0...HEAD
+[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.57.1...HEAD
+[2.57.1]: https://github.com/Viqto0r/zames_pro/compare/v2.57.0...v2.57.1
 [2.57.0]: https://github.com/Viqto0r/zames_pro/compare/v2.56.0...v2.57.0
 [2.56.0]: https://github.com/Viqto0r/zames_pro/compare/v2.55.0...v2.56.0
 [2.55.0]: https://github.com/Viqto0r/zames_pro/compare/v2.54.0...v2.55.0
