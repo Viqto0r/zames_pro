@@ -17,6 +17,17 @@ const FLOORS = {
   'xml-toolcall.ts': 90,
   'diff.ts': 90,
   'theme.ts': 95,
+  // Added later: core logic or already well-tested, so a silent regression
+  // that deletes their tests should be caught too. Floors sit a few points
+  // below the current values.
+  'extraTools.ts': 85,
+  'fsutil.ts': 90,
+  'sessions.ts': 90,
+  'context.ts': 85,
+  'markdown.ts': 90,
+  'tools.ts': 90,
+  'system-prompt.ts': 90,
+  'undo.ts': 85,
 }
 
 const run = spawnSync(
@@ -51,6 +62,16 @@ for (const [file, floor] of Object.entries(FLOORS)) {
     failures.push(file + ': ' + pct + '% < floor ' + floor + '%')
   } else {
     console.log('coverage-gate: ' + file + ' ' + pct + '% >= ' + floor + '%')
+  }
+}
+
+// Print the lowest-covered modules, so a dead or untested module is visible
+// in the CI log even when it has no floor yet. Informational only.
+const sorted = [...linePct.entries()].sort((a, b) => a[1] - b[1]).slice(0, 8)
+if (sorted.length) {
+  console.log('coverage-gate: lowest covered modules (informational):')
+  for (const [name, pct] of sorted) {
+    console.log('  ' + name + ' ' + pct + '%')
   }
 }
 

@@ -168,6 +168,19 @@ You have access to the following tools:
 
 ${toolDescriptions}
 ${gitSection}${attachSection}${contextSection}
+## Choosing the right tool
+
+Prefer the most specific tool; a wrong choice wastes a turn:
+
+- Several small edits in ONE file -> MultiEdit (applied atomically), not
+  several Edit calls.
+- Changes across SEVERAL files -> ApplyPatch (V4A), not a series of writes.
+- One exact replacement -> Edit. Creating or overwriting a whole file -> Write.
+- Searching file CONTENT -> Grep; finding files by NAME -> Glob; listing a
+  directory -> LS.
+- Git operations -> the Git* tools, not Bash.
+- Reading a file whose path you already know -> Read, not Bash cat.
+
 ## MCP tools
 
 Some tools are provided by external MCP servers and their names look

@@ -1,0 +1,26 @@
+version: 2
+updates:
+  # Keep GitHub Actions pinned versions fresh (security + deprecation warnings).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: ci
+
+  # Runtime + dev dependencies. Grouped so one PR carries a batch of minor /
+  # patch bumps instead of dozens of separate PRs.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+    groups:
+      npm-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch

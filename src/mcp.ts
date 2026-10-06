@@ -88,6 +88,31 @@ export interface McpServerInfo {
 export interface McpStatus {
   servers: McpServerInfo[]
   toolCount: number
+  /**
+   * Human-readable warnings about the config itself (not connection errors),
+   * e.g. a server pinned to `@latest`. Shown by /mcp and on startup.
+   */
+  warnings: string[]
+}
+
+/**
+ * Flag stdio servers pinned to a floating version (`@latest` / `@next`).
+ * A floating version can change between runs and silently alter the tools the
+ * agent sees, so the operator is warned and told to pin an exact version.
+ * Pure; exported for tests.
+ */
+export function floatingVersionWarnings(
+  servers: Record<string, McpServerConfig>,
+): string[] {
+  const out: string[] = []
+  for (const [name, cfg] of Object.entries(servers)) {
+    if (cfg.disabled) continue
+    const args = [String(cfg.command || ''), ...(cfg.args || [])].join(' ')
+    if (/@(latest|next)\b/.test(args)) {
+      out.push(name)
+    }
+  }
+  return out
 }
 
 /** Options for loading MCP servers. */
@@ -435,6 +460,8 @@ export async function createMcpPool(opts: McpLoadOptions): Promise<McpPool> {
   const servers = config.mcpServers || {}
   const names = Object.keys(servers).filter((n) => !servers[n].disabled)
 
+  const floating = floatingVersionWarnings(servers)
+
   const infos: McpServerInfo[] = []
   const connections: McpConnection[] = []
   const tools: ToolDef[] = []
@@ -481,6 +508,10 @@ export async function createMcpPool(opts: McpLoadOptions): Promise<McpPool> {
     status: () => ({
       servers: infos,
       toolCount: tools.length,
+      warnings: floating.map(
+        (n) =>
+          `MCP server "${n}" uses a floating version (@latest/@next); pin an exact version so the tool set does not change between runs.`,
+      ),
     }),
     close: async () => {
       if (closed) return

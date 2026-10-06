@@ -148,7 +148,13 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
     ru: '!команда                  выполнить shell-команду напрямую (мимо модели)',
     en: '!command                  run a shell command directly (bypass the model)',
   },
-  'help.commands': { ru: 'Обычные команды:', en: 'Commands:' },
+  'help.commands': { ru: 'Команды:', en: 'Commands:' },
+  'help.sec.session': { ru: 'Сессия', en: 'Session' },
+  'help.sec.workspace': { ru: 'Рабочая директория', en: 'Workspace' },
+  'help.sec.git': { ru: 'Git', en: 'Git' },
+  'help.sec.agent': { ru: 'Агент', en: 'Agent' },
+  'help.sec.context': { ru: 'Контекст и настройки', en: 'Context & settings' },
+  'help.sec.files': { ru: 'Файлы и прочее', en: 'Files & misc' },
   'help.cmd.new': {
     ru: '/new, /clear             новый чат (сброс контекста)',
     en: '/new, /clear             new chat (reset context)',
@@ -281,6 +287,10 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
   'plan.off': {
     ru: 'Режим плана ВЫКЛ: агент снова может писать и запускать команды.',
     en: 'Plan mode OFF: the agent can edit and run commands again.',
+  },
+  'help.opt.output_format': {
+    ru: 'формат вывода: text|json|jsonl (для скриптов)',
+    en: 'output format: text|json|jsonl (for scripts)',
   },
   'help.opt.plan': {
     ru: 'стартовать в режиме плана (только чтение)',
@@ -883,6 +893,10 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
     en: 'Clear: /queue clear',
   },
   'msg.agent_error': { ru: '✖ Ошибка агента:', en: '✖ Agent error:' },
+  'msg.tool_loop': {
+    ru: 'Агент повторяет один и тот же вызов инструмента — переключаю на другой подход.',
+    en: 'The agent keeps repeating the same tool call — switching it to a different approach.',
+  },
   'msg.suspicious_stop': {
     ru: 'агент, похоже, остановился, не распознав вызов инструмента. Ответ сохранён в транскрипте (событие suspicious_final). Можно попросить продолжить или переотправить задачу.',
     en: 'the agent seems to have stopped without recognizing a tool call. The response is saved in the transcript (suspicious_final event). You can ask it to continue or resend the task.',

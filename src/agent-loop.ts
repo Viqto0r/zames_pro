@@ -311,6 +311,17 @@ export async function runAgentLoop({
   // Retry budget for a browser.ask() TIMEOUT (not for content): the send did
   // not come back in time. This is separate from unparsedRetries because a
   // timeout is an infrastructure failure, not a model protocol violation.
+  // Loop detection: the model sometimes repeats the SAME tool call with the
+  // SAME arguments (e.g. Read the same file) turn after turn. There was no
+  // explicit detector for that — the stale-answer guard only catches a
+  // repeated ANSWER, not a repeated call. Track the signature of the last
+  // batch of calls; after MAX_REPEAT_CALLS identical batches in a row, stop
+  // running it and nudge the model to change approach.
+  let lastCallSig = ''
+  let repeatCallCount = 0
+  const MAX_REPEAT_CALLS = 4
+  let repeatWarned = false
+
   let afterToolRetries = 0
   // toolsRanInTask: how many tools actually ran in THIS task. The protocol
   // guard uses it to tell "started, then slipped into chat mode" (a reasoning
@@ -804,6 +815,42 @@ export async function runAgentLoop({
     // message must NOT be delivered before the tools' results are known.
     // The model will get the tool results and can call respond again.
     const callsToRun = realCalls.length > 0 ? realCalls : calls
+
+    // Stable signature of this batch (sorted keys) for loop detection.
+    const callSig = callsToRun
+      .map(
+        (c) =>
+          c.tool +
+          ':' +
+          JSON.stringify(c.args, Object.keys(c.args || {}).sort()),
+      )
+      .join('|')
+    if (callSig && callSig === lastCallSig) repeatCallCount++
+    else {
+      lastCallSig = callSig
+      repeatCallCount = 1
+      repeatWarned = false
+    }
+    if (repeatCallCount >= MAX_REPEAT_CALLS) {
+      transcript?.log('tool_loop_detected', {
+        sig: callSig.slice(0, 300),
+        count: repeatCallCount,
+      })
+      if (!repeatWarned) {
+        repeatWarned = true
+        safeWarning(translate(locale)('msg.tool_loop'))
+      }
+      // Reset so a single nudge does not carry into the next different call.
+      repeatCallCount = 0
+      lastCallSig = ''
+      message =
+        'You have called the SAME tool with the SAME arguments several times ' +
+        'in a row. Stop repeating it. Either try a different tool or approach, ' +
+        'or, if the task is done, call respond with the final message. Do NOT ' +
+        'repeat the identical call.'
+      continue
+    }
+
     for (const call of callsToRun) {
       const tool = tools.find((t) => t.name === call.tool)
 

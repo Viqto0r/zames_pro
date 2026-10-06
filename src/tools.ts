@@ -200,7 +200,8 @@ export function createTools(
       name: 'Grep',
       description:
         'Search file contents (regular expression). include — file name ' +
-        'filter (e.g. "*.ts"). output: content (default, matching lines with ' +
+        'filter, a single glob or a comma-separated list (e.g. "*.ts" or ' +
+        '"*.ts,*.tsx"). output: content (default, matching lines with ' +
         'numbers), files_only (paths only), count (match count per file).',
       parameters: {
         pattern: 'string',
@@ -211,7 +212,11 @@ export function createTools(
       fn: async ({ pattern, path: searchPath, include, output }: ToolArgs) => {
         const pat = req(pattern, 'pattern')
         const target = searchPath ? safe(String(searchPath)) : workdir
-        const inc = include ? String(include).trim() : ''
+        // include may be a single glob or a comma-separated list.
+        const incs = (include ? String(include) : '')
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
         const mode = String(output || 'content').toLowerCase()
         if (process.platform === 'win32') {
           const escaped = pat.replace(/"/g, '\\"')
@@ -220,7 +225,9 @@ export function createTools(
         }
         const flags =
           mode === 'files_only' ? '-rlE' : mode === 'count' ? '-rcE' : '-rnE'
-        const includeArg = inc ? ' --include=' + JSON.stringify(inc) : ''
+        const includeArg = incs
+          .map((g) => ' --include=' + JSON.stringify(g))
+          .join('')
         return runShell(
           workdir,
           `grep ${flags}${includeArg} ${JSON.stringify(pat)} ` +

@@ -50,7 +50,9 @@ test('every advertised --flag is handled in code', () => {
 
 test('getPositional only skips value-flags that are handled', () => {
   const handled = handledFlags()
-  const m = src.match(/if \(\[([^\]]+)\]\.includes\(a\)\)/)
+  // Prettier may wrap the call, so allow whitespace/newlines around the
+  // array and the .includes(a) argument.
+  const m = src.match(/if \(\s*\[([^\]]+)\]\.includes\(\s*a,?\s*\)\s*\)/)
   assert.ok(m, 'getPositional skip-list not found')
   const names = [...m[1].matchAll(/'(--[a-z0-9-]+)'/g)].map((x) => x[1])
   assert.ok(names.length > 0, 'skip-list is empty')

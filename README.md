@@ -34,6 +34,17 @@ directory, reads and edits files, runs commands, and commits to git.
 - **Scheduling** — `/loop`, `/cron` and `/jobs` repeat tasks on a timer.
 - **Bilingual UI** — Russian / English (`/config lang`).
 
+## Why zames?
+
+- **No API key, no per-token bill** — it uses your own DeepSeek chat account,
+  not the paid API. Good for long, tool-heavy tasks.
+- **Same workflow as Claude Code / Codex** — tools, `AGENTS.md`, skills, MCP
+  and slash commands, so it feels familiar from day one.
+- **Runs unattended** — headless by default, resumable sessions, and `/loop`
+  plus `/cron` for scheduled work.
+- **Local-first** — the browser profile, credentials and logs never leave your
+  machine, and the agent is sandboxed to the project directory.
+
 ## Requirements
 
 - Node.js >= 20 (CI and development use Node 24; see `.nvmrc`)
@@ -163,9 +174,27 @@ zames --dir <path>
 zames --headless
 zames --headed
 zames --plan
+zames --output-format jsonl
 zames --debug
 zames --version
 zames --help
+```
+
+### Machine-readable output (scripts / CI)
+
+For one-shot runs (`--task`) the agent can emit its event stream as JSON lines
+on stdout, keeping all human text on stderr:
+
+```bash
+zames --task "summarize the diff" --output-format jsonl
+```
+
+Each line is one event (`tool_call`, `tool_result`, `assistant_final`, ...), so
+it pipes straight into `jq`:
+
+```bash
+zames --task "..." --output-format jsonl \
+  | jq -r 'select(.type=="assistant_final") | .message'
 ```
 
 ## Tools
@@ -352,6 +381,34 @@ Changes are written to the project `.zamesrc.json` and applied right away
 locale lives in `ui.locale` in the config file.
 
 Agent data is stored in `~/.zames`: browser profile, logs, undo history, self-review snapshots.
+
+## FAQ
+
+**Is this an official DeepSeek product?**
+No. zames drives the public chat.deepseek.com web UI through a real browser,
+like a regular user. It is not affiliated with DeepSeek.
+
+**Do I need an API key?**
+No. You sign in with your own DeepSeek account once; the session is stored in
+`~/.zames/profile` and reused.
+
+**Which model does it use?**
+Whichever the DeepSeek web chat uses (DeepSeek-V3, or the reasoning model with
+"Deep thinking" on). zames never calls the API directly.
+
+**Does it work headless / on a server?**
+Yes — headless is the default, and `--output-format jsonl` makes it scriptable.
+`--headed` is only needed for a manual sign-in or selector debugging.
+
+**Is automating the web UI allowed?**
+That depends on DeepSeek's terms; automating a website may violate them. Use at
+your own risk and keep the send throttle (15s by default) so you do not hammer
+the rate limit.
+
+**How is it different from Claude Code / Codex?**
+Same shape (tools, `AGENTS.md`, skills, MCP, slash commands) but it runs on your
+DeepSeek account instead of an API, as a browser automation rather than a
+first-party API client.
 
 ## License
 

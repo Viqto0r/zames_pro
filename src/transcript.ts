@@ -6,6 +6,12 @@ export interface TranscriptOptions {
   dir: string
   enabled?: boolean
   sessionName?: string
+  /**
+   * Optional sink that receives every event as a JSON line, even when the
+   * transcript file is disabled. Used by `--output-format jsonl` to stream
+   * machine-readable events to stdout for scripts/CI.
+   */
+  onLine?: ((line: string) => void) | null
 }
 
 export class Transcript {
@@ -13,16 +19,19 @@ export class Transcript {
   file: string | null
   stream: WriteStream | null
   startedAt: number
+  onLine: ((line: string) => void) | null
 
   constructor({
     dir,
     enabled = true,
     sessionName = 'session',
+    onLine = null,
   }: TranscriptOptions) {
     this.enabled = enabled
     this.file = null
     this.stream = null
     this.startedAt = Date.now()
+    this.onLine = onLine
 
     if (!enabled) return
 
@@ -46,15 +55,22 @@ export class Transcript {
   }
 
   log(type: string, data: Record<string, unknown> = {}): void {
-    if (!this.enabled || !this.stream) return
     const entry = {
       ts: new Date().toISOString(),
       elapsed: Date.now() - this.startedAt,
       type,
       ...data,
     }
+    const line = JSON.stringify(entry) + String.fromCharCode(10)
+    // The mirror runs even when the file is disabled (jsonl mode).
+    if (this.onLine) {
+      try {
+        this.onLine(line)
+      } catch {}
+    }
+    if (!this.enabled || !this.stream) return
     try {
-      this.stream.write(JSON.stringify(entry) + String.fromCharCode(10))
+      this.stream.write(line)
     } catch {}
   }
 

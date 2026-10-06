@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.58.0]
+
+### Added
+
+- `--output-format json|jsonl` for one-shot runs: transcript events are
+  streamed as JSON lines on stdout (human text goes to stderr), so zames
+  pipes into `jq` and CI pipelines. `Transcript` gained an `onLine` mirror.
+- Loop detection: four identical tool calls in a row trigger a nudge to
+  change approach instead of repeating the same call forever.
+- MCP configs pinned to `@latest`/`@next` now warn (in `/mcp` and at
+  startup) so the tool set does not silently change between runs.
+- `/help` is grouped into sections (session / workspace / git / agent /
+  context / files) instead of one long list.
+- `Grep` accepts a comma-separated `include` list.
+- System prompt: a "Choosing the right tool" section (Edit vs MultiEdit vs
+  ApplyPatch, Grep vs Glob vs LS, Git tools vs Bash).
+
+### Changed
+
+- `coverage-gate` enforces floors for 8 more modules and prints the
+  lowest-covered modules in the CI log.
+- README: Why zames?, an FAQ and a machine-readable-output section.
+- Dependabot config for npm and GitHub Actions.
+
 ## [2.57.1]
 
 ### Changed
@@ -174,7 +198,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Session banner warns when no saved DeepSeek session exists.
 - `--no-color` flag (explicit `NO_COLOR`).
 
-[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.57.1...HEAD
+[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.58.0...HEAD
+[2.58.0]: https://github.com/Viqto0r/zames_pro/compare/v2.57.1...v2.58.0
 [2.57.1]: https://github.com/Viqto0r/zames_pro/compare/v2.57.0...v2.57.1
 [2.57.0]: https://github.com/Viqto0r/zames_pro/compare/v2.56.0...v2.57.0
 [2.56.0]: https://github.com/Viqto0r/zames_pro/compare/v2.55.0...v2.56.0

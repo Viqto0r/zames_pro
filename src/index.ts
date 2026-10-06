@@ -193,7 +193,9 @@ function getPositional(): string[] {
   const positional = []
   for (let i = 0; i < args.length; i++) {
     const a = args[i]
-    if (['--dir', '--task', '--max-iter', '--chat'].includes(a)) {
+    if (
+      ['--dir', '--task', '--max-iter', '--chat', '--output-format'].includes(a)
+    ) {
       i++
       continue
     }
@@ -252,6 +254,19 @@ const resumeLastFlag = hasFlag('--resume-last')
 // filterToolsForReadOnly). Declared here because tool creation happens before
 // the main loop.
 let planMode = hasFlag('--plan')
+
+// Machine-readable output for scripts/CI. 'text' (default) is the normal
+// human UI; 'json'/'jsonl' stream the transcript events as JSON lines on
+// stdout, while all human text is pushed to stderr so the stream stays clean.
+// Meant for one-shot mode (--task).
+const outputFormat = (getArg('--output-format', 'text') || 'text').toLowerCase()
+const jsonMode = outputFormat === 'json' || outputFormat === 'jsonl'
+if (jsonMode) {
+  // Keep stdout for the event stream only.
+  console.log = ((...a: unknown[]) => {
+    console.error(...a)
+  }) as typeof console.log
+}
 
 // ---------- session persistence ----------
 // We store sessions (DeepSeek chats) in ~/.zames/.sessions so they survive
@@ -471,6 +486,7 @@ ${theme.bold(t('help.options'))}
   --headless         ${t('help.opt.headless')}
   --headed           ${t('help.opt.headed')}
   --plan             ${t('help.opt.plan')}
+  --output-format <f> ${t('help.opt.output_format')}
   --debug            ${t('help.opt.debug')}
   --dev              ${t('help.opt.dev')}
   --no-color         ${t('help.opt.no_color')}
@@ -493,31 +509,29 @@ ${theme.bold(t('help.while_working'))}
   ${t('help.key.bang')}
 
 ${theme.bold(t('help.commands'))}
+
+${theme.bold(t('help.sec.session'))}
   ${t('help.cmd.new')}
   ${t('help.cmd.sessions')}
-  ${t('help.cmd.resume_id')}
   ${t('help.cmd.chats')}
   ${t('help.cmd.resume')}
+  ${t('help.cmd.resume_id')}
   ${t('help.cmd.last')}
   ${t('help.cmd.retry')}
   ${t('help.cmd.rename')}
-  ${t('help.cmd.context')}
-  ${t('help.cmd.copy')}
+
+${theme.bold(t('help.sec.workspace'))}
   ${t('help.cmd.chat')}
   ${t('help.cmd.cd')}
   ${t('help.cmd.pwd')}
   ${t('help.cmd.status')}
   ${t('help.cmd.reload')}
-  ${t('help.cmd.undo')}
-  ${t('help.cmd.undo_list')}
-  ${t('help.cmd.transcript')}
+
+${theme.bold(t('help.sec.git'))}
   ${t('help.cmd.diff')}
   ${t('help.cmd.diffstat')}
-  ${t('help.cmd.cost')}
-  ${t('help.cmd.export')}
-  ${t('help.cmd.doctor')}
-  ${t('help.cmd.add_dir')}
-  ${t('help.cmd.review')}
+
+${theme.bold(t('help.sec.agent'))}
   ${t('help.cmd.goal')}
   ${t('help.cmd.loop')}
   ${t('help.cmd.cron')}
@@ -528,13 +542,27 @@ ${theme.bold(t('help.commands'))}
   ${t('help.cmd.compact')}
   ${t('help.cmd.queue')}
   ${t('help.cmd.tasks')}
-  ${t('help.cmd.config')}
-  ${t('help.cmd.lang')}
+
+${theme.bold(t('help.sec.context'))}
+  ${t('help.cmd.context')}
   ${t('help.cmd.skills')}
   ${t('help.cmd.memory')}
   ${t('help.cmd.remember')}
   ${t('help.cmd.init')}
   ${t('help.cmd.mcp')}
+  ${t('help.cmd.config')}
+  ${t('help.cmd.lang')}
+
+${theme.bold(t('help.sec.files'))}
+  ${t('help.cmd.transcript')}
+  ${t('help.cmd.undo')}
+  ${t('help.cmd.undo_list')}
+  ${t('help.cmd.export')}
+  ${t('help.cmd.cost')}
+  ${t('help.cmd.copy')}
+  ${t('help.cmd.doctor')}
+  ${t('help.cmd.add_dir')}
+  ${t('help.cmd.review')}
   ${t('help.cmd.debug_dom')}
   ${t('help.cmd.help')}
   ${t('help.cmd.exit')}
@@ -1533,6 +1561,9 @@ async function main(): Promise<void> {
     dir: config.transcript.dir,
     enabled: config.transcript.enabled,
     sessionName: dirLabel(currentWorkdir),
+    // In json/jsonl mode mirror every event to stdout as a JSON line, even
+    // when the transcript FILE is disabled.
+    onLine: jsonMode ? (line) => process.stdout.write(line) : null,
   })
   if (transcript.file) {
     console.log(theme.system(t('msg.transcript', { v: transcript.file })))
@@ -1564,6 +1595,7 @@ async function main(): Promise<void> {
           ),
         )
     }
+    for (const w of st.warnings) console.error(theme.warn(w))
   } catch (e) {
     console.error(theme.warn(t('mcp.load_failed', { v: (e as Error).message })))
   }
@@ -3258,6 +3290,7 @@ async function main(): Promise<void> {
           )
         }
       }
+      for (const w of st.warnings) console.log(theme.warn('  ' + w))
       continue
     }
     if (lower === '/skills') {
