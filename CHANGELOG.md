@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.65.1] - 2026-10-07
+
 ### Fixed
 
+- Длинные строки preview больше не создают горизонтальный скролл в
+  терминале: `toolCall`/`toolResult` (LineEditor и спиннер) теперь режут
+  превью по ВИДИМОЙ ШИРИНЕ терминала (`truncateToWidth`), а не по числу
+  символов. Раньше длинная команда/результат печатались шире экрана.
 - Ctrl+Delete / Ctrl+Backspace (и Alt+Delete / Alt+Backspace) теперь удаляют
   слово в строке ввода. Раньше эти escape-последовательности попадали в
   общий пропуск клавиш и ничего не делали. Поддержаны варианты: `ESC[3;5~`

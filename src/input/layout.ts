@@ -169,6 +169,27 @@ export function charWidth(cp: number): number {
   return 1
 }
 
+// Truncate a PLAIN (no-ANSI) string to at most `maxCols` visible columns,
+// appending an ellipsis when it was cut. Used for one-line previews (tool call
+// args, tool results) so a long argument cannot print a line wider than the
+// terminal — which made some terminals show a horizontal scrollbar.
+export function truncateToWidth(s: string, maxCols: number): string {
+  const width = Math.max(1, Math.floor(maxCols))
+  const text = String(s ?? '')
+  if (visLen(text) <= width) return text
+  // Reserve one column for the ellipsis.
+  const budget = Math.max(0, width - 1)
+  let used = 0
+  let out = ''
+  for (const ch of text) {
+    const w = charWidth(ch.codePointAt(0) as number)
+    if (used + w > budget) break
+    out += ch
+    used += w
+  }
+  return out + '…'
+}
+
 // Layout of the input into visual lines accounting for terminal width.
 // Returns the lines (with prefix) and the cursor position in visual coordinates.
 export interface LayoutRow {

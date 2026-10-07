@@ -2,6 +2,7 @@ import ora, { type Ora } from 'ora'
 import { theme, divider } from './theme.js'
 import { renderMarkdown } from './markdown.js'
 import { translate, type Locale } from './i18n.js'
+import { truncateToWidth } from './input/layout.js'
 
 export interface SpinnerUI {
   /** Optional task-list badge source ("tasks: 2/5"), like LineEditor. */
@@ -189,7 +190,8 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
 
     toolCall: (name: string, args: unknown) => {
       stop()
-      const preview = JSON.stringify(args).slice(0, 120)
+      const maxW = Math.max(20, (process.stdout.columns || 80) - 1)
+      const preview = truncateToWidth(JSON.stringify(args), maxW)
       console.log(theme.tool('🔧 ' + name), theme.dim(preview))
       // Keep an animated status while the tool runs (Bash/npm/MCP can take a
       // long time): the operator must see that work is in progress.
@@ -200,10 +202,11 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
     toolResult: (result: unknown) => {
       stop()
       const text = typeof result === 'string' ? result : JSON.stringify(result)
-      const preview = text
-        .slice(0, 200)
-        .split(String.fromCharCode(10))
-        .join(' ↵ ')
+      const maxW = Math.max(20, (process.stdout.columns || 80) - 1)
+      const preview = truncateToWidth(
+        text.split(String.fromCharCode(10)).join(' ↵ '),
+        maxW,
+      )
       console.log(theme.toolResult('   → ' + preview + String.fromCharCode(10)))
     },
 

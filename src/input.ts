@@ -29,6 +29,7 @@ import {
   layoutInput,
   formatTokenStatus,
   tokenStatusLevel,
+  truncateToWidth,
   CONTEXT_LIMIT,
   type PasteBlock,
   type SlashCommand,
@@ -54,6 +55,7 @@ export {
   tokenStatusLevel,
   formatTokenStatus,
   formatCompactTokens,
+  truncateToWidth,
   CONTEXT_LIMIT,
   CONTEXT_YELLOW_PCT,
   CONTEXT_RED_PCT,
@@ -1127,7 +1129,11 @@ export class LineEditor {
 
   toolCall(name: string, args: unknown): void {
     const full = safeJson(args)
-    const preview = full.slice(0, 120) + (full.length > 120 ? ' …' : '')
+    // Clip by VISIBLE WIDTH, not character count: a long arg line used to print
+    // wider than the terminal and some terminals then showed a horizontal
+    // scrollbar. Keep one column free (autowrap safety), same as the status.
+    const maxW = Math.max(20, (process.stdout.columns || 80) - 1)
+    const preview = truncateToWidth(full, maxW)
     this.printAbove(theme.tool('🔧 ' + name) + ' ' + theme.dim(preview))
     // A tool may run for a long time (Bash, npm test, MCP). Without an active
     // animation the operator sees a frozen screen and cannot tell work is in
@@ -1148,8 +1154,8 @@ export class LineEditor {
   toolResult(result: unknown): void {
     this.stop()
     const text = typeof result === 'string' ? result : safeJson(result)
-    const preview =
-      text.slice(0, 200).split(NL).join(' ↵ ') + (text.length > 200 ? ' …' : '')
+    const maxW = Math.max(20, (process.stdout.columns || 80) - 1)
+    const preview = truncateToWidth(text.split(NL).join(' ↵ '), maxW)
     this.printAbove(theme.toolResult('   → ' + preview))
   }
 

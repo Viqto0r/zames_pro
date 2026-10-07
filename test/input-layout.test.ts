@@ -8,6 +8,7 @@ import {
   formatCompactTokens,
   formatTokenStatus,
   tokenStatusLevel,
+  truncateToWidth,
   CONTEXT_LIMIT,
 } from '../src/input/layout.ts'
 import { visLen as visLenReexported } from '../src/input.ts'
@@ -44,4 +45,11 @@ test('layout module: token formatting', () => {
   assert.equal(formatCompactTokens(null), '')
   assert.equal(tokenStatusLevel(0, CONTEXT_LIMIT), 'ok')
   assert.ok(formatTokenStatus(1000, CONTEXT_LIMIT).startsWith('ctx: 1k'))
+})
+
+test('truncateToWidth clips by visible columns and marks the cut', () => {
+  assert.equal(truncateToWidth('hello', 10), 'hello')
+  assert.equal(truncateToWidth('hello world', 6), 'hello…')
+  // Wide chars count as 2 columns, so only two fit in a 5-col budget.
+  assert.equal(visLen(truncateToWidth('\u4e00\u4e00\u4e00', 5)), 5)
 })
