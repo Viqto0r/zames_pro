@@ -18,13 +18,7 @@ import {
 } from './extraTools.js'
 import { runAgentLoop } from './agent-loop.js'
 import { createSpinner } from './spinner.js'
-import {
-  LineEditor,
-  expandPastes,
-  pasteReplacement,
-  formatCompactTokens,
-  type PasteBlock,
-} from './input.js'
+import { LineEditor } from './input.js'
 import {
   parseImagePaste,
   extForMime,
@@ -79,19 +73,15 @@ import {
   parseBacklogItems,
   nextBacklogItem,
   buildImprovePrompt,
-  formatDuration,
   formatRelativeTime,
   trimRestoredMessages,
   RESTORED_HISTORY_LIMIT,
-  mergeMessages,
   hasQueuedJob,
-  isSlashCommand,
   buildSlashCommandHints,
   parseQueueCommand,
   parseLiveToggle,
   parseGoalCommand,
   isLiveConfigCommand,
-  withGoal,
   formatQueueList,
   ctrlCEscalation,
   expandCommandArgs,
@@ -109,6 +99,7 @@ import {
 import { renderMarkdown, setAnswerWidth } from './markdown.js'
 import { resolveAttachPath, inlineAtRefs } from './attach-refs.js'
 import { parseBacklogNote } from './backlog.js'
+import { runTask, type PendingMessage, type RunTaskDeps } from './run-task.js'
 import { closeWeb } from './web.js'
 import { assertCommandInsideRoot, runShell } from './shell.js'
 import {
@@ -120,45 +111,8 @@ import {
   loadHistory,
   saveHistory,
 } from './sessions.js'
-import type { ToolDef } from './types.js'
 import type { ChatInfo } from './browser.js'
 import type { McpPool } from './mcp.js'
-
-interface PendingMessage {
-  text: string
-  attachments?: Array<{ path: string; name: string; mime: string }>
-  /** Set when the message came from a scheduled /loop or /cron job. Used to
-   *  avoid piling many copies of the same job while the agent is busy. */
-  jobId?: number
-}
-
-interface RunTaskOptions {
-  transcript: Transcript
-  freshChat: boolean
-  sendSystemPrompt: boolean
-  queue?: PendingMessage[]
-  ui?: LineEditor | null
-  onChatReady?: (chatId: string | null) => void
-  /** Called at the between-tools seam when the context is nearly full. */
-  onAutoCompact?: (() => Promise<string | null>) | null
-  /** Fill percentage at which onAutoCompact fires. */
-  autoCompactPct?: number
-  /** The context window size (tokens) for the threshold. */
-  contextLimit?: number
-  /** Current context size (tokens) or null. */
-  getTokenUsage?: (() => number | null) | null
-  /** Long-lived session goal, prepended to every task message. */
-  goal?: string | null
-  /** Task-list summary ("tasks: 2/5") for the non-TTY spinner badge. */
-  todosQuery?: (() => string) | null
-  /** Called with the final assistant message of each task (/copy source). */
-  onAssistantFinal?: ((msg: string) => void) | null
-  /**
-   * Dev mode: inject the BACKLOG self-improvement note into the system prompt
-   * of a FRESH chat and into the auto-compact handover. Off in a normal run.
-   */
-  selfImprovement?: boolean
-}
 
 interface ReviewMode {
   snapDir: string
@@ -769,7 +723,7 @@ async function cleanTmpDir(): Promise<void> {
     await fs.rm(TMP_DIR, { recursive: true, force: true })
     await fs.mkdir(TMP_DIR, { recursive: true })
   } catch (e) {
-    if (debug) console.error('tmp: не удалось очистить:', (e as Error).message)
+    if (debug) console.error('tmp: cleanup failed:', (e as Error).message)
   }
 }
 
@@ -981,171 +935,6 @@ async function promptOnce(question: string): Promise<string> {
   })
 }
 
-// Keyboard monitoring while the agent works.
-//
-// The terminal stays live while the agent thinks:
-//   - Esc (or Ctrl+C) — abort the current generation (a Stop click in the browser);
-//   - typing + Enter — queue a message; it goes to the agent right after
-//     the current task finishes (like "send during generation" in the
-//     DeepSeek web version).
-//
-// Input is buffered without a line editor: the typed text is shown in the
-// spinner line via onChange -> ui.setPending(). Enter sends the buffer to
-// onQueue, an empty Enter is ignored. Backspace, Ctrl+U, Esc sequences
-// (arrows/Home/End/Delete are ignored) and bracketed paste are supported.
-function watchInput({
-  onEscape,
-  onChange,
-  onQueue,
-}: {
-  onEscape?: () => void
-  onChange?: (text: string) => void
-  onQueue?: (text: string) => void
-} = {}): () => void {
-  const stdin = process.stdin
-  if (!stdin.isTTY || !stdin.setRawMode) return () => {}
-
-  // Control characters are assembled from codes: this file must not contain
-  // "raw" ESC/CR/LF in string literals (see AGENTS.md).
-  const ESC = String.fromCharCode(27)
-  const CSI = String.fromCharCode(91)
-  const CR = String.fromCharCode(13)
-  const LF = String.fromCharCode(10)
-
-  const wasRaw = stdin.isRaw
-  stdin.setRawMode(true)
-  stdin.resume()
-  process.stdout.write(ESC + '[?2004h')
-
-  let buf = ''
-  let inPaste = false
-  let pasteBuf = ''
-  const pastes: PasteBlock[] = []
-  const PASTE_START = ESC + '[200~'
-  const PASTE_END = ESC + '[201~'
-  const CSI_RE = new RegExp('^' + CSI + '[0-9;]*[A-Za-z~]')
-
-  const emitChange = (): void => {
-    if (onChange) onChange(buf)
-  }
-
-  // Pasted text: small pastes (1–2 lines) are flattened into one line;
-  // large ones (3+ lines) are collapsed into "[Pasted lines#N]" (the original
-  // text is expanded back when the message is queued).
-  const insert = (text: string) => {
-    buf += text
-      .split(CR + LF)
-      .join(' ')
-      .split(CR)
-      .join(' ')
-      .split(LF)
-      .join(' ')
-  }
-
-  const insertPaste = (raw: string) => {
-    const rep = pasteReplacement(raw)
-    if (!rep) {
-      insert(raw)
-      return
-    }
-    pastes.push(rep)
-    buf += rep.marker
-  }
-
-  function onData(data: Buffer) {
-    let s = data.toString('utf-8')
-
-    // A single Esc — abort generation. Arrows come as a whole chunk and
-    // don't reach here.
-    if (!inPaste && s === ESC) {
-      if (onEscape) onEscape()
-      return
-    }
-
-    while (s.length) {
-      if (inPaste) {
-        const end = s.indexOf(PASTE_END)
-        if (end === -1) {
-          pasteBuf += s
-          s = ''
-        } else {
-          pasteBuf += s.slice(0, end)
-          s = s.slice(end + PASTE_END.length)
-          inPaste = false
-          insertPaste(pasteBuf)
-          pasteBuf = ''
-        }
-        emitChange()
-        continue
-      }
-
-      const start = s.indexOf(PASTE_START)
-      if (start !== -1) {
-        const before = s.slice(0, start)
-        s = s.slice(start + PASTE_START.length)
-        inPaste = true
-        pasteBuf = ''
-        if (before) {
-          insert(before)
-          emitChange()
-        }
-        continue
-      }
-
-      const ch = s[0]
-      const code = s.charCodeAt(0)
-      s = s.slice(1)
-
-      if (ch === CR || ch === LF) {
-        const text = expandPastes(pastes, buf).trim()
-        buf = ''
-        pastes.length = 0
-        emitChange()
-        if (text && onQueue) onQueue(text)
-        continue
-      }
-      if (code === 3) {
-        // Ctrl+C — like Esc: abort generation.
-        if (onEscape) onEscape()
-        continue
-      }
-      if (code === 21) {
-        // Ctrl+U — clear what was typed.
-        buf = ''
-        pastes.length = 0
-        emitChange()
-        continue
-      }
-      if (code === 127 || code === 8) {
-        // Backspace.
-        if (buf) {
-          buf = buf.slice(0, -1)
-          emitChange()
-        }
-        continue
-      }
-      if (ch === ESC) {
-        // Escape sequence (arrows, Home/End, Delete) — skip.
-        const m = s.match(CSI_RE)
-        if (m) s = s.slice(m[0].length)
-        continue
-      }
-      if (code < 32) continue // other control characters — ignore
-
-      buf += ch
-      emitChange()
-    }
-  }
-
-  const handler = (data: Buffer) => onData(data)
-  stdin.on('data', handler)
-  return () => {
-    stdin.removeListener('data', handler)
-    process.stdout.write(ESC + '[?2004l')
-    if (stdin.setRawMode) stdin.setRawMode(wasRaw || false)
-  }
-}
-
 // ---------- workdir resolution ----------
 
 // The agent works in the directory it was launched from (process.cwd()).
@@ -1261,283 +1050,24 @@ async function printRestoredHistory(
   }
 }
 
-// ---------- task runner ----------
-
-// Ask the operator to approve a tool call flagged by an `ask` permission rule
-// (C1). While the LineEditor owns the terminal it must be paused first, or the
-// confirmation prompt and the input line fight for the same keys. A non-TTY run
-// has no way to answer, so it DENIES (never silently allows a guarded call).
-async function askOperatorConfirm(
-  editor: LineEditor | null,
-  question: string,
-): Promise<boolean> {
-  if (!(process.stdin.isTTY && process.stdout.isTTY)) return false
-  if (editor) editor.pause()
-  try {
-    const a = await promptOnce(question + ' [y/N] ')
-    return /^(y|yes|д|да)$/i.test(a.trim())
-  } catch {
-    return false
-  } finally {
-    if (editor) editor.resume()
+// Build the explicit dependency bag for runTask() (src/run-task.ts). The
+// main loop owns the browser/queue/config state, so every call site passes
+// the SAME collaborators here instead of runTask reaching into module
+// globals.
+function runTaskDeps(): RunTaskDeps {
+  return {
+    t,
+    locale: currentLocale,
+    debug,
+    maxIter,
+    config,
+    runAgentLoop: mod.runAgentLoop,
+    createSpinner: mod.createSpinner,
+    onAssistantMessage: (msg) => {
+      lastAssistantMessage = msg
+    },
   }
 }
-
-async function runTask(
-  browser: DeepSeekBrowser,
-  tools: ToolDef[],
-  taskText: string,
-  workdir: string,
-  opts: RunTaskOptions,
-  attachments: Array<{ path: string; name: string; mime: string }> = [],
-): Promise<void> {
-  const {
-    transcript,
-    freshChat,
-    sendSystemPrompt,
-    queue = [],
-    ui: editor,
-    onChatReady,
-    onAutoCompact = null,
-    autoCompactPct = 95,
-    contextLimit = 1_000_000,
-    getTokenUsage = null,
-    goal = null,
-    todosQuery = null,
-    selfImprovement = false,
-  } = opts
-
-  // In TTY mode the UI is a LineEditor: it owns the input (queue, Esc,
-  // Ctrl+C) and draws the status ABOVE the permanent input line. In non-TTY
-  // mode (pipes) — a regular spinner + watchInput.
-  // A new task from the prompt — we reset the "stop" from the previous abort.
-  browser._stopped = false
-  browser._abort = false
-
-  const ui = editor || mod.createSpinner(currentLocale)
-  // Non-TTY parity: the ora spinner shows the same "tasks: 2/5" badge the
-  // LineEditor shows (the editor gets it via onTasksQuery in main()).
-  if (!editor && todosQuery && 'onTasksQuery' in ui) {
-    ;(ui as { onTasksQuery?: (() => string) | null }).onTasksQuery = todosQuery
-  }
-  // Mark the editor busy for the WHOLE task, not only for /init and /self-fix.
-  // Esc / Ctrl+C abort the current generation only while busy; without this a
-  // long-running tool (Bash, npm, MCP) could not be interrupted — Esc did
-  // nothing. Cleared in the finally below.
-  if (editor) editor.busy = true
-  const stopWatching = editor
-    ? () => {}
-    : watchInput({
-        onEscape: () => {
-          ui.stop()
-          console.error(theme.warn(t('msg.abort_gen_short')))
-          browser.stopGeneration().catch(() => {})
-        },
-        onChange: (text) => ui.setPending(text),
-        onQueue: (text) => {
-          queue.push({ text })
-          ui.setPending(null)
-          ui.stop()
-          console.log(
-            theme.user(t('msg.queued', { n: queue.length })) +
-              theme.assistant(text),
-          )
-          ui.thinking()
-        },
-      })
-
-  try {
-    let next: PendingMessage & {
-      freshChat: boolean
-      sendSystemPrompt: boolean
-    } = {
-      text: taskText,
-      attachments,
-      freshChat,
-      sendSystemPrompt,
-    }
-
-    // Execute the task, then everything the user managed to type while it
-    // ran. The queue may be replenished right during draining.
-    //
-    // NOTE: we do NOT call ui.thinking() here. runAgentLoop() fires
-    // onThinking() right before the actual browser send (after the send
-    // pause, system-prompt, etc.), so the spinner only appears when a
-    // generation really starts. Calling it here made the spinner run for
-    // the whole pre-send phase (chat creation, throttle wait) with no
-    // generation in flight.
-    while (true) {
-      // T7: per-task summary (duration + number of tool calls + tokens).
-      // Counts tools via the UI callback and reports ONE line after the task,
-      // so the operator sees how long it took and how much work happened.
-      const taskStart = Date.now()
-      // Token delta for THIS task: accumulated_token_usage is cumulative for
-      // the whole chat, so the per-task spend is after - before. Null when the
-      // counter is unknown (fresh chat / no answer yet); the token part is then
-      // omitted from the summary.
-      const tokensBefore = getTokenUsage ? getTokenUsage() : null
-      let taskTools = 0
-      const outcome = await mod.runAgentLoop({
-        browser,
-        tools,
-        task: withGoal(goal, next.text),
-        workdir,
-        maxIterations: maxIter,
-        freshChat: next.freshChat,
-        sendSystemPrompt: next.sendSystemPrompt,
-        attachments: next.attachments || [],
-        transcript,
-        onThinking: () => ui.thinking(),
-        onSendPause: (seconds) => ui.sendPause(seconds),
-        onSendState: (state) => {
-          if (editor) editor.setSendState(state)
-        },
-        onNotice: (msg) => ui.warning(msg),
-        onToolCall: (name, toolArgs) => {
-          taskTools++
-          ui.toolCall(name, toolArgs)
-        },
-        onToolResult: (result) => ui.toolResult(result),
-        onAssistantMessage: (msg) => {
-          // Remember the last answer so /copy can put it on the clipboard
-          // without re-reading the chat. Wrapped: a UI failure is swallowed
-          // by agent-loop anyway.
-          lastAssistantMessage = msg
-          opts.onAssistantFinal?.(msg)
-          ui.assistant(msg)
-        },
-        onWarning: (msg) => ui.warning(msg),
-        onAskPermission: async (info) => {
-          // C1: a rule with action "ask". Show the reason and wait for the
-          // operator. In non-TTY this denies (see askOperatorConfirm).
-          ui.warning(t('perm.ask', { tool: info.tool, reason: info.reason }))
-          const ok = await askOperatorConfirm(editor || null, t('perm.confirm'))
-          ui.warning(ok ? t('perm.allowed') : t('perm.denied'))
-          transcript?.log('permission_ask', {
-            tool: info.tool,
-            reason: info.reason,
-            allowed: ok,
-          })
-          return ok
-        },
-        onChatReady,
-        debugLog: debug,
-        locale: currentLocale,
-        askDeadlineMs: config.browser.askDeadlineMs,
-        maxAfterToolRetries: config.browser.maxAfterToolRetries,
-        // Auto-compact between tool calls when the context nears the
-        // window limit. The callback is provided by the caller (runTask) so it
-        // can refresh the outer currentChatId. It runs in the SAME execution
-        // context (this task owns the browser send loop) and the loop awaits
-        // it, so it serializes with the throttle.
-        onAutoCompact,
-        autoCompactPct,
-        contextLimit,
-        getTokenUsage,
-        selfImprovement,
-      })
-
-      // The loop may end WITHOUT a model answer: an exhausted iteration
-      // limit or an ask() watchdog (the model stopped responding). In that
-      // case no assistant message was shown, and the operator saw the run
-      // just "stop" after a tool call with no explanation. Surface it.
-      if (
-        outcome &&
-        (outcome.startsWith('Iteration limit reached') ||
-          outcome.startsWith('ask() watchdog'))
-      ) {
-        ui.warning(outcome)
-        transcript?.log('agent_no_answer', { outcome })
-      }
-
-      // T7: one summary line per task (duration + tool calls + tokens spent).
-      // Printed even on an abort, so the operator sees what happened. Duration
-      // is human-readable ("45s", "1m 20s", "1h 12m 45s") with LOCALIZED unit
-      // labels, instead of a raw seconds count like "3129.2s". The token part
-      // is the DELTA of the cumulative counter for THIS task; it is omitted
-      // when the counter is unknown.
-      const tokensAfter = getTokenUsage ? getTokenUsage() : null
-      const tokenDelta =
-        typeof tokensBefore === 'number' && typeof tokensAfter === 'number'
-          ? Math.max(0, tokensAfter - tokensBefore)
-          : null
-      const summaryParts = [
-        t('task_sum.dur', {
-          dur: formatDuration(Date.now() - taskStart, {
-            h: t('dur.h'),
-            m: t('dur.m'),
-            s: t('dur.s'),
-          }),
-        }),
-        t('task_sum.tools', { n: String(taskTools) }),
-      ]
-      if (tokenDelta !== null) {
-        summaryParts.push(
-          t('task_sum.tokens', { n: formatCompactTokens(tokenDelta) }),
-        )
-      }
-      const summary = theme.taskSummary('· ' + summaryParts.join(' · '))
-      if (editor) editor.printAbove(summary)
-      else console.log(summary)
-
-      // Aborted (Esc/Ctrl+C) — we don't start the next tasks from the queue
-      // and clear it, so "stop" really stops everything.
-      if (browser._stopped) {
-        queue.length = 0
-        break
-      }
-      if (!queue.length) break
-
-      // Merge the LEADING plain-text messages into ONE batch (fewer sends ->
-      // less rate-limit risk and the operator's thoughts arrive together). We
-      // stop at the first slash-command: it must NOT be sent as a task — it is
-      // handled by the main loop, so we leave it (and anything after it) in
-      // the queue and break out of this task's drain loop.
-      let batchLen = 0
-      while (batchLen < queue.length && !isSlashCommand(queue[batchLen].text)) {
-        batchLen++
-      }
-      if (batchLen === 0) break
-      const batch = queue.splice(0, batchLen)
-      const merged = mergeMessages(batch)
-      if (!merged.text.trim()) break
-      ui.stop()
-      const banner =
-        batch.length === 1
-          ? theme.user(t('msg.from_queue')) + theme.assistant(batch[0].text)
-          : theme.user(t('msg.from_queue_batch', { n: batch.length })) +
-            theme.assistant(t('msg.batch_joined', { n: batch.length }))
-      if (editor) editor.printAbove(banner)
-      else console.log(banner)
-      transcript?.log('queued_task', { task: merged.text, count: batch.length })
-      next = {
-        text: merged.text,
-        attachments: merged.attachments,
-        freshChat: false,
-        sendSystemPrompt: false,
-      }
-    }
-  } catch (e) {
-    ui.stop()
-    console.error(
-      theme.error(String.fromCharCode(10) + t('msg.agent_error')),
-      (e as Error).message,
-    )
-    if (debug) console.error((e as Error).stack)
-    transcript?.log('agent_error', { error: (e as Error).message })
-  } finally {
-    stopWatching()
-    ui.stop()
-    if (editor) editor.busy = false
-    // Detach the send hooks so a later browser.ask() outside this task cannot
-    // start a stale spinner.
-    browser.onSendStart = null
-    browser.onSendPause = null
-    browser.onSendState = null
-    browser.onNotice = null
-  }
-}
-
 // ---------- main ----------
 
 async function main(): Promise<void> {
@@ -1690,7 +1220,7 @@ async function main(): Promise<void> {
 
     await autoReload()
 
-    await runTask(browser, tools, task, currentWorkdir, {
+    await runTask(runTaskDeps(), browser, tools, task, currentWorkdir, {
       transcript,
       freshChat,
       sendSystemPrompt,
@@ -3709,22 +3239,29 @@ async function main(): Promise<void> {
       if (mcpPool) tools.push(...mcpPool.tools)
       if (editor) editor.busy = true
       try {
-        await runTask(browser, tools, lastTaskText, currentWorkdir, {
-          transcript,
-          freshChat: false,
-          sendSystemPrompt: false,
-          queue: pendingQueue,
-          ui: editor || null,
-          onChatReady: (chatId) => {
-            if (chatId) {
-              currentChatId = chatId
-              saveLastChat(chatId, currentWorkdir)
-            }
+        await runTask(
+          runTaskDeps(),
+          browser,
+          tools,
+          lastTaskText,
+          currentWorkdir,
+          {
+            transcript,
+            freshChat: false,
+            sendSystemPrompt: false,
+            queue: pendingQueue,
+            ui: editor || null,
+            onChatReady: (chatId) => {
+              if (chatId) {
+                currentChatId = chatId
+                saveLastChat(chatId, currentWorkdir)
+              }
+            },
+            contextLimit: config.ui.contextLimit,
+            getTokenUsage: () => browser.getLastTokenUsage(),
+            goal: sessionGoal,
           },
-          contextLimit: config.ui.contextLimit,
-          getTokenUsage: () => browser.getLastTokenUsage(),
-          goal: sessionGoal,
-        })
+        )
       } finally {
         if (editor) editor.busy = false
       }
@@ -3955,6 +3492,7 @@ async function main(): Promise<void> {
       if (editor) editor.busy = true
       try {
         await runTask(
+          runTaskDeps(),
           browser,
           improveTools,
           buildImprovePrompt(item),
@@ -4052,18 +3590,25 @@ async function main(): Promise<void> {
       })
       if (editor) editor.busy = true
       try {
-        await runTask(browser, reviewTools, reviewTask, currentWorkdir, {
-          transcript,
-          freshChat: false,
-          sendSystemPrompt: false,
-          ui: editor || null,
-          onChatReady: (chatId) => {
-            if (chatId) {
-              currentChatId = chatId
-              saveLastChat(chatId, currentWorkdir)
-            }
+        await runTask(
+          runTaskDeps(),
+          browser,
+          reviewTools,
+          reviewTask,
+          currentWorkdir,
+          {
+            transcript,
+            freshChat: false,
+            sendSystemPrompt: false,
+            ui: editor || null,
+            onChatReady: (chatId) => {
+              if (chatId) {
+                currentChatId = chatId
+                saveLastChat(chatId, currentWorkdir)
+              }
+            },
           },
-        })
+        )
       } finally {
         if (editor) editor.busy = false
       }
@@ -4326,6 +3871,7 @@ async function main(): Promise<void> {
     if (editor) editor.busy = true
     try {
       await runTask(
+        runTaskDeps(),
         browser,
         tools,
         finalTaskText,
