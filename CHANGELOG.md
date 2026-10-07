@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.64.1] - 2026-10-07
+
+### Changed
+
+- README: добавлен скриншот терминальной сессии (`docs/demo.png`) под
+  шапкой, чтобы интерфейс был виден сразу; скрипт воспроизводимого
+  VHS-демо (`docs/demo.tape`) для будущего GIF.
+
 ## [2.64.0] - 2026-10-06
 
 ### Added
@@ -348,7 +356,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Session banner warns when no saved DeepSeek session exists.
 - `--no-color` flag (explicit `NO_COLOR`).
 
-[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.64.0...HEAD
+[Unreleased]: https://github.com/Viqto0r/zames_pro/compare/v2.64.1...HEAD
+[2.64.1]: https://github.com/Viqto0r/zames_pro/compare/v2.64.0...v2.64.1
 [2.64.0]: https://github.com/Viqto0r/zames_pro/compare/v2.63.1...v2.64.0
 [2.63.1]: https://github.com/Viqto0r/zames_pro/compare/v2.63.0...v2.63.1
 [2.63.0]: https://github.com/Viqto0r/zames_pro/compare/v2.61.0...v2.63.0
