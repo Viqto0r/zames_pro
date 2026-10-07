@@ -33,15 +33,9 @@ zames does not call the model API. It launches a headless Chromium with a
 persistent profile, signs in to `chat.deepseek.com` like a human, types the task
 into the chat box, and reads the answer back.
 
-```mermaid
-flowchart LR
-    U["terminal (you)"] -->|"task"| Z["zames"]
-    Z -->|"system prompt + task"| D["chat.deepseek.com"]
-    D -->|"model answers (raw SSE)"| Z
-    Z -->|"parse tool-call"| Z
-    Z -->|"run tool: Read/Edit/Bash/…"| Z
-    Z -->|"answer"| U
-```
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/how-it-works.png" alt="how zames works" width="860">
+</p>
 
 In text: you type a task → zames sends the system prompt plus the task into
 the DeepSeek web chat → the model answers → zames parses the tool call, runs
