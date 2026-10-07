@@ -31,6 +31,7 @@
     "test": "tsx --test test/*.test.ts",
     "test:watch": "tsx --test --watch test/*.test.ts",
     "self-smoke": "tsx scripts/self-smoke.mjs",
+    "render-demo": "node scripts/render-demo.mjs",
     "postinstall": "node scripts/postinstall.mjs",
     "prepare": "husky"
   },

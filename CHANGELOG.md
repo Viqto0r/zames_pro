@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- README-скриншот `docs/demo.png` перегенерирован на английском языке
+  (раньше был на русском). Воспроизводимый генератор
+  `npm run render-demo` (`scripts/render-demo.mjs`) рендерит реальную
+  раскладку редактора и палитру темы через headless Chromium с
+  изолированным профилем.
+
 ## [2.64.1] - 2026-10-07
 
 ### Changed

@@ -28,7 +28,7 @@ Enter
 
 # 2. Give it a small read-only task.
 Sleep 3s
-Type "посмотри версию в package.json"
+Type "show the version from package.json"
 Sleep 500ms
 Enter
 
