@@ -83,11 +83,6 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
 
   // cursor indexes the VISIBLE (filtered) list, not the full `fields`.
   let cursor = 0
-  // Index of the first VISIBLE field drawn. The menu is WINDOWED so the whole
-  // block always fits the terminal height; otherwise a block taller than the
-  // screen scrolled the top rows off and the `ESC[lastRows A` cursor restore
-  // landed on the wrong line, so arrow-key navigation did not scroll the list.
-  let scrollTop = 0
   let editing = false
   let editBuf = ''
   // Reverse/forward filter over the list (/ to enter, typing narrows it).
@@ -175,17 +170,24 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
     // that overflows scrolls the top away and breaks the cursor restore).
     const maxItemRows = Math.max(3, termRows - 2 - tail.length)
 
-    // WINDOW over the fields: keep the cursor inside [scrollTop, +maxItemRows).
-    // Because a group header also consumes a row we use the cursor index as the
-    // primary bound and let the header be counted when the first shown field
-    // starts a new group (a rare one-row overshoot is harmless — a spare row is
-    // reserved above).
-    if (cursor < scrollTop) scrollTop = cursor
-    if (cursor >= scrollTop + maxItemRows) scrollTop = cursor - maxItemRows + 1
-    const maxTop = Math.max(0, vis.length - maxItemRows)
-    if (scrollTop > maxTop) scrollTop = maxTop
-    if (scrollTop < 0) scrollTop = 0
-    const start = scrollTop
+    // WINDOW over the fields. We walk BACK from the cursor, counting the rows
+    // the window would take (a group header consumes a row too), until adding
+    // one more field would overflow. This guarantees the SELECTED item is always
+    // on screen — the old index-based scrollTop could push it out when many
+    // group headers sat between the window top and the cursor.
+    const groupStart = (i: number): boolean =>
+      i === 0 || vis[i].groupKey !== vis[i - 1].groupKey
+    // Rows needed to draw the window [from, cursor] (inclusive).
+    const rowsFor = (from: number): number => {
+      let rows = 0
+      for (let i = from; i <= cursor; i++) {
+        if (i === from || groupStart(i)) rows++
+        rows++
+      }
+      return rows
+    }
+    let start = vis.length ? Math.max(0, Math.min(cursor, vis.length - 1)) : 0
+    while (start > 0 && rowsFor(start - 1) <= maxItemRows) start--
 
     const lines: string[] = []
     // Title with a position counter ("Settings — 12/49") so the operator knows

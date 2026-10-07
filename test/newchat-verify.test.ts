@@ -118,3 +118,19 @@ test('newChat clears the stale sniffed chat id after a goto', async () => {
   await b.newChat()
   assert.equal(await b.getCurrentChatId(), null)
 })
+
+// The token counter is cumulative FOR A CHAT. After /new the OLD value must be
+// dropped, otherwise the status line keeps showing a stale "ctx: 302k · 30%"
+// for the empty chat until the first send refreshes it.
+test('newChat resets the stale token counter', async () => {
+  const b = new DeepSeekBrowser()
+  b._lastTokenUsage = 302000
+  ;(b as unknown as { page: unknown }).page = {
+    locator: () => chain({ click: async () => {} }),
+    url: () => 'https://chat.deepseek.com/a/chat/s/old-chat',
+    goto: async () => {},
+    waitForTimeout: async () => {},
+  }
+  await b.newChat()
+  assert.equal(b.getLastTokenUsage(), null, 'stale ctx survived /new')
+})

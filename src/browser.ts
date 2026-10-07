@@ -1395,6 +1395,10 @@ export class DeepSeekBrowser {
     // STALE old id for the fresh chat. Clear it — a fresh chat has no id until
     // the first message creates one.
     this._netChatId = null
+    // The token counter is cumulative FOR A CHAT. A fresh chat has no messages,
+    // so carrying the old value over left a stale "ctx: 302k · 30%" on the
+    // status line until the first send. Reset it (and the cached status).
+    this._lastTokenUsage = null
   }
 
   async _findVisible(

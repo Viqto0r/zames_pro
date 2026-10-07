@@ -198,7 +198,8 @@ test('меню: окно не превышает высоту терминала
     output: output as unknown as NodeJS.WriteStream,
   })
   // Walk the whole list; every render must fit rows-1 newlines so the block
-  // never scrolls the top off (which broke the cursor restore).
+  // never scrolls the top off (which broke the cursor restore), AND the
+  // SELECTED row (the ❯ marker) must always be inside the printed window.
   let prev = output.data.length
   let worst = 0
   for (let i = 0; i < CONFIG_SCHEMA.length + 2; i++) {
@@ -207,6 +208,10 @@ test('меню: окно не превышает высоту терминала
     prev = output.data.length
     const nl = (delta.match(/\n/g) || []).length
     if (nl > worst) worst = nl
+    assert.ok(
+      delta.includes('\u276f'),
+      'selected row missing from the window at step ' + i,
+    )
   }
   assert.ok(worst <= output.rows - 1, 'render height ' + worst + ' > rows-1')
   input.emit('data', Buffer.from('q'))
