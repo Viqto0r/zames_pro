@@ -1463,6 +1463,18 @@ export class LineEditor {
     this.cursor = i
   }
 
+  // Delete the word on the RIGHT (Ctrl+Delete / Alt+Delete): skip spaces after
+  // the cursor, then delete up to the end of the next word. Mirror of
+  // _deleteWordLeft(), which handles the left side.
+  _deleteWordRight() {
+    const chars = Array.from(this.buf)
+    let i = this.cursor
+    while (i < chars.length && /\s/.test(chars[i])) i++
+    while (i < chars.length && !/\s/.test(chars[i])) i++
+    chars.splice(this.cursor, i - this.cursor)
+    this.buf = chars.join('')
+  }
+
   // ---------- history ----------
 
   _historyUp() {
@@ -1819,6 +1831,37 @@ export class LineEditor {
         if (s.startsWith('[1;5C') || s.startsWith('[5C')) {
           this._wordRight()
           s = s.slice(s.startsWith('[1;5C') ? 5 : 3)
+          this._renderInputOnly()
+          continue
+        }
+        // Ctrl+Delete / Alt+Delete — delete the word on the RIGHT. Different
+        // terminals encode it differently: xterm sends ESC[3;5~, some send
+        // ESC[3;3~ (Alt). Without this the sequence fell through to the
+        // generic skip and nothing happened.
+        if (s.startsWith('[3;5~') || s.startsWith('[3;3~')) {
+          this._pushUndo()
+          this._deleteWordRight()
+          s = s.slice(5)
+          this._renderInputOnly()
+          continue
+        }
+        // Alt+Backspace / Ctrl+Backspace (ESC followed by DEL) — delete the
+        // word on the LEFT. On many terminals Ctrl+Backspace is not a distinct
+        // byte and arrives exactly like this.
+        if (s.startsWith('\x7f') || s.startsWith('\x08')) {
+          this._pushUndo()
+          this._deleteWordLeft()
+          s = s.slice(1)
+          this._renderInputOnly()
+          continue
+        }
+        // Kitty / foot / WezTerm keyboard protocol: Ctrl+Backspace is
+        // CSI 127;5u (Alt = 127;3u). Without this the sequence fell through
+        // to the generic skip and nothing happened.
+        if (s.startsWith('[127;5u') || s.startsWith('[127;3u')) {
+          this._pushUndo()
+          this._deleteWordLeft()
+          s = s.slice(7)
           this._renderInputOnly()
           continue
         }

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Ctrl+Delete / Ctrl+Backspace (и Alt+Delete / Alt+Backspace) теперь удаляют
+  слово в строке ввода. Раньше эти escape-последовательности попадали в
+  общий пропуск клавиш и ничего не делали. Поддержаны варианты: `ESC[3;5~`
+  (xterm Ctrl+Delete), `ESC[3;3~` (Alt+Delete), `ESC DEL`/`ESC 8`
+  (Alt/Ctrl+Backspace) и kitty-протокол `ESC[127;5u` / `ESC[127;3u`.
+  Новый метод `_deleteWordRight()` + тест `test/editor-word-delete.test.ts`.
 - Меню `/config` теперь держит ВЫБРАННЫЙ пункт на экране: окно строится
   «назад» от курсора с учётом строк, которые занимают заголовки групп
   (раньше индексный `scrollTop` мог вытолкнуть выбранную строку вниз за
