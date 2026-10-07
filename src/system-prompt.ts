@@ -133,6 +133,21 @@ export function renderContextSection(
   return out
 }
 
+// The tool list in the prompt is GENERATED from the ToolDefs (createTools),
+// never hand-written: a second copy drifts (the prompt promises a tool that
+// no longer exists, or misses one that was added). This is the single source
+// of truth for `### <Tool>` blocks; the prose that cannot be derived
+// ("Choosing the right tool", the call formats) stays hard-coded below.
+// Guarded by test/system-prompt-tools.test.ts.
+export function renderToolSection(tools: ToolDef[]): string {
+  return tools
+    .map(
+      (t2: ToolDef) =>
+        `### ${t2.name}\n${t2.description}\nParameters: ${JSON.stringify(t2.parameters)}`,
+    )
+    .join('\n\n')
+}
+
 export function buildSystemPrompt({
   workdir,
   tools,
@@ -143,12 +158,7 @@ export function buildSystemPrompt({
   selfImprovement = false,
 }: BuildSystemPromptOptions): string {
   const t = translate(locale)
-  const toolDescriptions = tools
-    .map(
-      (t2: ToolDef) =>
-        `### ${t2.name}\n${t2.description}\nParameters: ${JSON.stringify(t2.parameters)}`,
-    )
-    .join('\n\n')
+  const toolDescriptions = renderToolSection(tools)
 
   const gitSection = gitContext
     ? `\n## Git context\n\n${gitContext}\n`
