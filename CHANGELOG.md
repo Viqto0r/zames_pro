@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.66.0] - 2026-10-07
+
+### Added
+
+- **release:** add scripts/release.mts for one-command release prep (G4)
+
+### Fixed
+
+- **reload:** include commands, run-task and attach-refs in hot-reload (G2)
+
+### Changed
+
+- apply prettier to files touched by G2/F1
+
 ## [2.65.1] - 2026-10-07
 
 ### Fixed
