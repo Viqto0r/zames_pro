@@ -20,6 +20,8 @@ class FakeIn extends EventEmitter {
 
 class FakeOut {
   data = ''
+  columns = 80
+  rows = 24
   write(s: string): boolean {
     this.data += s
     return true
@@ -177,6 +179,36 @@ test('меню: d требует подтверждения второго на�
   input.emit('data', Buffer.from('j'))
   input.emit('data', Buffer.from('d'))
   assert.equal(resetPaths.length, 0)
+  input.emit('data', Buffer.from('q'))
+  await p
+})
+
+test('меню: окно не превышает высоту терминала и скроллит список', async () => {
+  const input = new FakeIn()
+  const output = new FakeOut()
+  output.rows = 12
+  const store: Record<string, unknown> = { debug: false }
+  const p = runConfigMenu({
+    fields: CONFIG_SCHEMA,
+    t: translate('ru'),
+    get: (path) => store[path],
+    set: () => {},
+    reset: () => {},
+    input: input as unknown as NodeJS.ReadStream,
+    output: output as unknown as NodeJS.WriteStream,
+  })
+  // Walk the whole list; every render must fit rows-1 newlines so the block
+  // never scrolls the top off (which broke the cursor restore).
+  let prev = output.data.length
+  let worst = 0
+  for (let i = 0; i < CONFIG_SCHEMA.length + 2; i++) {
+    input.emit('data', Buffer.from('\x1b[B'))
+    const delta = output.data.slice(prev)
+    prev = output.data.length
+    const nl = (delta.match(/\n/g) || []).length
+    if (nl > worst) worst = nl
+  }
+  assert.ok(worst <= output.rows - 1, 'render height ' + worst + ' > rows-1')
   input.emit('data', Buffer.from('q'))
   await p
 })

@@ -32,9 +32,11 @@ export interface ConfigMenuOptions {
 
 const ESC = String.fromCharCode(27)
 
-// Strip ANSH sequences to compute the visible length of a line.
-function stripAnsi(s: string): string {
-  return s.replace(/\x1b\`[0-9;?]*[A-Za-z]/g, '')
+// Strip ANSI sequences to compute the visible length of a line. (A module-
+// level name distinct from input.ts's internal helper; the old regex had a
+// stray backtick and never matched a real CSI, so visCols was over-counted.)
+function stripAnsiLocal(s: string): string {
+  return s.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
 }
 
 // Visible COLUMNS of a line (ANSI removed, wide chars counted as 2). Using the
@@ -43,7 +45,7 @@ function stripAnsi(s: string): string {
 // duplicated. A row that fills the terminal exactly also triggers autowrap on
 // some terminals, so we keep one column free here as the editor does.
 function visCols(s: string): number {
-  return visLen(stripAnsi(s))
+  return visLen(stripAnsiLocal(s))
 }
 
 function displayValue(
@@ -81,6 +83,11 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
 
   // cursor indexes the VISIBLE (filtered) list, not the full `fields`.
   let cursor = 0
+  // Index of the first VISIBLE field drawn. The menu is WINDOWED so the whole
+  // block always fits the terminal height; otherwise a block taller than the
+  // screen scrolled the top rows off and the `ESC[lastRows A` cursor restore
+  // landed on the wrong line, so arrow-key navigation did not scroll the list.
+  let scrollTop = 0
   let editing = false
   let editBuf = ''
   // Reverse/forward filter over the list (/ to enter, typing narrows it).
@@ -134,21 +141,75 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
   // start of the block via relative moves so we don't spawn blank lines.
   let lastRows = 0
   const render = (): void => {
-    const lines: string[] = []
     const vis = visible()
     if (cursor >= vis.length) cursor = Math.max(0, vis.length - 1)
+
+    // Trailing block (below the list): the edit/filter prompt or the hints.
+    const tail: string[] = ['']
+    if (editing) {
+      tail.push(theme.user(t('cfg.menu.edit_hint')))
+      tail.push(theme.prompt('\u276f ') + editBuf)
+    } else if (filterMode) {
+      tail.push(theme.user(t('cfg.menu.filter_hint')))
+      tail.push(theme.prompt('\u276f ') + filterQuery)
+    } else if (message) {
+      tail.push(theme.assistant(message))
+    } else if (filterQuery) {
+      tail.push(
+        theme.dim(
+          t('cfg.menu.filter_active', { q: filterQuery }) +
+            '  ' +
+            t('cfg.menu.hint'),
+        ),
+      )
+    } else {
+      tail.push('  ' + theme.dim(t('cfg.menu.hint')))
+      tail.push('  ' + theme.dim(t('cfg.menu.filter_hint')))
+    }
+
+    // How many ITEM rows (fields + group headers) fit: terminal height minus
+    // the title and the trailing block, with one spare row. This is what keeps
+    // the block from scrolling off the top on a long list.
+    const termRows = output.rows || 24
+    // Bias one row to the SAFE side (a spare blank row is harmless, a block
+    // that overflows scrolls the top away and breaks the cursor restore).
+    const maxItemRows = Math.max(3, termRows - 2 - tail.length)
+
+    // WINDOW over the fields: keep the cursor inside [scrollTop, +maxItemRows).
+    // Because a group header also consumes a row we use the cursor index as the
+    // primary bound and let the header be counted when the first shown field
+    // starts a new group (a rare one-row overshoot is harmless — a spare row is
+    // reserved above).
+    if (cursor < scrollTop) scrollTop = cursor
+    if (cursor >= scrollTop + maxItemRows) scrollTop = cursor - maxItemRows + 1
+    const maxTop = Math.max(0, vis.length - maxItemRows)
+    if (scrollTop > maxTop) scrollTop = maxTop
+    if (scrollTop < 0) scrollTop = 0
+    const start = scrollTop
+
+    const lines: string[] = []
     // Title with a position counter ("Settings — 12/49") so the operator knows
     // how far down a long list they are; a filter narrows both numbers.
     const pos = vis.length ? '  ' + (cursor + 1) + '/' + vis.length : ''
     lines.push(theme.bold(t('cfg.menu.title')) + theme.dim(pos))
+    // Group headers also consume a row, so we stop as soon as the item-row
+    // budget is used up (the window is advisory; this is the hard cap that
+    // guarantees the block fits the terminal).
+    let itemRows = 0
     let lastGroup = ''
-    for (let i = 0; i < vis.length; i++) {
+    for (let i = start; i < vis.length; i++) {
       const f = vis[i]
       const g = groupLabel(f, t)
-      if (g !== lastGroup) {
+      // Always print the header for the FIRST shown row, so a windowed list
+      // still tells the operator which section it starts in.
+      if (i === start || g !== lastGroup) {
+        if (itemRows >= maxItemRows) break
         lines.push(g)
         lastGroup = g
+        itemRows++
       }
+      if (itemRows >= maxItemRows) break
+      itemRows++
       const selected = i === cursor
       const marker = selected ? theme.prompt('\u276f ') : '  '
       const label = selected
@@ -163,32 +224,7 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
     if (!vis.length) {
       lines.push(theme.dim('  ' + t('cfg.menu.no_match')))
     }
-    if (editing) {
-      lines.push('')
-      lines.push(theme.user(t('cfg.menu.edit_hint')))
-      lines.push(theme.prompt('\u276f ') + editBuf)
-    } else if (filterMode) {
-      lines.push('')
-      lines.push(theme.user(t('cfg.menu.filter_hint')))
-      lines.push(theme.prompt('\u276f ') + filterQuery)
-    } else if (message) {
-      lines.push('')
-      lines.push(theme.assistant(message))
-    } else {
-      lines.push('')
-      if (filterQuery) {
-        lines.push(
-          theme.dim(
-            t('cfg.menu.filter_active', { q: filterQuery }) +
-              '  ' +
-              t('cfg.menu.hint'),
-          ),
-        )
-      } else {
-        lines.push('  ' + theme.dim(t('cfg.menu.hint')))
-        lines.push('  ' + theme.dim(t('cfg.menu.filter_hint')))
-      }
-    }
+    lines.push(...tail)
 
     // Erase the previous block and print the new one. We count VISUAL lines
     // (accounting for wrapping by terminal width), otherwise on narrow
