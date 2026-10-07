@@ -76,6 +76,37 @@ document, not a commit-log byproduct. The pure logic lives in
 skipped, `feat`->Added, `fix`->Fixed, `perf`/`refactor`/`style`/`revert`->Changed,
 `remove`->Removed, and a `!` after the type/scope appends `(BREAKING)`.
 
+## Refactoring the big modules (BACKLOG C3)
+
+The core modules grew large: `index.ts` ~4.5k lines, `browser.ts` ~3.3k,
+`input.ts` ~2.2k, `agent-loop.ts` ~1.9k, `i18n.ts` ~1.8k. Break them up
+GRADUALLY — one module per step, never a big-bang refactor.
+
+Rules that keep it safe:
+
+- **One step = one commit, always under tests.** Run `npm run typecheck`,
+  `npm run lint`, `npx tsx --test test/*.test.ts` and `npm run coverage:gate`
+  after every step.
+- **`index.ts` is barely covered by tests.** Only extract PURE functions from
+  it, and write the test FIRST, then move the code. A change with no test and
+  no manual smoke is a gamble.
+- **`browser.ts` is NOT hot-reloaded** and owns the live Playwright context —
+  do not touch it unless a change actually requires it.
+- Read `AGENTS.md` and `docs/DESIGN-NOTES.md` before moving anything: the
+  WHY-comments explain hidden couplings that a naive move breaks.
+- Prefer a new module + re-export over a partial move: keep the public import
+  surface stable so callers do not churn.
+
+Suggested order (safest first):
+
+1. `i18n.ts` — split `CATALOG` into section files and merge into one object.
+   Pure literal; `test/i18n.test.ts` already checks ru/en completeness.
+2. `index.ts` — move remaining pure slash-command helpers into `commands.ts`.
+3. `input.ts` — separate the buffer model from render/key parsing.
+4. `index.ts` — `runTask`/queue/scheduler ticker → `src/run-task.ts` (risky;
+   needs a manual smoke run).
+5. `browser.ts` — leave alone unless necessary.
+
 ## Checks before a release
 
 Run all of these; the git hooks run most of them on commit/push too.
