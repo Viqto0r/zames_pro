@@ -33,6 +33,7 @@
     "test:watch": "tsx --test --watch test/*.test.ts",
     "self-smoke": "tsx scripts/self-smoke.mjs",
     "render-demo": "node scripts/render-demo.mjs",
+    "build:readme": "tsx scripts/build-readme.mts",
     "postinstall": "node scripts/postinstall.mjs",
     "prepare": "husky"
   },
