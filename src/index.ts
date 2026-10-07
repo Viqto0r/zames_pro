@@ -56,38 +56,7 @@ import { Transcript } from './transcript.js'
 import { UndoStore } from './undo.js'
 import { CheckpointStore, pickRecord as pickCheckpoint } from './checkpoint.js'
 import { selfReview, selfDiff, selfApply, selfList } from './self-review.js'
-import {
-  formatDiff,
-  formatDiffStat,
-  formatContextSources,
-  diffGitArgs,
-  parseTranscript,
-  summarizeTranscript,
-  renderCost,
-  formatExport,
-  defaultExportPath,
-  renderDoctor,
-  resolveExtraDir,
-  buildReviewPrompt,
-  isDevOnlyCommand,
-  parseBacklogItems,
-  nextBacklogItem,
-  buildImprovePrompt,
-  formatRelativeTime,
-  trimRestoredMessages,
-  RESTORED_HISTORY_LIMIT,
-  hasQueuedJob,
-  buildSlashCommandHints,
-  parseQueueCommand,
-  parseLiveToggle,
-  parseGoalCommand,
-  isLiveConfigCommand,
-  formatQueueList,
-  ctrlCEscalation,
-  expandCommandArgs,
-  missingCommandArgs,
-  type RestoredMessage,
-} from './commands.js'
+import { type RestoredMessage } from './commands.js'
 import { performCompact } from './compact.js'
 import {
   Scheduler,
@@ -97,9 +66,8 @@ import {
   parseCron,
 } from './scheduler.js'
 import { renderMarkdown, setAnswerWidth } from './markdown.js'
-import { resolveAttachPath, inlineAtRefs } from './attach-refs.js'
 import { parseBacklogNote } from './backlog.js'
-import { runTask, type PendingMessage, type RunTaskDeps } from './run-task.js'
+import { type PendingMessage, type RunTaskDeps } from './run-task.js'
 import { closeWeb } from './web.js'
 import { assertCommandInsideRoot, runShell } from './shell.js'
 import {
@@ -307,6 +275,14 @@ const RELOADABLE = [
   'config',
   'fsutil',
   'backlog',
+  // C3 modules index.ts now calls through the mod bag (G2): without this a
+  // /reload silently kept the OLD commands/run-task/attach-refs until a restart.
+  // 'input/layout' is NOT listed: its only live consumers are input.ts (the
+  // long-lived LineEditor, itself not reloadable) and spinner.ts, which already
+  // picks up a fresh copy transitively.
+  'commands',
+  'run-task',
+  'attach-refs',
 ]
 
 interface ModBag {
@@ -324,9 +300,15 @@ interface ModBag {
   appendBacklogItem: typeof import('./backlog.js').appendBacklogItem
   backlogStats: typeof import('./backlog.js').backlogStats
   backlogNeedsPruning: typeof import('./backlog.js').backlogNeedsPruning
+  commands: typeof import('./commands.js')
+  attach: typeof import('./attach-refs.js')
+  runTask: typeof import('./run-task.js').runTask
 }
 
 const mod: ModBag = {
+  commands: null as unknown as ModBag['commands'],
+  attach: null as unknown as ModBag['attach'],
+  runTask: null as unknown as ModBag['runTask'],
   createTools,
   runAgentLoop,
   buildSystemPrompt: null as unknown as ModBag['buildSystemPrompt'],
@@ -408,6 +390,13 @@ async function reloadModules(): Promise<{ count: number; errors: string[] }> {
       'backlog',
       'backlogNeedsPruning',
     ) as ModBag['backlogNeedsPruning']
+
+  if (pick('commands', 'missingCommandArgs'))
+    mod.commands = loaded.get('commands') as ModBag['commands']
+  if (pick('attach-refs', 'resolveAttachPath'))
+    mod.attach = loaded.get('attach-refs') as ModBag['attach']
+  if (pick('run-task', 'runTask'))
+    mod.runTask = pick('run-task', 'runTask') as ModBag['runTask']
 
   return { count: loaded.size, errors }
 }
@@ -671,9 +660,9 @@ async function expandSlashTarget(
     )
     if (cmd) {
       // B7: refuse to run when declared positional arguments are missing.
-      const missing = missingCommandArgs(cmd.arguments, rest)
+      const missing = mod.commands.missingCommandArgs(cmd.arguments, rest)
       if (missing.length) return { missing }
-      const body = expandCommandArgs(cmd.body, rest, cmd.arguments)
+      const body = mod.commands.expandCommandArgs(cmd.body, rest, cmd.arguments)
       return { text: body || rest }
     }
     const skills = await loadSkills(workdir)
@@ -711,7 +700,7 @@ async function expandSlashTarget(
 // in commands.ts (buildSlashCommandHints); here we only supply the runtime
 // data (dev flag, translator, dynamic skills/commands).
 function buildSlashCommands(): Array<{ name: string; description: string }> {
-  return buildSlashCommandHints({ devMode, t, dynamic: dynamicCommands })
+  return mod.commands.buildSlashCommandHints({ devMode, t, dynamic: dynamicCommands })
 }
 
 // We put the agent's temporary files (one-off scripts, etc.) in
@@ -981,8 +970,8 @@ async function printRestoredHistory(
   // those. The "truncated" note must compare the DISPLAYABLE count with the
   // limit (comparing `all.length` always fired, because tool-calls are
   // dropped and the raw history is always longer).
-  const displayable = trimRestoredMessages(all, 0)
-  const messages = trimRestoredMessages(all)
+  const displayable = mod.commands.trimRestoredMessages(all, 0)
+  const messages = mod.commands.trimRestoredMessages(all)
   // Always surface the diagnostic line when the history could not be turned
   // into anything printable — otherwise "the dialogue is empty" is a dead end
   // (was the fetch blocked? did the chat really have no user turns?).
@@ -1044,7 +1033,7 @@ async function printRestoredHistory(
   if (displayable.length > messages.length) {
     out(
       theme.dim(
-        t('chats.history_truncated', { n: String(RESTORED_HISTORY_LIMIT) }),
+        t('chats.history_truncated', { n: String(mod.commands.RESTORED_HISTORY_LIMIT) }),
       ),
     )
   }
@@ -1220,7 +1209,7 @@ async function main(): Promise<void> {
 
     await autoReload()
 
-    await runTask(runTaskDeps(), browser, tools, task, currentWorkdir, {
+    await mod.runTask(runTaskDeps(), browser, tools, task, currentWorkdir, {
       transcript,
       freshChat,
       sendSystemPrompt,
@@ -1352,7 +1341,7 @@ async function main(): Promise<void> {
         // this job already has a pending message in the queue, skip this fire.
         // Otherwise a 1-minute loop would add a new task every minute while a
         // long task is in flight, and they would all run back-to-back.
-        if (hasQueuedJob(pendingQueue, job.id)) {
+        if (mod.commands.hasQueuedJob(pendingQueue, job.id)) {
           transcript.log('scheduled_skip_queued', {
             id: job.id,
             task: job.task,
@@ -1550,7 +1539,7 @@ async function main(): Promise<void> {
         return att
       }
       // Case 2: the paste is a path to a local file (drag&drop or copy path).
-      const filePath = await resolveAttachPath(currentWorkdir, raw)
+      const filePath = await mod.attach.resolveAttachPath(currentWorkdir, raw)
       if (!filePath) return null
       const data = await fs.readFile(filePath).catch(() => null)
       if (!data) return null
@@ -1641,7 +1630,7 @@ async function main(): Promise<void> {
       // `await runTask()`, so ONLY commands that make sense without the main
       // loop are handled here (a queued slash-command would run too late).
       if (ed.busy) {
-        const q = parseQueueCommand(text)
+        const q = mod.commands.parseQueueCommand(text)
         if (q) {
           if (q.sub === 'clear') {
             const n = pendingQueue.length
@@ -1651,7 +1640,7 @@ async function main(): Promise<void> {
             ed.printAbove(theme.dim(t('msg.queue_empty')))
           } else {
             ed.printAbove(theme.system(t('msg.queue_title')))
-            for (const line of formatQueueList(pendingQueue)) {
+            for (const line of mod.commands.formatQueueList(pendingQueue)) {
               ed.printAbove(theme.assistant(line))
             }
             ed.printAbove(theme.dim(t('msg.queue_cleared_hint')))
@@ -1662,7 +1651,7 @@ async function main(): Promise<void> {
         // browser's DESIRED state and the status icons; it does not touch the
         // in-flight generation, so it is safe mid-run. The actual DeepSeek
         // toggles are applied on the next send by _applyToggles().
-        const tg = parseLiveToggle(text)
+        const tg = mod.commands.parseLiveToggle(text)
         if (tg) {
           applyLiveToggle(tg)
           return
@@ -1673,7 +1662,7 @@ async function main(): Promise<void> {
         // it pauses the editor and would fight the running task, so it stays
         // queued. `setConfigRuntime` already applies hot values (locale,
         // toggles, context limit) to the live objects immediately.
-        if (isLiveConfigCommand(text)) {
+        if (mod.commands.isLiveConfigCommand(text)) {
           void handleConfigCommand(text)
           return
         }
@@ -1719,7 +1708,7 @@ async function main(): Promise<void> {
         // (sets _stopped, which also halts the queue). This makes the two
         // intents distinguishable instead of one press doing everything.
         const now = Date.now()
-        if (ctrlCEscalation(now - lastCtrlCAt) === 'run') {
+        if (mod.commands.ctrlCEscalation(now - lastCtrlCAt) === 'run') {
           ed.printAbove(theme.warn(t('msg.abort_ctrlc_short')))
           browser.stopGeneration().catch(() => {})
         } else {
@@ -1881,7 +1870,7 @@ async function main(): Promise<void> {
   // variable and a file, never the chat). Output goes above the input line
   // when the editor is active, otherwise to stdout.
   async function handleGoal(input: string): Promise<void> {
-    const g = parseGoalCommand(input)
+    const g = mod.commands.parseGoalCommand(input)
     if (!g) return
     const emit = (line: string): void => {
       if (editor) editor.printAbove(line)
@@ -2173,7 +2162,7 @@ async function main(): Promise<void> {
     // Hiding them from /help is not enough: a user could type the command by
     // hand, and it would rewrite their project's BACKLOG.md or snapshot src/.
     if (!devMode) {
-      const devCmd = isDevOnlyCommand(lower)
+      const devCmd = mod.commands.isDevOnlyCommand(lower)
       if (devCmd) {
         console.error(theme.warn(t('msg.dev_only', { v: devCmd })))
         continue
@@ -2587,7 +2576,7 @@ async function main(): Promise<void> {
           const mark = s.id === currentChatId ? theme.user(' *') : ''
           const title = s.title ? `  ${s.title}` : ''
           const wd = s.workdir ? theme.dim(`  [${dirLabel(s.workdir)}]`) : ''
-          const age = formatRelativeTime(s.updatedAt, t)
+          const age = mod.commands.formatRelativeTime(s.updatedAt, t)
           const ageText = age ? theme.dim('  ' + age) : ''
           console.log(
             `  ${theme.user(n)}. ${s.id.slice(0, 8)}…${title}${wd}${ageText}${mark}`,
@@ -2782,7 +2771,7 @@ async function main(): Promise<void> {
     }
 
     if (lower === '/queue' || lower.startsWith('/queue ')) {
-      const q = parseQueueCommand(trimmed)
+      const q = mod.commands.parseQueueCommand(trimmed)
       if (!q) {
         console.error(theme.error(t('msg.queue_usage')))
         continue
@@ -2798,7 +2787,7 @@ async function main(): Promise<void> {
         continue
       }
       console.log(theme.system(t('msg.queue_title')))
-      for (const line of formatQueueList(pendingQueue)) {
+      for (const line of mod.commands.formatQueueList(pendingQueue)) {
         console.log(theme.assistant(line))
       }
       console.log(theme.dim(t('msg.queue_cleared_hint')))
@@ -2821,7 +2810,7 @@ async function main(): Promise<void> {
     }
 
     if (lower.startsWith('/thinking') || lower.startsWith('/web')) {
-      const tg = parseLiveToggle(trimmed)
+      const tg = mod.commands.parseLiveToggle(trimmed)
       if (tg) {
         applyLiveToggle(tg)
         continue
@@ -3180,7 +3169,7 @@ async function main(): Promise<void> {
         }).length
         console.log(
           theme.system(
-            formatContextSources(
+            mod.commands.formatContextSources(
               ctx.agents,
               ctx.memory,
               ctx.skills,
@@ -3244,7 +3233,7 @@ async function main(): Promise<void> {
       if (mcpPool) tools.push(...mcpPool.tools)
       if (editor) editor.busy = true
       try {
-        await runTask(
+        await mod.runTask(
           runTaskDeps(),
           browser,
           tools,
@@ -3285,8 +3274,8 @@ async function main(): Promise<void> {
         console.error(theme.error(t('diff.not_repo')))
         continue
       }
-      const out = await runGit(diffGitArgs(staged), currentWorkdir, 20_000)
-      console.log(theme.system(formatDiff(out, { maxLines: 400 }, t)))
+      const out = await runGit(mod.commands.diffGitArgs(staged), currentWorkdir, 20_000)
+      console.log(theme.system(mod.commands.formatDiff(out, { maxLines: 400 }, t)))
       continue
     }
 
@@ -3302,23 +3291,23 @@ async function main(): Promise<void> {
         continue
       }
       const out = await runGit('git diff --stat', currentWorkdir, 20_000)
-      console.log(theme.system(formatDiffStat(out, { maxLines: 60 }, t)))
+      console.log(theme.system(mod.commands.formatDiffStat(out, { maxLines: 60 }, t)))
       continue
     }
 
     if (lower === '/cost' || lower === '/usage') {
-      let stats = summarizeTranscript([])
+      let stats = mod.commands.summarizeTranscript([])
       if (transcript.file) {
         try {
           const body = await fs.readFile(transcript.file, 'utf-8')
-          stats = summarizeTranscript(parseTranscript(body))
+          stats = mod.commands.summarizeTranscript(mod.commands.parseTranscript(body))
         } catch {
           // best-effort
         }
       }
       console.log(
         theme.system(
-          renderCost(stats, transcript.file, browser.getLastTokenUsage(), t),
+          mod.commands.renderCost(stats, transcript.file, browser.getLastTokenUsage(), t),
         ),
       )
       continue
@@ -3328,21 +3317,21 @@ async function main(): Promise<void> {
       const arg = trimmed.slice('/export'.length).trim()
       const target = arg
         ? path.resolve(currentWorkdir, arg)
-        : defaultExportPath(currentWorkdir)
+        : mod.commands.defaultExportPath(currentWorkdir)
       const rel = path.relative(sandboxRoot, target)
       if (rel.startsWith('..') || path.isAbsolute(rel)) {
         console.error(theme.error(t('export.outside')))
         continue
       }
-      let entries: ReturnType<typeof parseTranscript> = []
+      let entries: ReturnType<typeof mod.commands.parseTranscript> = []
       if (transcript.file) {
         try {
-          entries = parseTranscript(await fs.readFile(transcript.file, 'utf-8'))
+          entries = mod.commands.parseTranscript(await fs.readFile(transcript.file, 'utf-8'))
         } catch {
           entries = []
         }
       }
-      const md = formatExport(entries, {
+      const md = mod.commands.formatExport(entries, {
         chatId: currentChatId,
         workdir: currentWorkdir,
       })
@@ -3381,7 +3370,7 @@ async function main(): Promise<void> {
         : { servers: [], toolCount: 0 }
       console.log(
         theme.system(
-          renderDoctor(
+          mod.commands.renderDoctor(
             {
               nodeVersion: process.version,
               platform: process.platform,
@@ -3415,7 +3404,7 @@ async function main(): Promise<void> {
 
     if (lower === '/add-dir' || lower.startsWith('/add-dir ')) {
       const arg = trimmed.slice('/add-dir'.length).trim()
-      const res = resolveExtraDir(arg, currentWorkdir, t)
+      const res = mod.commands.resolveExtraDir(arg, currentWorkdir, t)
       if ('error' in res) {
         console.error(theme.warn(res.error))
         continue
@@ -3475,8 +3464,8 @@ async function main(): Promise<void> {
         console.error(theme.warn(t('improve.no_backlog')))
         continue
       }
-      const items = parseBacklogItems(backlogText)
-      const item = nextBacklogItem(items, arg || undefined)
+      const items = mod.commands.parseBacklogItems(backlogText)
+      const item = mod.commands.nextBacklogItem(items, arg || undefined)
       if (!item) {
         console.log(
           theme.dim(
@@ -3496,11 +3485,11 @@ async function main(): Promise<void> {
       if (mcpPool) improveTools.push(...mcpPool.tools)
       if (editor) editor.busy = true
       try {
-        await runTask(
+        await mod.runTask(
           runTaskDeps(),
           browser,
           improveTools,
-          buildImprovePrompt(item),
+          mod.commands.buildImprovePrompt(item),
           currentWorkdir,
           {
             transcript,
@@ -3588,14 +3577,14 @@ async function main(): Promise<void> {
       const rest = trimmed.slice('/review'.length).trim()
       const staged = rest.indexOf('--staged') !== -1
       const focus = rest.replace(/--staged/g, '').trim()
-      const reviewTask = buildReviewPrompt(focus, staged)
+      const reviewTask = mod.commands.buildReviewPrompt(focus, staged)
       const reviewTools = mod.createTools(currentWorkdir, {
         undo,
         todos: todoStore,
       })
       if (editor) editor.busy = true
       try {
-        await runTask(
+        await mod.runTask(
           runTaskDeps(),
           browser,
           reviewTools,
@@ -3831,7 +3820,7 @@ async function main(): Promise<void> {
     // existing files are inlined; a bare `@name` in prose is left untouched.
     let finalTaskText = taskText
     {
-      const refRes = await inlineAtRefs(currentWorkdir, taskText)
+      const refRes = await mod.attach.inlineAtRefs(currentWorkdir, taskText)
       if (refRes.inlined.length) {
         finalTaskText = refRes.text
         console.log(
@@ -3875,7 +3864,7 @@ async function main(): Promise<void> {
     if (mcpPool) tools.push(...mcpPool.tools)
     if (editor) editor.busy = true
     try {
-      await runTask(
+      await mod.runTask(
         runTaskDeps(),
         browser,
         tools,
