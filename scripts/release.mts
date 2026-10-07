@@ -108,7 +108,18 @@ const subjects = git(['log', '--no-merges', '--pretty=format:%s', ref + '..HEAD'
 const parsed = subjects
   .map(parseConventionalCommit)
   .filter((c): c is NonNullable<typeof c> => c !== null)
-const body = renderChangelogDraft(groupCommits(parsed))
+let body = renderChangelogDraft(groupCommits(parsed))
+
+// The conventional draft skips chore/docs/test/etc, so a release whose only
+// change is a docs fix (a README tweak users WILL see on the npm page) would
+// otherwise collapse to a useless "Internal improvements." placeholder. Fall
+// back to the raw commit subjects under Changed instead of that stub.
+if (!body) {
+  const fallback = subjects.filter((s) => !/^chore(:|\(release\))/i.test(s))
+  if (fallback.length) {
+    body = ['## Changed', ''].concat(fallback.map((s) => '- ' + s)).join(NL)
+  }
+}
 
 // CHANGELOG groups are `### Added` (Keep a Changelog), the draft renders
 // `## Added` — normalize here.
