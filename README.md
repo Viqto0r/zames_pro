@@ -23,6 +23,10 @@ directory, reads and edits files, runs commands, and commits to git.
 > No API key required — it drives the DeepSeek web chat like a regular user
 > through a real (headless) browser.
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png" alt="zames session in the terminal" width="860">
+</p>
+
 ## How it works
 
 zames does not call the model API. It launches a headless Chromium with a
