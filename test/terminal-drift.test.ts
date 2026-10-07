@@ -305,3 +305,22 @@ test('footer does not float when the block shrinks', () => {
     restore()
   }
 })
+
+test('resize re-pins the block to the bottom after the screen scrolled', () => {
+  const { term, e, restore } = setup(24, 60)
+  try {
+    e.statusText = 'generating'
+    ;(e as unknown as { _padToBottom: () => void })._padToBottom()
+    e._writeBlock()
+    // Scroll the screen by streaming output above the footer.
+    for (let n = 0; n < 40; n++) e.printAbove('out ' + n)
+    assert.equal(bottomNonEmpty(term), 23)
+    // A resize sets the re-pin flag; the next render must land on the
+    // bottom row again (not trust the stale relative erase).
+    ;(e as unknown as { _resizeRepin: boolean })._resizeRepin = true
+    e.refreshStatus()
+    assert.equal(bottomNonEmpty(term), 23, 'footer not pinned after resize')
+  } finally {
+    restore()
+  }
+})

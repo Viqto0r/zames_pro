@@ -134,6 +134,10 @@ export class LineEditor {
   _blockRows: number
   _wasRaw: boolean
   _onData: (b: Buffer) => void
+  // True after a resize: the next render must RE-PIN the block
+  // (home + pad to bottom) instead of trusting the relative `ESC[n A` erase,
+  // whose old block row is stale after the terminal re-flowed.
+  _resizeRepin: boolean
   // On SIGWINCH we redraw the whole block so the layout follows the new
   // terminal width. Debounced: a drag fires many resize events. `_onResize`
   // is stored so it can be removed in dispose().
@@ -250,6 +254,7 @@ export class LineEditor {
     this._sendState = ''
     this._lastStatusBlock = ''
     this._blockRows = 0
+    this._resizeRepin = false
     this._wasRaw = false
     this._onData = (b: Buffer) => this._handle(b)
     this._resizeTimer = null
@@ -262,10 +267,14 @@ export class LineEditor {
         // Repaint ONLY the status + input block. We deliberately do NOT clear
         // the whole viewport here: the operator's scrollback (the tool-call
         // lines and answers printed above the input) must stay on screen.
-        // `_eraseBlock` erases from the top of the block DOWN (CR + ESC[J),
-        // so everything above it is preserved; then _writeBlock redraws the
-        // block at the new width. A slight leftover is possible at extreme
-        // width changes, but losing the history is far worse.
+        // The relative `ESC[n A` erase cannot be trusted after a resize: the
+        // terminal re-flowed the longer wrapped lines and the old block row
+        // is stale, so the block would be redrawn at the wrong row (artifacts
+        // / duplicated status). The next block write re-pins from scratch
+        // (home + pad to bottom) instead of relying on the relative move.
+        // The scrollback above is still preserved — we only move the cursor
+        // and pad, and never emit ESC[2J ("losing the history is far worse").
+        this._resizeRepin = true
         this._render()
       }, 120)
       if (this._resizeTimer.unref) this._resizeTimer.unref()
@@ -708,6 +717,20 @@ export class LineEditor {
 
   _writeBlock() {
     const cols = process.stdout.columns || 80
+    // After a resize the relative erase is unreliable (the terminal
+    // re-flowed everything and the cursor row changed). Re-DRAW the block
+    // from a known position instead: erase what we can, go HOME, fill the
+    // viewport with blank lines (pushing the old content into the
+    // scrollback — nothing is lost), then draw at the bottom. We never
+    // emit ESC[2J here, so the operator's history is preserved.
+    if (this._resizeRepin) {
+      this._resizeRepin = false
+      this._eraseBlock()
+      this._lastStatusBlock = ''
+      this._blockRows = 0
+      process.stdout.write(ESC + '[H')
+      this._padToBottom()
+    }
     // Status line above the input: the spinner/answer text on the left and the
     // token context right-aligned on the SAME row (10k · 12%). The context is
     // refreshed from onContextQuery() on every render, so it follows the live
@@ -786,7 +809,9 @@ export class LineEditor {
     this._statusTop = top
     const statusBlock = statusOut
     const statusUnchanged =
-      this.rendered && statusBlock === this._lastStatusBlock
+      this.rendered &&
+      !this._resizeRepin &&
+      statusBlock === this._lastStatusBlock
     if (statusUnchanged) {
       // Count the real input rows via layout (wrapping aware).
       const layOnly = layoutInput(this.promptStr, this.buf, this.cursor, cols)
