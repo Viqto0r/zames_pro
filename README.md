@@ -27,6 +27,28 @@ directory, reads and edits files, runs commands, and commits to git.
   <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png" alt="zames session in the terminal" width="860">
 </p>
 
+## Quick start
+
+```bash
+npm install -g zames_pro   # Chromium for Playwright is downloaded automatically
+cd your-project            # any folder the agent should work in
+zames                      # sign in once, then describe your task
+```
+
+There is **no API key and no per-token bill**: zames signs in to **your own
+[chat.deepseek.com](https://chat.deepseek.com/) account** in a real (headless)
+Chromium and drives the web chat like a regular user. The first launch asks for
+your DeepSeek login once (the session is stored in `~/.zames/profile`); after
+that just run `zames` and type a task in plain language:
+
+```text
+❯ refactor the config loader and add a test for the new default
+```
+
+While the agent works you can keep typing — a message sent mid-task is queued
+and runs right after it, in the same chat. `Esc` aborts the current generation,
+`/help` lists commands, `/exit` quits.
+
 ## How it works
 
 zames does not call the model API. It launches a headless Chromium with a
@@ -54,7 +76,7 @@ Key pieces:
 
 ## Table of contents
 
-- [Features](#features) · [Why zames?](#why-zames) · [Requirements](#requirements)
+- [Quick start](#quick-start) · [Features](#features) · [Why zames?](#why-zames) · [Requirements](#requirements)
 - [How it works](#how-it-works) · [Installation](#installation) · [Signing in](#signing-in) · [Usage](#usage)
 - [Tools](#tools) · [Slash commands](#slash-commands)
 - [Project context, skills and memory](#project-context-skills-and-memory) · [MCP (external tools)](#mcp-external-tools) · [Configuration](#configuration)

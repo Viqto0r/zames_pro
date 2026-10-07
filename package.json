@@ -1,7 +1,7 @@
 {
   "name": "zames_pro",
   "version": "2.65.1",
-  "description": "Terminal coding agent that drives chat.deepseek.com through Playwright: reads and edits files, runs commands, commits to git.",
+  "description": "Terminal coding agent that drives chat.deepseek.com through Playwright — no API key required. Reads and edits files, runs commands, commits to git, like Claude Code / Codex CLI.",
   "type": "module",
   "bin": {
     "zames": "dist/index.js"
@@ -37,14 +37,21 @@
   "keywords": [
     "agent",
     "ai",
-    "deepseek",
-    "cli",
+    "ai-agent",
+    "ai-coding-assistant",
     "coding-agent",
+    "code-assistant",
+    "terminal-agent",
+    "deepseek",
+    "deepseek-chat",
     "claude-code",
     "codex",
+    "cli",
     "terminal",
     "playwright",
+    "browser-automation",
     "llm",
+    "no-api-key",
     "automation"
   ],
   "license": "MIT",
