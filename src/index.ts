@@ -1785,6 +1785,11 @@ async function main(): Promise<void> {
     if (path === 'ui.locale' && isLocale(value)) {
       currentLocale = value
       config.ui.locale = value
+      // The browser (and its startup spinner) are created ONCE, so their own
+      // notices must be told about the new language explicitly — otherwise a
+      // DeepSeek-side message printed later would still come out in the OLD
+      // language until a restart.
+      browser.setLocale(value)
       if (editor) {
         editor.setLocale(value)
         editor.setCommands(buildSlashCommands())

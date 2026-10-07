@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   раскладку редактора и палитру темы через headless Chromium с
   изолированным профилем.
 
+### Fixed
+
+- Живая смена языка (`/config lang`) не доходила до двух «одноразово
+  созданных» объектов: спиннер думающих фраз брал язык по умолчанию
+  (`randomThinkingPhrase()` вместо `randomThinkingPhrase(this.locale)`),
+  а `DeepSeekBrowser` печатал свои уведомления (`ds.*`) на языке,
+  зафиксированном при старте. Из-за этого при английском UI всплывали
+  русские «Структурирую мысли…» и «⏳ DeepSeek оборвал ответ…». Добавлен
+  `DeepSeekBrowser.setLocale()`, вызываемый из `setConfigRuntime`.
+
 ## [2.64.1] - 2026-10-07
 
 ### Changed

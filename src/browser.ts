@@ -688,6 +688,17 @@ export class DeepSeekBrowser {
     return translate(this.locale)(key, params)
   }
 
+  /**
+   * Switch the language of the messages the browser itself prints (login
+   * prompts, DeepSeek-side notices from `_notice()`). The browser is created
+   * ONCE at startup, so without this a `/config lang` change would leave every
+   * later notice in the OLD language until a restart — the operator saw
+   * Russian "⏳ DeepSeek оборвал ответ…" while the UI was set to English.
+   */
+  setLocale(locale: Locale): void {
+    if (locale) this.locale = locale
+  }
+
   // A service notice for the operator. When a UI hook is wired (LineEditor is
   // active during a task) the notice goes ABOVE the input line so it is not
   // overwritten by the editor's repaint; otherwise it falls back to stderr.

@@ -1012,7 +1012,7 @@ export class LineEditor {
       this.setStatus(theme.prompt('✎ ') + this.pendingText + this._hint())
       return
     }
-    this._startAnimated(randomThinkingPhrase())
+    this._startAnimated(randomThinkingPhrase(this.locale))
   }
 
   // Animated status: a brown base text plus a growing "running" dot sequence.
