@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.66.1] - 2026-10-07
+
+### Changed
+
+- README: русский перевод теперь свёрнут в `<details>` прямо в `README.md`,
+  поэтому его можно читать на странице npm, не уходя на GitHub. npm рендерит
+  readme тем же GitHub Flavored Markdown, что и GitHub, а отдельный
+  `README.ru.md` на npm-странице не виден (у npm один readme на пакет).
+  Обе языковые версии собираются из `docs/readme.{en,ru}.md` скриптом
+  `npm run build:readme`; `test/readme-built.test.ts` следит за рассинхроном.
+
 ## [2.66.0] - 2026-10-07
 
 ### Added
