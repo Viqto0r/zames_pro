@@ -1,6 +1,6 @@
 {
   "name": "zames_pro",
-  "version": "2.64.1",
+  "version": "2.65.0",
   "description": "Terminal coding agent that drives chat.deepseek.com through Playwright: reads and edits files, runs commands, commits to git.",
   "type": "module",
   "bin": {
