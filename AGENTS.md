@@ -1014,11 +1014,15 @@ The release is published to npm automatically: the GitHub Actions workflow
 
 Order:
 
-1. Bump `version` in `package.json` (semver: bug fixes — patch,
-   new features — minor, breaking changes — major).
-2. Commit: `chore: release X.Y.Z`.
-3. Create the tag `vX.Y.Z` and push the branch and the tag.
+1. Run `npm run release patch|minor|major` (see below). It validates a clean
+   tree, runs the gates, bumps `version` in `package.json`, writes the dated
+   `CHANGELOG.md` section from the conventional commits, commits
+   `chore: release X.Y.Z` and creates the tag. It does NOT push.
+2. Push the branch AND the tag (`git push` + `git push origin vX.Y.Z`).
    It is the tag push that triggers the pipeline and the npm publication.
+
+(`scripts/release.mts`, `npm run release`, BACKLOG G4 — added later. It can
+also be done by hand exactly as steps 1-2 above describe.)
 
 Pipeline requirements: the `NPM_TOKEN` secret in the repository settings.
 
