@@ -26,7 +26,10 @@ function themeHexes(): Record<string, string> {
 function demoHexes(): Record<string, string> {
   const src = fs.readFileSync(demoPath, 'utf-8')
   const body = src.match(/const C = \{([\s\S]*?)\n\}/)
-  assert.ok(body, 'render-demo.mjs no longer defines a `const C = { … }` palette')
+  assert.ok(
+    body,
+    'render-demo.mjs no longer defines a `const C = { … }` palette',
+  )
   const out: Record<string, string> = {}
   const re = /(\w+):\s*'(#[0-9a-fA-F]{6})'/g
   let m: RegExpExecArray | null
@@ -37,11 +40,21 @@ function demoHexes(): Record<string, string> {
 test('render-demo palette matches theme.ts hex colors', () => {
   const theme = themeHexes()
   const demo = demoHexes()
-  assert.ok(Object.keys(demo).length >= 8, 'demo palette looks suspiciously small')
+  assert.ok(
+    Object.keys(demo).length >= 8,
+    'demo palette looks suspiciously small',
+  )
   for (const [key, hex] of Object.entries(demo)) {
     // `bg` is the terminal background, not a theme.ts role.
     if (key === 'bg') continue
-    assert.ok(theme[key], `theme.ts has no role "${key}" used by render-demo.mjs`)
-    assert.equal(hex, theme[key], `render-demo color "${key}" drifted from theme.ts`)
+    assert.ok(
+      theme[key],
+      `theme.ts has no role "${key}" used by render-demo.mjs`,
+    )
+    assert.equal(
+      hex,
+      theme[key],
+      `render-demo color "${key}" drifted from theme.ts`,
+    )
   }
 })

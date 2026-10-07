@@ -700,7 +700,11 @@ async function expandSlashTarget(
 // in commands.ts (buildSlashCommandHints); here we only supply the runtime
 // data (dev flag, translator, dynamic skills/commands).
 function buildSlashCommands(): Array<{ name: string; description: string }> {
-  return mod.commands.buildSlashCommandHints({ devMode, t, dynamic: dynamicCommands })
+  return mod.commands.buildSlashCommandHints({
+    devMode,
+    t,
+    dynamic: dynamicCommands,
+  })
 }
 
 // We put the agent's temporary files (one-off scripts, etc.) in
@@ -1033,7 +1037,9 @@ async function printRestoredHistory(
   if (displayable.length > messages.length) {
     out(
       theme.dim(
-        t('chats.history_truncated', { n: String(mod.commands.RESTORED_HISTORY_LIMIT) }),
+        t('chats.history_truncated', {
+          n: String(mod.commands.RESTORED_HISTORY_LIMIT),
+        }),
       ),
     )
   }
@@ -3274,8 +3280,14 @@ async function main(): Promise<void> {
         console.error(theme.error(t('diff.not_repo')))
         continue
       }
-      const out = await runGit(mod.commands.diffGitArgs(staged), currentWorkdir, 20_000)
-      console.log(theme.system(mod.commands.formatDiff(out, { maxLines: 400 }, t)))
+      const out = await runGit(
+        mod.commands.diffGitArgs(staged),
+        currentWorkdir,
+        20_000,
+      )
+      console.log(
+        theme.system(mod.commands.formatDiff(out, { maxLines: 400 }, t)),
+      )
       continue
     }
 
@@ -3291,7 +3303,9 @@ async function main(): Promise<void> {
         continue
       }
       const out = await runGit('git diff --stat', currentWorkdir, 20_000)
-      console.log(theme.system(mod.commands.formatDiffStat(out, { maxLines: 60 }, t)))
+      console.log(
+        theme.system(mod.commands.formatDiffStat(out, { maxLines: 60 }, t)),
+      )
       continue
     }
 
@@ -3300,14 +3314,21 @@ async function main(): Promise<void> {
       if (transcript.file) {
         try {
           const body = await fs.readFile(transcript.file, 'utf-8')
-          stats = mod.commands.summarizeTranscript(mod.commands.parseTranscript(body))
+          stats = mod.commands.summarizeTranscript(
+            mod.commands.parseTranscript(body),
+          )
         } catch {
           // best-effort
         }
       }
       console.log(
         theme.system(
-          mod.commands.renderCost(stats, transcript.file, browser.getLastTokenUsage(), t),
+          mod.commands.renderCost(
+            stats,
+            transcript.file,
+            browser.getLastTokenUsage(),
+            t,
+          ),
         ),
       )
       continue
@@ -3326,7 +3347,9 @@ async function main(): Promise<void> {
       let entries: ReturnType<typeof mod.commands.parseTranscript> = []
       if (transcript.file) {
         try {
-          entries = mod.commands.parseTranscript(await fs.readFile(transcript.file, 'utf-8'))
+          entries = mod.commands.parseTranscript(
+            await fs.readFile(transcript.file, 'utf-8'),
+          )
         } catch {
           entries = []
         }
