@@ -86,6 +86,7 @@ import {
   mergeMessages,
   hasQueuedJob,
   isSlashCommand,
+  buildSlashCommandHints,
   parseQueueCommand,
   parseLiveToggle,
   parseGoalCommand,
@@ -107,6 +108,7 @@ import {
 } from './scheduler.js'
 import { renderMarkdown, setAnswerWidth } from './markdown.js'
 import { resolveAttachPath, inlineAtRefs } from './attach-refs.js'
+import { parseBacklogNote } from './backlog.js'
 import { closeWeb } from './web.js'
 import { assertCommandInsideRoot, runShell } from './shell.js'
 import {
@@ -660,74 +662,6 @@ function dirLabel(p: string): string {
   return path.basename(p) || p
 }
 
-// List of slash commands for completion when you type «/» (Tab — complete).
-// The description is localized by the help.cmd.* key at display time — see
-// buildSlashCommands().
-//
-// Dev-only commands (backlog-driven self-improvement, self-review snapshots)
-// are filtered out of the hints and rejected by the main loop unless the
-// operator is in dev mode — a regular package install must never advertise
-// them, and a muscle-memory `/improve` must not edit the user's BACKLOG.md.
-// The list itself lives in commands.ts (`isDevOnlyCommand`), one source.
-const SLASH_COMMANDS: Array<{ name: string; key: string }> = [
-  { name: '/help', key: 'help.cmd.help' },
-  { name: '/new', key: 'help.cmd.new' },
-  { name: '/clear', key: 'help.cmd.new' },
-  { name: '/sessions', key: 'help.cmd.sessions' },
-  { name: '/chats', key: 'help.cmd.chats' },
-  { name: '/resume', key: 'help.cmd.resume' },
-  { name: '/resume-id', key: 'help.cmd.resume_id' },
-  { name: '/last', key: 'help.cmd.last' },
-  { name: '/retry', key: 'help.cmd.retry' },
-  { name: '/rename', key: 'help.cmd.rename' },
-  { name: '/context', key: 'help.cmd.context' },
-  { name: '/copy', key: 'help.cmd.copy' },
-  { name: '/chat', key: 'help.cmd.chat' },
-  { name: '/cd', key: 'help.cmd.cd' },
-  { name: '/pwd', key: 'help.cmd.pwd' },
-  { name: '/status', key: 'help.cmd.status' },
-  { name: '/reload', key: 'help.cmd.reload' },
-  { name: '/undo', key: 'help.cmd.undo' },
-  { name: '/undo-list', key: 'help.cmd.undo_list' },
-  { name: '/rewind', key: 'help.cmd.rewind' },
-  { name: '/rewind-list', key: 'help.cmd.rewind_list' },
-  { name: '/transcript', key: 'help.cmd.transcript' },
-  { name: '/diff', key: 'help.cmd.diff' },
-  { name: '/diffstat', key: 'help.cmd.diffstat' },
-  { name: '/cost', key: 'help.cmd.cost' },
-  { name: '/export', key: 'help.cmd.export' },
-  { name: '/doctor', key: 'help.cmd.doctor' },
-  { name: '/add-dir', key: 'help.cmd.add_dir' },
-  { name: '/review', key: 'help.cmd.review' },
-  { name: '/improve', key: 'help.cmd.improve' },
-  { name: '/backlog', key: 'help.cmd.backlog' },
-  { name: '/goal', key: 'help.cmd.goal' },
-  { name: '/loop', key: 'help.cmd.loop' },
-  { name: '/cron', key: 'help.cmd.cron' },
-  { name: '/jobs', key: 'help.cmd.jobs' },
-  { name: '/thinking', key: 'help.cmd.thinking' },
-  { name: '/web', key: 'help.cmd.web' },
-  { name: '/plan', key: 'help.cmd.plan' },
-  { name: '/compact', key: 'help.cmd.compact' },
-  { name: '/queue', key: 'help.cmd.queue' },
-  { name: '/tasks', key: 'help.cmd.tasks' },
-  { name: '/config', key: 'help.cmd.config' },
-  { name: '/skills', key: 'help.cmd.skills' },
-  { name: '/memory', key: 'help.cmd.memory' },
-  { name: '/remember', key: 'help.cmd.remember' },
-  { name: '/init', key: 'help.cmd.init' },
-  { name: '/mcp', key: 'help.cmd.mcp' },
-  { name: '/debug-dom', key: 'help.cmd.debug_dom' },
-  { name: '/self-review', key: 'help.self.review' },
-  { name: '/self-fix', key: 'help.self.fix' },
-  { name: '/self-done', key: 'help.self.done' },
-  { name: '/self-list', key: 'help.self.list' },
-  { name: '/self-diff', key: 'help.self.diff' },
-  { name: '/self-apply', key: 'help.self.apply' },
-  { name: '/exit', key: 'help.cmd.exit' },
-  { name: '/quit', key: 'help.cmd.exit' },
-]
-
 // Dynamically discovered skills and custom commands for the current workdir.
 // Filled in by refreshDynamicCommands() and shown in the «/» hint list and
 // help. Skills are surfaced as /skill-name entries (user-invokable only).
@@ -819,20 +753,11 @@ async function expandSlashTarget(
 
 // Slash-command descriptions in the current language (for LineEditor hints).
 // Dev-only commands are filtered out unless the operator is in dev mode, so a
-// regular install never advertises (or accepts) them.
+// regular install never advertises (or accepts) them. The pure assembly lives
+// in commands.ts (buildSlashCommandHints); here we only supply the runtime
+// data (dev flag, translator, dynamic skills/commands).
 function buildSlashCommands(): Array<{ name: string; description: string }> {
-  const base = SLASH_COMMANDS.filter(
-    (c) => devMode || !isDevOnlyCommand(c.name),
-  ).map((c) => ({
-    name: c.name,
-    description: t(c.key),
-  }))
-  const known = new Set(base.map((c) => c.name.toLowerCase()))
-  for (const d of dynamicCommands) {
-    if (known.has(d.name.toLowerCase())) continue
-    base.push(d)
-  }
-  return base
+  return buildSlashCommandHints({ devMode, t, dynamic: dynamicCommands })
 }
 
 // We put the agent's temporary files (one-off scripts, etc.) in
@@ -4108,25 +4033,9 @@ async function main(): Promise<void> {
       }
       // Deterministic append: no model round-trip is needed to record a
       // one-line note, and a pure helper cannot invent a different id than
-      // the one the operator is shown. An optional leading `P0..P3` sets the
-      // priority; the first line is the title, the rest becomes the body.
-      let priority = 'P2'
-      let body = note
-      for (const p of ['P0', 'P1', 'P2', 'P3']) {
-        if (note.toUpperCase().startsWith(p + ' ')) {
-          priority = p
-          body = note.slice(p.length + 1)
-          break
-        }
-      }
-      const bodyLines = body.split(String.fromCharCode(10))
-      const title = bodyLines[0]
-      const rest = bodyLines.slice(1).join(String.fromCharCode(10)).trim()
-      const res = mod.appendBacklogItem(backlogText, {
-        title,
-        priority,
-        note: rest || undefined,
-      })
+      // the one the operator is shown.
+      const parsed = parseBacklogNote(note)
+      const res = mod.appendBacklogItem(backlogText, parsed)
       await fs.writeFile(backlogFile, res.text, 'utf-8')
       console.log(theme.system(t('backlog.adding', { v: res.id })))
       continue

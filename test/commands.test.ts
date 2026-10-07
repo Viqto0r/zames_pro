@@ -22,6 +22,8 @@ import {
   splitCommandArgs,
   expandCommandArgs,
   missingCommandArgs,
+  buildSlashCommandHints,
+  SLASH_COMMANDS,
 } from '../src/commands.ts'
 
 const NL = String.fromCharCode(10)
@@ -568,4 +570,52 @@ test('missingCommandArgs reports unsupplied positions', () => {
   assert.deepEqual(missingCommandArgs(['a', 'b'], 'x'), ['b'])
   assert.deepEqual(missingCommandArgs(['a'], ''), ['a'])
   assert.deepEqual(missingCommandArgs(undefined, ''), [])
+})
+
+// ---------- slash-command hints ----------
+
+test('buildSlashCommandHints filters dev-only commands outside dev mode', () => {
+  const t = (k: string): string => 'x:' + k
+  const names = buildSlashCommandHints({ devMode: false, t }).map((h) => h.name)
+  assert.ok(names.includes('/help'))
+  assert.ok(!names.includes('/improve'))
+  assert.ok(!names.includes('/self-review'))
+})
+
+test('buildSlashCommandHints includes dev-only commands in dev mode', () => {
+  const t = (k: string): string => 'x:' + k
+  const names = buildSlashCommandHints({ devMode: true, t }).map((h) => h.name)
+  assert.ok(names.includes('/improve'))
+  assert.ok(names.includes('/backlog'))
+})
+
+test('buildSlashCommandHints localizes descriptions via t', () => {
+  const hints = buildSlashCommandHints({
+    devMode: false,
+    commands: [{ name: '/foo', key: 'k.foo' }],
+    t: (k) => 'T(' + k + ')',
+  })
+  assert.deepEqual(hints, [{ name: '/foo', description: 'T(k.foo)' }])
+})
+
+test('buildSlashCommandHints appends dynamic entries and skips name clashes', () => {
+  const hints = buildSlashCommandHints({
+    devMode: true,
+    commands: [{ name: '/help', key: 'k.help' }],
+    dynamic: [
+      { name: '/mycmd', description: 'dyn', hint: '<x>' },
+      { name: '/help', description: 'clash' },
+    ],
+    t: (k) => k,
+  })
+  assert.deepEqual(hints, [
+    { name: '/help', description: 'k.help' },
+    { name: '/mycmd', description: 'dyn', hint: '<x>' },
+  ])
+})
+
+test('SLASH_COMMANDS has unique names and non-empty keys', () => {
+  const names = SLASH_COMMANDS.map((c) => c.name.toLowerCase())
+  assert.equal(new Set(names).size, names.length)
+  for (const c of SLASH_COMMANDS) assert.ok(c.key.length > 0)
 })

@@ -1207,3 +1207,108 @@ export function buildReviewPrompt(focus: string, hasStaged = false): string {
   if (f) s += NL + 'Extra focus: ' + f
   return s
 }
+
+// ---------- slash-command hints ----------
+
+// A built-in slash command: the name plus the i18n key of its description.
+// Kept as DATA here (pure) so both the «/» completion list and /help have ONE
+// source of truth; the description is localized at display time via `t`.
+export interface SlashCommandEntry {
+  name: string
+  key: string
+}
+
+// The canonical list. Dev-only entries are filtered by buildSlashCommandHints()
+// unless dev mode is on (DEV_ONLY_COMMANDS above), so a regular install never
+// advertises them.
+export const SLASH_COMMANDS: SlashCommandEntry[] = [
+  { name: '/help', key: 'help.cmd.help' },
+  { name: '/new', key: 'help.cmd.new' },
+  { name: '/clear', key: 'help.cmd.new' },
+  { name: '/sessions', key: 'help.cmd.sessions' },
+  { name: '/chats', key: 'help.cmd.chats' },
+  { name: '/resume', key: 'help.cmd.resume' },
+  { name: '/resume-id', key: 'help.cmd.resume_id' },
+  { name: '/last', key: 'help.cmd.last' },
+  { name: '/retry', key: 'help.cmd.retry' },
+  { name: '/rename', key: 'help.cmd.rename' },
+  { name: '/context', key: 'help.cmd.context' },
+  { name: '/copy', key: 'help.cmd.copy' },
+  { name: '/chat', key: 'help.cmd.chat' },
+  { name: '/cd', key: 'help.cmd.cd' },
+  { name: '/pwd', key: 'help.cmd.pwd' },
+  { name: '/status', key: 'help.cmd.status' },
+  { name: '/reload', key: 'help.cmd.reload' },
+  { name: '/undo', key: 'help.cmd.undo' },
+  { name: '/undo-list', key: 'help.cmd.undo_list' },
+  { name: '/rewind', key: 'help.cmd.rewind' },
+  { name: '/rewind-list', key: 'help.cmd.rewind_list' },
+  { name: '/transcript', key: 'help.cmd.transcript' },
+  { name: '/diff', key: 'help.cmd.diff' },
+  { name: '/diffstat', key: 'help.cmd.diffstat' },
+  { name: '/cost', key: 'help.cmd.cost' },
+  { name: '/export', key: 'help.cmd.export' },
+  { name: '/doctor', key: 'help.cmd.doctor' },
+  { name: '/add-dir', key: 'help.cmd.add_dir' },
+  { name: '/review', key: 'help.cmd.review' },
+  { name: '/improve', key: 'help.cmd.improve' },
+  { name: '/backlog', key: 'help.cmd.backlog' },
+  { name: '/goal', key: 'help.cmd.goal' },
+  { name: '/loop', key: 'help.cmd.loop' },
+  { name: '/cron', key: 'help.cmd.cron' },
+  { name: '/jobs', key: 'help.cmd.jobs' },
+  { name: '/thinking', key: 'help.cmd.thinking' },
+  { name: '/web', key: 'help.cmd.web' },
+  { name: '/plan', key: 'help.cmd.plan' },
+  { name: '/compact', key: 'help.cmd.compact' },
+  { name: '/queue', key: 'help.cmd.queue' },
+  { name: '/tasks', key: 'help.cmd.tasks' },
+  { name: '/config', key: 'help.cmd.config' },
+  { name: '/skills', key: 'help.cmd.skills' },
+  { name: '/memory', key: 'help.cmd.memory' },
+  { name: '/remember', key: 'help.cmd.remember' },
+  { name: '/init', key: 'help.cmd.init' },
+  { name: '/mcp', key: 'help.cmd.mcp' },
+  { name: '/debug-dom', key: 'help.cmd.debug_dom' },
+  { name: '/self-review', key: 'help.self.review' },
+  { name: '/self-fix', key: 'help.self.fix' },
+  { name: '/self-done', key: 'help.self.done' },
+  { name: '/self-list', key: 'help.self.list' },
+  { name: '/self-diff', key: 'help.self.diff' },
+  { name: '/self-apply', key: 'help.self.apply' },
+  { name: '/exit', key: 'help.cmd.exit' },
+  { name: '/quit', key: 'help.cmd.exit' },
+]
+
+// A ready-to-display hint (name + localized description, optional argument
+// hint) — the shape LineEditor.setCommands() expects.
+export interface SlashHint {
+  name: string
+  description: string
+  hint?: string
+}
+
+// Build the localized hint list from the built-in table plus the dynamic
+// skills/custom commands discovered for the current workdir. PURE: the caller
+// passes `t` and the data; nothing here touches the terminal or the editor.
+// Dev-only commands are dropped unless `devMode`; a dynamic entry whose name
+// clashes with a built-in (case-insensitive) is skipped, so a skill cannot
+// shadow /help.
+export function buildSlashCommandHints(opts: {
+  devMode: boolean
+  t: TranslateFn
+  commands?: SlashCommandEntry[]
+  dynamic?: SlashHint[]
+}): SlashHint[] {
+  const { devMode, t } = opts
+  const table = opts.commands ?? SLASH_COMMANDS
+  const base: SlashHint[] = table
+    .filter((c) => devMode || !isDevOnlyCommand(c.name))
+    .map((c) => ({ name: c.name, description: t(c.key) }))
+  const known = new Set(base.map((c) => c.name.toLowerCase()))
+  for (const d of opts.dynamic ?? []) {
+    if (known.has(d.name.toLowerCase())) continue
+    base.push(d)
+  }
+  return base
+}

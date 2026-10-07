@@ -6,6 +6,7 @@ import {
   backlogNeedsPruning,
   nextBacklogId,
   appendBacklogItem,
+  parseBacklogNote,
 } from '../src/backlog.ts'
 
 const NL = String.fromCharCode(10)
@@ -164,6 +165,40 @@ test('appendBacklogItem defaults to P2 and creates the section if missing', () =
   assert.equal(id, 'N1')
   assert.ok(text.includes('## P2'))
   assert.ok(text.includes('### N1. no priority given'))
+})
+
+test('parseBacklogNote splits priority, title and body', () => {
+  assert.deepEqual(parseBacklogNote('P0 fix the thing'), {
+    priority: 'P0',
+    title: 'fix the thing',
+    note: undefined,
+  })
+  assert.deepEqual(parseBacklogNote('do a thing'), {
+    priority: 'P2',
+    title: 'do a thing',
+    note: undefined,
+  })
+})
+
+test('parseBacklogNote keeps the first line as title and the rest as note', () => {
+  const NL = String.fromCharCode(10)
+  assert.deepEqual(
+    parseBacklogNote('P1 title here' + NL + 'body line 1' + NL + 'body line 2'),
+    {
+      priority: 'P1',
+      title: 'title here',
+      note: 'body line 1' + NL + 'body line 2',
+    },
+  )
+})
+
+test('parseBacklogNote trims a body but not the title line', () => {
+  const NL = String.fromCharCode(10)
+  assert.deepEqual(parseBacklogNote('title' + NL + NL + '  body  ' + NL), {
+    priority: 'P2',
+    title: 'title',
+    note: 'body',
+  })
 })
 
 test('appendBacklogItem collapses whitespace in the title', () => {

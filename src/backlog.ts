@@ -20,6 +20,31 @@ const NEW_ITEM_PREFIX = 'N'
 export const BACKLOG_WARN_LINES = 500
 export const BACKLOG_WARN_CHARS = 60_000
 
+// Parse a `/backlog <text>` note into the shape appendBacklogItem() wants. An
+// optional leading `P0..P3` token sets the priority; the first line becomes the
+// title and the rest the body. PURE so the operator's note is placed exactly as
+// shown — no model round-trip, no chance of a different id than the one printed.
+export function parseBacklogNote(note: string): {
+  priority: string
+  title: string
+  note?: string
+} {
+  const raw = String(note ?? '')
+  let priority = 'P2'
+  let body = raw
+  for (const p of ['P0', 'P1', 'P2', 'P3']) {
+    if (raw.toUpperCase().startsWith(p + ' ')) {
+      priority = p
+      body = raw.slice(p.length + 1)
+      break
+    }
+  }
+  const bodyLines = body.split(NL)
+  const title = bodyLines[0]
+  const rest = bodyLines.slice(1).join(NL).trim()
+  return { priority, title, note: rest || undefined }
+}
+
 function squashBlankLines(lines: string[]): string[] {
   const out: string[] = []
   let blanks = 0
