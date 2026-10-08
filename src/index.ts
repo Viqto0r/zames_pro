@@ -68,7 +68,11 @@ import {
 } from './scheduler.js'
 import { renderMarkdown, setAnswerWidth } from './markdown.js'
 import { parseBacklogNote } from './backlog.js'
-import { type PendingMessage, type RunTaskDeps } from './run-task.js'
+import {
+  askOperatorConfirm,
+  type PendingMessage,
+  type RunTaskDeps,
+} from './run-task.js'
 import { closeWeb } from './web.js'
 import { assertCommandInsideRoot, runShell } from './shell.js'
 import {
@@ -1354,7 +1358,20 @@ async function main(): Promise<void> {
           maxSubagents: config.browser.maxSubagents,
           askDeadlineMs: config.browser.askDeadlineMs,
           maxAfterToolRetries: config.browser.maxAfterToolRetries,
-          selfImprovement: devMode,
+          // An `ask` permission rule must also gate the subagent: otherwise a
+          // guarded tool (e.g. a dangerous Bash command) would run inside the
+          // subagent WITHOUT the operator's confirmation.
+          onAskPermission: async (info) => {
+            if (editor) editor.pause()
+            try {
+              return await askOperatorConfirm(
+                null,
+                t('perm.ask_sub', { tool: info.tool, reason: info.reason }),
+              )
+            } finally {
+              if (editor) editor.resume()
+            }
+          },
         })
       : null
 

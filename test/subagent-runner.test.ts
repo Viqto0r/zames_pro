@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { createSubagentRunner } from '../src/subagent.ts'
+import { createSubagentRunner, capReport } from '../src/subagent.ts'
 import type { BrowserLike, ToolDef } from '../src/types.ts'
 
 // The runner opens a fresh chat, runs a NESTED loop, restores the parent chat
@@ -46,7 +46,21 @@ function fakeBrowser(): {
 test('runner изолирует контекст (freshChat+systemPrompt), возвращает отчёт и восстанавливает родительский чат', async () => {
   const { browser, calls } = fakeBrowser()
   let nestedTask = ''
-  let nestedOpts: { freshChat?: boolean; sendSystemPrompt?: boolean } = {}
+  let nestedOpts: {
+    freshChat?: boolean
+    sendSystemPrompt?: boolean
+    selfImprovement?: boolean
+    onSubagent?: unknown
+    onThinking?: unknown
+    onNotice?: unknown
+  } = {}
+  // The parent already has UI hooks installed on the browser; the runner must
+  // forward them into the nested loop so the spinner keeps animating during a
+  // (long) subagent run instead of going blank.
+  const parentSpin = () => {}
+  const parentNotice = () => {}
+  browser.onSendStart = parentSpin
+  browser.onNotice = parentNotice
   const runner = createSubagentRunner({
     browser,
     workdir: '/tmp/x',
@@ -55,6 +69,10 @@ test('runner изолирует контекст (freshChat+systemPrompt), во�
       task: string
       freshChat?: boolean
       sendSystemPrompt?: boolean
+      selfImprovement?: boolean
+      onSubagent?: unknown
+      onThinking?: unknown
+      onNotice?: unknown
     }) => {
       nestedTask = o.task
       nestedOpts = o
@@ -88,6 +106,27 @@ test('runner изолирует контекст (freshChat+systemPrompt), во�
   // The persona + the sub-task must both be in the nested task text.
   assert.ok(nestedTask.includes('SUBAGENT'))
   assert.ok(nestedTask.includes('explore X'))
+  // A subagent must never spawn its own subagents or touch BACKLOG.md, even
+  // when the runner is created in the operator's dev mode.
+  assert.equal(nestedOpts.onSubagent, null, 'no recursion into subagents')
+  assert.equal(nestedOpts.selfImprovement, false, 'no BACKLOG edits')
+  // Parent UI hooks are forwarded, not dropped.
+  assert.equal(nestedOpts.onThinking, parentSpin, 'spinner hook forwarded')
+  assert.equal(nestedOpts.onNotice, parentNotice, 'notice hook forwarded')
+  // …and the parent's hooks are restored afterwards.
+  assert.equal(browser.onSendStart, parentSpin)
+  assert.equal(browser.onNotice, parentNotice)
+})
+
+test('capReport truncates a runaway report with a marker', () => {
+  const short = 'hello'
+  assert.equal(capReport(short, 100), short)
+  const long = 'x'.repeat(250)
+  const capped = capReport(long, 100)
+  assert.ok(capped.length < long.length)
+  assert.ok(capped.startsWith('x'.repeat(100)))
+  assert.ok(capped.includes('report truncated'))
+  assert.ok(capped.includes('150 chars omitted'))
 })
 
 test('runner уважает бюджет субагентов на задачу', async () => {

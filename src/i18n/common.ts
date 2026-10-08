@@ -119,6 +119,10 @@ export const commonMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Разрешить выполнение?',
     en: 'Allow this call?',
   },
+  'perm.ask_sub': {
+    ru: '⚠ Субагент запрашивает подтверждение: {tool} ({reason})',
+    en: '⚠ Subagent approval required: {tool} ({reason})',
+  },
   'perm.allowed': {
     ru: '✔ Разрешено оператором.',
     en: '✔ Allowed by operator.',

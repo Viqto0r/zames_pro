@@ -105,6 +105,14 @@ When a change touches one concern, start in the module that owns it:
   on when `browser.subagents` (default true). The `Task` tool's description and
   the system-prompt `## Task tool (subagents)` section (injected only when the
   tool is offered) tell the model WHEN to delegate.
+  Guards baked into the runner: NO recursion (the subagent never gets the Task
+  tool and the nested loop runs with `onSubagent:null`), `selfImprovement:false`
+  (a subagent never edits BACKLOG.md, even in dev mode), the parent's UI hooks
+  are FORWARDED into the nested loop (`onThinking`/`onSendPause`/`onSendState`/
+  `onNotice`) so the spinner keeps animating during a long subagent run, an
+  `ask` permission rule also prompts the operator for the subagent
+  (`onAskPermission`), and the report is capped (`capReport`, 20k chars) before
+  it becomes a parent-context tool result.
 - `src/net-capture.ts` — parse the raw SSE/JSON the model sends (answer text,
   token counter, truncation/no-answer/rate-limit detection).
 - `src/i18n.ts` — the localized `CATALOG` (ru/en) for everything the operator

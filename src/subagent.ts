@@ -20,6 +20,22 @@ import type { runAgentLoop as RunAgentLoopFn } from './agent-loop.js'
 /** Hard cap on iterations for one subagent run. */
 export const SUBAGENT_MAX_ITER = 30
 
+// The report is fed back into the PARENT chat as a tool result, so a runaway
+// subagent must not be able to blow up the parent's context with one answer.
+// The tail is trimmed with a marker, not silently dropped.
+export const SUBAGENT_REPORT_CAP = 20_000
+
+/** Cap a subagent report before it becomes a parent-context tool result. */
+export function capReport(text: string, cap = SUBAGENT_REPORT_CAP): string {
+  if (text.length <= cap) return text
+  return (
+    text.slice(0, cap) +
+    '\n… [report truncated: ' +
+    (text.length - cap) +
+    ' chars omitted]'
+  )
+}
+
 /** Extra browser surface the runner needs on top of the agent-loop contract. */
 export interface SubagentBrowser extends BrowserLike {
   newChat: () => Promise<void>
@@ -46,8 +62,6 @@ export interface SubagentRunnerOptions {
   /** Answer timeout / watchdog config for the nested loop. */
   askDeadlineMs: number
   maxAfterToolRetries: number
-  /** Dev mode: BACKLOG note in the subagent prompt. */
-  selfImprovement?: boolean
   /** Permission prompt for an `ask` rule inside the subagent (optional). */
   onAskPermission?: (info: {
     tool: string
@@ -102,7 +116,6 @@ export function createSubagentRunner(
     maxSubagents,
     askDeadlineMs,
     maxAfterToolRetries,
-    selfImprovement = false,
     onAskPermission,
   } = opts
 
@@ -154,11 +167,24 @@ export function createSubagentRunner(
         locale,
         askDeadlineMs,
         maxAfterToolRetries,
-        selfImprovement,
+        // A subagent NEVER touches BACKLOG.md, even in the operator's dev
+        // mode: its sub-task is scoped, and a general subagent appending
+        // "improvement" notes would be unrelated, unsupervised edits.
+        selfImprovement: false,
         // No recursion: the subagent cannot spawn its own subagents.
         onSubagent: null,
         // Do not persist the subagent chat as a session.
         onChatReady: () => {},
+        // Keep the PARENT's UI alive during the nested run. The nested loop
+        // OVERWRITES browser.onSendStart/… with its own callbacks; without
+        // forwarding the parent's hooks the spinner and the throttle countdown
+        // would go blank for the whole subagent run (a long subagent looked
+        // like a frozen, dead agent). The nested loop, not this runner, owns
+        // the assignment, so we hand it the functions it should install.
+        onThinking: savedHooks.onSendStart ?? undefined,
+        onSendPause: savedHooks.onSendPause ?? undefined,
+        onSendState: savedHooks.onSendState ?? undefined,
+        onNotice: savedHooks.onNotice ?? undefined,
         onAskPermission: onAskPermission
           ? (info) =>
               onAskPermission({
@@ -183,6 +209,6 @@ export function createSubagentRunner(
     }
 
     if (failed) return { ok: false, text: failed }
-    return { ok: true, text: report }
+    return { ok: true, text: capReport(report) }
   }
 }
