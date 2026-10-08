@@ -52,6 +52,24 @@ test('kitty-protocol Ctrl+Delete (CSI 3;5~ / 3;3~) deletes on the right', () => 
   assert.equal(e.buf, ' bar baz')
 })
 
+test('kitty-protocol Ctrl+Delete without tilde (CSI 3;5u) deletes the word on the right', () => {
+  const e = makeEditor('foo bar baz', 0)
+  e._handle(Buffer.from(ESC + '[3;5u'))
+  assert.equal(e.buf, ' bar baz')
+})
+
+test('kitty-protocol Alt+Delete (CSI 3;3u) deletes the word on the right', () => {
+  const e = makeEditor('foo bar baz', 4)
+  e._handle(Buffer.from(ESC + '[3;3u'))
+  assert.equal(e.buf, 'foo  baz')
+})
+
+test('kitty-protocol plain Delete (CSI 3u) deletes one char', () => {
+  const e = makeEditor('abc', 1)
+  e._handle(Buffer.from(ESC + '[3u'))
+  assert.equal(e.buf, 'ac')
+})
+
 test('word deletion does not cross the cursor into the other side', () => {
   const e = makeEditor('foo bar', 0)
   // Ctrl+Backspace at column 0 must be a no-op.

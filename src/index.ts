@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url'
 import { theme } from './theme.js'
 
 import { DeepSeekBrowser, headlessUACacheReady } from './browser.js'
-import { createTools } from './tools.js'
+import { createTools, mergeTools } from './tools.js'
 import {
   createTodoStore,
   getTodos,
@@ -1172,17 +1172,17 @@ async function main(): Promise<void> {
     console.error(theme.error(t('msg.browser_error')), (e as Error).message)
     if (debug) console.error((e as Error).stack)
     await browser.close().catch(() => {})
-    transcript.close()
+    await transcript.close()
     process.exit(1)
   }
 
   // One-shot mode
   if (task) {
-    const tools = mod.createTools(currentWorkdir, {
+    const baseTools = mod.createTools(currentWorkdir, {
       undo,
       readOnly: planMode,
     })
-    if (mcpPool) tools.push(...mcpPool.tools)
+    const tools = mergeTools(baseTools, mcpPool?.tools, planMode)
 
     let freshChat = true
     let sendSystemPrompt = true
@@ -1215,19 +1215,29 @@ async function main(): Promise<void> {
 
     await autoReload()
 
-    await mod.runTask(runTaskDeps(), browser, tools, task, currentWorkdir, {
-      transcript,
-      freshChat,
-      sendSystemPrompt,
-      selfImprovement: devMode,
-      onChatReady: (chatId) => {
-        if (chatId) saveLastChat(chatId, currentWorkdir)
+    const result = await mod.runTask(
+      runTaskDeps(),
+      browser,
+      tools,
+      task,
+      currentWorkdir,
+      {
+        transcript,
+        freshChat,
+        sendSystemPrompt,
+        selfImprovement: devMode,
+        onChatReady: (chatId) => {
+          if (chatId) saveLastChat(chatId, currentWorkdir)
+        },
       },
-    })
+    )
+    // One-shot mode (--task) is documented for scripts/CI. A failed agent run
+    // used to exit 0, so the CI job stayed green; surface it as exit code 1.
+    if (!result.ok) process.exitCode = 1
     await browser.close()
     await mod.closeWeb().catch(() => {})
     if (mcpPool) await mcpPool.close().catch(() => {})
-    transcript.close()
+    await transcript.close()
     return
   }
 
@@ -1406,7 +1416,7 @@ async function main(): Promise<void> {
     // as a separate process after the agent exits.
     await mod.closeWeb().catch(() => {})
     if (mcpPool) await mcpPool.close().catch(() => {})
-    transcript.close()
+    await transcript.close()
     console.log(
       theme.dim(
         t('msg.exit_summary', {
@@ -3231,12 +3241,12 @@ async function main(): Promise<void> {
       console.log(theme.system(t('retry.running')))
       // Re-send the last task into the SAME chat (no new chat, no system
       // prompt), so a truncated/empty answer can be retried cheaply.
-      const tools = mod.createTools(currentWorkdir, {
+      const baseTools = mod.createTools(currentWorkdir, {
         undo,
         todos: todoStore,
         readOnly: planMode,
       })
-      if (mcpPool) tools.push(...mcpPool.tools)
+      const tools = mergeTools(baseTools, mcpPool?.tools, planMode)
       if (editor) editor.busy = true
       try {
         await mod.runTask(
@@ -3500,12 +3510,12 @@ async function main(): Promise<void> {
       console.log(
         theme.system(t('improve.start', { id: item.id, title: item.title })),
       )
-      const improveTools = mod.createTools(currentWorkdir, {
+      const improveBase = mod.createTools(currentWorkdir, {
         undo,
         todos: todoStore,
         readOnly: planMode,
       })
-      if (mcpPool) improveTools.push(...mcpPool.tools)
+      const improveTools = mergeTools(improveBase, mcpPool?.tools, planMode)
       if (editor) editor.busy = true
       try {
         await mod.runTask(
@@ -3879,12 +3889,12 @@ async function main(): Promise<void> {
       if (cp) transcript.log('checkpoint', { stamp: cp.stamp })
     }
 
-    const tools = mod.createTools(currentWorkdir, {
+    const baseTools = mod.createTools(currentWorkdir, {
       undo,
       todos: todoStore,
       readOnly: planMode,
     })
-    if (mcpPool) tools.push(...mcpPool.tools)
+    const tools = mergeTools(baseTools, mcpPool?.tools, planMode)
     if (editor) editor.busy = true
     try {
       await mod.runTask(
@@ -3965,7 +3975,7 @@ async function main(): Promise<void> {
   await browser.close().catch(() => {})
   await mod.closeWeb().catch(() => {})
   if (mcpPool) await mcpPool.close().catch(() => {})
-  transcript.close()
+  await transcript.close()
   // One dim line so the operator can find the log and the session after
   // the run (previously the path was only available via /transcript).
   console.log(

@@ -26,6 +26,7 @@ import {
   safeJson,
   visRows,
   visLen,
+  charWidth,
   layoutInput,
   formatTokenStatus,
   tokenStatusLevel,
@@ -65,6 +66,11 @@ export {
   type LayoutRow,
   type LayoutResult,
 } from './input/layout.js'
+
+// How long a lone ESC is held before it is treated as the Escape key (and not
+// as the head of a control sequence split across two reads). 40ms is below a
+// human "two Escapes" interval but above typical chunk-split latency.
+export const ESC_DISAMBIGUATE_MS = 40
 
 // A permanent input line at the bottom of the terminal + a status/output area above it.
 //
@@ -145,6 +151,11 @@ export class LineEditor {
   // is stored so it can be removed in dispose().
   _onResize: () => void
   _resizeTimer: ReturnType<typeof setTimeout> | null
+  // ESC disambiguation (N29): a read may end on a bare ESC that is really the
+  // head of a control sequence split across two reads. We hold it briefly and
+  // fire onEscape only if no tail arrives.
+  _escPending: boolean
+  _escTimer: ReturnType<typeof setTimeout> | null
   // History of sent messages (for the up/down arrows).
   history: string[]
   _histIndex: number
@@ -260,6 +271,8 @@ export class LineEditor {
     this._wasRaw = false
     this._onData = (b: Buffer) => this._handle(b)
     this._resizeTimer = null
+    this._escPending = false
+    this._escTimer = null
     this._onResize = () => {
       // Debounce: a window drag fires a burst of SIGWINCH events. We wait a
       // short moment, then redraw the block at the NEW width.
@@ -518,6 +531,22 @@ export class LineEditor {
     this._renderInputOnly()
   }
 
+  // PageUp/PageDown: page the suggestion window by a full SUGGEST_PAGE. When
+  // no list is open it is a no-op (PageUp/Down used to be swallowed entirely).
+  _suggestPage(delta: number): void {
+    const sugg = this._suggestions()
+    if (!sugg.length) return
+    const max = sugg.length - 1
+    const base = this._suggestSelected < 0 ? 0 : this._suggestSelected
+    const next = base + delta * SUGGEST_PAGE
+    this._suggestSelected = Math.max(0, Math.min(max, next))
+    this._suggestOffset = Math.max(
+      0,
+      Math.min(this._suggestSelected, sugg.length - SUGGEST_PAGE),
+    )
+    this._renderInputOnly()
+  }
+
   // Tab: complete the command up to the common prefix; if there is a single
   // match — insert it whole and add a space.
   _completeCommand() {
@@ -581,6 +610,7 @@ export class LineEditor {
     stdin.removeListener('data', this._onData)
     process.stdout.removeListener('resize', this._onResize)
     if (this._resizeTimer) clearTimeout(this._resizeTimer)
+    if (this._escTimer) clearTimeout(this._escTimer)
     process.stdout.write(ESC + '[?2004l')
     this._stopDots()
     if (this.rendered) this._eraseBlock()
@@ -1413,30 +1443,52 @@ export class LineEditor {
     return lay.cursorRow === lay.rows.length - 1
   }
 
+  // Bare ESC: wait a moment for a possible control-sequence tail before firing
+  // onEscape. Without this a sequence split across two reads (ESC, then "[A")
+  // looked like a lone Escape and aborted the current generation (N29).
+  _scheduleEscape() {
+    this._escPending = true
+    if (this._escTimer) clearTimeout(this._escTimer)
+    this._escTimer = setTimeout(() => {
+      this._escTimer = null
+      if (!this._escPending) return
+      this._escPending = false
+      if (this.onEscape) this.onEscape()
+    }, ESC_DISAMBIGUATE_MS)
+    if (this._escTimer.unref) this._escTimer.unref()
+  }
+
+  // Move the cursor `delta` visual rows (not logical lines) and land in the
+  // column closest to the current one. A long line wraps over several visual
+  // rows; the old _up/_down moved by LOGICAL lines only, so on a wrapped row
+  // Up did nothing and Down skipped a whole logical line. The column is
+  // measured in COLUMNS (layoutInput's cursorCol), so wide chars/emoji land on
+  // the right cell. Returns false when the target row is off the buffer.
+  _visualMoveRows(delta: number): boolean {
+    const cols = process.stdout.columns || 80
+    const lay = layoutInput(this.promptStr, this.buf, this.cursor, cols)
+    const target = lay.cursorRow + delta
+    if (target < 0 || target >= lay.rows.length) return false
+    const row = lay.rows[target]
+    const rowChars = Array.from(row.text)
+    const promptW = visLen(row.prefix)
+    const want = Math.max(0, lay.cursorCol - promptW)
+    let idx = row.start
+    let w = 0
+    while (idx < row.start + rowChars.length && w < want) {
+      w += charWidth(rowChars[idx - row.start].codePointAt(0) as number)
+      idx++
+    }
+    this.cursor = idx
+    return true
+  }
+
   _up() {
-    const chars = Array.from(this.buf)
-    let start = this.cursor
-    while (start > 0 && chars[start - 1] !== NL) start--
-    if (start === 0) return
-    const col = this.cursor - start
-    const prevEnd = start - 1
-    let prevStart = prevEnd
-    while (prevStart > 0 && chars[prevStart - 1] !== NL) prevStart--
-    this.cursor = prevStart + Math.min(col, prevEnd - prevStart)
+    this._visualMoveRows(-1)
   }
 
   _down() {
-    const chars = Array.from(this.buf)
-    let end = this.cursor
-    while (end < chars.length && chars[end] !== NL) end++
-    if (end >= chars.length) return
-    let lineStart = this.cursor
-    while (lineStart > 0 && chars[lineStart - 1] !== NL) lineStart--
-    const col = this.cursor - lineStart
-    const nextStart = end + 1
-    let nextEnd = nextStart
-    while (nextEnd < chars.length && chars[nextEnd] !== NL) nextEnd++
-    this.cursor = nextStart + Math.min(col, nextEnd - nextStart)
+    this._visualMoveRows(1)
   }
 
   // Move one word back (Ctrl+Left / Alt+B): skip spaces
@@ -1617,8 +1669,23 @@ export class LineEditor {
       return
     }
 
+    // A previous read ended on a bare ESC. That is ambiguous: the Escape key
+    // or the head of a control sequence split across reads (arrows, Ctrl+Del).
+    // Reattach the ESC and parse the whole sequence, so a split arrow does not
+    // abort the generation (N29).
+    if (this._escPending) {
+      this._escPending = false
+      if (this._escTimer) {
+        clearTimeout(this._escTimer)
+        this._escTimer = null
+      }
+      s = ESC + s
+    }
+
     if (!this._inPaste && s === ESC && !this._searchMode) {
-      if (this.onEscape) this.onEscape()
+      // Bare ESC in its own chunk: wait a moment for the possible tail of a
+      // control sequence before treating it as the Escape key.
+      this._scheduleEscape()
       return
     }
 
@@ -1818,6 +1885,12 @@ export class LineEditor {
         this._renderInputOnly()
         continue
       }
+      if (code === 12) {
+        // Ctrl+L — clear the screen and repaint the input block (the standard
+        // shell binding; it was silently swallowed before).
+        this.clearScreen()
+        continue
+      }
       if (code === 127 || code === 8) {
         this._pushUndo(true)
         this._backspace()
@@ -1871,6 +1944,24 @@ export class LineEditor {
           this._renderInputOnly()
           continue
         }
+        // Same CSI-u protocol for Delete: Ctrl+Delete is CSI 3;5u (Alt 3;3u),
+        // plain Delete is CSI 3u — without the tilde. Missing these made the
+        // key silently dead on kitty/foot/WezTerm, while the tilde forms above
+        // worked (N27).
+        if (s.startsWith('[3;5u') || s.startsWith('[3;3u')) {
+          this._pushUndo()
+          this._deleteWordRight()
+          s = s.slice(5)
+          this._renderInputOnly()
+          continue
+        }
+        if (s.startsWith('[3u')) {
+          this._pushUndo(true)
+          this._delete()
+          s = s.slice(3)
+          this._renderInputOnly()
+          continue
+        }
         if (s.startsWith('[D')) {
           this._left()
           s = s.slice(2)
@@ -1910,6 +2001,19 @@ export class LineEditor {
           this._renderInputOnly()
           continue
         }
+        // PageUp / PageDown (ESC[5~ / ESC[6~) — page the slash-command
+        // suggestion list, which is otherwise only reachable with Ctrl+N/P.
+        // Without this the sequence fell through to the generic skip.
+        if (s.startsWith('[5~')) {
+          this._suggestPage(-1)
+          s = s.slice(3)
+          continue
+        }
+        if (s.startsWith('[6~')) {
+          this._suggestPage(1)
+          s = s.slice(3)
+          continue
+        }
         if (s.startsWith('[3~')) {
           this._pushUndo(true)
           this._delete()
@@ -1932,6 +2036,18 @@ export class LineEditor {
         }
         let j = 0
         while (j < s.length && !/[A-Za-z~]/.test(s[j])) j++
+        const skipped = s.slice(0, j + 1)
+        // Surface a swallowed sequence in debug mode: an unrecognized control
+        // sequence used to be skipped SILENTLY, which is how a dead key looked
+        // like a frozen editor with no way to tell why.
+        if (process.env.ZAMES_DEBUG_KEYS && skipped.length > 1) {
+          process.stderr.write(
+            String.fromCharCode(10) +
+              '[keys] unhandled: ' +
+              JSON.stringify(skipped) +
+              String.fromCharCode(10),
+          )
+        }
         s = s.slice(j + 1)
         continue
       }
