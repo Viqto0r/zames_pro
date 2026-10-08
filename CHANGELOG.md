@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.67.4] - 2026-10-08
+
+### Fixed
+
+- **readme:** `npm run build:readme` generated a `README.ru.md` again even
+  though it is no longer published (removed from `files[]` in 2.67.1) and a
+  test asserted it must not exist — so a local build wrote an untracked file
+  and could trip the drift test. The generator now writes ONLY `README.md`.
+
 ## [2.67.3] - 2026-10-08
 
 ### Fixed
