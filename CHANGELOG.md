@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.68.0] - 2026-10-08
+
+### Changed
+
+- **git:** every git invocation (GitStatus/GitLog/GitBranchList/GitAdd/
+  GitCommit and the `/diff`, `/diffstat`, `/doctor` helpers) now goes
+  through `runGitArgs()` (`execFile` with an argument array, no shell). The
+  last shell-string variant (`runGit`) is gone, so no git argument can ever
+  be interpreted by a shell. `diffGitArgs()` now returns an array.
+- **cleanup:** removed the dead `shellQuote` export (nothing used it after
+  the move to `execFile`).
+- **build:** `prepublishOnly` now runs `build:readme` before `build`, so a
+  published README.md can never drift from `docs/readme.*.md`.
+
 ## [2.67.4] - 2026-10-08
 
 ### Fixed
