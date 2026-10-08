@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <strong>English</strong> | <a href="https://github.com/Viqto0r/zames_pro/blob/master/README.ru.md">Русский</a>
+  <strong>English</strong> | <a href="#readme-ru">Русский</a>
 </p>
 
 A terminal coding agent that works on top of [chat.deepseek.com](https://chat.deepseek.com/) through Playwright.
@@ -486,6 +486,7 @@ first-party API client.
 
 MIT
 
+<a id="readme-ru" name="readme-ru"></a>
 <details>
 <summary>🇷🇺 Читать по-русски (Russian)</summary>
 

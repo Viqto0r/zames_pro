@@ -74,3 +74,55 @@ test('parseDuckDuckGoResults skips entries with no title', () => {
   const html = '<a class="result__a" href="https://a.com"></a>'
   assert.equal(parseDuckDuckGoResults(html, 5).length, 0)
 })
+
+// N15: the headless render context is created ONCE and reused; a single pure
+// factory backs that cache so the reuse/reset behaviour is testable without a
+// browser.
+import { createReusable } from '../src/web.ts'
+
+test('createReusable builds the value once and reuses it', async () => {
+  let made = 0
+  const r = createReusable(
+    async () => {
+      made++
+      return { id: made }
+    },
+    async () => {},
+  )
+  const a = await r.get()
+  const b = await r.get()
+  assert.equal(made, 1)
+  assert.equal(a, b)
+})
+
+test('createReusable.reset disposes and rebuilds on the next get', async () => {
+  let made = 0
+  let disposed = 0
+  const r = createReusable(
+    async () => {
+      made++
+      return { id: made }
+    },
+    async () => {
+      disposed++
+    },
+  )
+  await r.get()
+  await r.reset()
+  assert.equal(disposed, 1)
+  const c = await r.get()
+  assert.equal(made, 2)
+  assert.equal(c.id, 2)
+})
+
+test('createReusable.reset without a value is a no-op', async () => {
+  let disposed = 0
+  const r = createReusable(
+    async () => 1,
+    async () => {
+      disposed++
+    },
+  )
+  await r.reset()
+  assert.equal(disposed, 0)
+})

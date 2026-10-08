@@ -2,10 +2,13 @@
 //
 // Why: npm renders exactly ONE readme per package (README.md in the root) and
 // has no language tabs, so a separate README.ru.md is invisible on the npm
-// page. But npm renders the readme with GitHub Flavored Markdown (via GitHub's
-// API), so a <details> block DOES work there -- and on GitHub too. We therefore
-// keep the English text on top and fold the other language into a collapsible
-// block at the bottom.
+// page. But npm renders the readme with GitHub Flavored Markdown (via
+// GitHub's API), so a <details> block DOES work there -- and on GitHub too.
+// We therefore keep the English text on top and fold the other language into
+// a collapsible block at the bottom. README.ru.md is generated too so the
+// GitHub switcher can point at it directly, but it is NOT published to npm
+// (see "files" in package.json):
+// it would just duplicate the folded block.
 //
 // The two sources (docs/readme.en.md, docs/readme.ru.md) are the single point
 // of edit for each language; this script wires the switcher and the collapsible
@@ -13,7 +16,7 @@
 // generated files are committed; test/readme-built.test.ts re-runs buildReadmes()
 // and fails if they drift from the sources.
 //
-// Usage:  node scripts/build-readme.mjs   (or: npm run build:readme)
+// Usage:  npm run build:readme
 
 import fs from 'node:fs'
 import path from 'node:path'
@@ -23,17 +26,13 @@ const NL = String.fromCharCode(10)
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 export const SWITCHER = '<!-- SWITCHER -->'
 
-const REPO = 'https://github.com/Viqto0r/zames_pro/blob/master'
+// In-page anchor the switcher links to. GitHub strips `id` on some elements but
+// keeps `name` on an <a>, so both are set.
+export const RU_ANCHOR = '<a id="readme-ru" name="readme-ru"></a>'
+
 const EN_SWITCH = [
   '<p align="center">',
-  '  <strong>English</strong> | <a href="' +
-    REPO +
-    '/README.ru.md">Русский</a>',
-  '</p>',
-].join(NL)
-const RU_SWITCH = [
-  '<p align="center">',
-  '  <a href="' + REPO + '/README.md">English</a> | <strong>Русский</strong>',
+  '  <strong>English</strong> | <a href="#readme-ru">Русский</a>',
   '</p>',
 ].join(NL)
 
@@ -71,50 +70,30 @@ function details(summary: string, body: string): string {
   ].join(NL)
 }
 
-function assemble(opts: {
-  head: string
-  switchLine: string
-  body: string
-  foldSummary: string
-  foldBody: string
-}): string {
-  const { head, switchLine, body, foldSummary, foldBody } = opts
-  return [
-    head,
-    '',
-    switchLine,
-    '',
-    body,
-    '',
-    details(foldSummary, foldBody),
-    '',
-  ].join(NL)
-}
-
 // Returns the two generated readmes WITHOUT touching the disk, so a test can
-// compare them against the committed files.
+// compare them against the committed files. Both files carry the SAME content
+// (English on top, Russian folded): README.md is what npm publishes, and
+// README.ru.md exists only so the GitHub language switcher has a target. The
+// switcher is an IN-PAGE `#readme-ru` anchor, so it works from either file
+// without fetching the other one.
 export function buildReadmes(rootDir: string): {
   readmeEn: string
   readmeRu: string
 } {
   const en = readSource(rootDir, 'readme.en.md')
   const ru = readSource(rootDir, 'readme.ru.md')
-  return {
-    readmeEn: assemble({
-      head: en.head,
-      switchLine: EN_SWITCH,
-      body: en.body,
-      foldSummary: '🇷🇺 Читать по-русски (Russian)',
-      foldBody: ru.body,
-    }),
-    readmeRu: assemble({
-      head: ru.head,
-      switchLine: RU_SWITCH,
-      body: ru.body,
-      foldSummary: '🇬🇧 Read in English',
-      foldBody: en.body,
-    }),
-  }
+  const doc = [
+    en.head,
+    '',
+    EN_SWITCH,
+    '',
+    en.body,
+    '',
+    RU_ANCHOR,
+    details('🇷🇺 Читать по-русски (Russian)', ru.body),
+    '',
+  ].join(NL)
+  return { readmeEn: doc, readmeRu: doc }
 }
 
 // Run only when invoked directly (not when imported by a test).

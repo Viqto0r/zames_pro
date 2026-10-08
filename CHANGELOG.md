@@ -9,15 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.67.0] - 2026-10-08
 
-### Added
-
-- **agent:** one-shot exit code, recursive self-review, MCP dedupe/truncate/plan-filter, transcript flush (N3/N4/N5/N9/N20/N21)
-
-### Fixed
-
-- **input:** CSI-u Delete, visual-row Up/Down, ESC disambiguation, Ctrl+L/PageUp (N27/N28/N29/N30)
-- **security:** close shell-injection, symlink-escape and SSRF-redirect holes (N1/N2/N6/N7/N17/N18/N19/N22/N23)
-
 ### Fixed
 
 - **tools:** Edit/MultiEdit no longer corrupt dollar patterns (`$&`, `$$`, `$1`)
@@ -99,8 +90,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **release:** add scripts/release.mts for one-command release prep (G4)
 
-### Fixed
-
 - **reload:** include commands, run-task and attach-refs in hot-reload (G2)
 
 ### Changed
@@ -108,8 +97,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - apply prettier to files touched by G2/F1
 
 ## [2.65.1] - 2026-10-07
-
-### Fixed
 
 - Long preview lines no longer create a horizontal scrollbar in the terminal:
   `toolCall`/`toolResult` (LineEditor and spinner) now clip the preview by the
@@ -142,8 +129,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed unused files: `logo.jpg` (only `logo-small.jpg` is used in the
   README) and the `docs/demo.tape` draft (the VHS render was never generated).
   `logo.jpg` was also removed from the `files` list in package.json.
-
-### Fixed
 
 - Terminal repaint after a window resize: the relative erase `ESC[n A` after a
   size change landed on a stale row (the terminal re-flowed the wraps), so the
@@ -190,8 +175,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   testable module.
 
 ## [2.63.1] - 2026-10-06
-
-### Fixed
 
 - Timer flicker in the pre-send pause status: `sendPause()` (both `LineEditor`
   and the non-TTY `SpinnerUI`) repainted the status WITHOUT the
@@ -377,8 +360,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - config, sessions and undo now share the single atomic writer (the
   temp-file+rename logic used to be copy-pasted in three places).
 
-### Fixed
-
 - BACKLOG.md is now git-ignored and untracked: it is the agent's own
   improvement-notes file, rewritten constantly, and used to be published with
   the package.
@@ -415,8 +396,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `npm run build` now wipes `dist/` first (`scripts/clean-dist.mjs`), so a
   removed source file no longer leaves an orphan `.js` in the package.
 
-### Fixed
-
 - `/undo` failure reasons are localized: `src/undo.ts` returned hardcoded
   Russian strings that showed up in an English UI. It now returns machine codes
   ('empty' / 'disabled') localized by the caller.
@@ -450,8 +429,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   folder of the snapshot, so the reviewer can read them. The editable set
   (diff/apply) stays `.ts`-only.
 - `package.json` gained `packageManager: npm@11.19.0`.
-
-### Fixed
 
 - The status line no longer prefixes a running-tool indicator with the
   previous answer's "done" phase (e.g. `✓ done: running Bash`): `toolCall()`
@@ -487,8 +464,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and timed out on tag pushes); tests stay in `pre-commit` and CI.
 
 ## [2.53.1]
-
-### Fixed
 
 - `require('fs')` in ESM modules (`src/attachments.ts`, `src/self-review.ts`)
   threw `ReferenceError` at runtime: WSL clipboard detection always returned

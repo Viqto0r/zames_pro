@@ -120,7 +120,17 @@ npm run lint
 npm run format:check
 npm test
 npm run build
+npm run self-smoke   # REQUIRED before a release (see below)
 ```
+
+The unit tests cannot catch an integration regression (login, a send, an
+attachment, the answer parsing). `npm run self-smoke` runs the REAL agent in an
+ISOLATED profile against live DeepSeek and prints PASS/FAIL per scenario; it is
+the only gate that exercises the whole path end to end. It needs live
+credentials and a network, so it is a MANUAL pre-release step — it is NOT run in
+CI. It never touches `~/.zames/profile` and can run alongside a live agent (see
+`scripts/self-smoke.mjs`: a throwaway `HOME` via `ZAMES_SMOKE_HOME`, an isolated
+profile, a symlinked browser cache).
 
 Coverage: `npx tsx --test --experimental-test-coverage test/*.test.ts` (this is
 also what CI runs).

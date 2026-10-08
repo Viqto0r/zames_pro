@@ -246,7 +246,49 @@ async function getHeadless() {
   return _headless
 }
 
+// ONE reused context for every render-fetch. Creating a fresh context per call
+// (as before) re-allocated the user-agent/network stack each time, which is
+// heavy for a series of render=true fetches. Pages are closed after each fetch,
+// the context itself is reused and closed in closeWeb().
+//
+// The cache is a tiny pure factory so the reuse/reset behaviour can be unit-
+// tested without launching a real browser.
+export function createReusable<T>(
+  factory: () => Promise<T>,
+  dispose: (value: T) => Promise<void>,
+): { get: () => Promise<T>; reset: () => Promise<void> } {
+  let cached: T | null = null
+  return {
+    async get() {
+      if (cached === null) cached = await factory()
+      return cached
+    },
+    async reset() {
+      if (cached === null) return
+      const v = cached
+      cached = null
+      await dispose(v).catch(() => {})
+    },
+  }
+}
+
+type HeadlessContext = Awaited<
+  ReturnType<Awaited<ReturnType<typeof chromium.launch>>['newContext']>
+>
+
+const _headlessCtxCache = createReusable<HeadlessContext>(
+  async () => {
+    const browser = await getHeadless()
+    return browser.newContext({
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    })
+  },
+  (ctx) => ctx.close(),
+)
+
 export async function closeWeb() {
+  await _headlessCtxCache.reset()
   if (_headless) {
     try {
       await _headless.close()
@@ -259,11 +301,7 @@ async function renderWithHeadless(
   url: string,
   { timeout = DEFAULT_TIMEOUT }: { timeout?: number } = {},
 ) {
-  const browser = await getHeadless()
-  const ctx = await browser.newContext({
-    userAgent:
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  })
+  const ctx = await _headlessCtxCache.get()
   const page = await ctx.newPage()
   try {
     // Validate the pre-redirect URL (page.goto follows redirects internally,
@@ -287,7 +325,8 @@ async function renderWithHeadless(
     }
     return { status, url: finalUrl, html }
   } finally {
-    await ctx.close()
+    // Close the PAGE, not the shared context.
+    await page.close().catch(() => {})
   }
 }
 
