@@ -2,12 +2,12 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { LineEditor } from '../src/input.ts'
 
-// Resize handling: a terminal resize (SIGWINCH / process.stdout 'resize') must
-// repaint the editor block from a CLEAN viewport. After a resize the terminal
-// re-flows the lines above the block, so the relative ESC[n A erase lands on a
-// stale row and the old block would be left on screen as a duplicate. The
-// repaint clears the VIEWPORT with ESC[2J (clears the screen, not the
-// scrollback, so the history above is preserved).
+// Resize handling: a terminal resize (SIGWINCH / process.stdout resize)
+// must repaint the editor block. It must NOT clear the whole viewport
+// (ESC[2J): that pushes the history above into the scrollback and leaves a
+// blank gap between the footer and the text the operator was reading.
+// The block itself is erased with a RELATIVE move (cursor row within the
+// block), which still lands on the block top row after a reflow.
 
 test('resize repaints the block', async () => {
   const e = new LineEditor()
@@ -23,7 +23,7 @@ test('resize repaints the block', async () => {
   e.dispose()
 })
 
-test('resize repaints from a clean viewport (ESC[2J is emitted)', () => {
+test('resize does NOT clear the whole viewport', () => {
   const e = new LineEditor()
   const writes: string[] = []
   const orig = process.stdout.write.bind(process.stdout)
@@ -41,8 +41,8 @@ test('resize repaints from a clean viewport (ESC[2J is emitted)', () => {
     ;(process.stdout as unknown as { write: typeof orig }).write = orig
   }
   assert.ok(
-    writes.some((s) => s.includes('\u001b[2J')),
-    'resize must clear the viewport',
+    !writes.some((s) => s.includes('\u001b[2J')),
+    'resize must not clear the whole viewport (it hides the history)',
   )
 })
 

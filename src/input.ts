@@ -745,25 +745,25 @@ export class LineEditor {
 
   _writeBlock() {
     const cols = process.stdout.columns || 80
-    // After a resize the relative erase is unreliable (the terminal
-    // re-flowed everything and the cursor row changed). Re-DRAW the block
-    // from a known position instead: clear the visible viewport, go HOME,
-    // fill it with blank lines, then draw at the bottom. ESC[2J clears the
-    // SCREEN, not the scrollback, so the history above is preserved.
+    // After a resize the terminal re-flowed the lines above the block, so
+    // the block's ABSOLUTE row changed. But the cursor is still on the input
+    // line and `_eraseBlock` moves up by the cursor row WITHIN the block — a
+    // RELATIVE move that still lands on the block top row, whatever the
+    // reflow did. So we clear ONLY our own block (status + input) and leave
+    // the history above it visible and in place. We deliberately do NOT clear
+    // the whole viewport (ESC[2J): that pushed the history into the scrollback
+    // and left a blank gap between the footer and the text the operator was
+    // reading (they had to scroll up to see their own chat). `_blockRows` is
+    // kept so the shrink-padding (`_padShrink`) can still push a shorter block
+    // back down to the bottom.
     if (this._resizeRepin) {
       this._resizeRepin = false
       this._eraseBlock()
       this._lastStatusBlock = ''
+      // Forget the old block height: after a reflow the shrink-padding must
+      // not add scroll (it would push the freshly drawn block up and open a
+      // gap above the footer). The normal path records the new height.
       this._blockRows = 0
-      // Clear the VISIBLE viewport before re-pinning. After a resize the
-      // terminal re-flowed the lines above the block, and padding to the
-      // bottom scrolls the OLD copy of the block back into view — without the
-      // clear the old status/input stays on screen as a DUPLICATE of the
-      // freshly drawn one (the artifact seen on resize). The scrollback buffer
-      // is untouched: ESC[2J clears the screen, NOT the scrollback, so the
-      // history printed above is still reachable by scrolling up.
-      process.stdout.write(ESC + '[2J' + ESC + '[H')
-      this._padToBottom()
     }
     // Status line above the input: the spinner/answer text on the left and the
     // token context right-aligned on the SAME row (10k · 12%). The context is

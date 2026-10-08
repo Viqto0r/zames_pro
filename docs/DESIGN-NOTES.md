@@ -246,18 +246,24 @@ the first line. Current logic:
   (`expandPastes`). Pastes of 1–2 lines are inserted as-is. The same logic is
   mirrored in `watchInput()` (src/index.ts, the non-TTY fallback).
 
-### Resize: the block is re-pinned from a CLEAN viewport
+### Resize: erase ONLY the block, never the whole viewport
 
 A terminal resize (SIGWINCH) re-flows the lines above the editor block, so the
-row the block used to occupy is stale. The old code re-pinned the block by
-padding to the bottom, which scrolled the OLD copy of the block back into view —
-the operator saw the previous status/input left on screen as a DUPLICATE of the
-freshly drawn one (the resize artifact). `_writeBlock()` now clears the visible
-viewport with `ESC[2J` before re-pinning. `ESC[2J` clears the SCREEN, not the
-scrollback, so the history printed above (tool calls, answers) is preserved and
-still reachable by scrolling up. The resize handler is debounced (120 ms); the
-re-pin itself is deferred to the NEXT `_writeBlock()` via `_resizeRepin`, because
-the erase has to happen on a real render, not inside the SIGWINCH callback.
+block's ABSOLUTE row changed. The block itself must be redrawn at the new width.
+
+What NOT to do: clear the whole viewport (`ESC[2J`). That pushes the history
+above (tool calls, answers) into the scrollback and leaves a blank gap between
+the footer and the text the operator was reading — they had to scroll up to see
+their own chat.
+
+What works: `_eraseBlock()` moves the cursor up by the cursor's row WITHIN the
+block — a RELATIVE move that lands on the block's top row regardless of the
+reflow — and clears from there (`ESC[J`). Only our own rows (status + input) are
+wiped; the history above stays visible and in place. `_blockRows` is reset on
+the re-pin so the shrink-padding (`_padShrink`) does not scroll a gap open. The
+resize handler is debounced (120 ms); the redraw itself is deferred to the NEXT
+`_writeBlock()` via `_resizeRepin`, because the erase must happen on a real
+render, not inside the SIGWINCH callback.
 
 In non-TTY mode (pipe, redirect) `LineEditor` does not start — `promptOnce()`
 (src/index.ts) is used, which reads everything up to EOF.
