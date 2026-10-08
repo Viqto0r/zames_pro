@@ -148,6 +148,16 @@ export interface UiConfig {
    * full-width answer use a wide terminal instead of a narrow column.
    */
   answerWidth: number
+  /**
+   * Optional status-line command (N37). When set, zames runs it periodically
+   * (and after each task) with a JSON status on stdin and shows the first line
+   * of its stdout in the status line, like Claude Code's statusLine hook.
+   * Empty = off. Kept OUT of CONFIG_SCHEMA (a shell command does not belong in
+   * the interactive menu); edit it in config.json directly.
+   */
+  statusLineCommand: string
+  /** How often (ms) the statusLine command is re-run. Default 10000. */
+  statusLineIntervalMs: number
 }
 
 export interface ZamesConfig {
@@ -161,6 +171,16 @@ export interface ZamesConfig {
   transcript: TranscriptConfig
   browser: BrowserConfig
   ui: UiConfig
+  diagnostics: DiagnosticsConfig
+}
+
+// Post-edit diagnostics (N38): a check command run after a file-mutating tool.
+export interface DiagnosticsConfig {
+  enabled: boolean
+  command: string
+  timeoutMs: number
+  tools: string[]
+  maxChars: number
 }
 
 export type DeepPartial<T> = {

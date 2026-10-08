@@ -36,3 +36,24 @@ test('runShell returns stdout and an exit code on failure', async () => {
   const fail = await runShell(ROOT, 'exit 3')
   assert.match(fail, /Exit code: 3/)
 })
+
+test('startBackground/pollBackground/killBackground lifecycle (N33)', async () => {
+  const { startBackground, pollBackground, killBackground } =
+    await import('../src/shell.ts')
+  const id = startBackground(process.cwd(), 'echo hello-bg && sleep 30')
+  assert.ok(/^[0-9a-f]{6}$/.test(id), id)
+  // Give the process a moment to emit its output.
+  await new Promise((r) => setTimeout(r, 400))
+  const out = pollBackground(id)
+  assert.ok(out.includes('hello-bg'), out)
+  const killed = killBackground(id)
+  assert.ok(killed.includes(id), killed)
+  // A second kill reports it is gone / already exited.
+  const again = pollBackground(id)
+  assert.ok(again.includes('No background process'), again)
+})
+
+test('pollBackground on an unknown id is a clear message, not a throw', async () => {
+  const { pollBackground } = await import('../src/shell.ts')
+  assert.ok(pollBackground('zzzzzz').includes('No background process'))
+})

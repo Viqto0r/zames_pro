@@ -4,6 +4,7 @@ import {
   parseConventionalCommit,
   groupCommits,
   renderChangelogDraft,
+  syncUnreleased,
 } from '../src/changelog.ts'
 
 // ---------- parseConventionalCommit ----------
@@ -113,4 +114,41 @@ test('maps the remaining Changed types (perf/style/revert)', () => {
 test('groupCommits tolerates an empty list', () => {
   const g = groupCommits([])
   assert.deepEqual(g, { Added: [], Fixed: [], Changed: [], Removed: [] })
+})
+
+// ---------- syncUnreleased (D2) ----------
+
+test('syncUnreleased replaces the Unreleased body, keeps the next version', () => {
+  const src = [
+    '# Changelog',
+    '',
+    '## [Unreleased]',
+    '',
+    '## [1.0.0] - 2020-01-01',
+    '',
+    '### Added',
+    '',
+    '- old',
+    '',
+  ].join('\n')
+  const out = syncUnreleased(src, '## Fixed\n\n- a bug')
+  assert.ok(out.includes('## Fixed'))
+  assert.ok(out.includes('- a bug'))
+  assert.ok(out.includes('## [1.0.0] - 2020-01-01'))
+  assert.ok(out.includes('- old'))
+  // The Unreleased heading is preserved exactly once.
+  assert.equal(out.split('## [Unreleased]').length - 1, 1)
+})
+
+test('syncUnreleased clears the body when there is nothing to report', () => {
+  const src = '## [Unreleased]\n\nstale text\n\n## [1.0.0]\n\n- x\n'
+  const out = syncUnreleased(src, '')
+  assert.ok(!out.includes('stale text'))
+  assert.ok(out.includes('## [Unreleased]'))
+  assert.ok(out.includes('## [1.0.0]'))
+})
+
+test('syncUnreleased is a no-op without an Unreleased heading', () => {
+  const src = '## [1.0.0]\n\n- x\n'
+  assert.equal(syncUnreleased(src, '## Fixed'), src)
 })

@@ -11,6 +11,12 @@ import Module from 'module'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
+// Module._resolveFilename is a private Node field (not in @types/node), so it
+// is reached through a small structural type instead of `any`.
+type ModuleWithResolve = typeof Module & {
+  _resolveFilename: (request: string, ...rest: unknown[]) => string
+}
+
 const require = createRequire(import.meta.url)
 const here = path.dirname(fileURLToPath(import.meta.url))
 const ts6 = path.join(here, '..', 'node_modules', 'typescript-6')
@@ -26,16 +32,17 @@ try {
 
 // Patch Module._resolveFilename so any require('typescript') resolves to the
 // TS 6 package instead of the TS 7 the project depends on.
-const origResolve = Module._resolveFilename
-Module._resolveFilename = function (request, ...rest) {
+const M = Module as ModuleWithResolve
+const origResolve = M._resolveFilename
+M._resolveFilename = (request: string, ...rest: unknown[]) => {
   if (request === 'typescript') {
     try {
       return require.resolve(path.join(ts6, 'lib', 'typescript.js'))
     } catch {
-      return origResolve.call(this, request, ...rest)
+      return origResolve(request, ...rest)
     }
   }
-  return origResolve.call(this, request, ...rest)
+  return origResolve(request, ...rest)
 }
 
 const { ESLint } = await import('eslint')

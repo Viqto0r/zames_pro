@@ -67,6 +67,7 @@ import {
   parseCron,
 } from './scheduler.js'
 import { renderMarkdown, setAnswerWidth } from './markdown.js'
+import { runStatusLineCommand } from './statusline.js'
 import { parseBacklogNote } from './backlog.js'
 import {
   askOperatorConfirm,
@@ -74,7 +75,11 @@ import {
   type RunTaskDeps,
 } from './run-task.js'
 import { closeWeb } from './web.js'
-import { assertCommandInsideRoot, runShell } from './shell.js'
+import {
+  assertCommandInsideRoot,
+  runShell,
+  killAllBackground,
+} from './shell.js'
 import {
   saveSession,
   loadLastSession,
@@ -1484,6 +1489,8 @@ async function main(): Promise<void> {
 
   process.on('SIGINT', async () => {
     running = false
+    // Kill any background processes (N33) so no dev-server outlives the agent.
+    killAllBackground()
     await browser.close().catch(() => {})
     // Close the lazy headless browser from web.js, otherwise it would stay
     // as a separate process after the agent exits.
@@ -1551,6 +1558,8 @@ async function main(): Promise<void> {
   // the typed text is never overwritten by output. In non-TTY (pipe) —
   // the old promptOnce.
   let editor: LineEditor | null = null
+  // N37 statusLine hook timer (cleared on exit).
+  let statusLineTimer: ReturnType<typeof setInterval> | null = null
   let waiter: ((v: PendingMessage | null) => void) | null = null
   const takeInput = (): Promise<PendingMessage | null> => {
     if (pendingQueue.length)
@@ -1603,6 +1612,33 @@ async function main(): Promise<void> {
     // Toggle icons (🧠 deep thinking, 🌐 web search) before the context
     // counter. The editor pulls the live state on every render.
     ed.onToggleQuery = () => browser.getToggleStatesSync()
+    // N37 statusLine hook: run the configured command on its own timer (never
+    // per-render — a spawn would block typing) and show its first stdout line
+    // in the status line. Off when ui.statusLineCommand is empty.
+    if (config.ui.statusLineCommand) {
+      const statusLineInfo = (): Parameters<
+        typeof runStatusLineCommand
+      >[2] => ({
+        chatId: currentChatId,
+        queueLength: pendingQueue.length,
+        tokens: browser.getLastTokenUsage(),
+        contextLimit: config.ui.contextLimit,
+        tasks: todosSummary(),
+        locale: currentLocale,
+      })
+      const tick = async (): Promise<void> => {
+        const line = await runStatusLineCommand(
+          currentWorkdir,
+          config.ui.statusLineCommand,
+          statusLineInfo(),
+        ).catch(() => '')
+        editor?.setStatusLine(line)
+      }
+      void tick()
+      const interval = Math.max(2000, config.ui.statusLineIntervalMs || 10_000)
+      statusLineTimer = setInterval(() => void tick(), interval)
+      if (typeof statusLineTimer.unref === 'function') statusLineTimer.unref()
+    }
     ed.onAttach = async (raw: string) => {
       // Case 1: the paste is the image data itself (data URL / base64 blob).
       const image = parseImagePaste(raw)
@@ -4055,6 +4091,7 @@ async function main(): Promise<void> {
 
   if (editor) editor.dispose()
   if (scheduleTimer) clearInterval(scheduleTimer)
+  if (statusLineTimer) clearInterval(statusLineTimer)
   await browser.close().catch(() => {})
   await mod.closeWeb().catch(() => {})
   if (mcpPool) await mcpPool.close().catch(() => {})

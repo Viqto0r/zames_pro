@@ -17,6 +17,7 @@ import {
   loadHooks,
   runPreToolUse,
   runPostToolUse,
+  runLifecycleHooks,
   type HooksConfig,
 } from './hooks.js'
 import {
@@ -25,6 +26,11 @@ import {
   type PermissionPolicy,
   type PermissionDecision,
 } from './permissions.js'
+import {
+  shouldRunDiagnostics,
+  runDiagnostics,
+  type DiagnosticsConfig,
+} from './diagnostics.js'
 
 // A subagent request from the model's `Task` tool. The loop does NOT execute
 // `Task` itself — it is a seam (like onAutoCompact): the caller (index.ts)
@@ -127,6 +133,12 @@ export interface RunAgentLoopOptions {
    */
   permissions?: PermissionPolicy | null
   /**
+   * Post-edit diagnostics (N38): after a file-mutating tool, run this command
+   * and append its output to the tool result so the model sees a type error
+   * without a separate round-trip. Off when omitted.
+   */
+  diagnostics?: DiagnosticsConfig | null
+  /**
    * Ask the operator to approve a tool call matched by an `ask` rule.
    * Returns true to allow, false to deny. When omitted, an `ask` rule is
    * treated as `allow` (best-effort: a non-interactive run must not stall).
@@ -180,6 +192,7 @@ export async function runAgentLoop({
   getTokenUsage = null,
   hooks = undefined,
   permissions = undefined,
+  diagnostics = null,
   onAskPermission = undefined,
   selfImprovement = false,
   onSubagent = null,
@@ -245,6 +258,12 @@ export async function runAgentLoop({
   if (freshChat) {
     await browser.newChat()
     transcript?.log('new_chat')
+    // SessionStart hook (N32): a fresh chat is the start of a session, so a
+    // hook can inject context or set up state. Best-effort, output is logged.
+    try {
+      const out = await runLifecycleHooks(hookConfig, 'SessionStart', workdir)
+      if (out) transcript?.log('hook_session_start', { output: out })
+    } catch {}
   }
 
   // Report the current chat id to the caller.
@@ -460,6 +479,18 @@ export async function runAgentLoop({
     // 300s rate-limit wait or the finish loop) while the next iteration
     // started a SECOND ask() against the same page — two sends / two Continue
     // clicks.
+    // UserPromptSubmit hook (N32): runs right before the prompt is sent. Its
+    // stdout is appended to the outgoing message as extra context, mirroring
+    // Claude Code. Best-effort — a hook failure never blocks the send.
+    try {
+      const inject = await runLifecycleHooks(
+        hookConfig,
+        'UserPromptSubmit',
+        workdir,
+        { prompt: message },
+      )
+      if (inject) message = message + String.fromCharCode(10, 10) + inject
+    } catch {}
     const askPromise = browser.ask(message, {
       agent: !isFirst,
       attachments: isFirst ? attachments : [],
@@ -937,143 +968,179 @@ export async function runAgentLoop({
       continue
     }
 
-    for (const call of callsToRun) {
-      // `Task` is a SEAM, not an ordinary tool: it is handled by the caller's
-      // onSubagent callback (a separate chat with its own context). It is not
-      // in `tools` when subagents are disabled, so it is matched by name here
-      // BEFORE the unknown-tool branch. With no callback we answer honestly
-      // instead of pretending the tool exists.
-      if (call.tool === 'Task') {
-        const rawPrompt =
-          typeof call.args.prompt === 'string' ? call.args.prompt.trim() : ''
-        const rawType = String(call.args.subagent_type ?? '').toLowerCase()
-        const subType: 'explore' | 'general' =
-          rawType === 'explore' ? 'explore' : 'general'
-        const rawDesc =
-          typeof call.args.description === 'string' ? call.args.description : ''
-        if (!onSubagent || !rawPrompt) {
-          const err = !onSubagent
-            ? 'Subagents are not available in this run. Do the work yourself with the other tools.'
-            : 'Task requires a non-empty `prompt` argument.'
-          safeToolResult(err)
-          transcript?.log('tool_error', { tool: 'Task', error: err })
-          results.push({ tool: 'Task', result: err })
+    // N34: several READ-ONLY calls in one batch are independent, so run them
+    // concurrently instead of one-by-one (the model often emits 4-6 Reads in a
+    // single answer and each awaited round-trip added latency). The fast path
+    // is deliberately NARROW: it is taken only when EVERY call is a known
+    // read-only tool, no PreToolUse hook is configured (hooks can block/deny)
+    // and no call matches an `ask` permission rule (a concurrent operator
+    // prompt would race). Anything else keeps the strict sequential loop, so
+    // mutating side effects never reorder.
+    const PARALLEL_SAFE = new Set(['Read', 'Glob', 'Grep', 'LS', 'WebFetch'])
+    const readOnlyBatch =
+      callsToRun.length > 1 &&
+      !(hookConfig.PreToolUse && hookConfig.PreToolUse.length) &&
+      callsToRun.every(
+        (c) =>
+          PARALLEL_SAFE.has(c.tool) &&
+          tools.some((t) => t.name === c.tool) &&
+          decidePermission(permissionPolicy, c.tool, c.args).action !== 'ask',
+      )
+
+    if (readOnlyBatch) {
+      for (const c of callsToRun) {
+        safeToolCall(c.tool, c.args)
+        transcript?.log('tool_call', { tool: c.tool, args: c.args })
+      }
+      // Results are pushed in the ORIGINAL order below, so the model sees the
+      // batch as before — only the waiting overlaps.
+      const settled = await Promise.all(
+        callsToRun.map(async (c) => {
+          const tool = tools.find((t) => t.name === c.tool)!
+          const toolStart = Date.now()
+          let result: unknown
+          try {
+            result = await tool.fn(c.args, { signal: toolAbort.signal })
+          } catch (e) {
+            result = `Error: ${(e as Error).message}`
+          }
+          return { call: c, result, toolMs: Date.now() - toolStart }
+        }),
+      )
+      for (const { call: c, result, toolMs } of settled) {
+        safeToolResult(result)
+        transcript?.log('tool_result', {
+          tool: c.tool,
+          result: String(result),
+          durationMs: toolMs,
+        })
+        results.push({ tool: c.tool, result })
+      }
+    }
+
+    if (!readOnlyBatch)
+      for (const call of callsToRun) {
+        // `Task` is a SEAM, not an ordinary tool: it is handled by the caller's
+        // onSubagent callback (a separate chat with its own context). It is not
+        // in `tools` when subagents are disabled, so it is matched by name here
+        // BEFORE the unknown-tool branch. With no callback we answer honestly
+        // instead of pretending the tool exists.
+        if (call.tool === 'Task') {
+          const rawPrompt =
+            typeof call.args.prompt === 'string' ? call.args.prompt.trim() : ''
+          const rawType = String(call.args.subagent_type ?? '').toLowerCase()
+          const subType: 'explore' | 'general' =
+            rawType === 'explore' ? 'explore' : 'general'
+          const rawDesc =
+            typeof call.args.description === 'string'
+              ? call.args.description
+              : ''
+          if (!onSubagent || !rawPrompt) {
+            const err = !onSubagent
+              ? 'Subagents are not available in this run. Do the work yourself with the other tools.'
+              : 'Task requires a non-empty `prompt` argument.'
+            safeToolResult(err)
+            transcript?.log('tool_error', { tool: 'Task', error: err })
+            results.push({ tool: 'Task', result: err })
+            continue
+          }
+          syncToolAbort()
+          safeToolCall('Task', call.args)
+          transcript?.log('subagent_start', {
+            type: subType,
+            description: rawDesc,
+            prompt: rawPrompt,
+          })
+          const poll = setInterval(syncToolAbort, 100)
+          if (typeof poll.unref === 'function') poll.unref()
+          const subStart = Date.now()
+          let subResult: SubagentResult
+          try {
+            subResult = await onSubagent({
+              prompt: rawPrompt,
+              description: rawDesc,
+              type: subType,
+            })
+          } catch (e) {
+            subResult = {
+              ok: false,
+              text: `Subagent error: ${(e as Error).message}`,
+            }
+          } finally {
+            clearInterval(poll)
+          }
+          const subText = String(subResult.text || '').trim()
+          const subOut = subResult.ok
+            ? subText || '(the subagent returned no report)'
+            : `Subagent failed: ${subText || 'unknown error'}`
+          safeToolResult(subOut)
+          transcript?.log('subagent_done', {
+            type: subType,
+            ok: subResult.ok,
+            chars: subText.length,
+            durationMs: Date.now() - subStart,
+          })
+          results.push({ tool: 'Task', result: subOut })
+          // The subagent switched the chat underneath us and the callback has
+          // already restored the parent chat. Clear the stale-echo baseline:
+          // the capture left over from the subagent's chat would otherwise make
+          // the watchdog compare the parent's next answer against IT and fire.
+          lastRaw = ''
+          if (browser._abort || browser._stopped) {
+            transcript?.log('user_aborted')
+            return '(прервано пользователем)'
+          }
           continue
         }
+
+        const tool = tools.find((t) => t.name === call.tool)
+
+        if (!tool) {
+          const err = `Unknown tool: ${call.tool}`
+          safeToolResult(err)
+          transcript?.log('tool_error', { tool: call.tool, error: err })
+          results.push({ tool: call.tool, result: err })
+          continue
+        }
+
+        // The operator may have pressed Esc while we were parsing/among the
+        // previous calls — make sure the signal reflects it before we start.
         syncToolAbort()
-        safeToolCall('Task', call.args)
-        transcript?.log('subagent_start', {
-          type: subType,
-          description: rawDesc,
-          prompt: rawPrompt,
-        })
-        const poll = setInterval(syncToolAbort, 100)
-        if (typeof poll.unref === 'function') poll.unref()
-        const subStart = Date.now()
-        let subResult: SubagentResult
-        try {
-          subResult = await onSubagent({
-            prompt: rawPrompt,
-            description: rawDesc,
-            type: subType,
+        safeToolCall(call.tool, call.args)
+        transcript?.log('tool_call', { tool: call.tool, args: call.args })
+
+        // PreToolUse hooks run BEFORE the tool. A non-zero exit BLOCKS the call:
+        // its output becomes the tool result and the tool itself never runs.
+        // Best-effort by design — hooks must not be able to kill the loop.
+        const denial = await runPreToolUse(
+          hookConfig,
+          call.tool,
+          call.args,
+          workdir,
+        )
+        if (denial !== null) {
+          const blocked = `Blocked by PreToolUse hook: ${denial}`
+          transcript?.log('hook_pre_deny', { tool: call.tool, reason: denial })
+          safeToolResult(blocked)
+          transcript?.log('tool_result', {
+            tool: call.tool,
+            result: blocked,
           })
-        } catch (e) {
-          subResult = {
-            ok: false,
-            text: `Subagent error: ${(e as Error).message}`,
-          }
-        } finally {
-          clearInterval(poll)
+          results.push({ tool: call.tool, result: blocked })
+          continue
         }
-        const subText = String(subResult.text || '').trim()
-        const subOut = subResult.ok
-          ? subText || '(the subagent returned no report)'
-          : `Subagent failed: ${subText || 'unknown error'}`
-        safeToolResult(subOut)
-        transcript?.log('subagent_done', {
-          type: subType,
-          ok: subResult.ok,
-          chars: subText.length,
-          durationMs: Date.now() - subStart,
-        })
-        results.push({ tool: 'Task', result: subOut })
-        // The subagent switched the chat underneath us and the callback has
-        // already restored the parent chat. Clear the stale-echo baseline:
-        // the capture left over from the subagent's chat would otherwise make
-        // the watchdog compare the parent's next answer against IT and fire.
-        lastRaw = ''
-        if (browser._abort || browser._stopped) {
-          transcript?.log('user_aborted')
-          return '(прервано пользователем)'
-        }
-        continue
-      }
 
-      const tool = tools.find((t) => t.name === call.tool)
-
-      if (!tool) {
-        const err = `Unknown tool: ${call.tool}`
-        safeToolResult(err)
-        transcript?.log('tool_error', { tool: call.tool, error: err })
-        results.push({ tool: call.tool, result: err })
-        continue
-      }
-
-      // The operator may have pressed Esc while we were parsing/among the
-      // previous calls — make sure the signal reflects it before we start.
-      syncToolAbort()
-      safeToolCall(call.tool, call.args)
-      transcript?.log('tool_call', { tool: call.tool, args: call.args })
-
-      // PreToolUse hooks run BEFORE the tool. A non-zero exit BLOCKS the call:
-      // its output becomes the tool result and the tool itself never runs.
-      // Best-effort by design — hooks must not be able to kill the loop.
-      const denial = await runPreToolUse(
-        hookConfig,
-        call.tool,
-        call.args,
-        workdir,
-      )
-      if (denial !== null) {
-        const blocked = `Blocked by PreToolUse hook: ${denial}`
-        transcript?.log('hook_pre_deny', { tool: call.tool, reason: denial })
-        safeToolResult(blocked)
-        transcript?.log('tool_result', {
-          tool: call.tool,
-          result: blocked,
-        })
-        results.push({ tool: call.tool, result: blocked })
-        continue
-      }
-
-      // Approval policy (C1): a `deny` rule blocks the call (like a PreToolUse
-      // denial); an `ask` rule prompts the operator. Hooks stay authoritative
-      // for programmatic guards — this is the human-in-the-loop layer.
-      const decision = decidePermission(permissionPolicy, call.tool, call.args)
-      if (decision.action === 'deny') {
-        const blocked = `Blocked by permission policy: ${decision.reason}`
-        transcript?.log('permission_deny', {
-          tool: call.tool,
-          reason: decision.reason,
-        })
-        safeToolResult(blocked)
-        transcript?.log('tool_result', {
-          tool: call.tool,
-          result: blocked,
-        })
-        results.push({ tool: call.tool, result: blocked })
-        continue
-      }
-      if (decision.action === 'ask' && onAskPermission) {
-        let allowed: boolean
-        try {
-          allowed = await onAskPermission({ ...decision, tool: call.tool })
-        } catch {
-          allowed = false
-        }
-        if (!allowed) {
-          const blocked = `Denied by operator: ${decision.reason}`
-          transcript?.log('permission_denied', {
+        // Approval policy (C1): a `deny` rule blocks the call (like a PreToolUse
+        // denial); an `ask` rule prompts the operator. Hooks stay authoritative
+        // for programmatic guards — this is the human-in-the-loop layer.
+        const decision = decidePermission(
+          permissionPolicy,
+          call.tool,
+          call.args,
+        )
+        if (decision.action === 'deny') {
+          const blocked = `Blocked by permission policy: ${decision.reason}`
+          transcript?.log('permission_deny', {
             tool: call.tool,
             reason: decision.reason,
           })
@@ -1085,63 +1152,98 @@ export async function runAgentLoop({
           results.push({ tool: call.tool, result: blocked })
           continue
         }
-      }
+        if (decision.action === 'ask' && onAskPermission) {
+          let allowed: boolean
+          try {
+            allowed = await onAskPermission({ ...decision, tool: call.tool })
+          } catch {
+            allowed = false
+          }
+          if (!allowed) {
+            const blocked = `Denied by operator: ${decision.reason}`
+            transcript?.log('permission_denied', {
+              tool: call.tool,
+              reason: decision.reason,
+            })
+            safeToolResult(blocked)
+            transcript?.log('tool_result', {
+              tool: call.tool,
+              result: blocked,
+            })
+            results.push({ tool: call.tool, result: blocked })
+            continue
+          }
+        }
 
-      let result
-      // While the tool runs, poll for an Esc/Ctrl+C: the abort flag is a plain
-      // boolean set by stopGeneration(), so the only way to turn it into a
-      // child-process kill is to check it periodically. 100ms is cheap and
-      // makes Esc feel immediate.
-      const poll = setInterval(syncToolAbort, 100)
-      if (typeof poll.unref === 'function') poll.unref()
-      // Time the tool (T-D3): the transcript carries durationMs so /cost can
-      // show where the time goes (frequent Read→Edit cycles vs slow Bash).
-      const toolStart = Date.now()
-      try {
-        result = await tool.fn(call.args, { signal: toolAbort.signal })
-      } catch (e) {
-        result = `Error: ${(e as Error).message}`
-      } finally {
-        clearInterval(poll)
-      }
-      const toolMs = Date.now() - toolStart
+        let result
+        // While the tool runs, poll for an Esc/Ctrl+C: the abort flag is a plain
+        // boolean set by stopGeneration(), so the only way to turn it into a
+        // child-process kill is to check it periodically. 100ms is cheap and
+        // makes Esc feel immediate.
+        const poll = setInterval(syncToolAbort, 100)
+        if (typeof poll.unref === 'function') poll.unref()
+        // Time the tool (T-D3): the transcript carries durationMs so /cost can
+        // show where the time goes (frequent Read→Edit cycles vs slow Bash).
+        const toolStart = Date.now()
+        try {
+          result = await tool.fn(call.args, { signal: toolAbort.signal })
+        } catch (e) {
+          result = `Error: ${(e as Error).message}`
+        } finally {
+          clearInterval(poll)
+        }
+        const toolMs = Date.now() - toolStart
 
-      // PostToolUse hooks run AFTER the tool; their stdout is appended to the
-      // result (e.g. `prettier` output) before it is fed back to the model.
-      // Best-effort: a hook failure is ignored, the tool result still stands.
-      const post = await runPostToolUse(
-        hookConfig,
-        call.tool,
-        call.args,
-        String(result),
-        workdir,
-      )
-      if (post) {
-        transcript?.log('hook_post_output', { tool: call.tool, output: post })
-        result = `${String(result)}
+        // PostToolUse hooks run AFTER the tool; their stdout is appended to the
+        // result (e.g. `prettier` output) before it is fed back to the model.
+        // Best-effort: a hook failure is ignored, the tool result still stands.
+        const post = await runPostToolUse(
+          hookConfig,
+          call.tool,
+          call.args,
+          String(result),
+          workdir,
+        )
+        if (post) {
+          transcript?.log('hook_post_output', { tool: call.tool, output: post })
+          result = `${String(result)}
 
 [PostToolUse hook]
 ${post}`
-      }
+        }
 
-      safeToolResult(result)
-      transcript?.log('tool_result', {
-        tool: call.tool,
-        result: String(result),
-        durationMs: toolMs,
-      })
-      results.push({ tool: call.tool, result })
+        // N38: after a file-mutating tool, run the project's own check and
+        // append its summary, so a type error reaches the model immediately
+        // instead of costing a whole round-trip. Best-effort and capped.
+        if (shouldRunDiagnostics(diagnostics, call.tool)) {
+          const diag = runDiagnostics(workdir, diagnostics)
+          if (diag) {
+            transcript?.log('diagnostics', { tool: call.tool, output: diag })
+            result = `${String(result)}
 
-      // The operator pressed Esc/Ctrl+C while the tool was running. The tool
-      // itself has finished (we cannot kill an arbitrary child process from
-      // here), but we must NOT feed its result back to the model and must NOT
-      // run the remaining calls in this batch — that would keep the agent
-      // going after an explicit stop.
-      if (browser._abort || browser._stopped) {
-        transcript?.log('user_aborted')
-        return '(прервано пользователем)'
+[diagnostics]
+${diag}`
+          }
+        }
+
+        safeToolResult(result)
+        transcript?.log('tool_result', {
+          tool: call.tool,
+          result: String(result),
+          durationMs: toolMs,
+        })
+        results.push({ tool: call.tool, result })
+
+        // The operator pressed Esc/Ctrl+C while the tool was running. The tool
+        // itself has finished (we cannot kill an arbitrary child process from
+        // here), but we must NOT feed its result back to the model and must NOT
+        // run the remaining calls in this batch — that would keep the agent
+        // going after an explicit stop.
+        if (browser._abort || browser._stopped) {
+          transcript?.log('user_aborted')
+          return '(прервано пользователем)'
+        }
       }
-    }
 
     // A tool just ran — the next answer is expected to be a fresh tool call.
     // Reset the watchdog so the next empty/repeated answer is nudged.

@@ -23,7 +23,9 @@ import {
 //   npm run release patch --dry-run  # print the plan, change nothing
 //
 // Run via tsx so it can reuse src/changelog.ts (the conventional-commit
-// parser) — a plain .mjs cannot import the TypeScript sources.
+// parser) — a plain .mjs cannot import the TypeScript sources. The other
+// helper scripts are .mts for the same reason; postinstall stays .mjs because
+// it runs before tsx is guaranteed to be installed.
 
 const NL = String.fromCharCode(10)
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -43,7 +45,11 @@ function fail(msg: string): never {
 }
 
 function run(cmd: string, args: string[]): void {
-  const r = spawnSync(cmd, args, { cwd: root, stdio: 'inherit', shell: process.platform === 'win32' })
+  const r = spawnSync(cmd, args, {
+    cwd: root,
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+  })
   if (r.status !== 0) fail(cmd + ' ' + args.join(' ') + ' exited ' + r.status)
 }
 
@@ -100,8 +106,16 @@ if (git(['tag', '--list', tag]).trim()) {
 // last tag. English commit subjects become the section body; the operator can
 // still reword the section afterwards.
 const latestTag = git(['describe', '--tags', '--abbrev=0'], true).trim()
-const ref = latestTag || git(['rev-list', '--max-parents=0', 'HEAD']).trim().split(NL).pop() || 'HEAD'
-const subjects = git(['log', '--no-merges', '--pretty=format:%s', ref + '..HEAD'])
+const ref =
+  latestTag ||
+  git(['rev-list', '--max-parents=0', 'HEAD']).trim().split(NL).pop() ||
+  'HEAD'
+const subjects = git([
+  'log',
+  '--no-merges',
+  '--pretty=format:%s',
+  ref + '..HEAD',
+])
   .split(NL)
   .map((s) => s.trim())
   .filter(Boolean)
@@ -129,7 +143,14 @@ const sectionBody = body
   .join(NL)
 const date = new Date().toISOString().slice(0, 10)
 const section =
-  '## [' + next + '] - ' + date + NL + NL + (sectionBody || '### Changed' + NL + NL + '- Internal improvements.') + NL
+  '## [' +
+  next +
+  '] - ' +
+  date +
+  NL +
+  NL +
+  (sectionBody || '### Changed' + NL + NL + '- Internal improvements.') +
+  NL
 
 if (dryRun) {
   console.log('release(dry-run): ' + pkg.version + ' -> ' + next)
@@ -148,14 +169,22 @@ if (idx < 0) fail('CHANGELOG.md has no "' + anchor + '" heading')
 const afterAnchor = idx + anchor.length
 const updated =
   changelog.slice(0, afterAnchor) +
-  NL + NL + section +
+  NL +
+  NL +
+  section +
   changelog.slice(afterAnchor).replace(/^\n+/, NL)
 fs.writeFileSync(changelogPath, updated)
 
 // 6. Bump package.json, preserving its exact formatting (single-line replace
 // of the version value only).
 const pkgText = fs.readFileSync(pkgPath, 'utf-8')
-fs.writeFileSync(pkgPath, pkgText.replace('"version": "' + pkg.version + '"', '"version": "' + next + '"'))
+fs.writeFileSync(
+  pkgPath,
+  pkgText.replace(
+    '"version": "' + pkg.version + '"',
+    '"version": "' + next + '"',
+  ),
+)
 
 // 7. Commit + tag. The push is intentionally NOT done here.
 git(['add', 'package.json', 'CHANGELOG.md'])

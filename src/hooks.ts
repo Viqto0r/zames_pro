@@ -33,9 +33,31 @@ export interface HookEntry {
 export interface HooksConfig {
   PreToolUse?: HookEntry[]
   PostToolUse?: HookEntry[]
+  // Lifecycle events (N32), mirroring Claude Code: run at the boundaries of a
+  // task rather than around a single tool call.
+  SessionStart?: HookEntry[]
+  UserPromptSubmit?: HookEntry[]
+  PreCompact?: HookEntry[]
+  Stop?: HookEntry[]
+  SubagentStop?: HookEntry[]
 }
 
-export type HookEvent = 'PreToolUse' | 'PostToolUse'
+export type HookEvent =
+  | 'PreToolUse'
+  | 'PostToolUse'
+  | 'SessionStart'
+  | 'UserPromptSubmit'
+  | 'PreCompact'
+  | 'Stop'
+  | 'SubagentStop'
+
+const LIFECYCLE_EVENTS: HookEvent[] = [
+  'SessionStart',
+  'UserPromptSubmit',
+  'PreCompact',
+  'Stop',
+  'SubagentStop',
+]
 
 // A hook is a helper, not a task: if it has not finished in ten seconds the
 // tool call must not be held hostage by it.
@@ -68,6 +90,11 @@ export function loadHooks(workdir: string): HooksConfig {
   return {
     PreToolUse: normalizeEntries(obj['PreToolUse']),
     PostToolUse: normalizeEntries(obj['PostToolUse']),
+    SessionStart: normalizeEntries(obj['SessionStart']),
+    UserPromptSubmit: normalizeEntries(obj['UserPromptSubmit']),
+    PreCompact: normalizeEntries(obj['PreCompact']),
+    Stop: normalizeEntries(obj['Stop']),
+    SubagentStop: normalizeEntries(obj['SubagentStop']),
   }
 }
 
@@ -203,10 +230,39 @@ export async function runPostToolUse(
   result: string,
   workdir: string,
 ): Promise<string> {
+  return runEventHooks(hooks, 'PostToolUse', workdir, tool, args, result)
+}
+
+/**
+ * Run every hook registered for a LIFECYCLE event (SessionStart, Stop, …).
+ * Best-effort like the tool hooks: the combined stdout is returned to the
+ * caller for a notice, and errors never break the task. `tool`/`args` are
+ * informational for these events (there is no tool call), so they default to
+ * the event name and an empty object.
+ */
+export async function runLifecycleHooks(
+  hooks: HooksConfig | null | undefined,
+  event: HookEvent,
+  workdir: string,
+  extra: ToolArgs = {},
+): Promise<string> {
+  if (!LIFECYCLE_EVENTS.includes(event)) return ''
+  return runEventHooks(hooks, event, workdir, event, extra)
+}
+
+async function runEventHooks(
+  hooks: HooksConfig | null | undefined,
+  event: HookEvent,
+  workdir: string,
+  tool: string,
+  args: ToolArgs,
+  result?: string,
+): Promise<string> {
+  const list = hooks?.[event as keyof HooksConfig] as HookEntry[] | undefined
   const parts: string[] = []
-  for (const entry of hooks?.PostToolUse ?? []) {
+  for (const entry of list ?? []) {
     if (!matchesHook(entry, tool)) continue
-    const r = await runHook(entry, 'PostToolUse', tool, args, workdir, result)
+    const r = await runHook(entry, event, tool, args, workdir, result)
     const out = r.stdout.trim()
     if (out) parts.push(out)
   }

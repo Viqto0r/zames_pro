@@ -162,3 +162,40 @@ test('Write делает backup перед перезаписью (undo)', async
   assert.ok(backups[0].endsWith('a.txt'))
   await fs.rm(dir, { recursive: true, force: true })
 })
+
+test('Read на картинке возвращает маркер, а не utf-8 мусор (N35)', async () => {
+  const dir = await tmpDir()
+  // A minimal valid PNG header; content is binary, not decodable text.
+  const png = Buffer.from([
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+  ])
+  await fs.writeFile(path.join(dir, 'pic.png'), png)
+  const tools = createTools(dir, {})
+  const out = String(await tool(tools, 'Read').fn({ path: 'pic.png' }))
+  assert.ok(out.startsWith('[image: pic.png]'), out)
+  assert.ok(out.includes('image/png'), out)
+  assert.ok(out.includes('paste'), out)
+  await fs.rm(dir, { recursive: true, force: true })
+})
+
+test('Read на произвольном бинарнике даёт hex-заголовок, а не мусор (N35)', async () => {
+  const dir = await tmpDir()
+  await fs.writeFile(
+    path.join(dir, 'blob.bin'),
+    Buffer.from([0x00, 0x01, 0x02, 0xff, 0xfe]),
+  )
+  const tools = createTools(dir, {})
+  const out = String(await tool(tools, 'Read').fn({ path: 'blob.bin' }))
+  assert.ok(out.includes('binary file'), out)
+  assert.ok(out.includes('000102fffe'), out)
+  await fs.rm(dir, { recursive: true, force: true })
+})
+
+test('Read обычного текста не задет бинарной защитой (N35)', async () => {
+  const dir = await tmpDir()
+  await fs.writeFile(path.join(dir, 't.txt'), 'hello world', 'utf-8')
+  const tools = createTools(dir, {})
+  const out = await tool(tools, 'Read').fn({ path: 't.txt' })
+  assert.equal(out, 'hello world')
+  await fs.rm(dir, { recursive: true, force: true })
+})

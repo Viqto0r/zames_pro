@@ -135,12 +135,24 @@ When a change touches one concern, start in the module that owns it:
 - `src/config.ts`, `src/config-menu.ts` — config defaults/schema and the menu.
 - `src/sessions.ts`, `src/transcript.ts`, `src/undo.ts` — persistence.
 - `src/checkpoint.ts` — tar snapshot/restore of the working tree (B3);
-  `/rewind` uses it. `src/hooks.ts` — PreToolUse/PostToolUse hooks
-  (`.zames/hooks.json`).
+  `/rewind` uses it. `src/hooks.ts` — tool + LIFECYCLE hooks
+  (`.zames/hooks.json`): PreToolUse/PostToolUse plus SessionStart (fresh chat),
+  UserPromptSubmit (before a send; stdout is appended to the prompt), PreCompact
+  (start of /compact), Stop (end of a task) and SubagentStop (after a subagent).
+- `src/diagnostics.ts` — post-edit diagnostics (N38): `shouldRunDiagnostics()`
+  gates by tool, `runDiagnostics()` runs a configured command and
+  `summarizeDiagnostics()` collapses its output to error lines (capped). Wired in
+  agent-loop after a mutating tool; off by default (`config.diagnostics`).
+- `src/statusline.ts` — the statusLine hook (N37): `runStatusLineCommand()` runs
+  `ui.statusLineCommand` with a JSON status on stdin and returns its first
+  stdout line. index.ts runs it on its own timer and calls
+  `editor.setStatusLine()` (never per-render — a spawn would block typing).
 
 ## Tools
 
-File tools (src/tools.ts): Read, Write, Edit, Bash, Glob, Grep.
+File tools (src/tools.ts): Read, Write, Edit, Bash, BashOutput, Glob, Grep.
+`Read` returns metadata (never mojibake) for an image or a binary file (N35);
+`Bash` takes `run_in_background` and `BashOutput` polls/kills such a process (N33).
 Extra tools (src/extraTools.ts): LS, MultiEdit, TodoWrite, ApplyPatch.
 Git (src/gitTools.ts): GitStatus, GitDiff, GitLog, GitAdd, GitCommit, GitPush.
 Web (src/web.ts): WebFetch, WebSearch.
@@ -938,7 +950,7 @@ ONLY tool-calls yields "service only" — that is expected, not a bug.
 
 ### Agent self-smoke (a real isolated instance)
 
-`npm run self-smoke` (scripts/self-smoke.mjs) launches a REAL zames instance in
+`npm run self-smoke` (scripts/self-smoke.mts) launches a REAL zames instance in
 an ISOLATED profile and exercises the core functionality end-to-end against
 live DeepSeek, then prints PASS/FAIL per scenario. Use it to check your own
 build BEFORE a final commit — it catches integration regressions (login, tool
@@ -952,7 +964,11 @@ Flags: `--headed` (visible window), `ZAMES_SMOKE_KEEP=1` (keep the temp HOME).
 Scenario failures are reported, not thrown; exit code 1 means at least one
 failed. When you add a user-visible feature, add a self-smoke scenario for it.
 
-- Syntax/types: `npm run typecheck` (tsc --noEmit, includes test/)
+- Syntax/types: `npm run typecheck` (tsc --noEmit, includes src/, test/ and scripts/**/*.mts)
+- Changelog sync: `npm run changelog:sync` (writes the Unreleased section from
+  conventional commits since the last tag), `npm run changelog:check` (CI: fails
+  when it is stale). Helper scripts are `.mts` (run via tsx); `postinstall.mjs`
+  stays plain `.mjs` because it runs before tsx is guaranteed to be installed.
 - Tests: `npm test` (tsx --test test/*.test.ts); watch — `npm run test:watch`
 - Build: `npm run build` (tsc -p tsconfig.build.json → dist/, no sourcemap)
 - Run (prod): `npm start` (node dist/index.js) or `zames`
@@ -966,8 +982,9 @@ The project is in TypeScript, strict. Sources — `src/*.ts`; the build is `tsc`
 into `dist/` (`bin.zames` and the npm publication point to `dist/index.js`,
 `files: ["dist", …]`). `prepublishOnly` builds before publishing.
 
-Two configs: `tsconfig.json` (IDE + `npm run typecheck`: noEmit, includes src/ and
-the test/ tests; allowImportingTsExtensions) and `tsconfig.build.json` (only src →
+Two configs: `tsconfig.json` (IDE + `npm run typecheck`: noEmit, includes src/,
+the test/ tests and scripts/**/*.mts; allowImportingTsExtensions) and
+`tsconfig.build.json` (only src →
 dist, sourceMap: false).
 
 Imports in the code use the `.js` extension (NodeNext), even in `.ts` files:

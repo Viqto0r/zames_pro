@@ -405,6 +405,8 @@ export async function runTask(
     // Set when the loop ends without a real answer (iteration limit / watchdog)
     // so the one-shot mode can exit non-zero. See N5.
     let failure: string | null = null
+    // N31: the machine-readable reason for the last task's outcome.
+    let outcomeKind: 'ok' | 'iteration_limit' | 'watchdog' | 'error' = 'ok'
     let next: PendingMessage & {
       freshChat: boolean
       sendSystemPrompt: boolean
@@ -488,6 +490,9 @@ export async function runTask(
         getTokenUsage,
         selfImprovement,
         onSubagent,
+        // N38: the check command appended to a tool result after an edit
+        // (off by default; config.diagnostics).
+        diagnostics: deps.config.diagnostics,
       })
 
       // The loop may end WITHOUT a model answer: an exhausted iteration limit
@@ -500,6 +505,13 @@ export async function runTask(
         ui.warning(outcome)
         transcript?.log('agent_no_answer', { outcome })
         failure = outcome
+        // N31: a machine-readable reason so `--output-format jsonl` consumers
+        // (CI) can tell a real error from an exhausted limit / watchdog.
+        outcomeKind = outcome.startsWith('Iteration limit reached')
+          ? 'iteration_limit'
+          : 'watchdog'
+      } else {
+        outcomeKind = 'ok'
       }
 
       // T7: one summary line per task (duration + tool calls + tokens spent).
@@ -565,6 +577,23 @@ export async function runTask(
         sendSystemPrompt: false,
       }
     }
+
+    // Stop hook (N32): the whole task (including drained queue messages) is
+    // done. A cleanup/notification hook runs here. Best-effort.
+    try {
+      const { runLifecycleHooks } = await import('./hooks.js')
+      const out = await runLifecycleHooks(undefined, 'Stop', workdir, {
+        failure: failure ?? '',
+      })
+      if (out) ui.warning(out)
+    } catch {}
+
+    // N31: a single terminal event carrying the reason, so a jsonl consumer
+    // does not have to guess from the exit code alone.
+    transcript?.log('task_result', {
+      ok: !failure,
+      outcome: failure ? outcomeKind : 'ok',
+    })
     return failure ? { ok: false, error: failure } : { ok: true }
   } catch (e) {
     ui.stop()
@@ -574,6 +603,7 @@ export async function runTask(
     )
     if (debug) console.error((e as Error).stack)
     transcript?.log('agent_error', { error: (e as Error).message })
+    transcript?.log('task_result', { ok: false, outcome: 'error' })
     return { ok: false, error: (e as Error).message }
   } finally {
     stopWatching()

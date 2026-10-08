@@ -226,6 +226,11 @@ export class LineEditor {
   // A callback the editor calls before every render to read the agent's
   // current task-list summary ("tasks: 2/5"), empty when there is no list.
   onTasksQuery: (() => string) | null
+  // Extra status text produced by an external command (N37 statusLine hook).
+  // Set via setStatusLine(); shown before the queue/tasks badges. Kept as a
+  // plain field because the CALLER runs the command on its own timer (a
+  // per-render spawn would block typing).
+  statusLine: string
   // Whether the DeepSeek "Deep thinking" / "Smart search" toggles are ON.
   // Shown as two colored icons before the context counter: a dim gray icon
   // means off, a teal-green icon means on.
@@ -323,6 +328,7 @@ export class LineEditor {
     this.onToggleQuery = null
     this.onContextQuery = null
     this.queueLength = 0
+    this.statusLine = ''
     this.onQueueQuery = null
     this.onTasksQuery = null
   }
@@ -400,6 +406,12 @@ export class LineEditor {
       // A broken callback must never break the render.
       return ''
     }
+  }
+
+  // The statusLine hook text (N37), shown before the queue/tasks badges.
+  // A trailing space separates it from whatever follows; empty hides it.
+  _statusLineBadge(): string {
+    return this.statusLine ? theme.system(this.statusLine) + ' ' : ''
   }
 
   // Icons for the DeepSeek toggles: 🧠 "Deep thinking" and 🌐 "Smart search",
@@ -685,6 +697,15 @@ export class LineEditor {
 
   // Update the context window size (from config.ui.contextLimit). The next
   // render recomputes the percentage and its color with the new limit.
+  // Set the statusLine hook text (N37). The caller runs the command on its
+  // own timer; this only stores + repaints. An empty string hides the badge.
+  setStatusLine(text: string): void {
+    const t = String(text || '').trim()
+    if (t === this.statusLine) return
+    this.statusLine = t
+    this._render()
+  }
+
   setContextLimit(limit: number): void {
     if (typeof limit === 'number' && Number.isFinite(limit) && limit > 0) {
       this.contextLimit = limit
@@ -788,7 +809,11 @@ export class LineEditor {
     const ctxRaw = this._contextText()
     this._refreshToggles()
     const ctxText =
-      this._queueBadge() + this._tasksBadge() + this._toggleIcons() + ctxRaw
+      this._statusLineBadge() +
+      this._queueBadge() +
+      this._tasksBadge() +
+      this._toggleIcons() +
+      ctxRaw
     let statusOut = ''
     let top = 0
     // Never fill a row to the FULL terminal width: on terminals with

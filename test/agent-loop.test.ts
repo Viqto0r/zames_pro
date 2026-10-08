@@ -259,3 +259,48 @@ test('первое сообщение идёт без agent, последующ�
   // The second ask — the agent's tool-result: agent: true.
   assert.equal(calls[1].opts?.agent, true)
 })
+
+test('N34: несколько read-only вызовов в батче идут параллельно', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-par-'))
+  let concurrent = 0
+  let maxConcurrent = 0
+  const order: string[] = []
+  const readTool = (name: string): ToolDef => ({
+    name,
+    description: 'read',
+    parameters: { path: 'string' },
+    fn: async (args) => {
+      concurrent++
+      maxConcurrent = Math.max(maxConcurrent, concurrent)
+      await new Promise((r) => setTimeout(r, 40))
+      order.push(String(args['path']))
+      concurrent--
+      return 'C:' + String(args['path'])
+    },
+  })
+  const tools: ToolDef[] = [
+    readTool('Read'),
+    readTool('Glob'),
+    {
+      name: 'respond',
+      description: 'respond',
+      parameters: { message: 'string' },
+      fn: async (args) => String(args['message']),
+    },
+  ]
+  // One answer with TWO read-only calls in a batch, then respond.
+  const batch =
+    '[' +
+    jsonCall('Read', { path: 'a' }) +
+    ',' +
+    jsonCall('Glob', { path: 'b' }) +
+    ']'
+  const { browser } = makeBrowser([
+    batch,
+    jsonCall('respond', { message: 'done' }),
+  ])
+  const res = await runAgentLoop({ browser, tools, task: 'x', workdir: dir })
+  assert.equal(res, 'done')
+  assert.equal(maxConcurrent, 2, 'read-only calls must overlap')
+  await fs.rm(dir, { recursive: true, force: true })
+})

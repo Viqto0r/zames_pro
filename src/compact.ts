@@ -8,6 +8,7 @@ import {
   formatRestoredHistory,
 } from './commands.js'
 import type { BrowserLike, ToolDef } from './types.js'
+import { loadHooks, runLifecycleHooks } from './hooks.js'
 
 const NL = String.fromCharCode(10)
 
@@ -126,6 +127,18 @@ export async function performCompact(
   if (ui && !skipUiLock) ui.lock(t('msg.input_locked'))
   try {
     if (!quiet) log(t('compact.start'))
+
+    // PreCompact hook (N32): runs BEFORE the chat is summarized/rewritten, so
+    // a hook can persist state or notify. Best-effort.
+    try {
+      const out = await runLifecycleHooks(
+        loadHooks(workdir),
+        'PreCompact',
+        workdir,
+        { chatId: currentChatId },
+      )
+      if (out) transcript?.log('hook_pre_compact', { output: out })
+    } catch {}
 
     // 1) Ask the OLD chat to summarize itself.
     let summary = ''

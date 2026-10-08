@@ -97,3 +97,28 @@ export function renderChangelogDraft(groups: ChangelogGroups): string {
   }
   return out.join('\n').trimEnd()
 }
+
+/**
+ * Replace the body between `## [Unreleased]` and the next `## [` heading with
+ * a freshly drafted body (D2). PURE so a test can pin the exact behavior.
+ *
+ * When `body` is empty the existing Unreleased section is CLEARED to just the
+ * heading (no stray blank content). A changelog without an Unreleased heading
+ * is returned UNCHANGED (we never guess where to insert one).
+ */
+export function syncUnreleased(changelog: string, body: string): string {
+  const nl = '\n'
+  const anchor = '## [Unreleased]'
+  const idx = changelog.indexOf(anchor)
+  if (idx < 0) return changelog
+  const afterAnchor = idx + anchor.length
+  // The section ends at the next top-level `## [` (the next version).
+  const rest = changelog.slice(afterAnchor)
+  const next = rest.search(/\n## \[/)
+  const tail = next < 0 ? '' : rest.slice(next)
+  const cleanBody = String(body || '')
+    .replace(/^## \[Unreleased\]\s*/m, '')
+    .trim()
+  const section = cleanBody ? nl + nl + cleanBody + nl : nl
+  return changelog.slice(0, afterAnchor) + section + tail
+}

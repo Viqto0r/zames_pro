@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import type { ZamesConfig } from './types.js'
+import { DEFAULT_DIAGNOSTICS } from './diagnostics.js'
 import { DEFAULT_LOCALE } from './i18n.js'
 import { writeJsonAtomic } from './fsutil.js'
 
@@ -76,7 +77,13 @@ export const DEFAULTS: ZamesConfig = {
     contextLimit: 1_000_000,
     // 0 = auto: terminal width, capped at 100 columns (the historical width).
     answerWidth: 0,
+    // N37 statusLine hook. Off by default; edit config.json to set a command.
+    statusLineCommand: '',
+    statusLineIntervalMs: 10_000,
   },
+
+  // Off by default: a full tsc/eslint run after every edit is slow; opt in.
+  diagnostics: { ...DEFAULT_DIAGNOSTICS },
 }
 
 export function loadConfig(): ZamesConfig {

@@ -48,8 +48,13 @@ const { createSubagentRunner } = await import('../src/subagent.ts')
 const { loadConfig } = await import('../src/config.ts')
 const { Transcript } = await import('../src/transcript.ts')
 
-const results = []
-const record = (name, ok, note) => {
+interface SmokeResult {
+  name: string
+  ok: boolean
+  note?: string
+}
+const results: SmokeResult[] = []
+const record = (name: string, ok: boolean, note?: string): void => {
   results.push({ name, ok, note })
   console.log((ok ? 'PASS ' : 'FAIL ') + name + (note ? '  — ' + note : ''))
 }
@@ -149,7 +154,11 @@ async function main() {
     askDeadlineMs: cfg.browser.askDeadlineMs,
     maxAfterToolRetries: cfg.browser.maxAfterToolRetries,
   })
-  record('follow-up answered', outC.trim().length > 0, JSON.stringify(outC.slice(0, 80)))
+  record(
+    'follow-up answered',
+    outC.trim().length > 0,
+    JSON.stringify(outC.slice(0, 80)),
+  )
   const onSubagent = createSubagentRunner({
     browser,
     workdir: WORK,
@@ -199,7 +208,7 @@ let failed = false
 try {
   await main()
 } catch (e) {
-  record('run', false, e.message)
+  record('run', false, (e as Error).message)
   failed = true
 } finally {
   await browser.close().catch(() => {})

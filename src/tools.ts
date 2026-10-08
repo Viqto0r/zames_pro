@@ -1,6 +1,14 @@
 import fs from 'fs/promises'
 import path from 'path'
-import { assertCommandInsideRoot, runFile, runShell } from './shell.js'
+import {
+  assertCommandInsideRoot,
+  runFile,
+  runShell,
+  startBackground,
+  pollBackground,
+  killBackground,
+} from './shell.js'
+import { isImageName, guessMime, formatSize } from './attachments.js'
 import { safePath } from './sandbox.js'
 import { createGitTools } from './gitTools.js'
 import { createWebTools } from './web.js'
@@ -45,6 +53,17 @@ export function createTools(
   // that omits `path` (or sends it as null) becomes String(undefined) ===
   // "undefined" and the tool silently creates a file literally named
   // "undefined" in the working directory. `req()` rejects that up front.
+  // A NUL byte is the classic binary signal (text files essentially never
+  // contain one). We only scan the head: a huge archive must not be walked
+  // byte-by-byte just to decide it is not text.
+  const isBinaryBuffer = (buf: Buffer): boolean => {
+    const n = Math.min(buf.length, 8000)
+    for (let i = 0; i < n; i++) {
+      if (buf[i] === 0) return true
+    }
+    return false
+  }
+
   const req = (v: unknown, name: string): string => {
     if (v === undefined || v === null) {
       throw new Error(`Missing required argument: ${name}`)
@@ -63,7 +82,10 @@ export function createTools(
         'Read a file. Optional: offset and limit (lines). ' +
         'numbered=true adds cat -n style line numbers (1-based) for reference ' +
         'only — do NOT copy the numbers into Edit old_string. ' +
-        'Lines longer than 2000 chars are truncated.',
+        'Lines longer than 2000 chars are truncated. ' +
+        'Binary files (images, archives) are not decoded: an image returns its ' +
+        'path/size as a marker (the operator can paste it to attach it), and ' +
+        'other binaries return a short hex header instead of mojibake.',
       parameters: {
         path: 'string',
         offset: 'number?',
@@ -72,7 +94,38 @@ export function createTools(
       },
       fn: async ({ path: p, offset, limit, numbered }: ToolArgs) => {
         const file = safe(req(p, 'path'))
-        const content = await fs.readFile(file, 'utf-8')
+        // Binary guard (N35): reading an image/archive as utf-8 produced
+        // mojibake the model tried to reason about. Detect a binary buffer
+        // BEFORE decoding and answer with useful metadata instead.
+        const buf = await fs.readFile(file)
+        if (isImageName(file)) {
+          return (
+            '[image: ' +
+            p +
+            '] (' +
+            guessMime(file) +
+            ', ' +
+            formatSize(buf.length) +
+            ') — this is an image; its pixels cannot be read as text. To have ' +
+            'the model SEE it, the operator can paste/drag the file into the ' +
+            'chat (it becomes an [image#N] attachment).'
+          )
+        }
+        if (isBinaryBuffer(buf)) {
+          const head = buf.subarray(0, 16)
+          return (
+            '(binary file: ' +
+            p +
+            ', ' +
+            formatSize(buf.length) +
+            ', ' +
+            guessMime(file) +
+            ')\nFirst bytes (hex): ' +
+            Buffer.from(head).toString('hex') +
+            '\nUse Bash (e.g. `file`, `xxd`, `unzip -l`) to inspect it.'
+          )
+        }
+        const content = buf.toString('utf-8')
         if (content === '') return '(file is empty)'
         const lines = content.split('\n')
         const start = (offset as number | undefined) ?? 0
@@ -160,18 +213,54 @@ export function createTools(
       name: 'Bash',
       description:
         'Run a shell command in the working directory (cmd.exe on Windows, sh on Linux/macOS). ' +
-        'Do not use for long-running processes (servers) — they will hit the timeout. ' +
         'Do not use for commands that require interactive input. ' +
+        'For a long-running process (dev server, watch, long build) set ' +
+        'run_in_background=true: it starts the command and returns an id ' +
+        'immediately; poll its output with BashOutput and stop it with BashOutput kill. ' +
         'For git use the Git* tools. For the web use WebFetch / WebSearch.',
-      parameters: { command: 'string', timeout: 'number?' },
-      fn: async ({ command, timeout }: ToolArgs, ctx?: ToolContext) => {
-        assertCommandInsideRoot(root, req(command, 'command'))
+      parameters: {
+        command: 'string',
+        timeout: 'number?',
+        run_in_background: 'boolean?',
+      },
+      fn: async (
+        { command, timeout, run_in_background }: ToolArgs,
+        ctx?: ToolContext,
+      ) => {
+        const cmd = req(command, 'command')
+        assertCommandInsideRoot(root, cmd)
+        if (run_in_background) {
+          const id = startBackground(workdir, cmd)
+          return (
+            'Started in background with id ' +
+            id +
+            '. Poll it with BashOutput (id="' +
+            id +
+            '") and stop it with BashOutput (id="' +
+            id +
+            '", kill=true).'
+          )
+        }
         return runShell(
           workdir,
-          req(command, 'command'),
+          cmd,
           timeout as number | undefined,
           ctx?.signal,
         )
+      },
+    },
+
+    {
+      name: 'BashOutput',
+      description:
+        'Read the accumulated stdout+stderr of a process started with Bash ' +
+        'run_in_background=true, and optionally kill it. id — the id returned ' +
+        'by Bash. kill=true terminates the process (and its children).',
+      parameters: { id: 'string', kill: 'boolean?' },
+      fn: async ({ id, kill }: ToolArgs) => {
+        const pid = req(id, 'id')
+        if (kill) return killBackground(pid)
+        return pollBackground(pid)
       },
     },
 
@@ -293,6 +382,7 @@ export const MUTATING_TOOLS = new Set([
   'MultiEdit',
   'ApplyPatch',
   'Bash',
+  'BashOutput',
   'GitAdd',
   'GitCommit',
   'GitPush',

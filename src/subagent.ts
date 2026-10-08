@@ -1,4 +1,5 @@
 import type { BrowserLike, ToolDef } from './types.js'
+import { loadHooks, runLifecycleHooks } from './hooks.js'
 import type { Locale } from './i18n.js'
 import type { SubagentRequest, SubagentResult } from './agent-loop.js'
 import type { runAgentLoop as RunAgentLoopFn } from './agent-loop.js'
@@ -208,7 +209,22 @@ export function createSubagentRunner(
       browser.onNotice = savedHooks.onNotice
     }
 
+    // SubagentStop hook (N32): fires after the nested loop finishes, so a hook
+    // can clean up or notify. Best-effort; its stdout is appended to the report.
+    let hookOut = ''
+    try {
+      hookOut = await runLifecycleHooks(
+        loadHooks(workdir),
+        'SubagentStop',
+        workdir,
+        { type: req.type, ok: failed ? 'false' : 'true' },
+      )
+    } catch {}
+
     if (failed) return { ok: false, text: failed }
-    return { ok: true, text: capReport(report) }
+    return {
+      ok: true,
+      text: capReport(hookOut ? report + '\n\n' + hookOut : report),
+    }
   }
 }

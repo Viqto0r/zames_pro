@@ -10,6 +10,7 @@ import {
   matchesHook,
   runPreToolUse,
   runPostToolUse,
+  runLifecycleHooks,
 } from '../src/hooks.ts'
 import type { ToolDef, BrowserLike } from '../src/types.ts'
 
@@ -231,4 +232,52 @@ test('agent-loop: explicit null disables hooks', async () => {
     hooks: null,
   })
   assert.equal(ran, true)
+})
+
+test('loadHooks: parses the N32 lifecycle events', async () => {
+  const dir = await tmpdir()
+  await writeHooks(dir, {
+    SessionStart: [{ command: 'echo hi' }],
+    UserPromptSubmit: [{ command: 'echo p' }],
+    PreCompact: [{ command: 'echo c' }],
+    Stop: [{ command: 'echo s' }],
+    SubagentStop: [{ command: 'echo sub' }],
+  })
+  const cfg = loadHooks(dir)
+  assert.equal(cfg.SessionStart?.length, 1)
+  assert.equal(cfg.UserPromptSubmit?.length, 1)
+  assert.equal(cfg.PreCompact?.length, 1)
+  assert.equal(cfg.Stop?.length, 1)
+  assert.equal(cfg.SubagentStop?.length, 1)
+})
+
+test('runLifecycleHooks: collects stdout, ignores tool-only events', async () => {
+  const dir = await tmpdir()
+  await writeHooks(dir, {
+    Stop: [{ command: 'echo stopped' }],
+  })
+  const cfg = loadHooks(dir)
+  const out = await runLifecycleHooks(cfg, 'Stop', dir)
+  assert.equal(out, 'stopped')
+  // A TOOL event must not be runnable through the lifecycle helper.
+  await writeHooks(dir, { PreToolUse: [{ command: 'echo x' }] })
+  const out2 = await runLifecycleHooks(loadHooks(dir), 'PreToolUse', dir)
+  assert.equal(out2, '')
+})
+
+test('agent-loop: SessionStart hook fires on a fresh chat', async () => {
+  const dir = await tmpdir()
+  await writeHooks(dir, { SessionStart: [{ command: 'echo session-began' }] })
+  const events: string[] = []
+  await runAgentLoop({
+    browser: makeBrowser([call('respond', { message: 'ok' })]),
+    tools: [respondTool()],
+    task: 't',
+    workdir: dir,
+    freshChat: true,
+    transcript: {
+      log: (event: string) => events.push(event),
+    } as never,
+  })
+  assert.ok(events.includes('hook_session_start'), events.join(','))
 })

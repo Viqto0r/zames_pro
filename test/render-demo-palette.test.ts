@@ -4,14 +4,14 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// scripts/render-demo.mjs mirrors the terminal palette by hand (it renders the
+// scripts/render-demo.mts mirrors the terminal palette by hand (it renders the
 // README screenshot). When src/theme.ts changes, the image would silently drift
 // from the real UI. This test pins the two together: every color the generator
 // duplicates must still match the theme hex.
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const themeSrc = fs.readFileSync(path.join(root, 'src', 'theme.ts'), 'utf-8')
-const demoPath = path.join(root, 'scripts', 'render-demo.mjs')
+const demoPath = path.join(root, 'scripts', 'render-demo.mts')
 
 // theme.ts: `key: chalk.hex('#rrggbb')`
 function themeHexes(): Record<string, string> {
@@ -22,13 +22,13 @@ function themeHexes(): Record<string, string> {
   return out
 }
 
-// render-demo.mjs: the `const C = { key: '#rrggbb', ... }` object.
+// render-demo.mts: the `const C = { key: '#rrggbb', ... }` object.
 function demoHexes(): Record<string, string> {
   const src = fs.readFileSync(demoPath, 'utf-8')
   const body = src.match(/const C = \{([\s\S]*?)\n\}/)
   assert.ok(
     body,
-    'render-demo.mjs no longer defines a `const C = { … }` palette',
+    'render-demo.mts no longer defines a `const C = { … }` palette',
   )
   const out: Record<string, string> = {}
   const re = /(\w+):\s*'(#[0-9a-fA-F]{6})'/g
@@ -49,7 +49,7 @@ test('render-demo palette matches theme.ts hex colors', () => {
     if (key === 'bg') continue
     assert.ok(
       theme[key],
-      `theme.ts has no role "${key}" used by render-demo.mjs`,
+      `theme.ts has no role "${key}" used by render-demo.mts`,
     )
     assert.equal(
       hex,

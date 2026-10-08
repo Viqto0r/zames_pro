@@ -1,6 +1,7 @@
-import { exec, execFile, type ExecOptions } from 'child_process'
+import { exec, execFile, spawn, type ExecOptions } from 'child_process'
 import path from 'path'
 import os from 'os'
+import { randomBytes } from 'crypto'
 
 // Shared shell runner for the Bash tool and the operator's `!command` escape.
 // Kept in its own module so both call sites use the SAME sandbox guard and the
@@ -108,6 +109,129 @@ export function runShell(
       resolve(formatExecResult(err as never, stdout, stderr, timeout, []))
     })
   })
+}
+
+// ---------- background processes (N33) ----------
+//
+// A dev-server / watch / long build cannot be run through the blocking Bash
+// tool (it would sit until the timeout). These helpers start a command, keep
+// it in a registry keyed by a short id, and let BashOutput poll its output and
+// kill it. Output is buffered in memory (bounded) so a chatty server does not
+// grow without limit.
+
+interface BgProc {
+  id: string
+  command: string
+  child: ReturnType<typeof spawn>
+  out: string
+  status: 'running' | 'exited'
+  code: number | null
+  signal: NodeJS.Signals | null
+  startedAt: number
+}
+
+const BG_PROCS = new Map<string, BgProc>()
+const BG_MAX_BUFFER = 1024 * 1024
+
+function bgTrim(p: BgProc): void {
+  if (p.out.length > BG_MAX_BUFFER) {
+    p.out =
+      '[...earlier output trimmed]' +
+      String.fromCharCode(10) +
+      p.out.slice(p.out.length - BG_MAX_BUFFER)
+  }
+}
+
+/** Start a shell command in the background. Returns a short id. */
+export function startBackground(workdir: string, command: string): string {
+  const id = randomBytes(3).toString('hex')
+  const shellCmd =
+    process.platform === 'win32'
+      ? process.env.ComSpec || 'C:\\Windows\\System32\\cmd.exe'
+      : '/bin/sh'
+  const child = spawn(shellCmd, ['-c', command], {
+    cwd: workdir,
+    windowsHide: true,
+    env: { ...process.env },
+    // Own process group so a kill reaches children (a dev server spawns more).
+    detached: process.platform !== 'win32',
+  })
+  const proc: BgProc = {
+    id,
+    command,
+    child,
+    out: '',
+    status: 'running',
+    code: null,
+    signal: null,
+    startedAt: Date.now(),
+  }
+  const append = (chunk: Buffer | string): void => {
+    proc.out += chunk.toString()
+    bgTrim(proc)
+  }
+  child.stdout?.on('data', append)
+  child.stderr?.on('data', append)
+  child.on('exit', (code, signal) => {
+    proc.status = 'exited'
+    proc.code = code
+    proc.signal = signal
+    proc.out += `\n[exited code=${code} signal=${signal}]`
+    bgTrim(proc)
+  })
+  child.on('error', (err) => {
+    proc.status = 'exited'
+    proc.out += `\n[error: ${err.message}]`
+  })
+  BG_PROCS.set(id, proc)
+  return id
+}
+
+/** Read the accumulated output of a background process (and its status). */
+export function pollBackground(id: string): string {
+  const p = BG_PROCS.get(id)
+  if (!p) return `No background process with id ${id}.`
+  const head =
+    '[' +
+    id +
+    ' ' +
+    p.status +
+    (p.status === 'exited' ? ' code=' + p.code : '') +
+    '] ' +
+    p.command
+  const body = p.out.trim() || '(no output yet)'
+  return head + String.fromCharCode(10) + body
+}
+
+/** Kill a background process (its whole group on POSIX). */
+export function killBackground(id: string): string {
+  const p = BG_PROCS.get(id)
+  if (!p) return `No background process with id ${id}.`
+  if (p.status === 'exited')
+    return `Process ${id} already exited (code=${p.code}).`
+  try {
+    if (process.platform !== 'win32' && p.child.pid) {
+      process.kill(-p.child.pid, 'SIGTERM')
+    } else {
+      p.child.kill('SIGTERM')
+    }
+  } catch (e) {
+    return `Failed to kill ${id}: ${(e as Error).message}`
+  }
+  BG_PROCS.delete(id)
+  return `Killed background process ${id}.`
+}
+
+/** List running background processes (for /status and cleanup). */
+export function listBackground(): Array<{ id: string; command: string }> {
+  return [...BG_PROCS.values()]
+    .filter((p) => p.status === 'running')
+    .map((p) => ({ id: p.id, command: p.command }))
+}
+
+/** Kill every background process — called on exit so no orphan survives. */
+export function killAllBackground(): void {
+  for (const id of [...BG_PROCS.keys()]) killBackground(id)
 }
 
 // Run an executable directly with an argument ARRAY (no shell). Use this

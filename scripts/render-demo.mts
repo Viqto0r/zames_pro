@@ -7,7 +7,7 @@
 // theme palette (src/theme.ts) with the DejaVu Sans Mono font that the
 // container actually ships, then screenshots it with headless Chromium.
 //
-// Run:  node scripts/render-demo.mjs
+// Run:  npm run render-demo  (tsx scripts/render-demo.mts)
 //
 // Isolation: chromium.launch() uses a THROWAWAY profile, never ~/.zames/profile
 // (see AGENTS.md — never touch the live agent's browser/profile).
@@ -33,9 +33,9 @@ const C = {
   toggleOn: '#6fd0b0',
 }
 
-const esc = (s) =>
+const esc = (s: unknown): string =>
   String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-const span = (color, text, bold = false) =>
+const span = (color: string, text: string, bold = false): string =>
   '<span style="color:' +
   color +
   (bold ? ';font-weight:700' : '') +
@@ -44,13 +44,18 @@ const span = (color, text, bold = false) =>
   '</span>'
 
 // One rendered session, line by line (mirrors the real banner + answer flow).
-const lines = []
-const push = (html) => lines.push('<div class="l">' + html + '</div>')
+const lines: string[] = []
+const push = (html: string): void => {
+  lines.push('<div class="l">' + html + '</div>')
+}
 const blank = () => push('&nbsp;')
 
 push(span(C.system, 'Working directory: ') + span(C.dir, '/home/dev/zames_pro'))
 push(span(C.system, 'Version: ') + span(C.user, '2.64.1'))
-push(span(C.system, 'Transcript: ') + span(C.dim, '~/.zames/logs/zames_pro-2026-10-07.log'))
+push(
+  span(C.system, 'Transcript: ') +
+    span(C.dim, '~/.zames/logs/zames_pro-2026-10-07.log'),
+)
 blank()
 push(
   span(
@@ -78,11 +83,7 @@ push(
     span(C.user, 'Show the version from package.json.'),
 )
 blank()
-push(
-  span(C.tool, '🔧 Read') +
-    ' ' +
-    span(C.dim, '{"path":"package.json"}'),
-)
+push(span(C.tool, '🔧 Read') + ' ' + span(C.dim, '{"path":"package.json"}'))
 push(
   span(C.toolResult, '   → ') +
     span(
