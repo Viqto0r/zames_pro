@@ -1332,7 +1332,9 @@ async function main(): Promise<void> {
   // zames "context" IS the chat), then restores this chat and returns only
   // the report. Sequential by design (one browser, one send slot). On by
   // default via browser.subagents (its own budget caps the extra sends).
-  const makeSubagentRunner = (): ReturnType<typeof createSubagentRunner> | null =>
+  const makeSubagentRunner = (): ReturnType<
+    typeof createSubagentRunner
+  > | null =>
     config.browser.subagents
       ? createSubagentRunner({
           browser,

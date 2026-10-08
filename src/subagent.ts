@@ -125,9 +125,7 @@ export function createSubagentRunner(
     const subTools = buildTools(req.type === 'explore')
 
     const taskText =
-      subagentPersona(req.type) +
-      '\n\n--- SUB-TASK ---\n' +
-      req.prompt
+      subagentPersona(req.type) + '\n\n--- SUB-TASK ---\n' + req.prompt
 
     // Save the parent's send hooks: the nested loop OVERWRITES them on
     // browser, and leaving the nested (no-op) callbacks in place would kill

@@ -950,9 +950,7 @@ export async function runAgentLoop({
         const subType: 'explore' | 'general' =
           rawType === 'explore' ? 'explore' : 'general'
         const rawDesc =
-          typeof call.args.description === 'string'
-            ? call.args.description
-            : ''
+          typeof call.args.description === 'string' ? call.args.description : ''
         if (!onSubagent || !rawPrompt) {
           const err = !onSubagent
             ? 'Subagents are not available in this run. Do the work yourself with the other tools.'
@@ -980,7 +978,10 @@ export async function runAgentLoop({
             type: subType,
           })
         } catch (e) {
-          subResult = { ok: false, text: `Subagent error: ${(e as Error).message}` }
+          subResult = {
+            ok: false,
+            text: `Subagent error: ${(e as Error).message}`,
+          }
         } finally {
           clearInterval(poll)
         }
