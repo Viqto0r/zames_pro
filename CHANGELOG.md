@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.67.1] - 2026-10-08
+
+### Changed
+
+- **web:** the headless renderer reuses ONE BrowserContext for every
+  `WebFetch` with `render=true` (it used to build a fresh context per call);
+  the page is closed after each fetch and the context in `closeWeb()`.
+- **docs:** `npm run self-smoke` is now documented as a REQUIRED manual
+  pre-release step in DEVELOPING.md — it is the only gate that catches an
+  integration regression (login, send, attachments) and needs live creds,
+  so it stays out of CI.
+- **packaging:** `README.ru.md` is no longer generated or published. The
+  Russian translation already lives inside README.md as a `<details>` block
+  (visible on npm), and the language switcher is now an in-page `#readme-ru`
+  anchor — the second ~15 KB file only duplicated it and could drift.
+
 ## [2.67.0] - 2026-10-08
 
 ### Fixed
