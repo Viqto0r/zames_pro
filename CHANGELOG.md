@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.69.0] - 2026-10-08
+
+### Changed
+
+- **ui:** ONE content width for every block, from a new single source of
+  truth `src/width.ts`. The model answers, the echo of the operator text,
+  the tool previews, the service warnings and the divider now all stop at
+  the same margin (`min(ui.answerWidth, terminal - 1)`, capped at 100 by
+  default). Before, answers and the divider were capped at 100 while the
+  echoed operator text and warnings ran to the full terminal width — the
+  mismatch looked ragged after a resize.
+- **config:** `ui.answerWidth` now sets the SHARED content width (label
+  updated). `0` = auto (terminal width, capped at 100).
+
 ## [2.68.1] - 2026-10-08
 
 ### Fixed
