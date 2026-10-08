@@ -76,9 +76,11 @@ When a change touches one concern, start in the module that owns it:
 - `src/browser.ts` — the DeepSeekBrowser facade over Playwright: send/answer,
   toggles, Continue, login, chats, attachments, history. Large by nature; the
   pure parts (answer cleaning, signal detection) live in `src/net-capture.ts`,
-  and the state-free helpers (password prompt, headless-UA cache, answer/limit
-  predicates, error classes, profile cleanup) live in `src/browser-pure.ts`
-  and are RE-EXPORTED from `browser.ts` so the public API is unchanged (C3).
+  the state-free helpers (password prompt, headless-UA cache, answer/limit
+  predicates, error classes, profile cleanup) in `src/browser-pure.ts`, and the
+  chat-list / message DOM scrapers + the history-payload parser in
+  `src/browser-chats.ts`. All are RE-EXPORTED where the old API lived, so
+  importers are unchanged (C3).
 - `src/deepseek-ui.ts` — PURE DATA + resolvers: EVERY selector, button-label
   regex and SSE protocol marker for chat.deepseek.com. This is the ONE place to
   audit (and fix) when DeepSeek ships a redesign; `browser.ts` imports the

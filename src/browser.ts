@@ -12,6 +12,12 @@ import {
 } from './net-capture.js'
 import { rewriteFailedAttachments } from './commands.js'
 import {
+  parseHistoryMessages,
+  extractChatMessages,
+  scrapeChatList,
+  scrapeChatMessages,
+} from './browser-chats.js'
+import {
   CHAT_URL,
   CHAT_ID_RE,
   chatUrl,
@@ -2742,30 +2748,9 @@ export class DeepSeekBrowser {
 
   async listChats(limit = 30): Promise<ChatInfo[]> {
     await this._ensureSidebarOpen()
-    return await this.page.evaluate((lim) => {
-      const out = []
-      const seen = new Set()
-      const anchors = document.querySelectorAll('a[href*="/chat/"]')
-      for (const a of anchors) {
-        const href = a.getAttribute('href') || ''
-        const m =
-          href.match(/\/chat\/s\/([a-zA-Z0-9_-]+)/) ||
-          href.match(/\/a\/chat\/s\/([a-zA-Z0-9_-]+)/)
-        if (!m) continue
-        const id = m[1]
-        if (seen.has(id)) continue
-        seen.add(id)
-
-        const titleEl = a.querySelector('[class*="title"], [class*="text"]')
-        let title = (titleEl ? titleEl.textContent : a.textContent) || ''
-        title = title.trim().replace(/\s+/g, ' ')
-        if (!title) title = '(без названия)'
-
-        out.push({ id, title, href })
-        if (out.length >= lim) break
-      }
-      return out
-    }, limit)
+    // The scraper is a named export (browser-chats.ts) so the class stays thin
+    // and the scraping policy has one home; it runs inside the page.
+    return await this.page.evaluate(scrapeChatList, limit)
   }
 
   async openChat(id: string): Promise<boolean> {
@@ -2833,6 +2818,11 @@ export class DeepSeekBrowser {
     }
     const auth = this._apiAuth
     const pow = this._apiPow
+    // The in-page fetch only RETURNS the raw chat_messages; the parsing happens
+    // OUTSIDE, in the pure parseHistoryMessages() (browser-chats.ts), so the
+    // in-page and the Playwright-request fallback paths share ONE parser and
+    // cannot drift. The in-page callback cannot call our helpers (it runs in
+    // the page context), so it must stay a plain data fetch.
     const res = await this.page
       .evaluate(
         async (opts: {
@@ -2855,51 +2845,37 @@ export class DeepSeekBrowser {
               credentials: 'include',
               headers,
             })
-            if (!resp.ok) return { error: 'HTTP ' + resp.status, list: [] }
+            if (!resp.ok)
+              return { error: 'HTTP ' + resp.status, messages: null }
             const json = await resp.json()
             const messages =
               json && json.data && json.data.biz_data
                 ? json.data.biz_data.chat_messages
                 : null
             if (!Array.isArray(messages)) {
-              return { error: 'no chat_messages in response', list: [] }
+              return { error: 'no chat_messages in response', messages: null }
             }
-            const NL = String.fromCharCode(10)
-            const out: Array<{ role: string; text: string }> = []
-            // The context size: the LATEST accumulated_token_usage in the chat
-            // (each message carries the running counter).
-            let usage: number | null = null
-            for (const m of messages) {
-              if (m && typeof m.accumulated_token_usage === 'number') {
-                usage = m.accumulated_token_usage
-              }
-              const role = m && m.role === 'ASSISTANT' ? 'assistant' : 'user'
-              const want = role === 'assistant' ? 'RESPONSE' : 'REQUEST'
-              let text = ''
-              for (const fr of (m && m.fragments) || []) {
-                if (!fr || fr.type !== want) continue
-                if (typeof fr.content === 'string') text += fr.content
-              }
-              text = text.replace(new RegExp(NL + '{3,}', 'g'), NL + NL).trim()
-              if (text) out.push({ role, text })
-            }
-            return { error: '', list: out, usage }
+            return { error: '', messages }
           } catch (e) {
-            return { error: 'fetch failed: ' + (e as Error).message, list: [] }
+            return {
+              error: 'fetch failed: ' + (e as Error).message,
+              messages: null,
+            }
           }
         },
         { chatId: id, auth, pow, historyUrl: HISTORY_MESSAGES_URL },
       )
       .catch((e) => ({
         error: 'evaluate failed: ' + (e as Error).message,
-        list: [] as Array<{ role: string; text: string }>,
+        messages: null,
       }))
     this._lastHistoryError = res?.error || ''
+    // Parse the raw messages with the SAME pure parser the fallback uses.
+    const parsed = parseHistoryMessages(res?.messages)
     // Pick up the context size the history carries, so /resume (and /cost
     // right after it) shows a real number even before the first answer.
-    const usage = (res as { usage?: number | null } | undefined)?.usage
-    if (typeof usage === 'number') this._lastTokenUsage = usage
-    const list = (res?.list || []) as ChatMessage[]
+    if (typeof parsed.usage === 'number') this._lastTokenUsage = parsed.usage
+    const list = parsed.list
     if (list.length || !res?.error) return list
     // Fallback: Playwright's own request context (shares the browser cookies)
     // when the in-page fetch was blocked (CSP, CORS, a page error).
@@ -2910,34 +2886,15 @@ export class DeepSeekBrowser {
         { headers: { accept: 'application/json' } },
       )
       if (!resp.ok()) return list
-      const json = (await resp.json()) as {
-        data?: { biz_data?: { chat_messages?: unknown[] } }
-      }
-      const messages = json?.data?.biz_data?.chat_messages
-      if (!Array.isArray(messages)) return list
-      const NL = String.fromCharCode(10)
-      const out: ChatMessage[] = []
-      for (const m of messages as Array<{
-        role?: string
-        accumulated_token_usage?: number
-        fragments?: Array<{ type?: string; content?: string }>
-      }>) {
-        if (m && typeof m.accumulated_token_usage === 'number') {
-          this._lastTokenUsage = m.accumulated_token_usage
-        }
-        const role: ChatMessage['role'] =
-          m && m.role === 'ASSISTANT' ? 'assistant' : 'user'
-        const want = role === 'assistant' ? 'RESPONSE' : 'REQUEST'
-        let text = ''
-        for (const fr of (m && m.fragments) || []) {
-          if (!fr || fr.type !== want) continue
-          if (typeof fr.content === 'string') text += fr.content
-        }
-        text = text.replace(new RegExp(NL + '{3,}', 'g'), NL + NL).trim()
-        if (text) out.push({ role, text })
-      }
+      const json = await resp.json()
+      const messages = extractChatMessages(json)
+      if (!messages) return list
+      // Same pure parser as the in-page path (browser-chats.ts), so the two
+      // cannot drift.
+      const parsed = parseHistoryMessages(messages)
+      if (typeof parsed.usage === 'number') this._lastTokenUsage = parsed.usage
       this._lastHistoryError = ''
-      return out
+      return parsed.list
     } catch (e) {
       this._lastHistoryError = 'request failed: ' + (e as Error).message
       return list
@@ -2953,110 +2910,23 @@ export class DeepSeekBrowser {
   // ds-assistant-message-* class; anything that is not an assistant block is
   // treated as a user message. The model's reasoning (.ds-think-content) is
   // skipped, exactly like in _readLastAnswerText.
+  // Read the WHOLE visible dialogue of the currently open chat, top to
+  // bottom. Used by /resume and /resume-id so the operator sees the restored
+  // context in the terminal instead of just "Chat opened.".
+  //
+  // The in-page scraper (scrapeChatMessages, browser-chats.ts) is a named
+  // export so the class body stays thin; it runs inside the page.
   async readChatMessages(): Promise<ChatMessage[]> {
     if (!this.page) return []
     const raw = await this.page
-      .evaluate(
-        (opts: {
-          containerSels: string[]
-          answerSels: string[]
-          thinkRe: string
-          assistantRe: string
-          assistantSel: string
-          markdownSel: string
-        }) => {
-          const think = new RegExp(opts.thinkRe, 'i')
-          const assistantRe = new RegExp(opts.assistantRe, 'i')
-          const inThink = (e: Element | null): boolean => {
-            let n: Element | null = e
-            while (n) {
-              const cls = (n.className || '').toString()
-              if (think.test(cls)) return true
-              n = n.parentElement
-            }
-            return false
-          }
-          const textOf = (e: Element): string => {
-            const h = e as HTMLElement
-            const t = h.innerText || h.textContent || ''
-            const NL = String.fromCharCode(10)
-            return t.replace(new RegExp(NL + '{3,}', 'g'), NL + NL).trim()
-          }
-
-          // A message block is "assistant" when it contains an answer markdown
-          // wrapper (ds-markdown / ds-assistant-message), otherwise it is a
-          // user bubble. DeepSeek's class names drift between builds, so the
-          // detection is content-based, not class-prefix-based.
-          const looksAssistant = (e: Element): boolean => {
-            const cls = (e.className || '').toString()
-            if (assistantRe.test(cls)) return true
-            if (e.querySelector(opts.assistantSel)) return true
-            // A user bubble has no rendered markdown; an answer does.
-            if (e.querySelector(opts.markdownSel)) return true
-            return false
-          }
-
-          // Message-level containers first (broad), then the answer wrappers.
-          // See MESSAGE_CONTAINER_SELECTORS in deepseek-ui.ts.
-          let blocks: Element[] = []
-          for (const s of opts.containerSels) {
-            const found = Array.from(document.querySelectorAll(s)).filter(
-              (e) => !inThink(e) && textOf(e).length > 0,
-            )
-            if (found.length) {
-              blocks = found
-              break
-            }
-          }
-          // De-duplicate by node identity and drop a block that is NESTED
-          // inside another block. Some builds match both an outer message
-          // container and an inner one; without this the restored dialogue
-          // printed each turn twice. We keep only the OUTERMOST blocks.
-          if (blocks.length > 1) {
-            const unique = Array.from(new Set(blocks))
-            blocks = unique.filter(
-              (b) => !unique.some((other) => other !== b && other.contains(b)),
-            )
-          }
-
-          const out: Array<{ role: string; text: string }> = []
-          if (blocks.length) {
-            for (const b of blocks) {
-              const t = textOf(b)
-              if (!t) continue
-              out.push({
-                role: looksAssistant(b) ? 'assistant' : 'user',
-                text: t,
-              })
-            }
-            if (out.length) return out
-          }
-
-          // Last resort: assistant answers only (no user turns) — better than
-          // nothing when no message container matched.
-          // See RESTORE_ANSWER_SELECTORS in deepseek-ui.ts.
-          for (const s of opts.answerSels) {
-            const list = Array.from(document.querySelectorAll(s)).filter(
-              (e) => !inThink(e),
-            )
-            if (!list.length) continue
-            for (const el of list) {
-              const t = textOf(el)
-              if (t) out.push({ role: 'assistant', text: t })
-            }
-            break
-          }
-          return out
-        },
-        {
-          containerSels: MESSAGE_CONTAINER_SELECTORS,
-          answerSels: RESTORE_ANSWER_SELECTORS,
-          thinkRe: THINK_CLASS_RE.source,
-          assistantRe: ASSISTANT_CLASS_RE.source,
-          assistantSel: ASSISTANT_SELECTOR,
-          markdownSel: ANSWER_MARKDOWN_SELECTOR,
-        },
-      )
+      .evaluate(scrapeChatMessages, {
+        containerSels: MESSAGE_CONTAINER_SELECTORS,
+        answerSels: RESTORE_ANSWER_SELECTORS,
+        thinkRe: THINK_CLASS_RE.source,
+        assistantRe: ASSISTANT_CLASS_RE.source,
+        assistantSel: ASSISTANT_SELECTOR,
+        markdownSel: ANSWER_MARKDOWN_SELECTOR,
+      })
       .catch(() => [] as ChatMessage[])
     return raw as ChatMessage[]
   }
