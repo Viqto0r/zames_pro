@@ -1016,6 +1016,12 @@ export async function runAgentLoop({
         })
         results.push({ tool: c.tool, result })
       }
+      // Same abort contract as the sequential loop: an Esc during the batch
+      // must stop before its results are fed to the model.
+      if (browser._abort || browser._stopped) {
+        transcript?.log('user_aborted')
+        return '(прервано пользователем)'
+      }
     }
 
     if (!readOnlyBatch)

@@ -304,3 +304,69 @@ test('N34: несколько read-only вызовов в батче идут п
   assert.equal(maxConcurrent, 2, 'read-only calls must overlap')
   await fs.rm(dir, { recursive: true, force: true })
 })
+
+test('N34: abort during a parallel read-only batch does not send results', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-par-abort-'))
+  let runs = 0
+  const readTool: ToolDef = {
+    name: 'Read',
+    description: 'read',
+    parameters: { path: 'string' },
+    fn: async () => {
+      runs++
+      // The operator presses Esc while the batch is in flight.
+      browserRef._abort = true
+      browserRef._stopped = true
+      return 'x'
+    },
+  }
+  const tools: ToolDef[] = [
+    readTool,
+    {
+      name: 'respond',
+      description: 'respond',
+      parameters: { message: 'string' },
+      fn: async (args) => String(args['message']),
+    },
+  ]
+  const batch =
+    '[' +
+    jsonCall('Read', { path: 'a' }) +
+    ',' +
+    jsonCall('Read', { path: 'b' }) +
+    ']'
+  const asks: string[] = []
+  const browserRef: BrowserLike & { _abort?: boolean; _stopped?: boolean } = {
+    _abort: false,
+    _stopped: false,
+    async ask(text: string) {
+      asks.push(text)
+      return batch
+    },
+    async newChat() {},
+    async getCurrentChatId() {
+      return 'chat-1'
+    },
+    async stopGeneration() {
+      return true
+    },
+    async listChats() {
+      return []
+    },
+    async openChat() {
+      return true
+    },
+    async close() {},
+  }
+  const res = await runAgentLoop({
+    browser: browserRef,
+    tools,
+    task: 'x',
+    workdir: dir,
+  })
+  assert.equal(res, '(прервано пользователем)')
+  assert.ok(runs >= 1, 'the read-only tool ran')
+  // Only the initial send happened; the batch results were not sent back.
+  assert.equal(asks.length, 1, 'ask calls: ' + asks.length)
+  await fs.rm(dir, { recursive: true, force: true })
+})
