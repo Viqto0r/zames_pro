@@ -120,6 +120,8 @@ export function cronMatches(expr: string, date: Date): boolean {
 // Next epoch ms at which the expression fires, strictly after `fromMs`. Scans
 // minute by minute (bounded to ~4 years); a one-time cost when a job is
 // created/rescheduled, and the field checks reject almost every minute fast.
+// The parsed fields are REUSED across the scan: calling cronMatches() re-parsed
+// the expression on every minute (millions of parses for a far-future date).
 export function nextCronTime(expr: string, fromMs: number): number | null {
   const c = parseCron(expr)
   if (!c) return null
@@ -128,7 +130,15 @@ export function nextCronTime(expr: string, fromMs: number): number | null {
   d.setMinutes(d.getMinutes() + 1)
   const limit = fromMs + 4 * 366 * 24 * 60 * 60 * 1000
   while (d.getTime() <= limit) {
-    if (cronMatches(expr, d)) return d.getTime()
+    if (
+      c.minute.has(d.getMinutes()) &&
+      c.hour.has(d.getHours()) &&
+      c.dom.has(d.getDate()) &&
+      c.month.has(d.getMonth() + 1) &&
+      c.dow.has(d.getDay())
+    ) {
+      return d.getTime()
+    }
     d.setMinutes(d.getMinutes() + 1)
   }
   return null

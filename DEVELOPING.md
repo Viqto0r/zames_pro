@@ -78,9 +78,12 @@ skipped, `feat`->Added, `fix`->Fixed, `perf`/`refactor`/`style`/`revert`->Change
 
 ## Refactoring the big modules (BACKLOG C3)
 
-The core modules grew large: `index.ts` ~4.5k lines, `browser.ts` ~3.3k,
-`input.ts` ~2.2k, `agent-loop.ts` ~1.9k, `i18n.ts` ~1.8k. Break them up
-GRADUALLY — one module per step, never a big-bang refactor.
+The core modules grew large: `index.ts` ~4.0k lines, `browser.ts` ~3.35k,
+`input.ts` ~2.1k, `agent-loop.ts` ~1.9k, `commands.ts` ~1.3k. The i18n CATALOG
+has already been split into `src/i18n/*.ts` (~1.7k lines total), so `i18n.ts` is
+no longer a candidate. Break the rest up GRADUALLY — one module per step, never
+a big-bang refactor. (Re-check the real numbers with `wc -l src/*.ts` — the
+values here drift.)
 
 Rules that keep it safe:
 

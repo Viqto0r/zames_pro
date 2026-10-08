@@ -438,24 +438,6 @@ export function writeClipboardText(text: string): {
   return { ok: false, via: candidates.map((c) => c.bin).join('/') }
 }
 
-export async function findFileByName(
-  workdir: string,
-  name: string,
-): Promise<string | null> {
-  const candidate = path.resolve(workdir, name)
-  if (await fs.stat(candidate).catch(() => null)) return candidate
-  try {
-    const { glob } = await import('fs/promises')
-    for await (const f of glob('**/' + name, { cwd: workdir })) {
-      const abs = path.resolve(workdir, f)
-      const rel = path.relative(workdir, abs)
-      if (rel.startsWith('..') || path.isAbsolute(rel)) continue
-      return abs
-    }
-  } catch {}
-  return null
-}
-
 // Read file paths from the Windows clipboard (copied files, CF_HDROP) and
 // translate them to WSL paths. On WSL the user often copies a FILE, not an
 // image. Returns [] on non-WSL / when nothing is there.

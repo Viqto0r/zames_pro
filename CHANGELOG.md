@@ -7,16 +7,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **tools:** Edit/MultiEdit no longer corrupt dollar patterns (`$&`, `$$`, `$1`)
+  in `new_string` — the replacement now uses the functional form instead of a
+  string replacer.
+- **tools:** Grep and findstr are run through `execFile` with an argument
+  array instead of a shell string, so a `$(...)` pattern is no longer executed
+  as a command.
+- **git:** GitShow/GitDiff/GitAdd/GitPush/GitCommit now use `execFile`; `ref`
+  and `path` are validated (a leading `-` is rejected) — command/option
+  injection through the arguments of read-only tools is closed.
+- **sandbox:** file tools resolve the real path (`fs.realpath`) and reject a
+  symlink pointing outside the working directory.
+- **shell:** `assertCommandInsideRoot` expands `~`/`$HOME`, sees a `cd` inside
+  a subshell/backticks and rejects `eval` with `cd`.
+- **plan mode:** MCP tools are now filtered for read-only too (mutating verbs
+  are dropped).
+- **self-review:** the snapshot and diff/apply walk src/ subdirectories
+  recursively (`i18n/`, `input/`) — they used to be silently missing from the
+  snapshot.
+- **one-shot `--task`:** on an agent error / iteration limit / watchdog the
+  process now exits with code 1 instead of 0.
+- **input:** Ctrl+Delete and Delete now work under the CSI-u (kitty) protocol:
+  `CSI 3;5u`/`3;3u`/`3u`.
+- **input:** Up/Down move the cursor across VISUAL rows of a wrapped line, not
+  only across logical lines.
+- **input:** a lone ESC no longer aborts the generation when a control
+  sequence arrives in two chunks — a short timeout disambiguation.
+- **input:** Ctrl+L clears the screen and PageUp/PageDown page the suggestion
+  list; an unknown control sequence is logged in debug instead of being
+  swallowed silently.
+- **MCP:** duplicate tool names are disambiguated with a numeric suffix so the
+  second tool is not silently unreachable.
+- **MCP:** a tool result is truncated with an explicit marker — a single call
+  (browser_snapshot and the like) no longer floods the context.
+- **transcript:** `close()` waits for the flush (it returns a promise) so the
+  final events reach the file on the exit paths.
+- **web:** `WebFetch` re-validates every redirect hop against the SSRF guard
+  and checks the final URL of a headless render.
+- **permissions:** a `path` rule now also matches the file headers of an
+  `ApplyPatch` and path-looking arguments of MCP tools.
+- **scheduler:** `nextCronTime` parses the cron expression once instead of on
+  every scanned minute.
+- **git:** `formatGitContext` picks a code fence longer than any backtick run
+  in the preview, so a filename with backticks cannot break the markdown.
+- **fsutil:** secrets and state are written with 0600 permissions;
+  `writeFileAtomic` fsyncs the file before rename (and the directory after)
+  for durability on a power loss.
+
+### Changed
+
+- **docs:** SECURITY.md updated for the permissions policy, the symlink guard
+  and the plan-mode MCP caveat; DEVELOPING.md module sizes refreshed.
+- **cleanup:** removed the dead exports `listConfiguredServers`,
+  `builtinSkills` and `findFileByName`.
+- **tests:** the MCP result cap, `htmlToText` and the DuckDuckGo parser are
+  now covered, and `web.ts`/`spinner.ts` gained coverage floors.
+
+### Security
+
+- Shared `shellQuote` helper for arguments passed to the shell (single quotes
+  with internal quotes doubled).
+
 ## [2.66.1] - 2026-10-07
 
 ### Changed
 
-- README: русский перевод теперь свёрнут в `<details>` прямо в `README.md`,
-  поэтому его можно читать на странице npm, не уходя на GitHub. npm рендерит
-  readme тем же GitHub Flavored Markdown, что и GitHub, а отдельный
-  `README.ru.md` на npm-странице не виден (у npm один readme на пакет).
-  Обе языковые версии собираются из `docs/readme.{en,ru}.md` скриптом
-  `npm run build:readme`; `test/readme-built.test.ts` следит за рассинхроном.
+- README: the Russian translation is now folded into `<details>` directly in
+  `README.md`, so it can be read on the npm page without leaving GitHub. npm
+  renders the readme with the same GitHub Flavored Markdown as GitHub, and a
+  separate `README.ru.md` is not visible on the npm page (npm has one readme
+  per package). Both language versions are assembled from
+  `docs/readme.{en,ru}.md` by `npm run build:readme`;
+  `test/readme-built.test.ts` guards against drift.
 
 ## [2.66.0] - 2026-10-07
 
@@ -36,151 +100,148 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Длинные строки preview больше не создают горизонтальный скролл в
-  терминале: `toolCall`/`toolResult` (LineEditor и спиннер) теперь режут
-  превью по ВИДИМОЙ ШИРИНЕ терминала (`truncateToWidth`), а не по числу
-  символов. Раньше длинная команда/результат печатались шире экрана.
-- Ctrl+Delete / Ctrl+Backspace (и Alt+Delete / Alt+Backspace) теперь удаляют
-  слово в строке ввода. Раньше эти escape-последовательности попадали в
-  общий пропуск клавиш и ничего не делали. Поддержаны варианты: `ESC[3;5~`
-  (xterm Ctrl+Delete), `ESC[3;3~` (Alt+Delete), `ESC DEL`/`ESC 8`
-  (Alt/Ctrl+Backspace) и kitty-протокол `ESC[127;5u` / `ESC[127;3u`.
-  Новый метод `_deleteWordRight()` + тест `test/editor-word-delete.test.ts`.
-- Меню `/config` теперь держит ВЫБРАННЫЙ пункт на экране: окно строится
-  «назад» от курсора с учётом строк, которые занимают заголовки групп
-  (раньше индексный `scrollTop` мог вытолкнуть выбранную строку вниз за
-  пределы окна).
-- `/new` сбрасывает счётчик контекста: `_lastTokenUsage` копится НА ЧАТ,
-  и без сброса в пустом чате оставался старый `ctx: 302k · 30%` до первой
-  отправки. Тест в `test/newchat-verify.test.ts`.
+- Long preview lines no longer create a horizontal scrollbar in the terminal:
+  `toolCall`/`toolResult` (LineEditor and spinner) now clip the preview by the
+  VISIBLE terminal width (`truncateToWidth`) instead of by character count. A
+  long command/result used to print wider than the screen.
+- Ctrl+Delete / Ctrl+Backspace (and Alt+Delete / Alt+Backspace) now delete a
+  word in the input line. These escape sequences used to fall through the
+  generic key skip and did nothing. Supported variants: `ESC[3;5~` (xterm
+  Ctrl+Delete), `ESC[3;3~` (Alt+Delete), `ESC DEL`/`ESC 8`
+  (Alt/Ctrl+Backspace) and the kitty protocol `ESC[127;5u` / `ESC[127;3u`.
+  New `_deleteWordRight()` method + `test/editor-word-delete.test.ts`.
+- The `/config` menu now keeps the SELECTED item on screen: the window is
+  built "backwards" from the cursor, taking into account the rows the group
+  headings occupy (previously an index-based `scrollTop` could push the
+  selected row below the window).
+- `/new` resets the context counter: `_lastTokenUsage` accumulates PER CHAT,
+  and without a reset an empty chat kept showing the old `ctx: 302k · 30%`
+  until the first send. Test in `test/newchat-verify.test.ts`.
 
 ## [2.65.0] - 2026-10-07
 
 ### Changed
 
-- README-скриншот `docs/demo.png` перегенерирован на английском языке
-  (раньше был на русском). Воспроизводимый генератор
-  `npm run render-demo` (`scripts/render-demo.mjs`) рендерит реальную
-  раскладку редактора и палитру темы через headless Chromium с
-  изолированным профилем.
-- README: ASCII-схема «как это работает» заменена на диаграмму Mermaid
-  (стрелки не «плывут») плюс текстовое описание словами.
-- Убраны неиспользуемые файлы: `logo.jpg` (в README используется только
-  `logo-small.jpg`) и заготовка `docs/demo.tape` (VHS-рендер так и не был
-  сгенерирован). `logo.jpg` удалён и из списка `files` в package.json.
+- The README screenshot `docs/demo.png` was regenerated in English (it used to
+  be in Russian). The reproducible generator `npm run render-demo`
+  (`scripts/render-demo.mjs`) renders the real editor layout and theme palette
+  through headless Chromium with an isolated profile.
+- README: the ASCII "how it works" diagram was replaced by a Mermaid diagram
+  (the arrows no longer "float") plus a textual description in words.
+- Removed unused files: `logo.jpg` (only `logo-small.jpg` is used in the
+  README) and the `docs/demo.tape` draft (the VHS render was never generated).
+  `logo.jpg` was also removed from the `files` list in package.json.
 
 ### Fixed
 
-- Перерисовка терминала после ресайза окна: относительный стирающий
-  `ESC[n A` после изменения размера попадал на устаревшую строку (терминал
-  переформатировал переносы), из-за чего статус/инпут рисовались не там.
-  Теперь после ресайза блок заново «прибивается» к низу (home + padding),
-  история скроллбэка сохраняется. Тест в `test/terminal-drift.test.ts`.
-- Живая смена языка (`/config lang`) не доходила до двух «одноразово
-  созданных» объектов: спиннер думающих фраз брал язык по умолчанию
-  (`randomThinkingPhrase()` вместо `randomThinkingPhrase(this.locale)`),
-  а `DeepSeekBrowser` печатал свои уведомления (`ds.*`) на языке,
-  зафиксированном при старте. Из-за этого при английском UI всплывали
-  русские «Структурирую мысли…» и «⏳ DeepSeek оборвал ответ…». Добавлен
-  `DeepSeekBrowser.setLocale()`, вызываемый из `setConfigRuntime`.
-- Меню `/config` теперь рисуется ОКНОМ по высоте терминала (раньше весь
-  список из 49 полей выводился одним блоком). На невысоком терминале блок
-  уходил верхними строками за экран, из-за чего восстановление курсора
-  `ESC[lastRows A` попадало не на ту строку и навигация стрелками «не
-  скроллила» список. Заодно исправлена мёртвая регулярка снятия ANSI
-  (лишний обратный апостроф) в `src/config-menu.ts`.
+- Terminal repaint after a window resize: the relative erase `ESC[n A` after a
+  size change landed on a stale row (the terminal re-flowed the wraps), so the
+  status/input were drawn in the wrong place. After a resize the block is
+  re-pinned to the bottom (home + padding), and the scrollback history is kept.
+  Test in `test/terminal-drift.test.ts`.
+- A live language change (`/config lang`) did not reach two "created once"
+  objects: the thinking-phrase spinner took the default language
+  (`randomThinkingPhrase()` instead of `randomThinkingPhrase(this.locale)`),
+  and `DeepSeekBrowser` printed its notices (`ds.*`) in the language fixed at
+  startup. So with an English UI Russian thinking/notice phrases surfaced.
+  Added `DeepSeekBrowser.setLocale()`, called from `setConfigRuntime`.
+- The `/config` menu is now drawn as a WINDOW sized to the terminal height
+  (previously the whole list of 49 fields was printed as one block). On a short
+  terminal the block scrolled off the top, so restoring the cursor with
+  `ESC[lastRows A` landed on the wrong row and arrow navigation "did not
+  scroll" the list. Also fixed a dead ANSI-strip regex (a stray backtick) in
+  `src/config-menu.ts`.
 
 ## [2.64.1] - 2026-10-07
 
 ### Changed
 
-- README: добавлен скриншот терминальной сессии (`docs/demo.png`) под
-  шапкой, чтобы интерфейс был виден сразу; скрипт воспроизводимого
-  VHS-демо (`docs/demo.tape`) для будущего GIF.
+- README: added a terminal session screenshot (`docs/demo.png`) under the
+  header so the interface is visible immediately; a reproducible VHS demo
+  script (`docs/demo.tape`) for a future GIF.
 
 ## [2.64.0] - 2026-10-06
 
 ### Added
 
-- Генератор черновика CHANGELOG из conventional-commits (BACKLOG D2):
-  `npm run changelog:draft [ref]` печатает готовый блок для «Unreleased» из
-  коммитов после последнего тега (или указанного ref). Чистый модуль
+- A CHANGELOG draft generator from conventional commits (BACKLOG D2):
+  `npm run changelog:draft [ref]` prints a ready "Unreleased" block from the
+  commits after the last tag (or the given ref). Pure module
   `src/changelog.ts` (`parseConventionalCommit` / `groupCommits` /
-  `renderChangelogDraft`, покрыт тестами). Файл `CHANGELOG.md` НЕ
-  перезаписывается автоматически — черновик ревьюится вручную.
+  `renderChangelogDraft`, unit-tested). The `CHANGELOG.md` file is NOT
+  overwritten automatically — the draft is reviewed by hand.
 
 ### Changed
 
-- Рефакторинг (BACKLOG C3, шаг 1): разрешение путей вложения и инлайн
-  `@file`-ссылок вынесены из `src/index.ts` в `src/attach-refs.ts`
-  (`resolveAttachPath` / `inlineAtRefs`) — теперь это отдельный тестируемый
-  модуль.
+- Refactor (BACKLOG C3, step 1): attachment path resolution and `@file`
+  reference inlining were moved out of `src/index.ts` into
+  `src/attach-refs.ts` (`resolveAttachPath` / `inlineAtRefs`) — now a separate
+  testable module.
 
 ## [2.63.1] - 2026-10-06
 
 ### Fixed
 
-- Мигание таймера в статусе паузы перед отправкой: `sendPause()` (и
-  `LineEditor`, и non-TTY `SpinnerUI`) перерисовывал статус БЕЗ хвоста
-  «elapsed»/бейджа задач, а тик анимации рисовал его С ним — раз в секунду
-  подпись `· 1m 50s` исчезала и появлялась. Теперь обновление собирает тот же
-  хвост, что и тик. Регрессионный тест в test/compact-statusline.test.ts.
+- Timer flicker in the pre-send pause status: `sendPause()` (both `LineEditor`
+  and the non-TTY `SpinnerUI`) repainted the status WITHOUT the
+  "elapsed"/task-badge tail, while the animation tick drew it WITH it — once a
+  second the `· 1m 50s` label disappeared and reappeared. The update now builds
+  the same tail as the tick. Regression test in test/compact-statusline.test.ts.
 
 ### Changed
 
-- README: центрированная шапка, логотип крупнее (640px-ассет, 430px показ),
-  диаграмма «How it works», оглавление и секция Links.
-- Dependabot: мажорные обновления игнорируются (`semver-major`), расписание
-  раз в месяц, авто-мерж только для patch/minor и только для PR бота
-  (проверка автора и ветки); workflow авто-мержа. Ветка `master` защищена
-  ruleset: PR обязателен, required-check — стабильный job `ci`.
+- README: centered header, larger logo (640px asset, 430px display), a "How
+  it works" diagram, a table of contents and a Links section.
+- Dependabot: major updates are ignored (`semver-major`), monthly schedule,
+  auto-merge only for patch/minor and only for bot PRs (author and branch
+  checks); auto-merge workflow. The `master` branch is protected by a ruleset:
+  PR required, required check is the stable `ci` job.
 
 ## [2.63.0] - 2026-10-06
 
 ### Added
 
-- Реальные подтверждения действий (BACKLOG C1): политика approval в
-  `.zames/permissions.json` (`default` + `rules` с regexp по `tool`/`command`/
-  `path` и действием `allow`|`deny`|`ask`). Вызывается в `agent-loop.ts` ПЕРЕД
-  каждым инструментом: `deny` блокирует вызов, `ask` спрашивает оператора через
-  `onAskPermission` (в TTY — интерактивный промпт над инпут-линией, в non-TTY —
-  запрет). Новый чистый модуль `src/permissions.ts` + тесты
-  (test/permissions.test.ts, test/permissions-loop.test.ts).
+- Real action approvals (BACKLOG C1): an approval policy in
+  `.zames/permissions.json` (`default` + `rules` with regexp on
+  `tool`/`command`/`path` and an `allow`|`deny`|`ask` action). Evaluated in
+  `agent-loop.ts` BEFORE every tool: `deny` blocks the call, `ask` prompts the
+  operator via `onAskPermission` (in a TTY — an interactive prompt above the
+  input line, in non-TTY — denied). New pure module `src/permissions.ts` +
+  tests (test/permissions.test.ts, test/permissions-loop.test.ts).
 
-- Кастомные команды: аргументы и подсказки (BACKLOG B7). Frontmatter
-  `argument-hint:` показывается в списке «/» и в `/help` (не вставляется в
-  строку ввода), а `arguments:` объявляет обязательные позиционные аргументы.
-  В теле команды подставляются `$1 $2`, именованные `$name`, а также прежние
-  `{{args}}`/`$ARGUMENTS`. Если обязательные аргументы не переданы — команда
-  не уходит в чат, печатается подсказка. Новые чистые хелперы
+- Custom commands: arguments and hints (BACKLOG B7). Frontmatter
+  `argument-hint:` is shown in the "/" list and in `/help` (not inserted into
+  the input line), and `arguments:` declares mandatory positional arguments.
+  `$1 $2`, named `$name` and the previous `{{args}}`/`$ARGUMENTS` are
+  substituted into the command body. If the required arguments are missing the
+  command is not sent to the chat and a hint is printed. New pure helpers
   `splitCommandArgs()` / `expandCommandArgs()` / `missingCommandArgs()`
-  (src/commands.ts, покрыты тестами).
+  (src/commands.ts, unit-tested).
 
-- Path-scoped правила (BACKLOG B6): вложенные `AGENTS.md`/`MEMORY.md` из
-  подпапок, которых касается задача, подтягиваются автоматически. Текст задачи
-  сканируется на path-токены, для найденных директорий (и их предков ниже
-  рабочей) читаются ближайшие инструкции и рендерятся отдельной секцией
-  `## Scoped instructions (...)` — явно помечены как действующие только для
-  этих файлов. `loadProjectContext(workdir, touchPaths?)` и
-  `renderContextSection()` (src/context.ts, src/system-prompt.ts; покрыто
-  тестами).
+- Path-scoped rules (BACKLOG B6): nested `AGENTS.md`/`MEMORY.md` from the
+  subdirectories the task touches are pulled in automatically. The task text is
+  scanned for path tokens, the nearest instructions are read for the found
+  directories (and their ancestors below the working dir) and rendered as a
+  separate `## Scoped instructions (...)` section — explicitly marked as
+  applying only to those files. `loadProjectContext(workdir, touchPaths?)` and
+  `renderContextSection()` (src/context.ts, src/system-prompt.ts; unit-tested).
 
-- `@file`-ссылки в задаче (BACKLOG B5): `реши задачу @src/browser.ts`
-  подставляет содержимое указанного файла прямо в задачу, экономя отдельный
-  ход агента на чтение. Распознаётся `@path` на границе слова (в начале строки
-  или после пробела/скобки/кавычки), с расширением файла; `user@host` и
-  декораторы (`@Component`) не трогаются. Существующие файлы инлайнятся
-  (лимит 60 КБ на файл, 200 КБ суммарно — сверх этого усечение с пометкой),
-  несуществующие остаются как есть. Хелпер `extractAtFileRefs()` в
-  `src/path-token.ts` (чистый, покрыт тестами).
+- `@file` references in a task (BACKLOG B5): `solve the task @src/browser.ts`
+  inlines the contents of the referenced file right into the task, saving a
+  separate agent turn to read it. `@path` is recognized at a word boundary (at
+  the start of a line or after a space/bracket/quote) with a file extension;
+  `user@host` and decorators (`@Component`) are not touched. Existing files are
+  inlined (60 KB per file, 200 KB total — beyond that a truncation marker),
+  missing ones stay as-is. Helper `extractAtFileRefs()` in `src/path-token.ts`
+  (pure, unit-tested).
 
 ### Changed
 
-- `AGENTS.md` уменьшен (BACKLOG C2): глубокие root-cause разборы («агент
-  остановился», чтение ответа из DOM, send-хуки, `LineEditor`, вложения) и
-  терминальная механика вынесены в `docs/DESIGN-NOTES.md` (progressive
-  disclosure — не грузится в каждую задачу). В AGENTS.md остались действующие
-  правила и краткая выжимка со ссылкой.
+- `AGENTS.md` trimmed (BACKLOG C2): the deep root-cause write-ups ("the agent
+  stopped", reading the answer from the DOM, send hooks, `LineEditor`,
+  attachments) and the terminal mechanics were moved to
+  `docs/DESIGN-NOTES.md` (progressive disclosure — not loaded into every task).
+  AGENTS.md keeps the acting rules plus a short summary with a pointer.
 
 ## [2.62.0]
 

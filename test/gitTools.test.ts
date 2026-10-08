@@ -19,7 +19,9 @@ test('GitLog возвращает коммиты без ошибок shell', asy
   const tools = createGitTools(process.cwd())
   const out = String(await tool(tools, 'GitLog').fn({ count: 2 }))
   assert.ok(!/Syntax error/i.test(out), out)
-  assert.ok(!/Exit code/i.test(out), out)
+  // Match the actual error marker (`Exit code: <n>`), not the bare words: a
+  // commit SUBJECT may legitimately contain "exit code" and fail this check.
+  assert.ok(!/Exit code: \d/.test(out), out)
 })
 
 test('вне git-репозитория git-инструменты сообщают об этом', async () => {
@@ -55,7 +57,10 @@ test('GitShow возвращает коммит (или ошибку репоз�
     await tool(tools, 'GitShow').fn({ ref: 'HEAD', stat: true }),
   )
   assert.ok(!/Syntax error/i.test(out), out)
-  assert.ok(!/Exit code/i.test(out) || /Not a git repository/i.test(out), out)
+  assert.ok(
+    !/Exit code: \d/.test(out) || /Not a git repository/i.test(out),
+    out,
+  )
 })
 
 test('GitBranchList перечисляет ветки или сообщает об отсутствии репозитория', async () => {

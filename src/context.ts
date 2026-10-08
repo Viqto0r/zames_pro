@@ -106,14 +106,6 @@ const BUILTIN_SKILLS: Array<{
   },
 ]
 
-export function builtinSkills(): Array<{
-  name: string
-  description: string
-  body: string
-}> {
-  return BUILTIN_SKILLS
-}
-
 export interface CustomCommand {
   name: string
   description: string
