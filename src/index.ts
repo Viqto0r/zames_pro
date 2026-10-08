@@ -1176,6 +1176,30 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
+  // DeepSeek UI health probe. The agent drives a page we do not control, so a
+  // redesign silently breaks selectors and the FIRST symptom is a task hanging
+  // on "input field not found". Probe the always-present controls right after
+  // login and warn the operator up front. Best-effort: a probe failure must
+  // never block startup.
+  const warnUiHealth = (h: {
+    ok: boolean
+    missing: string[]
+    missingCritical: string[]
+  }): void => {
+    if (h.missingCritical.length) {
+      console.error(
+        theme.warn(t('ui.probe_failed', { v: h.missingCritical.join(', ') })),
+      )
+    } else if (h.missing.length) {
+      console.error(
+        theme.warn(t('ui.probe_degraded', { v: h.missing.join(', ') })),
+      )
+    }
+  }
+  try {
+    warnUiHealth(await browser.probeUiHealth())
+  } catch {}
+
   // One-shot mode
   if (task) {
     const baseTools = mod.createTools(currentWorkdir, {
@@ -3401,6 +3425,9 @@ async function main(): Promise<void> {
       const mcpStatus = mcpPool
         ? mcpPool.status()
         : { servers: [], toolCount: 0 }
+      // Probe the DeepSeek UI so a redesign shows up as a /doctor row instead
+      // of a task that hangs on a missing input. Best-effort.
+      const uiHealth = await browser.probeUiHealth().catch(() => null)
       console.log(
         theme.system(
           mod.commands.renderDoctor(
@@ -3427,6 +3454,9 @@ async function main(): Promise<void> {
               sshRemote: !!(process.env.SSH_CONNECTION || process.env.SSH_TTY),
               headless: !!headless,
               headlessUaCached: await headlessUACacheReady().catch(() => false),
+              uiPresent: uiHealth?.present,
+              uiMissing: uiHealth?.missing,
+              uiMissingCritical: uiHealth?.missingCritical,
             },
             t,
           ),

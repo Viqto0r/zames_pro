@@ -357,6 +357,12 @@ export interface DoctorInput {
   headlessUaCached?: boolean
   /** Whether the agent runs headless at all (affects the headless UA row). */
   headless?: boolean
+  /** DeepSeek UI capabilities found by the health probe (ui-health.ts). */
+  uiPresent?: string[]
+  /** Always-present capabilities the probe could NOT find (advisory + critical). */
+  uiMissing?: string[]
+  /** Missing capabilities that block the agent entirely (input/send). */
+  uiMissingCritical?: string[]
 }
 
 export function renderDoctor(
@@ -445,6 +451,21 @@ export function renderDoctor(
       'headless',
       d.headlessUaCached ? t('doctor.ua_cached') : t('doctor.ua_not_cached'),
     )
+  }
+  // The DeepSeek UI probe (see ui-health.ts). Rendered only when the caller
+  // ran it (the browser must be up); a missing capability is a WARN row, and a
+  // missing CRITICAL one is called out in words so the operator knows the next
+  // task will fail before it starts.
+  if (d.uiPresent || d.uiMissing) {
+    const missing = d.uiMissing || []
+    const missingCritical = d.uiMissingCritical || []
+    const summary =
+      missing.length === 0
+        ? t('doctor.ui_ok')
+        : missingCritical.length > 0
+          ? t('doctor.ui_broken', { v: missingCritical.join(', ') })
+          : t('doctor.ui_degraded', { v: missing.join(', ') })
+    row(missing.length === 0, 'deepseek ui', summary)
   }
   return t('doctor.title') + NL + rows.join(NL)
 }

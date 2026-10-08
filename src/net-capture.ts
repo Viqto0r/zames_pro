@@ -1,6 +1,7 @@
 import fs from 'fs/promises'
 import os from 'os'
 import path from 'path'
+import { FINISHED_STATUS_RE, RESPONSE_CONTENT_RE } from './deepseek-ui.js'
 
 // Extraction of the RAW model answer text from DeepSeek's network data.
 //
@@ -177,10 +178,10 @@ export function extractAnswer(body: string): string {
 export function isFinishedWithoutAnswer(body: string): boolean {
   const b = String(body || '')
   if (!b) return false
-  const finished = /"quasi_status","v":"FINISHED"/i.test(b)
+  const finished = FINISHED_STATUS_RE.test(b)
   if (!finished) return false
   // A RESPONSE fragment with actual content means the model DID answer.
-  if (/"type":"RESPONSE","content":"[^"]/.test(b)) return false
+  if (RESPONSE_CONTENT_RE.test(b)) return false
   // The turn carried reasoning (THINK) or was truncated mid-way; treat the
   // absence of response content as "no answer produced".
   return true

@@ -72,6 +72,17 @@ When a change touches one concern, start in the module that owns it:
 - `src/browser.ts` — the DeepSeekBrowser facade over Playwright: send/answer,
   toggles, Continue, login, chats, attachments, history. Large by nature; the
   pure parts (answer cleaning, signal detection) live in `src/net-capture.ts`.
+- `src/deepseek-ui.ts` — PURE DATA + resolvers: EVERY selector, button-label
+  regex and SSE protocol marker for chat.deepseek.com. This is the ONE place to
+  audit (and fix) when DeepSeek ships a redesign; `browser.ts` imports the
+  constants and keeps only the Playwright logic. The `ds-*` class anchors stay
+  as a high-precision FIRST hit with SEMANTIC fallbacks after them. A few
+  regexes are re-exported from `browser.ts` for the existing tests.
+- `src/ui-health.ts` — PURE UI health probe (`probeUiHealth`): checks the
+  ALWAYS-present controls (input/send/toggles/new-chat) via an injected page
+  and reports the missing ones. `browser.probeUiHealth()` adapts the live page;
+  startup and `/doctor` surface a missing CRITICAL capability as a warning
+  BEFORE a task hangs on it. Unit-tested (test/ui-health.test.ts).
 - `src/commands.ts` — PURE helpers for the slash commands (`/diff`, `/cost`,
   `/export`, `/doctor`, `/add-dir`, `/review`, `/compact`,
   `/queue`, `/goal`, live toggles) and the restored-history rendering. No

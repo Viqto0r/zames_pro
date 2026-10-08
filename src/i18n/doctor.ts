@@ -38,6 +38,26 @@ export const doctorMessages: Record<string, { ru: string; en: string }> = {
     ru: 'UA ещё не закэширован (первый запуск перезапустится один раз)',
     en: 'no cached UA yet (first start relaunches once)',
   },
+  'doctor.ui_ok': {
+    ru: 'все ключевые элементы найдены',
+    en: 'all key elements found',
+  },
+  'doctor.ui_degraded': {
+    ru: 'часть элементов не найдена: {v} (агент может работать некорректно)',
+    en: 'some elements not found: {v} (the agent may misbehave)',
+  },
+  'doctor.ui_broken': {
+    ru: 'НЕ найдено критичное: {v} — DeepSeek сменил вёрстку, задачи не будут отправляться. Запусти /debug-dom.',
+    en: 'MISSING critical: {v} — DeepSeek changed the markup, tasks will not send. Run /debug-dom.',
+  },
+  'ui.probe_failed': {
+    ru: '⚠ DeepSeek UI: не найдено критичное ({v}) — возможно, сменилась вёрстка chat.deepseek.com. Задачи могут не отправляться; проверь /doctor и /debug-dom.',
+    en: '⚠ DeepSeek UI: missing critical element(s) ({v}) — chat.deepseek.com markup may have changed. Tasks may not send; check /doctor and /debug-dom.',
+  },
+  'ui.probe_degraded': {
+    ru: '⚠ DeepSeek UI: не найдено ({v}) — часть возможностей (тумблеры/новый чат) может не работать.',
+    en: '⚠ DeepSeek UI: not found ({v}) — some features (toggles/new chat) may not work.',
+  },
 
   'adddir.usage': {
     ru: 'Использование: /add-dir <path>',

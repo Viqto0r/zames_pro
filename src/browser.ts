@@ -11,11 +11,62 @@ import {
   isFinishedWithoutAnswer,
 } from './net-capture.js'
 import { rewriteFailedAttachments } from './commands.js'
+import {
+  CHAT_URL,
+  CHAT_ID_RE,
+  chatUrl,
+  HISTORY_MESSAGES_URL,
+  BUTTON_CLASS_RE,
+  INPUT_SELECTORS,
+  SEND_SELECTORS,
+  STOP_SELECTORS,
+  STOP_NAME_RE,
+  CONTINUE_NAME_RE,
+  ANSWER_SELECTORS,
+  THINK_CLASS_RE,
+  MESSAGE_CONTAINER_SELECTORS,
+  RESTORE_ANSWER_SELECTORS,
+  ASSISTANT_CLASS_RE,
+  ASSISTANT_SELECTOR,
+  ANSWER_MARKDOWN_SELECTOR,
+  MARKDOWN_SELECTOR,
+  CHAT_SIGNAL_NODES_SELECTOR,
+  NEW_CHAT_SELECTOR,
+  NEW_CHAT_TEXT_RE,
+  PASSWORD_SELECTORS,
+  LOGIN_SELECTORS,
+  LOGIN_SUBMIT_SELECTORS,
+  LOGIN_BUTTON_SELECTOR,
+  LOGIN_NAME_RE,
+  LOGIN_FORM_SUBMIT_RE,
+  SIDEBAR_TOGGLE_SELECTORS,
+  TOGGLE_SELECTORS,
+  DEEP_THINKING_RE,
+  WEB_SEARCH_RE,
+  ATTACH_SELECTORS,
+  STATUS_RE,
+  RATE_LIMIT_RE,
+  SERVER_BUSY_RE,
+  GENERATION_ERR_RE,
+  INCOMPLETE_STATUS_RE,
+  ANSWER_URL_RE,
+} from './deepseek-ui.js'
+import {
+  probeUiHealth,
+  type UiHealthResult,
+  type UiProbePage,
+} from './ui-health.js'
 import path from 'path'
 import os from 'os'
 import fs from 'fs/promises'
 import { theme } from './theme.js'
 import { translate, DEFAULT_LOCALE, type Locale } from './i18n.js'
+
+// Re-export the DeepSeek UI regexes other modules/tests import from browser.ts.
+// The definitions live in deepseek-ui.ts; re-exporting the imported bindings
+// here preserves the existing public API (test/*.test.ts import them from
+// browser.ts).
+export { STOP_NAME_RE, CONTINUE_NAME_RE }
 
 // Muted terminal input for passwords. We do NOT use readline here: readline
 // echoes the typed text through its own internal _writeToOutput, which cannot
@@ -102,14 +153,6 @@ export function askPassword(question: string): Promise<string> {
 }
 
 const USER_DATA_DIR = path.join(os.homedir(), '.zames', 'profile')
-const CHAT_URL = 'https://chat.deepseek.com/'
-// The "New chat" control is NOT a <button>/<a> on the current DeepSeek build
-// (it is a <div>), so matching only button/a missed it, the click timed out
-// and newChat() silently no-opped. Match any clickable-ish element whose text
-// is EXACTLY the new-chat label (an anchored regex keeps a big outer container
-// from matching its long descendant text).
-const NEW_CHAT_SELECTOR = 'button, a, [role="button"], div, span'
-const NEW_CHAT_TEXT_RE = /^\s*(new chat|новый чат|новый диалог)\s*$/i
 // Cache of the sanitized (non-Headless) User-Agent, keyed by the browser
 // engine path. On the FIRST headless run we detect the real UA, strip the
 // "Headless" marker and store it here; later runs pass it straight to
@@ -193,136 +236,6 @@ export function sanitizeHeadlessUA(ua: string): string {
 // Written after a successful sign-in so the next launch knows a session was
 // stored in the persistent profile (used by /doctor and diagnostics).
 const AUTH_MARKER_FILE = path.join(os.homedir(), '.zames', 'auth.json')
-
-// DeepSeek sign-in form. The login page is served on the same origin and
-// swaps in a password field; the exact classes change, so we match loosely on
-// input types and the known placeholder/autocomplete attributes.
-const PASSWORD_SELECTORS = [
-  'input[type="password"]',
-  'input[autocomplete="current-password"]',
-  'input[autocomplete="new-password"]',
-]
-
-const LOGIN_SELECTORS = [
-  'input[type="email"]',
-  'input[type="tel"]',
-  'input[name="email"]',
-  'input[name="phone"]',
-  'input[name="username"]',
-  'input[placeholder*="email" i]',
-  'input[placeholder*="phone" i]',
-  'input[placeholder*="телефон" i]',
-  'input[placeholder*="почт" i]',
-  'input[autocomplete="username"]',
-  'input[autocomplete="email"]',
-]
-
-const LOGIN_SUBMIT_SELECTORS = [
-  // DeepSeek's real button: a div[role=button] with these classes and a
-  // <span class="ds-button__content">Log in</span> inside.
-  'div[role="button"].ds-button--primary.ds-button--filled',
-  'div[role="button"].ds-button--primary',
-  'button[type="submit"]',
-  'button:has-text("Log in")',
-  'button:has-text("Sign in")',
-  'button:has-text("Войти")',
-  'div[role="button"]:has-text("Log in")',
-  'div[role="button"]:has-text("Sign in")',
-  'div[role="button"]:has-text("Войти")',
-]
-
-const INPUT_SELECTORS = [
-  'textarea',
-  'div[contenteditable="true"]',
-  '[role="textbox"]',
-]
-
-const ANSWER_SELECTORS = [
-  'div.ds-assistant-message-main-content',
-  'div[class*="ds-assistant-message-main-content"]',
-  'div[class*="ds-markdown"]',
-  'div[class*="markdown"]',
-]
-
-const SEND_SELECTORS = [
-  'div[role="button"].ds-button--primary.ds-button--circle',
-  'div[role="button"].ds-button--primary.ds-button--filled',
-  'button[type="submit"]',
-  'button[aria-label*="send" i]',
-  'button[aria-label*="отправ" i]',
-]
-
-// IMPORTANT: you MUST NOT add the generic 'div[role="button"][class*="ds-button--primary"]'
-// here — it matches the send button, which is always visible, and then
-// _isGenerating() always returns true, so the answer is never considered ready.
-const STOP_SELECTORS = [
-  'div[role="button"][aria-label*="stop" i]',
-  'div[role="button"][aria-label*="останов" i]',
-  'button:has-text("Stop")',
-  'button:has-text("Остановить")',
-  'button[aria-label*="Stop" i]',
-]
-
-// Accessible name of the Stop button, for a TRUSTED Playwright click. It is a
-// bare stop word (optionally with a short suffix), anchored and length-limited
-// so a "Stop" inside rendered prose is never clicked.
-export const STOP_NAME_RE = /^(?:stop|остановить)(?:\s+\S{0,20})?\s*[.!…]?$/i
-
-// DeepSeek's "Continue" button. With the reasoning ("Deep thinking") toggle
-// on, the server caps the THINK phase: the reasoning stops mid-way and the UI
-// offers a Continue button (this is NOT the same as a truncated turn with
-// generation_err — there the answer failed; here the model simply paused).
-// The agent must click it so the reasoning/answer keeps flowing, otherwise the
-// turn sits idle until the operator presses Continue by hand.
-//
-// The button is found by Playwright's accessible name (getByRole) with an
-// EXACT match, falling back to a raw DOM scan. The class names change between
-// builds, so we do not rely on them.
-// Reasoning (Deep thinking) mode uses a LONGER label: the server pauses the
-// THINK phase and offers «Продолжить размышление» / «Continue thinking», NOT a
-// bare «Continue». The old exact list missed those, so with thinking ON the
-// button was never found — neither for the auto-click NOR for the "is the turn
-// paused?" guard — and the operator had to press it by hand.
-//
-// We match the accessible name with a REGEX: a bare continue word OR the same
-// word followed by a short reasoning/answer suffix. It is anchored and
-// length-limited, so a "Continue" inside rendered prose is never clicked (the
-// old non-exact `getByRole` matched any button CONTAINING the word).
-export const CONTINUE_NAME_RE =
-  /^(?:continue|продолжить|продолжение)(?:\s+(?:think(?:ing)?|reason(?:ing)?|размышлени[ея]|генераци[юя]|ответ))?\s*[.!…]?$/i
-
-// DeepSeek UI service statuses that are NOT the model's answer.
-// Otherwise the agent takes a status (Reading...) for an answer and breaks parsing.
-const STATUS_RE =
-  /^(reading|thinking|searching|analyzing|generating|stop|остановить|читаю|думаю|поиск|анализ)[\s.…]*$/i
-
-// DeepSeek's answer when the rate limit is exceeded.
-//
-// IMPORTANT: the generic "try again later" / "повторите позже" tail is NOT
-// part of this pattern. DeepSeek appends it to MANY toasts ("Server busy.
-// Try again later.", "Service unavailable. Try again later."), so matching it
-// here classified every server hiccup as a RATE LIMIT and sent the agent into
-// a 5-minute wait (and, after the finish-loop stopped reading toasts every
-// tick, looked like "the agent hung"). The rate limit is recognized by its
-// specific wording only.
-const RATE_LIMIT_RE =
-  /(messages? too frequent|too many requests|rate limit|слишком часто|сообщени[яе] слишком част)/i
-
-// Transient server-side hiccups (DeepSeek overloaded / hiccup). Unlike the
-// rate limit, these usually clear in seconds, so we retry quickly instead of
-// waiting minutes. "Server busy", 503, "temporarily unavailable", etc.
-const SERVER_BUSY_RE =
-  /(server (is )?busy|server error|service (is )?unavailable|temporarily unavailable|internal server error|502|503|504|server overloaded|сервер занят|сервер перегружен|сервис недоступен|внутренняя ошибка|попробуйте позже)/i
-
-// DeepSeek turns a generation that FAILED mid-way into a truncated turn
-// (`quasi_status: INCOMPLETE` + `finish_reason: generation_err`) and shows a
-// "Continue" button in the UI. The failure is invisible to the answer text:
-// the DOM keeps the partial answer (often the previous one), so the finish
-// loop used to wait out the whole timeout and throw ds.send_no_new_answer.
-// The SSE body IS available (net-capture keeps it as `_netCapture`), so we
-// recognize the failed/truncated turn from it and retry instead of hanging.
-const GENERATION_ERR_RE = /"finish_reason":\s*"generation_err"/i
-const INCOMPLETE_STATUS_RE = /"quasi_status","v":"INCOMPLETE"/i
 
 export function isGenerationIncompleteText(text: string): boolean {
   const t = String(text || '')
@@ -905,7 +818,7 @@ export class DeepSeekBrowser {
       // capture assignment to those URLs: a future endpoint returning a
       // `content`/`text`/`response` string must not clobber the answer and
       // look fresh (it would be returned as the final answer).
-      const isAnswerUrl = /chat\/(completion|continue)/i.test(url)
+      const isAnswerUrl = ANSWER_URL_RE.test(url)
       const extracted = extractAnswer(body)
       if (extracted && isAnswerUrl) {
         this._netCapture = extracted
@@ -1226,8 +1139,8 @@ export class DeepSeekBrowser {
     // Click exactly the one whose visible label is a login word, so we never
     // hit "Log in with Google" or another primary button by mistake.
     const precise = this.page
-      .locator('div[role="button"].ds-button--primary, button')
-      .filter({ hasText: /^\s*(log ?in|sign ?in|войти)\s*$/i })
+      .locator(LOGIN_BUTTON_SELECTOR)
+      .filter({ hasText: LOGIN_NAME_RE })
     const pc = await precise.count().catch(() => 0)
     if (pc > 0) {
       try {
@@ -1248,37 +1161,44 @@ export class DeepSeekBrowser {
 
     // Button inside the same form as the password field.
     const formClicked = await this.page
-      .evaluate((pwdSel: string) => {
-        const p = document.querySelector(pwdSel) as HTMLInputElement | null
-        if (!p) return false
-        const form = p.closest('form')
-        const scope: ParentNode = form || document
-        const btns = Array.from(
-          scope.querySelectorAll(
-            'button[type="submit"], button, div[role="button"]',
-          ),
-        ) as HTMLElement[]
-        for (const b of btns) {
-          const txt = (b.textContent || '').trim().toLowerCase()
-          const aria = (b.getAttribute('aria-label') || '').toLowerCase()
-          if (
-            /log ?in|sign ?in|войти|continue|продолж/.test(txt + ' ' + aria)
-          ) {
-            b.click()
+      .evaluate(
+        (opts: { pwdSel: string; submitRe: string }) => {
+          const loginRe = new RegExp(opts.submitRe, 'i')
+          const p = document.querySelector(
+            opts.pwdSel,
+          ) as HTMLInputElement | null
+          if (!p) return false
+          const form = p.closest('form')
+          const scope: ParentNode = form || document
+          const btns = Array.from(
+            scope.querySelectorAll(
+              'button[type="submit"], button, div[role="button"]',
+            ),
+          ) as HTMLElement[]
+          for (const b of btns) {
+            const txt = (b.textContent || '').trim().toLowerCase()
+            const aria = (b.getAttribute('aria-label') || '').toLowerCase()
+            if (loginRe.test(txt + ' ' + aria)) {
+              b.click()
+              return true
+            }
+          }
+          // Fallback: the primary-looking button in the scope.
+          const primary = btns.find((b) => {
+            const cls = (b.className || '').toString()
+            return /primary|submit|ds-button--primary/i.test(cls)
+          })
+          if (primary) {
+            primary.click()
             return true
           }
-        }
-        // Fallback: the primary-looking button in the scope.
-        const primary = btns.find((b) => {
-          const cls = (b.className || '').toString()
-          return /primary|submit|ds-button--primary/i.test(cls)
-        })
-        if (primary) {
-          primary.click()
-          return true
-        }
-        return false
-      }, PASSWORD_SELECTORS[0])
+          return false
+        },
+        {
+          pwdSel: PASSWORD_SELECTORS[0],
+          submitRe: LOGIN_FORM_SUBMIT_RE.source,
+        },
+      )
       .catch(() => false)
     if (formClicked && (await tryLogin())) return true
 
@@ -1437,37 +1357,42 @@ export class DeepSeekBrowser {
   // call". The DOM reader has no such self-comparison problem: before the
   // send the DOM shows the OLD answer, after it the NEW one.
   async _readLastAnswerTextDom(): Promise<string> {
-    return await this.page.evaluate((sels: string[]) => {
-      // DeepSeek stores the model's reasoning in .ds-think-content blocks.
-      // They are NOT the answer and must never be picked up as the answer
-      // (otherwise the terminal would show the long reasoning). We also
-      // prefer the first (most specific) selector with a hit.
-      const inThink = (e: Element | null): boolean => {
-        let n: Element | null = e
-        while (n) {
-          const cls = (n.className || '').toString()
-          if (/ds-think-content|thinking-content/i.test(cls)) return true
-          n = n.parentElement
+    return await this.page.evaluate(
+      (opts: { sels: string[]; thinkRe: string }) => {
+        const sels = opts.sels
+        // DeepSeek stores the model's reasoning in think blocks (THINK_CLASS_RE).
+        // They are NOT the answer and must never be picked up as the answer
+        // (otherwise the terminal would show the long reasoning). We also
+        // prefer the first (most specific) selector with a hit.
+        const think = new RegExp(opts.thinkRe, 'i')
+        const inThink = (e: Element | null): boolean => {
+          let n: Element | null = e
+          while (n) {
+            const cls = (n.className || '').toString()
+            if (think.test(cls)) return true
+            n = n.parentElement
+          }
+          return false
         }
-        return false
-      }
-      let el: HTMLElement | null = null
-      for (const s of sels) {
-        const list = document.querySelectorAll(s)
-        if (!list.length) continue
-        for (let i = list.length - 1; i >= 0; i--) {
-          const cand = list[i] as HTMLElement
-          if (inThink(cand)) continue
-          el = cand
-          break
+        let el: HTMLElement | null = null
+        for (const s of sels) {
+          const list = document.querySelectorAll(s)
+          if (!list.length) continue
+          for (let i = list.length - 1; i >= 0; i--) {
+            const cand = list[i] as HTMLElement
+            if (inThink(cand)) continue
+            el = cand
+            break
+          }
+          if (el) break
         }
-        if (el) break
-      }
-      if (!el) return ''
-      const out: string = el.innerText || el.textContent || ''
-      const NL = String.fromCharCode(10)
-      return out.replace(new RegExp(NL + '{3,}', 'g'), NL + NL).trim()
-    }, ANSWER_SELECTORS)
+        if (!el) return ''
+        const out: string = el.innerText || el.textContent || ''
+        const NL = String.fromCharCode(10)
+        return out.replace(new RegExp(NL + '{3,}', 'g'), NL + NL).trim()
+      },
+      { sels: ANSWER_SELECTORS, thinkRe: THINK_CLASS_RE.source },
+    )
   }
 
   // We read ONLY visible toasts/notifications, not the whole page text.
@@ -1523,13 +1448,14 @@ export class DeepSeekBrowser {
     const explicit = await this._findVisible(STOP_SELECTORS, 250)
     if (explicit) return true
     return await this.page
-      .evaluate(() => {
+      .evaluate((btnRe: string) => {
+        const re = new RegExp(btnRe, 'i')
         const btns = Array.from(
           document.querySelectorAll('div[role="button"], button'),
         ) as HTMLElement[]
         for (const b of btns) {
           const cls = (b.className || '').toString()
-          if (!/ds-button--(circle|primary|filled)/i.test(cls)) continue
+          if (!re.test(cls)) continue
           const label = (
             (b.getAttribute('aria-label') || '') +
             ' ' +
@@ -1543,7 +1469,7 @@ export class DeepSeekBrowser {
           if (svg && svg.querySelector('rect')) return true
         }
         return false
-      })
+      }, BUTTON_CLASS_RE.source)
       .catch(() => false)
   }
 
@@ -1559,18 +1485,19 @@ export class DeepSeekBrowser {
   // all we need to tell "the page grew / a new answer is streaming".
   async _chatSignal(): Promise<{ nodes: number; lastLen: number }> {
     return await this.page
-      .evaluate(() => {
-        const nodes = document.querySelectorAll(
-          '[class*="ds-message"], [class*="chat-message"], .ds-markdown',
-        ).length
-        let lastLen = 0
-        const answers = document.querySelectorAll('.ds-markdown')
-        if (answers.length) {
-          const lastEl = answers[answers.length - 1] as HTMLElement
-          lastLen = (lastEl.innerText || '').length
-        }
-        return { nodes, lastLen }
-      })
+      .evaluate(
+        (opts: { nodesSel: string; mdSel: string }) => {
+          const nodes = document.querySelectorAll(opts.nodesSel).length
+          let lastLen = 0
+          const answers = document.querySelectorAll(opts.mdSel)
+          if (answers.length) {
+            const lastEl = answers[answers.length - 1] as HTMLElement
+            lastLen = (lastEl.innerText || '').length
+          }
+          return { nodes, lastLen }
+        },
+        { nodesSel: CHAT_SIGNAL_NODES_SELECTOR, mdSel: MARKDOWN_SELECTOR },
+      )
       .catch(() => ({ nodes: 0, lastLen: 0 }))
   }
 
@@ -1582,9 +1509,8 @@ export class DeepSeekBrowser {
   // HITS do we run the full scan to get a clickable Locator.
   async _continueVisibleCheap(): Promise<boolean> {
     return await this.page
-      .evaluate(() => {
-        const re =
-          /^(?:continue|продолжить|продолжение)(?:\s+(?:think(?:ing)?|reason(?:ing)?|размышлени[ея]|генераци[юя]|ответ))?\s*[.!…]?$/i
+      .evaluate((nameRe: string) => {
+        const re = new RegExp(nameRe, 'i')
         const cands = Array.from(
           document.querySelectorAll('div[role="button"], button'),
         ) as HTMLElement[]
@@ -1603,7 +1529,7 @@ export class DeepSeekBrowser {
           if (r.width > 0 && r.height > 0) return true
         }
         return false
-      })
+      }, CONTINUE_NAME_RE.source)
       .catch(() => false)
   }
 
@@ -1785,28 +1711,44 @@ export class DeepSeekBrowser {
   // so we match by a loose regex on the visible text and read the state from
   // aria-pressed. We click ONLY when the state differs, so a send does not
   // flip a toggle the operator set by hand.
+  // Find the toggle button whose label matches `labelRe`. Tries the class
+  // anchor first, then the semantic fallbacks (see TOGGLE_SELECTORS) so a
+  // renamed `ds-toggle-button` class does not silently disable the toggles.
+  async _findToggle(
+    labelRe: RegExp,
+  ): Promise<{ loc: Locator; pressed: boolean } | null> {
+    for (const sel of TOGGLE_SELECTORS) {
+      try {
+        const btns = this.page.locator(sel)
+        const count = await btns.count().catch(() => 0)
+        for (let i = 0; i < count; i++) {
+          const b = btns.nth(i)
+          const txt = ((await b.textContent().catch(() => '')) || '').trim()
+          if (!labelRe.test(txt)) continue
+          const pressed =
+            (await b.getAttribute('aria-pressed').catch(() => null)) === 'true'
+          return { loc: b, pressed }
+        }
+      } catch {}
+    }
+    return null
+  }
+
   async _setToggle(labelRe: RegExp, want: boolean): Promise<void> {
     try {
-      const btns = this.page.locator('.ds-toggle-button')
-      const count = await btns.count().catch(() => 0)
-      for (let i = 0; i < count; i++) {
-        const b = btns.nth(i)
-        const txt = ((await b.textContent().catch(() => '')) || '').trim()
-        if (!labelRe.test(txt)) continue
-        const pressed =
-          (await b.getAttribute('aria-pressed').catch(() => null)) === 'true'
-        if (pressed !== want) {
-          await b.click({ timeout: 2000 }).catch(() => {})
-          await this.page.waitForTimeout(150)
-        }
-        return
+      const found = await this._findToggle(labelRe)
+      if (!found) return
+      if (found.pressed !== want) {
+        await found.loc.click({ timeout: 2000 }).catch(() => {})
+        await this.page.waitForTimeout(150)
       }
+      return
     } catch {}
   }
 
   async _applyToggles(): Promise<void> {
-    await this._setToggle(/глубок|deep\s*think/i, this.deepThinking)
-    await this._setToggle(/поиск|search/i, this.webSearch)
+    await this._setToggle(DEEP_THINKING_RE, this.deepThinking)
+    await this._setToggle(WEB_SEARCH_RE, this.webSearch)
     this._toggles = await this.getToggleStates()
   }
 
@@ -1837,22 +1779,14 @@ export class DeepSeekBrowser {
       fallback: boolean,
     ): Promise<boolean> => {
       try {
-        const btns = this.page.locator('.ds-toggle-button')
-        const count = await btns.count().catch(() => 0)
-        for (let i = 0; i < count; i++) {
-          const b = btns.nth(i)
-          const txt = ((await b.textContent().catch(() => '')) || '').trim()
-          if (!labelRe.test(txt)) continue
-          return (
-            (await b.getAttribute('aria-pressed').catch(() => null)) === 'true'
-          )
-        }
+        const found = await this._findToggle(labelRe)
+        if (found) return found.pressed
       } catch {}
       return fallback
     }
     return {
-      deepThinking: await read(/глубок|deep\s*think/i, this.deepThinking),
-      webSearch: await read(/поиск|search/i, this.webSearch),
+      deepThinking: await read(DEEP_THINKING_RE, this.deepThinking),
+      webSearch: await read(WEB_SEARCH_RE, this.webSearch),
     }
   }
 
@@ -1891,13 +1825,14 @@ export class DeepSeekBrowser {
     // 3) Raw DOM scan + the full pointer/mouse sequence (older builds without
     //    a proper role, or a click intercepted by an overlay).
     const clicked = await this.page
-      .evaluate(() => {
+      .evaluate((btnRe: string) => {
+        const re = new RegExp(btnRe, 'i')
         const btns = Array.from(
           document.querySelectorAll('div[role="button"], button'),
         ) as HTMLElement[]
         for (const b of btns) {
           const cls = (b.className || '').toString()
-          if (!/ds-button--(circle|primary|filled)/i.test(cls)) continue
+          if (!re.test(cls)) continue
           const svg = b.querySelector('svg')
           if (svg && svg.querySelector('rect')) {
             for (const type of [
@@ -1916,7 +1851,7 @@ export class DeepSeekBrowser {
           }
         }
         return false
-      })
+      }, BUTTON_CLASS_RE.source)
       .catch(() => false)
     if (clicked) return true
     try {
@@ -2247,15 +2182,7 @@ export class DeepSeekBrowser {
 
     // Preferred path: click the attach button and let the file chooser event
     // carry the files. This is how a real user attaches a file and it reliably
-    // triggers DeepSeek's upload handler.
-    const ATTACH_SELECTORS = [
-      'div[role="button"][aria-label*="attach" i]',
-      'div[role="button"][aria-label*="влож" i]',
-      'button[aria-label*="attach" i]',
-      'button[aria-label*="влож" i]',
-      '[class*="upload"]',
-      '[class*="attach"]',
-    ]
+    // triggers DeepSeek's upload handler. See ATTACH_SELECTORS in deepseek-ui.ts.
     for (const sel of ATTACH_SELECTORS) {
       const btn = this.page.locator(sel).last()
       try {
@@ -3000,15 +2927,25 @@ export class DeepSeekBrowser {
     return { file: filePath, selectors: report }
   }
 
+  // A cheap "can the agent still drive this page?" probe for /doctor and
+  // startup. See ui-health.ts: it probes the ALWAYS-present controls (input,
+  // send, toggles, new-chat) and reports the missing ones, so a DeepSeek
+  // redesign surfaces as a clear message BEFORE a task hangs on it. Never
+  // throws — a dead page reports every capability missing.
+  async probeUiHealth(): Promise<UiHealthResult> {
+    if (!this.page) {
+      return { ok: false, present: [], missing: [], missingCritical: [] }
+    }
+    const page: UiProbePage = {
+      count: (sel) => this.page.locator(sel).count(),
+      countByText: (sel, textRe) =>
+        this.page.locator(sel).filter({ hasText: textRe }).count(),
+    }
+    return await probeUiHealth(page)
+  }
+
   async _ensureSidebarOpen(): Promise<void> {
-    const toggles = [
-      'button[aria-label*="sidebar" i]',
-      'button[aria-label*="история" i]',
-      'button[aria-label*="history" i]',
-      'button[class*="sidebar-toggle"]',
-      'button[class*="sidebarToggle"]',
-    ]
-    for (const sel of toggles) {
+    for (const sel of SIDEBAR_TOGGLE_SELECTORS) {
       try {
         const btn = this.page.locator(sel).first()
         if ((await btn.count()) === 0) continue
@@ -3069,7 +3006,7 @@ export class DeepSeekBrowser {
     }
 
     try {
-      await this.page.goto(`https://chat.deepseek.com/a/chat/s/${id}`, {
+      await this.page.goto(chatUrl(id), {
         waitUntil: 'domcontentloaded',
         timeout: 20_000,
       })
@@ -3115,10 +3052,16 @@ export class DeepSeekBrowser {
     const pow = this._apiPow
     const res = await this.page
       .evaluate(
-        async (opts: { chatId: string; auth: string; pow: string }) => {
+        async (opts: {
+          chatId: string
+          auth: string
+          pow: string
+          historyUrl: string
+        }) => {
           try {
             const url =
-              'https://chat.deepseek.com/api/v0/chat/history_messages?chat_session_id=' +
+              opts.historyUrl +
+              '?chat_session_id=' +
               encodeURIComponent(opts.chatId)
             const headers: Record<string, string> = {
               accept: 'application/json',
@@ -3162,7 +3105,7 @@ export class DeepSeekBrowser {
             return { error: 'fetch failed: ' + (e as Error).message, list: [] }
           }
         },
-        { chatId: id, auth, pow },
+        { chatId: id, auth, pow, historyUrl: HISTORY_MESSAGES_URL },
       )
       .catch((e) => ({
         error: 'evaluate failed: ' + (e as Error).message,
@@ -3180,8 +3123,7 @@ export class DeepSeekBrowser {
     this._lastHistoryError = res.error
     try {
       const resp = await this.page.request.get(
-        'https://chat.deepseek.com/api/v0/chat/history_messages?chat_session_id=' +
-          encodeURIComponent(id),
+        HISTORY_MESSAGES_URL + '?chat_session_id=' + encodeURIComponent(id),
         { headers: { accept: 'application/json' } },
       )
       if (!resp.ok()) return list
@@ -3231,98 +3173,107 @@ export class DeepSeekBrowser {
   async readChatMessages(): Promise<ChatMessage[]> {
     if (!this.page) return []
     const raw = await this.page
-      .evaluate(() => {
-        const inThink = (e: Element | null): boolean => {
-          let n: Element | null = e
-          while (n) {
-            const cls = (n.className || '').toString()
-            if (/ds-think-content|thinking-content/i.test(cls)) return true
-            n = n.parentElement
+      .evaluate(
+        (opts: {
+          containerSels: string[]
+          answerSels: string[]
+          thinkRe: string
+          assistantRe: string
+          assistantSel: string
+          markdownSel: string
+        }) => {
+          const think = new RegExp(opts.thinkRe, 'i')
+          const assistantRe = new RegExp(opts.assistantRe, 'i')
+          const inThink = (e: Element | null): boolean => {
+            let n: Element | null = e
+            while (n) {
+              const cls = (n.className || '').toString()
+              if (think.test(cls)) return true
+              n = n.parentElement
+            }
+            return false
           }
-          return false
-        }
-        const textOf = (e: Element): string => {
-          const h = e as HTMLElement
-          const t = h.innerText || h.textContent || ''
-          const NL = String.fromCharCode(10)
-          return t.replace(new RegExp(NL + '{3,}', 'g'), NL + NL).trim()
-        }
+          const textOf = (e: Element): string => {
+            const h = e as HTMLElement
+            const t = h.innerText || h.textContent || ''
+            const NL = String.fromCharCode(10)
+            return t.replace(new RegExp(NL + '{3,}', 'g'), NL + NL).trim()
+          }
 
-        // A message block is "assistant" when it contains an answer markdown
-        // wrapper (ds-markdown / ds-assistant-message), otherwise it is a
-        // user bubble. DeepSeek's class names drift between builds, so the
-        // detection is content-based, not class-prefix-based.
-        const looksAssistant = (e: Element): boolean => {
-          const cls = (e.className || '').toString()
-          if (/ds-assistant-message|assistant-message/i.test(cls)) return true
-          if (e.querySelector('[class*="ds-assistant-message"]')) return true
-          // A user bubble has no rendered markdown; an answer does.
-          if (e.querySelector('[class*="ds-markdown"]')) return true
-          return false
-        }
+          // A message block is "assistant" when it contains an answer markdown
+          // wrapper (ds-markdown / ds-assistant-message), otherwise it is a
+          // user bubble. DeepSeek's class names drift between builds, so the
+          // detection is content-based, not class-prefix-based.
+          const looksAssistant = (e: Element): boolean => {
+            const cls = (e.className || '').toString()
+            if (assistantRe.test(cls)) return true
+            if (e.querySelector(opts.assistantSel)) return true
+            // A user bubble has no rendered markdown; an answer does.
+            if (e.querySelector(opts.markdownSel)) return true
+            return false
+          }
 
-        // Message-level containers first (broad), then the answer wrappers.
-        const containerSels = [
-          '[data-message-id]',
-          '[class*="ds-message"]',
-          '[class*="chat-message"]',
-          '[class*="message-item"]',
-          '[class*="_message"]',
-        ]
-        let blocks: Element[] = []
-        for (const s of containerSels) {
-          const found = Array.from(document.querySelectorAll(s)).filter(
-            (e) => !inThink(e) && textOf(e).length > 0,
-          )
-          if (found.length) {
-            blocks = found
+          // Message-level containers first (broad), then the answer wrappers.
+          // See MESSAGE_CONTAINER_SELECTORS in deepseek-ui.ts.
+          let blocks: Element[] = []
+          for (const s of opts.containerSels) {
+            const found = Array.from(document.querySelectorAll(s)).filter(
+              (e) => !inThink(e) && textOf(e).length > 0,
+            )
+            if (found.length) {
+              blocks = found
+              break
+            }
+          }
+          // De-duplicate by node identity and drop a block that is NESTED
+          // inside another block. Some builds match both an outer message
+          // container and an inner one; without this the restored dialogue
+          // printed each turn twice. We keep only the OUTERMOST blocks.
+          if (blocks.length > 1) {
+            const unique = Array.from(new Set(blocks))
+            blocks = unique.filter(
+              (b) => !unique.some((other) => other !== b && other.contains(b)),
+            )
+          }
+
+          const out: Array<{ role: string; text: string }> = []
+          if (blocks.length) {
+            for (const b of blocks) {
+              const t = textOf(b)
+              if (!t) continue
+              out.push({
+                role: looksAssistant(b) ? 'assistant' : 'user',
+                text: t,
+              })
+            }
+            if (out.length) return out
+          }
+
+          // Last resort: assistant answers only (no user turns) — better than
+          // nothing when no message container matched.
+          // See RESTORE_ANSWER_SELECTORS in deepseek-ui.ts.
+          for (const s of opts.answerSels) {
+            const list = Array.from(document.querySelectorAll(s)).filter(
+              (e) => !inThink(e),
+            )
+            if (!list.length) continue
+            for (const el of list) {
+              const t = textOf(el)
+              if (t) out.push({ role: 'assistant', text: t })
+            }
             break
           }
-        }
-        // De-duplicate by node identity and drop a block that is NESTED
-        // inside another block. Some builds match both an outer message
-        // container and an inner one; without this the restored dialogue
-        // printed each turn twice. We keep only the OUTERMOST blocks.
-        if (blocks.length > 1) {
-          const unique = Array.from(new Set(blocks))
-          blocks = unique.filter(
-            (b) => !unique.some((other) => other !== b && other.contains(b)),
-          )
-        }
-
-        const out: Array<{ role: string; text: string }> = []
-        if (blocks.length) {
-          for (const b of blocks) {
-            const t = textOf(b)
-            if (!t) continue
-            out.push({
-              role: looksAssistant(b) ? 'assistant' : 'user',
-              text: t,
-            })
-          }
-          if (out.length) return out
-        }
-
-        // Last resort: assistant answers only (no user turns) — better than
-        // nothing when no message container matched.
-        const sels = [
-          'div.ds-assistant-message-main-content',
-          'div[class*="ds-assistant-message-main-content"]',
-          'div[class*="ds-markdown"]',
-        ]
-        for (const s of sels) {
-          const list = Array.from(document.querySelectorAll(s)).filter(
-            (e) => !inThink(e),
-          )
-          if (!list.length) continue
-          for (const el of list) {
-            const t = textOf(el)
-            if (t) out.push({ role: 'assistant', text: t })
-          }
-          break
-        }
-        return out
-      })
+          return out
+        },
+        {
+          containerSels: MESSAGE_CONTAINER_SELECTORS,
+          answerSels: RESTORE_ANSWER_SELECTORS,
+          thinkRe: THINK_CLASS_RE.source,
+          assistantRe: ASSISTANT_CLASS_RE.source,
+          assistantSel: ASSISTANT_SELECTOR,
+          markdownSel: ANSWER_MARKDOWN_SELECTOR,
+        },
+      )
       .catch(() => [] as ChatMessage[])
     return raw as ChatMessage[]
   }
@@ -3330,7 +3281,7 @@ export class DeepSeekBrowser {
   async getCurrentChatId(): Promise<string | null> {
     try {
       const url = this.page.url()
-      const m = url.match(/\/chat\/s\/([a-zA-Z0-9_-]+)/)
+      const m = url.match(CHAT_ID_RE)
       if (m) return m[1]
       return this._netChatId
     } catch {
