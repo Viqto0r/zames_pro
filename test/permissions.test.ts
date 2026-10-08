@@ -71,6 +71,41 @@ test('decidePermission matches a path rule', () => {
   )
 })
 
+test('decidePermission extracts ApplyPatch paths from the patch body', () => {
+  // N11: ApplyPatch keeps paths INSIDE the patch text, so a `{path: ...}` rule
+  // used to silently miss it — the operator thought a path was protected.
+  const policy = parsePermissions({
+    rules: [{ tool: '^ApplyPatch$', path: '^\\/etc\\/', action: 'deny' }],
+  })
+  const patch =
+    '*** Begin Patch\n*** Update File: /etc/hosts\n@@\n-a\n+b\n*** End Patch'
+  assert.equal(decidePermission(policy, 'ApplyPatch', { patch }).action, 'deny')
+  const safePatch =
+    '*** Begin Patch\n*** Update File: src/a.ts\n@@\n-a\n+b\n*** End Patch'
+  assert.equal(
+    decidePermission(policy, 'ApplyPatch', { patch: safePatch }).action,
+    'allow',
+  )
+})
+
+test('decidePermission sees paths in arbitrary MCP tool arguments', () => {
+  // N11: MCP tools take arbitrary arg names from their JSON Schema; a path
+  // rule must still catch a path-looking value.
+  const policy = parsePermissions({
+    rules: [{ path: '^\\/etc\\/', action: 'deny' }],
+  })
+  assert.equal(
+    decidePermission(policy, 'srv__write_file', { target: '/etc/passwd' })
+      .action,
+    'deny',
+  )
+  assert.equal(
+    decidePermission(policy, 'srv__write_file', { target: '/tmp/ok.txt' })
+      .action,
+    'allow',
+  )
+})
+
 test('decidePermission honors the default action', () => {
   const policy = parsePermissions({ default: 'deny' })
   assert.ok(policy)

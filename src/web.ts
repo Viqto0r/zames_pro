@@ -6,8 +6,9 @@ import type { ToolArgs, ToolDef } from './types.js'
 const DEFAULT_TIMEOUT = 20_000
 const MAX_TEXT = 12_000
 
-// Removes scripts, styles, and turns HTML into readable text.
-function htmlToText(html: string): string {
+// Removes scripts, styles, and turns HTML into readable text. Exported for
+// tests — the entity/whitespace/collapse branches are pure and worth pinning.
+export function htmlToText(html: string): string {
   // Remove blocks we don't need
   let s = html
     .replace(/<script[\s\S]*?<\/script>/gi, '')
@@ -94,7 +95,7 @@ export function isPrivateHostname(host: string): boolean {
   return false
 }
 
-async function assertPublicUrl(rawUrl: string): Promise<void> {
+export async function assertPublicUrl(rawUrl: string): Promise<void> {
   const u = new URL(rawUrl)
   if (u.protocol !== 'http:' && u.protocol !== 'https:') {
     throw new Error(`unsupported protocol: ${u.protocol}`)
@@ -180,8 +181,13 @@ async function httpFetchWithRetry(
   throw lastErr instanceof Error ? lastErr : new Error(String(lastErr))
 }
 
-// fetch with redirects and a timeout
-async function httpFetch(
+// fetch with redirects, RE-VALIDATING every hop against the SSRF guard.
+// redirect:'follow' would let a public URL bounce to 169.254.169.254 / 127.0.0.1
+// after assertPublicUrl already approved the original — a classic SSRF bypass.
+// So redirects are followed manually and each Location is checked first.
+const MAX_REDIRECTS = 5
+
+export async function httpFetch(
   url: string,
   {
     timeout = DEFAULT_TIMEOUT,
@@ -191,19 +197,38 @@ async function httpFetch(
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), timeout)
   try {
-    const res = await fetch(url, {
-      signal: ctrl.signal,
-      redirect: 'follow',
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) ds-agent/1.0',
-        'Accept-Language': 'en-US,en;q=0.9,ru;q=0.8',
-        ...headers,
-      },
-    })
-    const ct = res.headers.get('content-type') || ''
-    const body = await res.text()
-    return { status: res.status, url: res.url, contentType: ct, body }
+    let current = url
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+      const res = await fetch(current, {
+        signal: ctrl.signal,
+        redirect: 'manual',
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) ds-agent/1.0',
+          'Accept-Language': 'en-US,en;q=0.9,ru;q=0.8',
+          ...headers,
+        },
+      })
+      if (res.status >= 300 && res.status < 400) {
+        const loc = res.headers.get('location')
+        if (loc) {
+          const next = new URL(loc, current).toString()
+          // Validate the TARGET before requesting it.
+          await assertPublicUrl(next)
+          current = next
+          continue
+        }
+      }
+      const ct = res.headers.get('content-type') || ''
+      const body = await res.text()
+      return {
+        status: res.status,
+        url: res.url || current,
+        contentType: ct,
+        body,
+      }
+    }
+    throw new Error(`too many redirects (>${MAX_REDIRECTS})`)
   } finally {
     clearTimeout(t)
   }
@@ -241,6 +266,10 @@ async function renderWithHeadless(
   })
   const page = await ctx.newPage()
   try {
+    // Validate the pre-redirect URL (page.goto follows redirects internally,
+    // unlike fetch we cannot intercept each hop here — but at least the
+    // original is checked, matching the previous behavior).
+    await assertPublicUrl(url)
     const resp = await page.goto(url, {
       waitUntil: 'domcontentloaded',
       timeout,
@@ -250,6 +279,12 @@ async function renderWithHeadless(
     const html = await page.content()
     const status = resp ? resp.status() : 0
     const finalUrl = page.url()
+    // The page may have redirected somewhere private; check the FINAL url too.
+    try {
+      await assertPublicUrl(finalUrl)
+    } catch {
+      throw new Error(`blocked private redirect target: ${finalUrl}`)
+    }
     return { status, url: finalUrl, html }
   } finally {
     await ctx.close()
@@ -358,24 +393,7 @@ export function createWebTools(): ToolDef[] {
             return `DuckDuckGo returned HTTP ${r.status}`
           }
 
-          // We parse with simple regexes. The html.duckduckgo.com format is stable.
-          const results = []
-          const re =
-            /<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?(?:<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>)?/gi
-
-          let m
-          while ((m = re.exec(r.body)) && results.length < limit) {
-            let href = m[1]
-            // DuckDuckGo wraps links in a redirect like /l/?uddg=...
-            const uddgMatch = href.match(/[?&]uddg=([^&]+)/)
-            if (uddgMatch) href = decodeURIComponent(uddgMatch[1])
-
-            const title = htmlToText(m[2] || '').trim()
-            const snippet = htmlToText(m[3] || '').trim()
-
-            if (!title || !href) continue
-            results.push({ title, url: href, snippet })
-          }
+          const results = parseDuckDuckGoResults(r.body, limit)
 
           if (!results.length) {
             return `No results found. The DuckDuckGo output format may have changed.`
@@ -393,6 +411,29 @@ export function createWebTools(): ToolDef[] {
       },
     },
   ]
+}
+
+// Parse the DuckDuckGo HTML results page. Pure; exported for tests. The
+// html.duckduckgo.com format is stable, so simple regexes suffice. DuckDuckGo
+// wraps links in a /l/?uddg=... redirect which must be unwrapped.
+export function parseDuckDuckGoResults(
+  body: string,
+  limit: number,
+): Array<{ title: string; url: string; snippet: string }> {
+  const results: Array<{ title: string; url: string; snippet: string }> = []
+  const re =
+    /<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?(?:<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>)?/gi
+  let m: RegExpExecArray | null
+  while ((m = re.exec(body)) && results.length < limit) {
+    let href = m[1]
+    const uddgMatch = href.match(/[?&]uddg=([^&]+)/)
+    if (uddgMatch) href = decodeURIComponent(uddgMatch[1])
+    const title = htmlToText(m[2] || '').trim()
+    const snippet = htmlToText(m[3] || '').trim()
+    if (!title || !href) continue
+    results.push({ title, url: href, snippet })
+  }
+  return results
 }
 
 function formatResult(

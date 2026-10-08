@@ -104,6 +104,48 @@ function safeRegex(source: string): RegExp | null {
 // We collect them all and match the path regex against ANY of them.
 const PATH_KEYS = ['path', 'file_path', 'notebook_path', 'from', 'to']
 
+// Best-effort check whether a string looks like a filesystem path. Used for
+// tools whose arguments are not covered by PATH_KEYS (MCP tools take arbitrary
+// arg names from their JSON Schema), so a `path` rule is not silently
+// bypassed just because the tool named the field differently.
+function looksLikePath(v: string): boolean {
+  return /[\\/]/.test(v) || /^\.[.\\/]/.test(v) || /^[A-Za-z]:[\\/]/.test(v)
+}
+
+// Collect every path-ish string from a tool call's arguments. ApplyPatch keeps
+// the paths INSIDE the patch text (not in a `path` key), and MCP tools use
+// arbitrary names; both used to slip past a `{path: ...}` rule.
+export function collectPathCandidates(
+  tool: string,
+  args: ToolArgs | undefined,
+): string[] {
+  const a = (args ?? {}) as Record<string, unknown>
+  const out: string[] = []
+  for (const k of PATH_KEYS) {
+    if (typeof a[k] === 'string') out.push(a[k] as string)
+  }
+  if (tool === 'ApplyPatch') {
+    // Parse the patch and pull the file headers out of it.
+    const text =
+      typeof a['patch'] === 'string'
+        ? (a['patch'] as string)
+        : typeof a['patch_base64'] === 'string'
+          ? Buffer.from(a['patch_base64'] as string, 'base64').toString('utf-8')
+          : ''
+    const re = /^\*\*\*\s*(?:Add|Update|Delete) File:\s*(.+?)\s*$/gm
+    let m: RegExpExecArray | null
+    while ((m = re.exec(text))) out.push(m[1])
+  }
+  // MCP tools (and any unknown tool): scan the string values for path-looking
+  // entries. Conservative — only values that clearly look like paths.
+  if (tool.includes('__')) {
+    for (const v of Object.values(a)) {
+      if (typeof v === 'string' && looksLikePath(v)) out.push(v)
+    }
+  }
+  return out
+}
+
 export function decidePermission(
   policy: PermissionPolicy | null | undefined,
   tool: string,
@@ -113,9 +155,7 @@ export function decidePermission(
   const a = (args ?? {}) as Record<string, unknown>
   const command =
     typeof a['command'] === 'string' ? (a['command'] as string) : ''
-  const paths = PATH_KEYS.map((k) => a[k]).filter(
-    (v): v is string => typeof v === 'string',
-  )
+  const paths = collectPathCandidates(tool, args)
   for (const r of policy.rules) {
     if (r.tool) {
       const re = safeRegex(r.tool)

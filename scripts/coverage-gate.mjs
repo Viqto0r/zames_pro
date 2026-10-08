@@ -32,6 +32,10 @@ const FLOORS = {
   'permissions.ts': 85,
   'changelog.ts': 85,
   'attach-refs.ts': 85,
+  // N12: web.ts holds the SSRF guard and the DuckDuckGo/HTML parsers — a
+  // regression there is silent. Floors sit below the current values.
+  'web.ts': 40,
+  'spinner.ts': 55,
 }
 
 const run = spawnSync(

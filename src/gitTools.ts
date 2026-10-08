@@ -1,4 +1,4 @@
-import { exec } from 'child_process'
+import { exec, execFile } from 'child_process'
 import type { GitContext, ToolDef } from './types.js'
 
 const BS = String.fromCharCode(92)
@@ -46,15 +46,49 @@ export function runGit(
   })
 }
 
-// Safely quotes paths/arguments for passing to the shell.
-// String or array -> a string with double quotes and escaping.
-function quoteArgs(input: string | string[]): string {
-  const list = Array.isArray(input) ? input : [input]
-  return list
-    .map((v) => String(v).trim())
-    .filter(Boolean)
-    .map((v) => JSON.stringify(v))
-    .join(' ')
+// Run git with an argument ARRAY (no shell). Use this whenever an argument
+// comes from the model: the shell never sees it, so $(...), backticks and a
+// leading `-` (option injection) cannot turn a read-only call into a command.
+export function runGitArgs(
+  args: string[],
+  cwd: string,
+  timeout = 15_000,
+): Promise<string> {
+  return new Promise((resolve) => {
+    execFile(
+      'git',
+      args,
+      {
+        cwd,
+        timeout,
+        windowsHide: true,
+        maxBuffer: 1024 * 1024 * 8,
+        env: {
+          ...process.env,
+          GIT_TERMINAL_PROMPT: '0',
+          GIT_PAGER: 'cat',
+          PAGER: 'cat',
+        },
+      },
+      (err, stdout, stderr) => {
+        const out = (stdout || '').toString()
+        const errStr = (stderr || '').toString()
+        if (!err) {
+          const combined = (out + errStr).trim()
+          resolve(combined || '(command produced no output)')
+          return
+        }
+        const parts: string[] = []
+        if (err.killed) parts.push(`⏱ Timeout ${timeout}ms`)
+        else if (err.code !== undefined && err.code !== null)
+          parts.push(`Exit code: ${err.code}`)
+        else parts.push(`Error: ${err.message}`)
+        if (out.trim()) parts.push(out.trim())
+        if (errStr.trim()) parts.push(errStr.trim())
+        resolve(parts.join(String.fromCharCode(10)))
+      },
+    )
+  })
 }
 
 export async function getGitContext(
@@ -120,7 +154,15 @@ export function formatGitContext(ctx: GitContext | null): string {
   if (ctx.changedFiles > 0) {
     s += `\n- Uncommitted changes: ${ctx.changedFiles} file(s)
 `
-    s += '```\n' + ctx.statusPreview + '\n```'
+    // Choose a fence longer than any backtick run in the preview: a filename
+    // containing ``` would otherwise close the block early and corrupt the
+    // system-prompt markdown.
+    const longest = (ctx.statusPreview.match(/`+/g) || []).reduce(
+      (a, b) => Math.max(a, b.length),
+      0,
+    )
+    const fence = '`'.repeat(Math.max(3, longest + 1))
+    s += fence + '\n' + ctx.statusPreview + '\n' + fence
   } else {
     s += '\n- Working tree: clean'
   }
@@ -165,10 +207,16 @@ export function createGitTools(workdir: string): ToolDef[] {
       fn: async ({ path: p, staged }) => {
         const err = await ensureRepo()
         if (err) return err
-        const parts = ['git diff']
-        if (staged) parts.push('--staged')
-        if (p) parts.push('--', JSON.stringify(p))
-        return runGit(parts.join(' '), workdir, 20_000)
+        const args = ['diff']
+        if (staged) args.push('--staged')
+        if (p) {
+          const rel = String(p)
+          if (rel.startsWith('-')) {
+            return `Error: invalid path: ${rel}`
+          }
+          args.push('--', rel)
+        }
+        return runGitArgs(args, workdir, 20_000)
       },
     },
 
@@ -197,9 +245,16 @@ export function createGitTools(workdir: string): ToolDef[] {
         const err = await ensureRepo()
         if (err) return err
         const r = ref && String(ref).trim() ? String(ref).trim() : 'HEAD'
-        // `stat` gives the cheap file list; the default dumps the full diff.
-        const flag = stat ? '--stat ' : ''
-        return runGit(`git show ${flag}${JSON.stringify(r)}`, workdir, 20_000)
+        // Validate the ref so a value like `--output=/tmp/x` or `HEAD$(...)`
+        // cannot reach git as an option/substitution. `git show` treats `--`
+        // as a paths separator, not a ref separator, so it is NOT used here.
+        if (r.startsWith('-') || !/^[A-Za-z0-9._/~^-]+$/.test(r)) {
+          return `Error: invalid ref: ${r}`
+        }
+        const args = ['show']
+        if (stat) args.push('--stat')
+        args.push(r)
+        return runGitArgs(args, workdir, 20_000)
       },
     },
 
@@ -233,13 +288,16 @@ export function createGitTools(workdir: string): ToolDef[] {
       fn: async ({ paths }) => {
         const err = await ensureRepo()
         if (err) return err
-        return runGit(
-          paths && String(paths).trim()
-            ? 'git add -- ' + quoteArgs(paths as string | string[])
-            : 'git add -A',
-          workdir,
-          20_000,
-        )
+        if (paths && String(paths).trim()) {
+          const list = (Array.isArray(paths) ? paths : [paths])
+            .map((v) => String(v).trim())
+            .filter(Boolean)
+          for (const p of list) {
+            if (p.startsWith('-')) return `Error: invalid path: ${p}`
+          }
+          return runGitArgs(['add', '--', ...list], workdir, 20_000)
+        }
+        return runGit('git add -A', workdir, 20_000)
       },
     },
 
@@ -277,8 +335,8 @@ export function createGitTools(workdir: string): ToolDef[] {
         const tmp = path.join(os.tmpdir(), `dsa-commit-${Date.now()}.txt`)
         await fs.writeFile(tmp, msg, 'utf-8')
         try {
-          const result = await runGit(
-            `git commit -F ${JSON.stringify(tmp)}`,
+          const result = await runGitArgs(
+            ['commit', '-F', tmp],
             workdir,
             30_000,
           )
@@ -311,9 +369,10 @@ export function createGitTools(workdir: string): ToolDef[] {
           return `Error: invalid branch name: ${b}`
         }
 
-        const flag = setUpstream ? '-u ' : ''
-        const target = quoteArgs(b)
-        return runGit(`git push ${flag}origin ${target}`, workdir, 120_000)
+        const args = ['push']
+        if (setUpstream) args.push('-u')
+        args.push('origin', b)
+        return runGitArgs(args, workdir, 120_000)
       },
     },
   ]

@@ -63,3 +63,35 @@ test('GitBranchList перечисляет ветки или сообщает о
   const out = String(await tool(tools, 'GitBranchList').fn({}))
   assert.ok(!/Syntax error/i.test(out), out)
 })
+
+test('formatGitContext uses a fence longer than any backticks in the preview', () => {
+  // N16: a filename containing ``` would close the fence early and corrupt the
+  // system-prompt markdown.
+  const ctx: GitContext = {
+    branch: 'main',
+    changedFiles: 1,
+    statusPreview: '?? a```b.txt',
+    hasOrigin: false,
+    ahead: 0,
+    behind: 0,
+  }
+  const s = formatGitContext(ctx)
+  // The opening fence line must be longer than the 3 backticks in the name.
+  const firstFence = s
+    .split(String.fromCharCode(10))
+    .find((l) => l.startsWith('``'))
+  assert.ok(firstFence && firstFence.length >= 4, 'longer fence: ' + s)
+})
+
+test('formatGitContext keeps a plain fence for a clean preview', () => {
+  const ctx: GitContext = {
+    branch: 'main',
+    changedFiles: 1,
+    statusPreview: ' M src/a.ts',
+    hasOrigin: false,
+    ahead: 0,
+    behind: 0,
+  }
+  const s = formatGitContext(ctx)
+  assert.ok(s.includes('```\n M src/a.ts\n```'))
+})

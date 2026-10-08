@@ -1,6 +1,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import type { ToolArgs, ToolDef } from './types.js'
+import { safePath } from './sandbox.js'
 import type { UndoStore } from './undo.js'
 
 // Extra tools that bring zames closer to Claude Code / Codex CLI:
@@ -228,14 +229,7 @@ export function createExtraTools(
 ): ToolDef[] {
   const todoStore = todos || defaultTodoStore
   const root = path.resolve(workdir)
-  const safe = (p: string): string => {
-    const resolved = path.resolve(root, p)
-    const rel = path.relative(root, resolved)
-    if (rel.startsWith('..') || path.isAbsolute(rel)) {
-      throw new Error('Access outside the working directory is forbidden: ' + p)
-    }
-    return resolved
-  }
+  const safe = (p: string): string => safePath(root, p)
 
   // Guard against missing/placeholder required args: a missing `path` becomes
   // String(undefined) === "undefined" and would create a file literally named
@@ -340,9 +334,13 @@ export function createExtraTools(
                 'Make old_string more specific or pass replace_all=true.',
             )
           }
-          content = e.replace_all
-            ? content.split(oldStr).join(newStr)
-            : content.replace(oldStr, newStr)
+          if (e.replace_all) {
+            content = content.split(oldStr).join(newStr)
+          } else {
+            // Functional replacer: a string replacer would interpret $-patterns
+            // ($&, $$, $1) inside newStr and corrupt the written text.
+            content = content.replace(oldStr, () => newStr)
+          }
         }
 
         if (undo) await undo.backup(file)

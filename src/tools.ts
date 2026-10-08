@@ -1,6 +1,7 @@
 import fs from 'fs/promises'
 import path from 'path'
-import { assertCommandInsideRoot, runShell } from './shell.js'
+import { assertCommandInsideRoot, runFile, runShell } from './shell.js'
+import { safePath } from './sandbox.js'
 import { createGitTools } from './gitTools.js'
 import { createWebTools } from './web.js'
 import { createExtraTools, type TodoStore } from './extraTools.js'
@@ -21,16 +22,7 @@ export function createTools(
   }: { undo?: UndoStore | null; todos?: TodoStore; readOnly?: boolean } = {},
 ): ToolDef[] {
   const root = path.resolve(workdir)
-  const safe = (p: string): string => {
-    const resolved = path.resolve(root, p)
-    // startsWith(root) would let through sibling paths with a common prefix
-    // (C:\work\proj vs C:\work\proj-old). We compute via relative().
-    const rel = path.relative(root, resolved)
-    if (rel.startsWith('..') || path.isAbsolute(rel)) {
-      throw new Error(`Access outside the working directory is forbidden: ${p}`)
-    }
-    return resolved
-  }
+  const safe = (p: string): string => safePath(root, p)
 
   // Extracts text from content/content_base64. base64 is needed because the
   // channel that delivers the model's answer may corrupt characters ($,
@@ -150,7 +142,9 @@ export function createTools(
           )
         }
         if (undo) await undo.backup(file)
-        content = content.replace(oldStr, newStr)
+        // Functional replacement: a string replacer interprets $-patterns
+        // ($&, $$, $1) inside newStr and silently corrupts the written text.
+        content = content.replace(oldStr, () => newStr)
         await fs.writeFile(file, content, 'utf-8')
         return `Edited: ${p}`
       },
@@ -218,21 +212,19 @@ export function createTools(
           .map((s) => s.trim())
           .filter(Boolean)
         const mode = String(output || 'content').toLowerCase()
+        // The pattern and the target come from the model, so they are passed
+        // as an execFile ARGUMENT ARRAY: the shell never parses them and a
+        // pattern carrying $(...)/backticks cannot run as a command (this
+        // used to be a sandbox escape). Exit code 1 = no matches, not an error.
         if (process.platform === 'win32') {
-          const escaped = pat.replace(/"/g, '\\"')
-          const scope = searchPath ? '"' + target + '\\*' : '*'
-          return runShell(workdir, `findstr /s /n /r /c:"${escaped}" ` + scope)
+          const args = ['/s', '/n', '/r', '/c:' + pat]
+          args.push(searchPath ? target + '\\*' : '*')
+          return runFile(workdir, 'findstr', args, 30_000, undefined, [1])
         }
         const flags =
           mode === 'files_only' ? '-rlE' : mode === 'count' ? '-rcE' : '-rnE'
-        const includeArg = incs
-          .map((g) => ' --include=' + JSON.stringify(g))
-          .join('')
-        return runShell(
-          workdir,
-          `grep ${flags}${includeArg} ${JSON.stringify(pat)} ` +
-            `${JSON.stringify(target)} || true`,
-        )
+        const args = [flags, ...incs.map((g) => '--include=' + g), pat, target]
+        return runFile(workdir, 'grep', args, 30_000, undefined, [1])
       },
     },
   ]
@@ -277,4 +269,39 @@ export const MUTATING_TOOLS = new Set([
 /** Drop mutating tools for read-only / plan mode. Pure; unit-tested. */
 export function filterToolsForReadOnly(tools: ToolDef[]): ToolDef[] {
   return tools.filter((t) => !MUTATING_TOOLS.has(t.name))
+}
+
+// MCP tool names are opaque (server + '__' + tool), so the exact-name
+// MUTATING_TOOLS set cannot classify them. Instead we match the common
+// mutating VERBS in the tool name. It is a heuristic deny-list, not a proof:
+// an exotic server could name a mutating tool innocuously. The honest default
+// in read-only mode is therefore to drop everything that looks like a writer.
+const MCP_MUTATING_RE =
+  /(^|_)(click|type|navigate|press|upload|select|drag|fill|hover|evaluate|run_code|run_|handle_dialog|key|screenshot|write|create|delete|update|set|put|post|patch|execute|exec|insert|remove|drop|restart|stop|start|install|kill|move|rename|copy|mkdir|rmdir|touch|chmod|chown)(_|$)/
+
+export function isMutatingMcpTool(name: string): boolean {
+  // Strip the server prefix and normalize separators to underscores so the
+  // verb matcher sees "browser_click" -> "click".
+  const tail = String(name).split('__').pop() || String(name)
+  const norm = tail.toLowerCase().replace(/[^a-z0-9]+/g, '_')
+  return MCP_MUTATING_RE.test('_' + norm + '_')
+}
+
+// Merge MCP tools into the base set. In read-only (plan) mode the MCP tools
+// must be filtered too: an MCP server (e.g. @playwright/mcp) exposes mutating
+// tools (click/type/navigate) that would otherwise defeat the read-only
+// promise. This is a SEPARATE helper (not ad-hoc push sites) so the filtering
+// cannot be forgotten at one of the four call sites. Pure; unit-tested.
+export function mergeTools(
+  base: ToolDef[],
+  mcp: ToolDef[] | null | undefined,
+  readOnly = false,
+): ToolDef[] {
+  const all = mcp || []
+  const extra = readOnly
+    ? all.filter(
+        (t) => !MUTATING_TOOLS.has(t.name) && !isMutatingMcpTool(t.name),
+      )
+    : all
+  return [...base, ...extra]
 }

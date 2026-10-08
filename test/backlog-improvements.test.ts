@@ -50,6 +50,28 @@ test('writeJsonAtomic пишет валидный JSON с переводом с�
   assert.deepEqual(JSON.parse(raw), { a: 1 })
 })
 
+test('writeFileAtomic creates the file with 0o600 permissions', () => {
+  // N22: config.json holds the browser password in clear text, so the file
+  // must not be world-readable (default umask would give 0644).
+  if (process.platform === 'win32') return
+  const dir = tmpDir()
+  const file = path.join(dir, 'secret.json')
+  writeFileAtomic(file, 'sensitive')
+  const mode = fs.statSync(file).mode & 0o777
+  assert.equal(mode, 0o600)
+})
+
+test('writeFileAtomic tightens the mode of a pre-existing file', () => {
+  // rename() keeps the old inode, so a file created earlier with 0644 would
+  // stay world-readable without an explicit chmod after rename.
+  if (process.platform === 'win32') return
+  const dir = tmpDir()
+  const file = path.join(dir, 'old.json')
+  fs.writeFileSync(file, 'old', { mode: 0o644 })
+  writeFileAtomic(file, 'new')
+  assert.equal(fs.statSync(file).mode & 0o777, 0o600)
+})
+
 // ---------- plan mode (read-only tools) ----------
 
 test('filterToolsForReadOnly убирает все мутирующие инструменты', () => {
