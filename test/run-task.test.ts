@@ -440,6 +440,67 @@ test('runTask reports a thrown agent error and clears the queue on abort', async
   assert.equal(browser._stopped, false)
 })
 
+test('runTask returns ok:true on a normal task (one-shot exit code 0)', async () => {
+  const calls: LoopCall[] = []
+  const browser = makeBrowser()
+  const res = await runTask(
+    deps({ calls }),
+    browser as never,
+    tools,
+    'x',
+    process.cwd(),
+    { ...baseOpts(), queue: [] },
+  )
+  assert.equal(res.ok, true)
+})
+
+test('runTask returns ok:false on an iteration limit (one-shot exit code 1)', async () => {
+  const calls: LoopCall[] = []
+  const browser = makeBrowser()
+  const runAgentLoop = (async () =>
+    'Iteration limit reached (maxIterations=10)') as unknown as RunTaskDeps['runAgentLoop']
+  const cap = consoleCapture()
+  let res
+  try {
+    res = await runTask(
+      deps({ calls, runAgentLoop }),
+      browser as never,
+      tools,
+      'x',
+      process.cwd(),
+      { ...baseOpts(), queue: [] },
+    )
+  } finally {
+    cap.restore()
+  }
+  assert.equal(res.ok, false)
+  assert.match(res.error || '', /Iteration limit/)
+})
+
+test('runTask returns ok:false when the agent throws (one-shot exit code 1)', async () => {
+  const calls: LoopCall[] = []
+  const browser = makeBrowser()
+  const runAgentLoop = (async () => {
+    throw new Error('boom')
+  }) as unknown as RunTaskDeps['runAgentLoop']
+  const cap = consoleCapture()
+  let res
+  try {
+    res = await runTask(
+      deps({ calls, runAgentLoop }),
+      browser as never,
+      tools,
+      'x',
+      process.cwd(),
+      { ...baseOpts(), queue: [] },
+    )
+  } finally {
+    cap.restore()
+  }
+  assert.equal(res.ok, false)
+  assert.match(res.error || '', /boom/)
+})
+
 test('runTask applies the goal via withGoal to every message', async () => {
   const calls: LoopCall[] = []
   const browser = makeBrowser()

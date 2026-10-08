@@ -123,16 +123,6 @@ export interface McpLoadOptions {
   debug?: (message: string) => void
 }
 
-/** Names of the servers found in a config, before any connection. */
-export async function listConfiguredServers(
-  workdir: string,
-): Promise<string[]> {
-  const files = await discoverConfigFiles(workdir)
-  const config = await loadConfigFiles(files)
-  const servers = config.mcpServers || {}
-  return Object.keys(servers).filter((n) => !servers[n].disabled)
-}
-
 // @playwright/mcp defaults its --user-data-dir to the SAME profile zames uses
 // (~/.zames/profile). Two chromium instances on one profile break each other:
 // the chat page shows "Something went wrong when opening your profile" and
@@ -274,11 +264,33 @@ export function describeParamsExternally(
 
 /* ---------- result rendering ---------- */
 
+// Cap on the MCP result string handed to the model. MCP results (e.g.
+// browser_snapshot) can be hundreds of KB; without a cap a single call floods
+// the context and speeds up rate-limiting/truncation. Chosen to match the
+// magnitude of the built-in tools' truncation.
+export const MCP_RESULT_LIMIT = 12_000
+
+// Truncate a tool-result string with an explicit marker (the model must be able
+// to tell it is looking at a partial output). Exported for tests.
+export function truncateMcpResult(s: string, limit = MCP_RESULT_LIMIT): string {
+  const str = String(s)
+  if (str.length <= limit) return str
+  const head = str.slice(0, limit)
+  // Prefer a line boundary so a cut does not split a line in half.
+  const nl = head.lastIndexOf(String.fromCharCode(10))
+  const cut = nl > limit * 0.5 ? head.slice(0, nl + 1) : head
+  const omitted = str.length - cut.length
+  return cut + `\n[...truncated ${omitted} chars]`
+}
+
 // MCP tool results are a list of content blocks (text, image, resource, ...)
 // and an isError flag. The agent needs a single string for the tool result
 // message. Images are summarized (the model cannot see them through
 // DeepSeek web anyway), text is joined.
-export function renderMcpResult(result: unknown): string {
+export function renderMcpResult(
+  result: unknown,
+  limit = MCP_RESULT_LIMIT,
+): string {
   const r = (result || {}) as {
     content?: Array<unknown>
     toolResult?: unknown
@@ -286,7 +298,7 @@ export function renderMcpResult(result: unknown): string {
   }
 
   if (r.toolResult !== undefined && !r.content) {
-    return formatResultString(r.toolResult, r.isError)
+    return truncateMcpResult(formatResultString(r.toolResult, r.isError), limit)
   }
 
   const parts: string[] = []
@@ -335,7 +347,10 @@ export function renderMcpResult(result: unknown): string {
     .filter((p) => p !== '')
     .join(String.fromCharCode(10) + String.fromCharCode(10))
     .trim()
-  return formatResultString(text || '(MCP tool returned no content)', r.isError)
+  return truncateMcpResult(
+    formatResultString(text || '(MCP tool returned no content)', r.isError),
+    limit,
+  )
 }
 
 function formatResultString(result: unknown, isError?: boolean): string {
@@ -358,6 +373,28 @@ function safeJson(v: unknown): string {
 // the model must be able to reproduce it exactly.
 export function qualifyToolName(server: string, tool: string): string {
   return server + '__' + tool.replace(/[^A-Za-z0-9_]/g, '_')
+}
+
+// Make every tool name unique IN PLACE. agent-loop resolves a call by name and
+// takes the first match, so a duplicate silently shadows the later tool. The
+// qualifier is not injective (see the call site), hence this guard. Pure;
+// exported for tests.
+export function dedupeToolNames(tools: Array<{ name: string }>): void {
+  const seen = new Set<string>()
+  for (const t of tools) {
+    if (!seen.has(t.name)) {
+      seen.add(t.name)
+      continue
+    }
+    let n = 2
+    let candidate = `${t.name}_${n}`
+    while (seen.has(candidate)) {
+      n++
+      candidate = `${t.name}_${n}`
+    }
+    t.name = candidate
+    seen.add(candidate)
+  }
 }
 
 /* ---------- pool ---------- */
@@ -501,6 +538,14 @@ export async function createMcpPool(opts: McpLoadOptions): Promise<McpPool> {
       })
     }
   }
+
+  // Distinct servers can produce the SAME qualified name (server 'a' + tool
+  // 'b__c' vs server 'a__b' + tool 'c'), and agent-loop resolves a call with
+  // tools.find(name) — it takes the FIRST. A duplicate would make the second
+  // tool silently unreachable (the model calls "the right name", a DIFFERENT
+  // tool runs). Rename the later one with a numeric suffix so every name is
+  // unique.
+  dedupeToolNames(tools)
 
   let closed = false
   return {

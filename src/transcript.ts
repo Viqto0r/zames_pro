@@ -74,7 +74,20 @@ export class Transcript {
     } catch {}
   }
 
-  close(): void {
-    if (this.stream) this.stream.end()
+  // Flush the stream and resolve once the data reached the file. The callers
+  // run on process.exit paths (one-shot --task, browser error, clean exit), and
+  // end() without awaiting the callback lets the process die before the buffer
+  // is written — exactly the final events (task result, agent error) one needs
+  // for a post-mortem. A no-op promise when there is no stream.
+  close(): Promise<void> {
+    const stream = this.stream
+    this.stream = null
+    if (!stream) return Promise.resolve()
+    return new Promise((resolve) => {
+      stream.end(() => resolve())
+      // A write error must not hang the exit; the error listener is installed
+      // in the constructor.
+      stream.on('error', () => resolve())
+    })
   }
 }

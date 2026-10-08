@@ -55,17 +55,39 @@ async function ensureDir(p: string): Promise<void> {
   await fs.mkdir(p, { recursive: true })
 }
 
+// Recursively list every .ts file under `dir`, as paths RELATIVE to `dir`
+// (POSIX separators). self-review used to read only the top level of src/, so
+// files in subfolders (src/i18n/, src/input/) never made it into a snapshot —
+// the diff/apply silently ignored them. Recursing keeps the whole tree in the
+// snapshot. `_context` is skipped: it is a read-only copy of configs/scripts,
+// not part of the editable set.
+export async function listTsFiles(dir: string, base = ''): Promise<string[]> {
+  const entries = await fs.readdir(path.join(dir, base), {
+    withFileTypes: true,
+  })
+  const out: string[] = []
+  for (const e of entries) {
+    const rel = base ? base + '/' + e.name : e.name
+    if (e.isDirectory()) {
+      if (rel === '_context') continue
+      out.push(...(await listTsFiles(dir, rel)))
+    } else if (e.name.endsWith('.ts')) {
+      out.push(rel)
+    }
+  }
+  return out
+}
+
 async function copyDirJsFiles(from: string, to: string): Promise<string[]> {
   await ensureDir(to)
-  const entries = await fs.readdir(from)
-  const copied = []
-  for (const e of entries) {
-    if (!e.endsWith('.ts')) continue
-    const data = await fs.readFile(path.join(from, e), 'utf-8')
-    await fs.writeFile(path.join(to, e), data, 'utf-8')
-    copied.push(e)
+  const rels = await listTsFiles(from)
+  for (const rel of rels) {
+    const data = await fs.readFile(path.join(from, rel), 'utf-8')
+    const dest = path.join(to, rel)
+    await ensureDir(path.dirname(dest))
+    await fs.writeFile(dest, data, 'utf-8')
   }
-  return copied
+  return rels
 }
 
 // Root files and folders a review often needs but that are NOT part of the
@@ -233,11 +255,10 @@ export async function selfDiff({
   if (!snapStat) throw new Error(t('self.snapshot_not_found', { dir: snapDir }))
 
   const { unifiedDiff, colorDiff } = await import('./diff.js')
-  const files = await fs.readdir(snapDir)
+  const files = await listTsFiles(snapDir)
   let anyDiff = false
 
   for (const f of files) {
-    if (!f.endsWith('.ts')) continue
     const orig = await fs
       .readFile(path.join(SRC_DIR, f), 'utf-8')
       .catch(() => '')
@@ -277,7 +298,7 @@ export async function selfApply({
   const backupDir = path.join(SNAP_ROOT, `backup-before-apply-${stamp}`)
   await copyDirJsFiles(SRC_DIR, backupDir)
 
-  const files = await fs.readdir(snapDir)
+  const files = await listTsFiles(snapDir)
   const jsFiles = files.filter((f) => f.endsWith('.ts'))
 
   if (jsFiles.length === 0) {
@@ -287,7 +308,9 @@ export async function selfApply({
   const applied = []
   for (const f of jsFiles) {
     const data = await fs.readFile(path.join(snapDir, f), 'utf-8')
-    await fs.writeFile(path.join(SRC_DIR, f), data, 'utf-8')
+    const dest = path.join(SRC_DIR, f)
+    await ensureDir(path.dirname(dest))
+    await fs.writeFile(dest, data, 'utf-8')
     applied.push(f)
   }
 
@@ -342,10 +365,9 @@ export async function selfList({
 // ---------- helpers ----------
 
 async function diffFiles(origDir: string, newDir: string): Promise<string[]> {
-  const files = await fs.readdir(newDir).catch(() => [])
+  const files = await listTsFiles(newDir).catch(() => [])
   const changed = []
   for (const f of files) {
-    if (!f.endsWith('.ts')) continue
     const a = await fs.readFile(path.join(origDir, f), 'utf-8').catch(() => '')
     const b = await fs.readFile(path.join(newDir, f), 'utf-8').catch(() => '')
     if (a !== b) changed.push(f)

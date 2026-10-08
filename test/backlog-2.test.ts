@@ -7,6 +7,7 @@ import { Transcript } from '../src/transcript.ts'
 import {
   filterToolsForReadOnly,
   createTools,
+  mergeTools,
   MUTATING_TOOLS,
 } from '../src/tools.ts'
 import { floatingVersionWarnings, hardenPlaywrightArgs } from '../src/mcp.ts'
@@ -35,14 +36,40 @@ test('Transcript without onLine still writes the file', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-tr-'))
   const tr = new Transcript({ dir, enabled: true, sessionName: 't' })
   tr.log('tool_call', { tool: 'Bash' })
-  tr.close()
-  // The stream flushes asynchronously; give it a tick before reading.
-  await new Promise((r) => setTimeout(r, 100))
+  await tr.close()
   const f = tr.file as string
   const body = fs.readFileSync(f, 'utf-8')
   const entries = parseTranscript(body)
   assert.equal(entries.length, 1)
   assert.equal(entries[0].type, 'tool_call')
+})
+
+test('Transcript.close flushes synchronously before resolving', async () => {
+  // N9: the one-shot/exit paths used to call end() without waiting for the
+  // flush, so the last events could be lost when the process exited. close()
+  // now resolves only after the data reached the file.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-tr2-'))
+  const tr = new Transcript({ dir, enabled: true, sessionName: 't' })
+  tr.log('assistant_final', { message: 'done' })
+  await tr.close()
+  const body = fs.readFileSync(tr.file as string, 'utf-8')
+  assert.ok(body.includes('assistant_final'))
+})
+
+test('Transcript.close on a disabled transcript resolves without a stream', async () => {
+  const tr = new Transcript({
+    dir: path.join(os.tmpdir(), 'zames-tr-none-' + Date.now()),
+    enabled: false,
+  })
+  await assert.doesNotReject(() => tr.close())
+})
+
+test('Transcript.close is idempotent', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-tr3-'))
+  const tr = new Transcript({ dir, enabled: true, sessionName: 't' })
+  tr.log('tool_call', { tool: 'Read' })
+  await tr.close()
+  await assert.doesNotReject(() => tr.close())
 })
 
 // ---------- plan mode still filters ----------
@@ -52,6 +79,24 @@ test('readOnly tools never include a mutating tool', () => {
   for (const m of MUTATING_TOOLS) {
     assert.ok(!tools.some((t) => t.name === m), 'has ' + m)
   }
+})
+
+test('mergeTools filters MCP tools in read-only mode', () => {
+  const base = createTools(process.cwd(), { readOnly: true })
+  const mcp = [
+    { name: 'srv__click', description: '', parameters: {}, fn: async () => '' },
+    {
+      name: 'srv__snapshot',
+      description: '',
+      parameters: {},
+      fn: async () => '',
+    },
+  ]
+  const merged = mergeTools(base, mcp, false)
+  assert.ok(merged.some((t) => t.name === 'srv__click'))
+  const ro = mergeTools(base, mcp, true)
+  assert.ok(!ro.some((t) => t.name === 'srv__click'))
+  assert.ok(ro.some((t) => t.name === 'srv__snapshot'))
 })
 
 // ---------- MCP floating version ----------

@@ -3,6 +3,8 @@ import assert from 'node:assert/strict'
 import {
   jsonSchemaToParams,
   renderMcpResult,
+  truncateMcpResult,
+  dedupeToolNames,
   qualifyToolName,
   normalizeServerConfig,
   describeParamsExternally,
@@ -71,6 +73,48 @@ test('renderMcpResult: текст, ошибка, картинка', () => {
 test('renderMcpResult: пустой результат не пустая строка', () => {
   assert.ok(renderMcpResult({ content: [] }).length > 0)
   assert.ok(renderMcpResult({ toolResult: 'x' }) === 'x')
+})
+
+test('renderMcpResult truncates a huge result with an explicit marker', () => {
+  // N21: browser_snapshot and friends can return hundreds of KB; the result
+  // must be capped so one call cannot flood the context.
+  const big = 'z'.repeat(50_000)
+  const out = renderMcpResult({ content: [{ type: 'text', text: big }] })
+  assert.ok(out.length < 50_000)
+  assert.match(out, /\[\.\.\.truncated \d+ chars\]/)
+})
+
+test('renderMcpResult keeps a result under the limit intact', () => {
+  const s = 'y'.repeat(200)
+  assert.equal(renderMcpResult({ toolResult: s }), s)
+})
+
+test('truncateMcpResult cuts on a line boundary when possible', () => {
+  const NL = String.fromCharCode(10)
+  const line = 'a'.repeat(19) + NL
+  const out = truncateMcpResult(line.repeat(1000), 500)
+  const cut = out.slice(0, out.indexOf(NL + '[...'))
+  assert.equal(cut.length % 20, 0)
+})
+
+test('dedupeToolNames keeps every tool reachable by a unique name', () => {
+  // N20: two servers can qualify to the SAME name; agent-loop takes the first
+  // match, so the second tool would be silently unreachable.
+  const tools = [{ name: 'a__b__c' }, { name: 'a__b__c' }, { name: 'a__b__c' }]
+  dedupeToolNames(tools)
+  assert.deepEqual(
+    tools.map((t) => t.name),
+    ['a__b__c', 'a__b__c_2', 'a__b__c_3'],
+  )
+})
+
+test('dedupeToolNames leaves unique names untouched', () => {
+  const tools = [{ name: 'x__y' }, { name: 'x__z' }]
+  dedupeToolNames(tools)
+  assert.deepEqual(
+    tools.map((t) => t.name),
+    ['x__y', 'x__z'],
+  )
 })
 
 test('normalizeServerConfig: command/url и отбраковка мусора', () => {

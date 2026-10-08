@@ -319,6 +319,12 @@ export function watchInput({
   }
 }
 
+export interface TaskResult {
+  ok: boolean
+  /** Why the task failed: an agent error, an iteration limit or a watchdog. */
+  error?: string
+}
+
 export async function runTask(
   deps: RunTaskDeps,
   browser: DeepSeekBrowser,
@@ -327,7 +333,7 @@ export async function runTask(
   workdir: string,
   opts: RunTaskOptions,
   attachments: Array<{ path: string; name: string; mime: string }> = [],
-): Promise<void> {
+): Promise<TaskResult> {
   const { t, locale, debug, maxIter, config, runAgentLoop, createSpinner } =
     deps
   const {
@@ -386,6 +392,9 @@ export async function runTask(
       })
 
   try {
+    // Set when the loop ends without a real answer (iteration limit / watchdog)
+    // so the one-shot mode can exit non-zero. See N5.
+    let failure: string | null = null
     let next: PendingMessage & {
       freshChat: boolean
       sendSystemPrompt: boolean
@@ -479,6 +488,7 @@ export async function runTask(
       ) {
         ui.warning(outcome)
         transcript?.log('agent_no_answer', { outcome })
+        failure = outcome
       }
 
       // T7: one summary line per task (duration + tool calls + tokens spent).
@@ -544,6 +554,7 @@ export async function runTask(
         sendSystemPrompt: false,
       }
     }
+    return failure ? { ok: false, error: failure } : { ok: true }
   } catch (e) {
     ui.stop()
     console.error(
@@ -552,6 +563,7 @@ export async function runTask(
     )
     if (debug) console.error((e as Error).stack)
     transcript?.log('agent_error', { error: (e as Error).message })
+    return { ok: false, error: (e as Error).message }
   } finally {
     stopWatching()
     ui.stop()
