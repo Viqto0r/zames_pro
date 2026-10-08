@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.68.1] - 2026-10-08
+
+### Fixed
+
+- **ui:** long service messages (send failures, rate limits) are now
+  word-wrapped to the same margin as the tool previews (`cols - 1`).
+  Before, they were printed at the full terminal width and the terminal
+  wrapped them mid-word, so some lines ran to the edge and some stopped
+  short. Applies to `LineEditor.warning()` and the non-TTY spinner.
+
 ## [2.68.0] - 2026-10-08
 
 ### Changed
