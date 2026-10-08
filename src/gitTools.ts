@@ -1,54 +1,12 @@
-import { exec, execFile } from 'child_process'
+import { execFile } from 'child_process'
 import type { GitContext, ToolDef } from './types.js'
 
 const BS = String.fromCharCode(92)
 
-export function runGit(
-  cmd: string,
-  cwd: string,
-  timeout = 15_000,
-): Promise<string> {
-  return new Promise((resolve) => {
-    exec(
-      cmd,
-      {
-        cwd,
-        timeout,
-        windowsHide: true,
-        maxBuffer: 1024 * 1024 * 8,
-        env: {
-          ...process.env,
-          GIT_TERMINAL_PROMPT: '0',
-          GIT_PAGER: 'cat',
-          PAGER: 'cat',
-        },
-      },
-      (err, stdout, stderr) => {
-        const out = (stdout || '').toString()
-        const errStr = (stderr || '').toString()
-
-        if (!err) {
-          const combined = (out + errStr).trim()
-          resolve(combined || '(command produced no output)')
-          return
-        }
-
-        const parts: string[] = []
-        if (err.killed) parts.push(`⏱ Timeout ${timeout}ms`)
-        else if (err.code !== undefined && err.code !== null)
-          parts.push(`Exit code: ${err.code}`)
-        else parts.push(`Error: ${err.message}`)
-        if (out.trim()) parts.push(out.trim())
-        if (errStr.trim()) parts.push(errStr.trim())
-        resolve(parts.join(String.fromCharCode(10)))
-      },
-    )
-  })
-}
-
-// Run git with an argument ARRAY (no shell). Use this whenever an argument
-// comes from the model: the shell never sees it, so $(...), backticks and a
-// leading `-` (option injection) cannot turn a read-only call into a command.
+// Run git with an argument ARRAY (no shell). ALL git invocations go through
+// this: an argument from the model can never be seen by a shell, so $(...),
+// backticks and a leading `-` (option injection) cannot turn a read-only call
+// into a command. There is deliberately NO shell-string variant left.
 export function runGitArgs(
   args: string[],
   cwd: string,
@@ -94,18 +52,18 @@ export function runGitArgs(
 export async function getGitContext(
   workdir: string,
 ): Promise<GitContext | null> {
-  const probe = await runGit(
-    'git rev-parse --is-inside-work-tree',
+  const probe = await runGitArgs(
+    ['rev-parse', '--is-inside-work-tree'],
     workdir,
     5000,
   )
   if (probe.trim() !== 'true') return null
 
-  const branchR = await runGit('git branch --show-current', workdir, 5000)
-  const statusR = await runGit('git status --porcelain', workdir, 5000)
-  const remoteR = await runGit('git remote', workdir, 5000)
-  const aheadR = await runGit(
-    'git rev-list --left-right --count @{upstream}...HEAD',
+  const branchR = await runGitArgs(['branch', '--show-current'], workdir, 5000)
+  const statusR = await runGitArgs(['status', '--porcelain'], workdir, 5000)
+  const remoteR = await runGitArgs(['remote'], workdir, 5000)
+  const aheadR = await runGitArgs(
+    ['rev-list', '--left-right', '--count', '@{upstream}...HEAD'],
     workdir,
     5000,
   )
@@ -171,8 +129,8 @@ export function formatGitContext(ctx: GitContext | null): string {
 
 export function createGitTools(workdir: string): ToolDef[] {
   const ensureRepo = async (): Promise<string | null> => {
-    const probe = await runGit(
-      'git rev-parse --is-inside-work-tree',
+    const probe = await runGitArgs(
+      ['rev-parse', '--is-inside-work-tree'],
       workdir,
       5000,
     )
@@ -195,7 +153,7 @@ export function createGitTools(workdir: string): ToolDef[] {
       fn: async () => {
         const err = await ensureRepo()
         if (err) return err
-        return runGit('git status', workdir, 10_000)
+        return runGitArgs(['status'], workdir, 10_000)
       },
     },
 
@@ -227,8 +185,8 @@ export function createGitTools(workdir: string): ToolDef[] {
       fn: async ({ count }) => {
         const err = await ensureRepo()
         if (err) return err
-        return runGit(
-          `git log --oneline --decorate -n ${Number(count) || 10}`,
+        return runGitArgs(
+          ['log', '--oneline', '--decorate', '-n', String(Number(count) || 10)],
           workdir,
           10_000,
         )
@@ -267,13 +225,14 @@ export function createGitTools(workdir: string): ToolDef[] {
       fn: async () => {
         const err = await ensureRepo()
         if (err) return err
-        // The format string contains parentheses/brackets, which the POSIX
-        // shell would treat as syntax — quote it as one JSON arg.
-        const format = JSON.stringify(
-          '%(HEAD) %(refname:short) %(committerdate:relative) %(subject)',
-        )
-        return runGit(
-          'git branch --sort=-committerdate --format=' + format,
+        // The format string contains parentheses/brackets; as ONE array
+        // element it is passed literally (no shell to choke on it).
+        return runGitArgs(
+          [
+            'branch',
+            '--sort=-committerdate',
+            '--format=%(HEAD) %(refname:short) %(committerdate:relative) %(subject)',
+          ],
           workdir,
           10_000,
         )
@@ -297,7 +256,7 @@ export function createGitTools(workdir: string): ToolDef[] {
           }
           return runGitArgs(['add', '--', ...list], workdir, 20_000)
         }
-        return runGit('git add -A', workdir, 20_000)
+        return runGitArgs(['add', '-A'], workdir, 20_000)
       },
     },
 
@@ -316,8 +275,8 @@ export function createGitTools(workdir: string): ToolDef[] {
         }
 
         // We stage everything only if the index is empty (as the description promises).
-        const staged = await runGit(
-          'git diff --cached --name-only',
+        const staged = await runGitArgs(
+          ['diff', '--cached', '--name-only'],
           workdir,
           10_000,
         )
@@ -327,7 +286,7 @@ export function createGitTools(workdir: string): ToolDef[] {
           stagedTrimmed !== '(command produced no output)'
         const addResult = hasStaged
           ? '(index is not empty — add -A skipped)'
-          : await runGit('git add -A', workdir, 20_000)
+          : await runGitArgs(['add', '-A'], workdir, 20_000)
 
         const fs = await import('fs/promises')
         const path = await import('path')
@@ -359,12 +318,14 @@ export function createGitTools(workdir: string): ToolDef[] {
         const b =
           branch && String(branch).trim()
             ? String(branch).trim()
-            : (await runGit('git branch --show-current', workdir, 5000)).trim()
+            : (
+                await runGitArgs(['branch', '--show-current'], workdir, 5000)
+              ).trim()
         if (!b) return 'Error: could not determine the branch to push.'
-        // The branch name reaches the shell command below. Validate it as a
-        // real ref so a model-supplied value cannot smuggle shell metacharacters
-        // (`;`, backticks, `$()`) into `git push`. The remote stays a literal
-        // 'origin' and is not user-controlled.
+        // The branch name reaches git as an argument. Validate it as a real ref
+        // so a model-supplied value cannot smuggle shell metacharacters or a
+        // leading dash. The remote stays a literal 'origin' and is not
+        // user-controlled.
         if (!/^[A-Za-z0-9._/-]+$/.test(b) || b.startsWith('-')) {
           return `Error: invalid branch name: ${b}`
         }

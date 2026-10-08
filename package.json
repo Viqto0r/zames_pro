@@ -27,7 +27,7 @@
     "lint:fix": "node scripts/eslint-ts6.mjs --fix",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" \"*.{js,json,md}\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm run build:readme && npm run build",
     "test": "tsx --test test/*.test.ts",
     "test:watch": "tsx --test --watch test/*.test.ts",
     "self-smoke": "tsx scripts/self-smoke.mjs",

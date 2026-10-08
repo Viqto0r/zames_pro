@@ -3280,9 +3280,9 @@ async function main(): Promise<void> {
 
     if (lower === '/diff' || lower.startsWith('/diff ')) {
       const staged = lower.indexOf('--staged') !== -1
-      const { runGit } = await import('./gitTools.js')
-      const probe = await runGit(
-        'git rev-parse --is-inside-work-tree',
+      const { runGitArgs } = await import('./gitTools.js')
+      const probe = await runGitArgs(
+        ['rev-parse', '--is-inside-work-tree'],
         currentWorkdir,
         5000,
       )
@@ -3290,7 +3290,7 @@ async function main(): Promise<void> {
         console.error(theme.error(t('diff.not_repo')))
         continue
       }
-      const out = await runGit(
+      const out = await runGitArgs(
         mod.commands.diffGitArgs(staged),
         currentWorkdir,
         20_000,
@@ -3302,9 +3302,9 @@ async function main(): Promise<void> {
     }
 
     if (lower === '/diffstat') {
-      const { runGit } = await import('./gitTools.js')
-      const probe = await runGit(
-        'git rev-parse --is-inside-work-tree',
+      const { runGitArgs } = await import('./gitTools.js')
+      const probe = await runGitArgs(
+        ['rev-parse', '--is-inside-work-tree'],
         currentWorkdir,
         5000,
       )
@@ -3312,7 +3312,7 @@ async function main(): Promise<void> {
         console.error(theme.error(t('diff.not_repo')))
         continue
       }
-      const out = await runGit('git diff --stat', currentWorkdir, 20_000)
+      const out = await runGitArgs(['diff', '--stat'], currentWorkdir, 20_000)
       console.log(
         theme.system(mod.commands.formatDiffStat(out, { maxLines: 60 }, t)),
       )
@@ -3374,19 +3374,19 @@ async function main(): Promise<void> {
     }
 
     if (lower === '/doctor') {
-      const { runGit } = await import('./gitTools.js')
+      const { runGitArgs } = await import('./gitTools.js')
       let gitOk = false
       let gitBranch: string | null = null
       try {
-        const probe = await runGit(
-          'git rev-parse --is-inside-work-tree',
+        const probe = await runGitArgs(
+          ['rev-parse', '--is-inside-work-tree'],
           currentWorkdir,
           5000,
         )
         gitOk = probe.trim() === 'true'
         if (gitOk) {
           gitBranch = (
-            await runGit('git branch --show-current', currentWorkdir, 5000)
+            await runGitArgs(['branch', '--show-current'], currentWorkdir, 5000)
           ).trim()
         }
       } catch {
@@ -3419,7 +3419,7 @@ async function main(): Promise<void> {
               authSaved: authMarkerExists(),
               contextLimit: config.ui.contextLimit,
               hasOrigin: gitOk
-                ? (await runGit('git remote', currentWorkdir, 5000)).includes(
+                ? (await runGitArgs(['remote'], currentWorkdir, 5000)).includes(
                     'origin',
                   )
                 : undefined,

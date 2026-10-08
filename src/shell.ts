@@ -6,15 +6,6 @@ import os from 'os'
 // Kept in its own module so both call sites use the SAME sandbox guard and the
 // SAME abort wiring; a second, ad-hoc runner would drift from the real one.
 
-// Quote one argument for POSIX sh: wrap in single quotes and turn every inner
-// single quote into '\''. Inside single quotes sh expands NOTHING, so a value
-// carrying $(...), backticks or $VAR is passed through literally. A plain
-// JSON.stringify is NOT a safe substitute: it produces double quotes, inside
-// which sh still performs command substitution.
-export function shellQuote(arg: string): string {
-  return "'" + String(arg).replace(/'/g, "'\\''") + "'"
-}
-
 // Sandbox (option A): don't let a shell command go above the project root.
 // This is a protective barrier, not full OS isolation.
 export function assertCommandInsideRoot(root: string, command: string): void {

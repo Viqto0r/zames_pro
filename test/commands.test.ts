@@ -55,8 +55,8 @@ test('formatDiff: CRLF is normalized', () => {
 })
 
 test('diffGitArgs: staged flag', () => {
-  assert.equal(diffGitArgs(false), 'git diff')
-  assert.equal(diffGitArgs(true), 'git diff --staged')
+  assert.deepEqual(diffGitArgs(false), ['diff'])
+  assert.deepEqual(diffGitArgs(true), ['diff', '--staged'])
 })
 
 // ---------- /cost ----------

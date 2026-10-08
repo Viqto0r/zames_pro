@@ -29,8 +29,10 @@ export function formatDiff(
   return head + NL + t('diff.more_lines', { n: String(rest) })
 }
 
-export function diffGitArgs(staged = false): string {
-  return staged ? 'git diff --staged' : 'git diff'
+// Git arguments for the `/diff` command. An ARRAY (no shell): the caller runs
+// them through runGitArgs(), so nothing is interpreted by a shell. Pure.
+export function diffGitArgs(staged = false): string[] {
+  return staged ? ['diff', '--staged'] : ['diff']
 }
 
 // ---------- /diffstat ----------
