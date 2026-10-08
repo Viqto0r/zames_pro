@@ -1,4 +1,5 @@
 import chalk from 'chalk'
+import { contentWidth } from './width.js'
 
 // A calm palette for a dark terminal.
 // Muted, slightly "faded" tones without high saturation
@@ -35,13 +36,11 @@ export const theme = {
 }
 
 // Horizontal rule that separates the model's answer from the next block. It
-// spans the terminal width (capped at `max`) so it does not look stubby on a
-// wide terminal. Falls back to 60 columns when the width is unknown (non-TTY).
-// One column is kept free, like everywhere else in the status/input layout, so
-// a full-width rule cannot trigger autowrap.
-export function divider(max = 100): string {
-  const cols = process.stdout.columns || 0
-  const width = Math.max(20, Math.min(max, cols ? cols - 1 : 60))
+// spans the SHARED content width (src/width.ts) so the rule, the answers and
+// the tool previews all line up at the same margin. The `max` argument is kept
+// for a shorter rule in special call sites; by default it is the content width.
+export function divider(max?: number): string {
+  const width = max && max > 0 ? Math.min(max, contentWidth()) : contentWidth()
   return '─'.repeat(width)
 }
 

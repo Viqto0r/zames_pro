@@ -1,5 +1,6 @@
 import { theme, divider } from './theme.js'
 import { renderMarkdown } from './markdown.js'
+import { contentWidth } from './width.js'
 import {
   randomThinkingPhrase,
   stripEllipsis,
@@ -1166,7 +1167,7 @@ export class LineEditor {
     // Clip by VISIBLE WIDTH, not character count: a long arg line used to print
     // wider than the terminal and some terminals then showed a horizontal
     // scrollbar. Keep one column free (autowrap safety), same as the status.
-    const maxW = Math.max(20, (process.stdout.columns || 80) - 1)
+    const maxW = contentWidth()
     const preview = truncateToWidth(full, maxW)
     this.printAbove(theme.tool('🔧 ' + name) + ' ' + theme.dim(preview))
     // A tool may run for a long time (Bash, npm test, MCP). Without an active
@@ -1188,7 +1189,7 @@ export class LineEditor {
   toolResult(result: unknown): void {
     this.stop()
     const text = typeof result === 'string' ? result : safeJson(result)
-    const maxW = Math.max(20, (process.stdout.columns || 80) - 1)
+    const maxW = contentWidth()
     const preview = truncateToWidth(text.split(NL).join(' ↵ '), maxW)
     this.printAbove(theme.toolResult('   → ' + preview))
   }
@@ -1216,7 +1217,7 @@ export class LineEditor {
     // Wrap long service messages (send failures, rate limits) to the same
     // margin the tool previews use, instead of letting the terminal wrap them
     // at the full width and mid-word — that mismatch looked ragged.
-    const maxW = Math.max(20, (process.stdout.columns || 80) - 1)
+    const maxW = contentWidth()
     const wrapped = wrapToWidth('⚠ ' + msg, maxW)
     this.printAbove(NL + theme.warn(wrapped))
   }
@@ -1294,7 +1295,7 @@ export class LineEditor {
     // Attachments collected for this message (images/files). They are handed
     // to the browser layer to be attached to the chat.
     const attached = this.attachments.items.slice()
-    this.printAbove(theme.user('❯ ') + display)
+    this.printAbove(theme.user('❯ ') + wrapToWidth(display, contentWidth()))
     this.pastes = []
     this.attachments.reset()
     if (this.onSubmit) this.onSubmit(text, attached)

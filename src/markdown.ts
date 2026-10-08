@@ -47,23 +47,20 @@ function highlighter(code: string, lang?: string): string {
   }
 }
 
-// Configured maximum answer width (columns). 0 = auto: terminal width, capped
-// at 100. Set once from config (ui.answerWidth) so every render path honors it
-// without threading the option through every call site.
-let configuredWidth = 0
+// The answer width is the SHARED content width (src/width.ts), the same one
+// the operator's echoed text, the tool previews, the warnings and the divider
+// use — so nothing is rendered at a different margin. `setAnswerWidth` is kept
+// as a thin alias for callers that still use the old name.
+import { contentWidth, setContentWidth } from './width.js'
 
 export function setAnswerWidth(width: number): void {
-  configuredWidth = typeof width === 'number' && width > 0 ? width : 0
+  setContentWidth(width)
 }
 
 export function renderMarkdown(text: string): string {
   if (!text) return ''
   try {
-    const cols = process.stdout.columns || 80
-    const width =
-      configuredWidth > 0
-        ? Math.min(configuredWidth, cols)
-        : Math.min(cols, 100)
+    const width = contentWidth()
     return render(String(text), {
       width,
       theme: theme as unknown as Parameters<typeof render>[1] extends

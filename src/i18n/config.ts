@@ -16,8 +16,8 @@ export const configMessages: Record<string, { ru: string; en: string }> = {
     en: 'Interface and agent reply language',
   },
   'cfg.f.ui_answerWidth': {
-    ru: 'Максимальная ширина ответа в колонках (0 — авто, до 100)',
-    en: 'Max answer width in columns (0 = auto, capped at 100)',
+    ru: 'Ширина контента в колонках: ответы, ввод, инструменты (0 — авто, до 100)',
+    en: 'Content width in columns: answers, input, tools (0 = auto, capped at 100)',
   },
   'cfg.f.maxIterations': {
     ru: 'Лимит итераций на задачу',
