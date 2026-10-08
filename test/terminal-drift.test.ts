@@ -324,3 +324,35 @@ test('resize re-pins the block to the bottom after the screen scrolled', () => {
     restore()
   }
 })
+
+// A resize makes the terminal re-flow the lines above the block, so the row
+// the block used to occupy is stale. Re-pinning by padding to the bottom used
+// to scroll the OLD copy of the block back into view, leaving the previous
+// status/input on screen as a DUPLICATE of the freshly drawn one — the resize
+// artifact. The block must appear exactly ONCE after a resize.
+test('resize does not leave a duplicate of the block on screen', () => {
+  const { term, e, restore } = setup(24, 60)
+  try {
+    e.statusText = 'generating'
+    e.contextStatus = 'ctx: 12k · 1%'
+    ;(e as unknown as { _padToBottom: () => void })._padToBottom()
+    e._writeBlock()
+    for (let n = 0; n < 30; n++) e.printAbove('line ' + n)
+
+    ;(e as unknown as { _resizeRepin: boolean })._resizeRepin = true
+    e.refreshStatus()
+
+    let inputRows = 0
+    let statusRows = 0
+    for (let r = 0; r < term.rows; r++) {
+      const t = term.lineText(r)
+      if (t.startsWith('>')) inputRows++
+      if (t.includes('generating')) statusRows++
+    }
+    assert.equal(inputRows, 1, 'exactly one input row after a resize')
+    assert.equal(statusRows, 1, 'exactly one status row after a resize')
+    assert.equal(term.findRow('>'), 23, 'input re-pinned to the bottom')
+  } finally {
+    restore()
+  }
+})

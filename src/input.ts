@@ -279,16 +279,12 @@ export class LineEditor {
       if (this._resizeTimer) clearTimeout(this._resizeTimer)
       this._resizeTimer = setTimeout(() => {
         this._resizeTimer = null
-        // Repaint ONLY the status + input block. We deliberately do NOT clear
-        // the whole viewport here: the operator's scrollback (the tool-call
-        // lines and answers printed above the input) must stay on screen.
-        // The relative `ESC[n A` erase cannot be trusted after a resize: the
-        // terminal re-flowed the longer wrapped lines and the old block row
-        // is stale, so the block would be redrawn at the wrong row (artifacts
-        // / duplicated status). The next block write re-pins from scratch
-        // (home + pad to bottom) instead of relying on the relative move.
-        // The scrollback above is still preserved — we only move the cursor
-        // and pad, and never emit ESC[2J ("losing the history is far worse").
+        // Repaint the status + input block at the NEW width. The relative
+        // `ESC[n A` erase cannot be trusted after a resize: the terminal
+        // re-flowed the longer wrapped lines and the old block row is stale,
+        // so the block would be redrawn at the wrong row. The block is
+        // therefore re-pinned from scratch on the next write (clear + home +
+        // pad to bottom).
         this._resizeRepin = true
         this._render()
       }, 120)
@@ -751,16 +747,22 @@ export class LineEditor {
     const cols = process.stdout.columns || 80
     // After a resize the relative erase is unreliable (the terminal
     // re-flowed everything and the cursor row changed). Re-DRAW the block
-    // from a known position instead: erase what we can, go HOME, fill the
-    // viewport with blank lines (pushing the old content into the
-    // scrollback — nothing is lost), then draw at the bottom. We never
-    // emit ESC[2J here, so the operator's history is preserved.
+    // from a known position instead: clear the visible viewport, go HOME,
+    // fill it with blank lines, then draw at the bottom. ESC[2J clears the
+    // SCREEN, not the scrollback, so the history above is preserved.
     if (this._resizeRepin) {
       this._resizeRepin = false
       this._eraseBlock()
       this._lastStatusBlock = ''
       this._blockRows = 0
-      process.stdout.write(ESC + '[H')
+      // Clear the VISIBLE viewport before re-pinning. After a resize the
+      // terminal re-flowed the lines above the block, and padding to the
+      // bottom scrolls the OLD copy of the block back into view — without the
+      // clear the old status/input stays on screen as a DUPLICATE of the
+      // freshly drawn one (the artifact seen on resize). The scrollback buffer
+      // is untouched: ESC[2J clears the screen, NOT the scrollback, so the
+      // history printed above is still reachable by scrolling up.
+      process.stdout.write(ESC + '[2J' + ESC + '[H')
       this._padToBottom()
     }
     // Status line above the input: the spinner/answer text on the left and the
