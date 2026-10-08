@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.71.0] - 2026-10-08
+
+### Added
+
+- **subagent:** add the Task tool, enable subagents by default and instruct the model when to delegate
+
 ## [2.70.0] - 2026-10-08
 
 ### Added
