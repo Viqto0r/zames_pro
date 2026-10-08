@@ -202,6 +202,34 @@ async function main() {
     /HELLO_SMOKE/i.test(outD),
     JSON.stringify(outD.slice(0, 120)),
   )
+
+  // Scenario E — background Bash + BashOutput (N33): start a process that
+  // keeps running, poll its output, then kill it.
+  const outE = await runAgentLoop({
+    browser,
+    tools,
+    task:
+      'Do exactly this, then report: (1) Start the Bash command ' +
+      '`echo BG_MARKER_7 && sleep 120` in the BACKGROUND (run_in_background=true). ' +
+      '(2) Poll it once with BashOutput. (3) Kill it with BashOutput kill=true. ' +
+      'Then call respond with one short line containing BG_MARKER_7.',
+    workdir: WORK,
+    maxIterations: 20,
+    freshChat: true,
+    sendSystemPrompt: true,
+    transcript,
+    onToolCall: (n) => console.log('  tool: ' + n),
+    onAssistantMessage: (m) => console.log('  answer: ' + m),
+    onWarning: (m) => console.log('  warn: ' + m),
+    locale: 'ru',
+    askDeadlineMs: cfg.browser.askDeadlineMs,
+    maxAfterToolRetries: cfg.browser.maxAfterToolRetries,
+  })
+  record(
+    'background bash: started, polled and killed',
+    /BG_MARKER_7/.test(outE),
+    JSON.stringify(outE.slice(0, 120)),
+  )
 }
 
 let failed = false

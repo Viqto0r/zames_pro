@@ -11,6 +11,9 @@ import { fileURLToPath } from 'node:url'
 // that does not exist (the old `--project` bug swallowed its argument).
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const src = fs.readFileSync(path.join(root, 'src/index.ts'), 'utf-8')
+// C3: the pure CLI parsing (getArg/hasFlag/getPositional + the value-flag
+// skip-list) moved to src/cli-args.ts.
+const cliArgs = fs.readFileSync(path.join(root, 'src/cli-args.ts'), 'utf-8')
 const i18n = fs.readFileSync(path.join(root, 'src/i18n.ts'), 'utf-8')
 
 // Flags advertised in the help text (the literal `--name` before the help.opt
@@ -32,7 +35,6 @@ function handledFlags(): Set<string> {
   for (const m of src.matchAll(/getArg\('(--[a-z0-9-]+)'/g)) set.add(m[1])
   return set
 }
-
 // Flags handled outside index.ts (color.ts reads --no-color at module load).
 const HANDLED_ELSEWHERE = ['--no-color']
 
@@ -50,10 +52,10 @@ test('every advertised --flag is handled in code', () => {
 
 test('getPositional only skips value-flags that are handled', () => {
   const handled = handledFlags()
-  // Prettier may wrap the call, so allow whitespace/newlines around the
-  // array and the .includes(a) argument.
-  const m = src.match(/if \(\s*\[([^\]]+)\]\.includes\(\s*a,?\s*\)\s*\)/)
-  assert.ok(m, 'getPositional skip-list not found')
+  // The skip-list now lives in src/cli-args.ts as SKIP_VALUE_FLAGS. Prettier
+  // may wrap the array, so allow whitespace/newlines around it.
+  const m = cliArgs.match(/SKIP_VALUE_FLAGS = \[([^\]]+)\]/)
+  assert.ok(m, 'SKIP_VALUE_FLAGS not found in cli-args.ts')
   const names = [...m[1].matchAll(/'(--[a-z0-9-]+)'/g)].map((x) => x[1])
   assert.ok(names.length > 0, 'skip-list is empty')
   const bad = names.filter((n) => !handled.has(n))

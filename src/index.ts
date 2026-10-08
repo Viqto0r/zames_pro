@@ -66,6 +66,7 @@ import {
   formatJobLine,
   parseCron,
 } from './scheduler.js'
+import { createCliArgs } from './cli-args.js'
 import { renderMarkdown, setAnswerWidth } from './markdown.js'
 import { runStatusLineCommand } from './statusline.js'
 import { parseBacklogNote } from './backlog.js'
@@ -122,33 +123,9 @@ function authMarkerExists(): boolean {
 }
 
 // ---------- CLI parsing ----------
-
-const args = process.argv.slice(2)
-
-function getArg(flag: string, fallback: string | null = null): string | null {
-  const i = args.indexOf(flag)
-  return i !== -1 && args[i + 1] ? args[i + 1] : fallback
-}
-
-function hasFlag(flag: string): boolean {
-  return args.includes(flag)
-}
-
-function getPositional(): string[] {
-  const positional = []
-  for (let i = 0; i < args.length; i++) {
-    const a = args[i]
-    if (
-      ['--dir', '--task', '--max-iter', '--chat', '--output-format'].includes(a)
-    ) {
-      i++
-      continue
-    }
-    if (a.startsWith('--')) continue
-    positional.push(a)
-  }
-  return positional
-}
+// The pure helpers live in src/cli-args.ts (C3) and are bound to this process's
+// argv ONCE here. Call sites keep using getArg/hasFlag/getPositional.
+const { getArg, hasFlag, getPositional } = createCliArgs(process.argv.slice(2))
 
 // /compact asks the OLD chat for a summary. If browser.ask() exhausts its own
 // rate-limit budget, aborting the whole compaction used to force the operator
