@@ -98,6 +98,10 @@ Key pieces:
 - **Project context** — reads `AGENTS.md`, `MEMORY.md`, skills (`SKILL.md`) and
   custom commands from the repo and `~/.zames`, the same idea as Codex / Claude
   Code.
+- **Subagents** — the `Task` tool delegates a self-contained sub-task to an
+  agent in its own separate chat (isolated context), which returns only a
+  report, so heavy research does not flood the main context. On by default;
+  tune with `browser.subagents` / `browser.maxSubagents`.
 - **MCP support** — plug in external tool servers (e.g. `@playwright/mcp`).
 - **Scheduling** — `/loop`, `/cron` and `/jobs` repeat tasks on a timer.
 - **Bilingual UI** — Russian / English (`/config lang`).

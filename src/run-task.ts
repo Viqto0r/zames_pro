@@ -10,7 +10,11 @@ import {
   formatDuration,
 } from './commands.js'
 import { formatCompactTokens, pasteReplacement, expandPastes } from './input.js'
-import type { runAgentLoop } from './agent-loop.js'
+import type {
+  runAgentLoop,
+  SubagentRequest,
+  SubagentResult,
+} from './agent-loop.js'
 import type { createSpinner } from './spinner.js'
 import type { TranslateFn, Locale } from './i18n.js'
 import type { ZamesConfig } from './types.js'
@@ -55,6 +59,11 @@ export interface RunTaskOptions {
    * of a FRESH chat and into the auto-compact handover. Off in a normal run.
    */
   selfImprovement?: boolean
+  /**
+   * Execute a `Task` tool call (delegate to an isolated subagent). Provided by
+   * the caller so this module stays free of the browser/session lifecycle.
+   */
+  onSubagent?: ((req: SubagentRequest) => Promise<SubagentResult>) | null
 }
 
 // Everything the task runner needs from the main module. Passed explicitly so
@@ -350,6 +359,7 @@ export async function runTask(
     goal = null,
     todosQuery = null,
     selfImprovement = false,
+    onSubagent = null,
   } = opts
 
   // In TTY mode the UI is a LineEditor: it owns the input (queue, Esc,
@@ -477,6 +487,7 @@ export async function runTask(
         contextLimit,
         getTokenUsage,
         selfImprovement,
+        onSubagent,
       })
 
       // The loop may end WITHOUT a model answer: an exhausted iteration limit

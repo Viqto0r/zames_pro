@@ -42,8 +42,9 @@ fs.mkdirSync(WORK, { recursive: true })
 
 // --- project modules (dynamic: they read HOME at import) --------------------
 const { DeepSeekBrowser } = await import('../src/browser.ts')
-const { createTools } = await import('../src/tools.ts')
+const { createTools, filterToolsForReadOnly } = await import('../src/tools.ts')
 const { runAgentLoop } = await import('../src/agent-loop.ts')
+const { createSubagentRunner } = await import('../src/subagent.ts')
 const { loadConfig } = await import('../src/config.ts')
 const { Transcript } = await import('../src/transcript.ts')
 
@@ -149,6 +150,49 @@ async function main() {
     maxAfterToolRetries: cfg.browser.maxAfterToolRetries,
   })
   record('follow-up answered', outC.trim().length > 0, JSON.stringify(outC.slice(0, 80)))
+  const onSubagent = createSubagentRunner({
+    browser,
+    workdir: WORK,
+    locale: 'ru',
+    runAgentLoop,
+    buildTools: (readOnly) => {
+      const base = createTools(WORK, {})
+      return readOnly ? filterToolsForReadOnly(base) : base
+    },
+    transcript,
+    maxSubagents: 2,
+    askDeadlineMs: cfg.browser.askDeadlineMs,
+    maxAfterToolRetries: cfg.browser.maxAfterToolRetries,
+  })
+
+  // Scenario D — subagents (N36): the model delegates via Task; the runner
+  // opens a separate chat, returns only the report, and restores the parent
+  // chat. Requires browser.subagents (off by default).
+  const subTools = createTools(WORK, { subagents: true })
+  const outD = await runAgentLoop({
+    browser,
+    tools: subTools,
+    task:
+      'Use the Task tool with subagent_type "explore" to find which word is written in the file smoke.txt. ' +
+      'prompt the subagent in a self-contained way. Then, based on its report, call respond with that word.',
+    workdir: WORK,
+    maxIterations: 20,
+    freshChat: true,
+    sendSystemPrompt: true,
+    transcript,
+    onSubagent,
+    onToolCall: (n) => console.log('  tool: ' + n),
+    onAssistantMessage: (m) => console.log('  answer: ' + m),
+    onWarning: (m) => console.log('  warn: ' + m),
+    locale: 'ru',
+    askDeadlineMs: cfg.browser.askDeadlineMs,
+    maxAfterToolRetries: cfg.browser.maxAfterToolRetries,
+  })
+  record(
+    'subagent: parent used the report',
+    /HELLO_SMOKE/i.test(outD),
+    JSON.stringify(outD.slice(0, 120)),
+  )
 }
 
 let failed = false

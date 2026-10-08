@@ -19,7 +19,13 @@ export function createTools(
     undo,
     todos,
     readOnly = false,
-  }: { undo?: UndoStore | null; todos?: TodoStore; readOnly?: boolean } = {},
+    subagents = false,
+  }: {
+    undo?: UndoStore | null
+    todos?: TodoStore
+    readOnly?: boolean
+    subagents?: boolean
+  } = {},
 ): ToolDef[] {
   const root = path.resolve(workdir)
   const safe = (p: string): string => safePath(root, p)
@@ -240,11 +246,37 @@ export function createTools(
     fn: async ({ message }: ToolArgs) => message,
   }
 
+  // `Task` is a SEAM handled by the agent loop (onSubagent), not an ordinary
+  // fn. Its body here is only a fallback for a direct unit-test call; the live
+  // path never reaches it because agent-loop intercepts the name first.
+  const taskTool: ToolDef = {
+    name: 'Task',
+    description:
+      'Delegate a self-contained sub-task to a SUBAGENT that works in its own ' +
+      'separate chat with an isolated context, then returns ONLY a final ' +
+      'report. Use it to keep heavy research out of the main context. ' +
+      'subagent_type: "explore" (read-only: search/read, cannot modify) or ' +
+      '"general" (full tools). The subagent does NOT see this conversation, so ' +
+      '`prompt` must be fully self-contained: state the goal, the exact ' +
+      'questions, and any file paths/context it needs. Returns the subagent ' +
+      'report as text.',
+    parameters: {
+      description: 'string',
+      prompt: 'string',
+      subagent_type: 'string?',
+    },
+    fn: async () =>
+      'Subagents are not available in this run. Do the work yourself.',
+  }
+
+  // In plan (read-only) mode `Task` is dropped too: a `general` subagent could
+  // otherwise write through it and defeat the read-only promise.
   const all = [
     ...baseTools,
     ...extraTools,
     ...gitTools,
     ...webTools,
+    ...(subagents && !readOnly ? [taskTool] : []),
     respondTool,
   ]
   return readOnly ? filterToolsForReadOnly(all) : all

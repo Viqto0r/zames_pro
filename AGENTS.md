@@ -95,6 +95,16 @@ When a change touches one concern, start in the module that owns it:
   cron jobs). The 1-second ticker lives in `src/index.ts`.
 - `src/compact.ts` — `performCompact()`, shared by the manual `/compact` and the
   auto-compact seam in the loop.
+- `src/subagent.ts` — `createSubagentRunner()`: builds the `onSubagent`
+  callback for runAgentLoop. A model `Task` call is a SEAM handled by the loop
+  (like `onAutoCompact`), not an ordinary tool: the runner opens a FRESH chat
+  (context isolation — in zames "context" IS the chat), runs a NESTED
+  runAgentLoop (`freshChat:true`+`sendSystemPrompt:true`, `subagent_type`
+  explore=read-only tools / general=full), restores the parent chat + send
+  hooks, and returns ONLY the subagent's final report. Sequential by design;
+  on when `browser.subagents` (default true). The `Task` tool's description and
+  the system-prompt `## Task tool (subagents)` section (injected only when the
+  tool is offered) tell the model WHEN to delegate.
 - `src/net-capture.ts` — parse the raw SSE/JSON the model sends (answer text,
   token counter, truncation/no-answer/rate-limit detection).
 - `src/i18n.ts` — the localized `CATALOG` (ru/en) for everything the operator

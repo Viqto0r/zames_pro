@@ -26,6 +26,27 @@ import {
   type PermissionDecision,
 } from './permissions.js'
 
+// A subagent request from the model's `Task` tool. The loop does NOT execute
+// `Task` itself — it is a seam (like onAutoCompact): the caller (index.ts)
+// opens a SEPARATE chat with its own context, runs a nested loop there and
+// returns only the final report, then restores the parent chat. This keeps a
+// research sub-task out of the main chat's context, which is the whole point
+// of subagents in Claude Code / Codex.
+export interface SubagentRequest {
+  /** Full, self-contained instructions for the subagent. */
+  prompt: string
+  /** Short label for the log/UI (may be empty). */
+  description: string
+  /** 'explore' = read-only tools; 'general' = all tools. */
+  type: 'explore' | 'general'
+}
+
+export interface SubagentResult {
+  ok: boolean
+  /** The subagent's final report, returned to the parent as the tool result. */
+  text: string
+}
+
 export interface RunAgentLoopOptions {
   browser: BrowserLike
   tools: ToolDef[]
@@ -119,6 +140,14 @@ export interface RunAgentLoopOptions {
    * never be told to edit a BACKLOG.md.
    */
   selfImprovement?: boolean
+  /**
+   * Execute a `Task` tool call (delegate a sub-task to an isolated subagent).
+   * When omitted (undefined) or null, `Task` is NOT offered to the model and
+   * any stray call is answered with a "not available" error. The callback
+   * owns the whole lifecycle: open a fresh chat, run the nested loop, restore
+   * the parent chat. The loop awaits it, so it serializes with the throttle.
+   */
+  onSubagent?: ((req: SubagentRequest) => Promise<SubagentResult>) | null
 }
 
 export async function runAgentLoop({
@@ -153,6 +182,7 @@ export async function runAgentLoop({
   permissions = undefined,
   onAskPermission = undefined,
   selfImprovement = false,
+  onSubagent = null,
 }: RunAgentLoopOptions): Promise<string> {
   // Resolve the hook config ONCE per task: a read per tool call would be
   // wasteful, and a mid-task edit of hooks.json is not something to chase.
@@ -908,6 +938,76 @@ export async function runAgentLoop({
     }
 
     for (const call of callsToRun) {
+      // `Task` is a SEAM, not an ordinary tool: it is handled by the caller's
+      // onSubagent callback (a separate chat with its own context). It is not
+      // in `tools` when subagents are disabled, so it is matched by name here
+      // BEFORE the unknown-tool branch. With no callback we answer honestly
+      // instead of pretending the tool exists.
+      if (call.tool === 'Task') {
+        const rawPrompt =
+          typeof call.args.prompt === 'string' ? call.args.prompt.trim() : ''
+        const rawType = String(call.args.subagent_type ?? '').toLowerCase()
+        const subType: 'explore' | 'general' =
+          rawType === 'explore' ? 'explore' : 'general'
+        const rawDesc =
+          typeof call.args.description === 'string'
+            ? call.args.description
+            : ''
+        if (!onSubagent || !rawPrompt) {
+          const err = !onSubagent
+            ? 'Subagents are not available in this run. Do the work yourself with the other tools.'
+            : 'Task requires a non-empty `prompt` argument.'
+          safeToolResult(err)
+          transcript?.log('tool_error', { tool: 'Task', error: err })
+          results.push({ tool: 'Task', result: err })
+          continue
+        }
+        syncToolAbort()
+        safeToolCall('Task', call.args)
+        transcript?.log('subagent_start', {
+          type: subType,
+          description: rawDesc,
+          prompt: rawPrompt,
+        })
+        const poll = setInterval(syncToolAbort, 100)
+        if (typeof poll.unref === 'function') poll.unref()
+        const subStart = Date.now()
+        let subResult: SubagentResult
+        try {
+          subResult = await onSubagent({
+            prompt: rawPrompt,
+            description: rawDesc,
+            type: subType,
+          })
+        } catch (e) {
+          subResult = { ok: false, text: `Subagent error: ${(e as Error).message}` }
+        } finally {
+          clearInterval(poll)
+        }
+        const subText = String(subResult.text || '').trim()
+        const subOut = subResult.ok
+          ? subText || '(the subagent returned no report)'
+          : `Subagent failed: ${subText || 'unknown error'}`
+        safeToolResult(subOut)
+        transcript?.log('subagent_done', {
+          type: subType,
+          ok: subResult.ok,
+          chars: subText.length,
+          durationMs: Date.now() - subStart,
+        })
+        results.push({ tool: 'Task', result: subOut })
+        // The subagent switched the chat underneath us and the callback has
+        // already restored the parent chat. Clear the stale-echo baseline:
+        // the capture left over from the subagent's chat would otherwise make
+        // the watchdog compare the parent's next answer against IT and fire.
+        lastRaw = ''
+        if (browser._abort || browser._stopped) {
+          transcript?.log('user_aborted')
+          return '(прервано пользователем)'
+        }
+        continue
+      }
+
       const tool = tools.find((t) => t.name === call.tool)
 
       if (!tool) {

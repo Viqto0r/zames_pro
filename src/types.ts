@@ -109,6 +109,19 @@ export interface BrowserConfig {
   autoCompactPct: number
   /** Resend the full system-prompt when a chat is resumed (default off). */
   resendPromptOnResume: boolean
+  /**
+   * Offer the `Task` tool to the model: delegate a self-contained sub-task to
+   * a SUBAGENT in its own chat with an isolated context. On by default: it
+   * protects the main chat's context. The main chat is restored afterwards;
+   * it costs extra sends, so a tight budget (maxSubagents) guards against
+   * a model that delegates in a loop.
+   */
+  subagents: boolean
+  /**
+   * How many subagent runs ONE task may spawn before `Task` starts answering
+   * "budget exhausted". Guards against a model that delegates in a loop.
+   */
+  maxSubagents: number
   /** DeepSeek Deep thinking toggle (reasoning; slow, hidden). */
   deepThinking: boolean
   /** DeepSeek Smart search (web search) toggle. */

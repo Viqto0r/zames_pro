@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url'
 import { theme } from './theme.js'
 
 import { DeepSeekBrowser, headlessUACacheReady } from './browser.js'
-import { createTools, mergeTools } from './tools.js'
+import { createTools, mergeTools, filterToolsForReadOnly } from './tools.js'
 import {
   createTodoStore,
   getTodos,
@@ -17,6 +17,7 @@ import {
   type TodoItem,
 } from './extraTools.js'
 import { runAgentLoop } from './agent-loop.js'
+import { createSubagentRunner } from './subagent.js'
 import { createSpinner } from './spinner.js'
 import { LineEditor } from './input.js'
 import {
@@ -1325,6 +1326,35 @@ async function main(): Promise<void> {
   // Write the checklist whenever the agent changes it, so a restart/resume
   // brings the tasks back (they used to be in-memory only).
   todoStore.onChange = () => persistTodos()
+
+  // Subagents (BACKLOG N36): the `Task` tool delegates a self-contained
+  // sub-task to a nested agent loop in its OWN chat (context isolation — in
+  // zames "context" IS the chat), then restores this chat and returns only
+  // the report. Sequential by design (one browser, one send slot). On by
+  // default via browser.subagents (its own budget caps the extra sends).
+  const makeSubagentRunner = (): ReturnType<typeof createSubagentRunner> | null =>
+    config.browser.subagents
+      ? createSubagentRunner({
+          browser,
+          workdir: currentWorkdir,
+          locale: currentLocale,
+          runAgentLoop: mod.runAgentLoop,
+          buildTools: (readOnly) => {
+            const base = mod.createTools(currentWorkdir, {
+              undo,
+              todos: todoStore,
+              readOnly: false,
+              subagents: false,
+            })
+            return readOnly ? filterToolsForReadOnly(base) : base
+          },
+          transcript,
+          maxSubagents: config.browser.maxSubagents,
+          askDeadlineMs: config.browser.askDeadlineMs,
+          maxAfterToolRetries: config.browser.maxAfterToolRetries,
+          selfImprovement: devMode,
+        })
+      : null
 
   // A compact "tasks: 2/5" summary for the status line. Empty when the list
   // is empty, so an idle status is not cluttered.
@@ -3923,6 +3953,9 @@ async function main(): Promise<void> {
       undo,
       todos: todoStore,
       readOnly: planMode,
+      // `Task` is only offered when subagents are enabled AND we are not in
+      // plan (read-only) mode — a `general` subagent could write otherwise.
+      subagents: config.browser.subagents && !planMode,
     })
     const tools = mergeTools(baseTools, mcpPool?.tools, planMode)
     if (editor) editor.busy = true
@@ -3985,6 +4018,7 @@ async function main(): Promise<void> {
           goal: sessionGoal,
           todosQuery: () => todosSummary(),
           selfImprovement: devMode,
+          onSubagent: makeSubagentRunner(),
         },
         inputAttachments,
       )

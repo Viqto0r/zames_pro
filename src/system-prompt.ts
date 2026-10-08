@@ -43,6 +43,36 @@ Rules for that note:
   worth noting, add nothing.
 `
 
+// Guidance for the `Task` tool (subagents), injected only when that tool is in
+// the model's set. Without it the model under-uses subagents (it does every
+// broad search itself and floods the main context) or misuses them (delegates
+// work that needs THIS conversation's history, which the isolated subagent
+// cannot see). Kept short: it competes with the tool list for space.
+const SUBAGENT_SECTION = `
+## Task tool (subagents)
+
+The Task tool delegates a self-contained sub-task to a subagent that works in
+its OWN separate chat with an ISOLATED context and returns ONLY a final
+report. The subagent does NOT see this conversation, so the prompt you pass
+must be fully self-contained (goal, exact questions, file paths, context).
+
+Use it to PROTECT this chat's context and to parallelize independent work:
+
+- Broad exploration whose raw hits would flood this chat ("find every use of
+  X", "map how module Y works end to end"): delegate it with
+  subagent_type "explore" (read-only) and keep only the report.
+- A self-contained research or verification sub-task you can specify in a
+  paragraph: delegate it and continue the main line meanwhile.
+- Several INDEPENDENT investigations: emit several Task calls in ONE batch.
+
+Do NOT use it for:
+- work that depends on this conversation's history (the subagent cannot see
+  it) - pass everything needed in the prompt, or do the work yourself;
+- a trivial single read/edit you can do directly (a subagent costs a full
+  extra chat with its own system prompt and sends);
+- edits that must run strictly in order with the rest of this chat.
+`
+
 /** Render the AGENTS.md / MEMORY / skills / commands blocks of the prompt. */
 export function renderContextSection(
   context: LoadedContext | null | undefined,
@@ -159,6 +189,12 @@ export function buildSystemPrompt({
 }: BuildSystemPromptOptions): string {
   const t = translate(locale)
   const toolDescriptions = renderToolSection(tools)
+  // Emit the subagent guidance ONLY when the Task tool is actually in the set
+  // (subagents enabled and not in plan mode), so the prompt never tells the
+  // model about a tool it does not have.
+  const subagentSection = tools.some((x) => x.name === 'Task')
+    ? SUBAGENT_SECTION
+    : ''
 
   const gitSection = gitContext
     ? `\n## Git context\n\n${gitContext}\n`
@@ -237,7 +273,9 @@ Prefer the most specific tool; a wrong choice wastes a turn:
   directory -> LS.
 - Git operations -> the Git* tools, not Bash.
 - Reading a file whose path you already know -> Read, not Bash cat.
-
+- A broad search/exploration that would flood this chat -> the Task tool
+  (a subagent in its own chat) if it is available, then work from its report.
+${subagentSection}
 ## MCP tools
 
 Some tools are provided by external MCP servers and their names look

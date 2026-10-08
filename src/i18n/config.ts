@@ -120,6 +120,14 @@ export const configMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Пересылать системный промпт при возобновлении чата',
     en: 'Resend the system prompt on chat resume',
   },
+  'cfg.f.browser_subagents': {
+    ru: 'Субагенты: инструмент Task (отдельный чат)',
+    en: 'Subagents: the Task tool (separate chat)',
+  },
+  'cfg.f.browser_maxSubagents': {
+    ru: 'Максимум субагентов на задачу',
+    en: 'Max subagents per task',
+  },
   'cfg.f.browser_deepThinking': {
     ru: 'Глубокое мышление (долго; размышления не выводятся)',
     en: 'Deep thinking (slow; reasoning is hidden)',

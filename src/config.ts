@@ -58,6 +58,10 @@ export const DEFAULTS: ZamesConfig = {
     autoCompact: false,
     autoCompactPct: 95,
     resendPromptOnResume: false,
+    // Subagents on by default: the Task tool is what keeps heavy exploration
+    // out of the main context, and the main chat is restored afterwards.
+    subagents: true,
+    maxSubagents: 3,
     deepThinking: false,
     webSearch: true,
     auth: {
@@ -364,6 +368,20 @@ export const CONFIG_SCHEMA: ConfigField[] = [
     path: 'browser.resendPromptOnResume',
     type: 'boolean',
     labelKey: 'cfg.f.browser_resendPromptOnResume',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'browser.subagents',
+    type: 'boolean',
+    labelKey: 'cfg.f.browser_subagents',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'browser.maxSubagents',
+    type: 'number',
+    min: 0,
+    max: 20,
+    labelKey: 'cfg.f.browser_maxSubagents',
     groupKey: 'cfg.group.browser',
   },
   {

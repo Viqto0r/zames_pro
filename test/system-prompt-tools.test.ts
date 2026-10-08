@@ -35,3 +35,30 @@ test('the prompt has exactly one heading per tool (no hand-written duplicate)', 
   const headings = sp.match(/\n### /g) || []
   assert.equal(headings.length, tools.length)
 })
+
+// The subagent guidance is CONDITIONAL: it must be in the prompt only when the
+// `Task` tool is actually offered, otherwise the prompt tells the model about
+// a tool it does not have (subagents off, or plan/read-only mode).
+test('subagent guidance appears only when the Task tool is offered', () => {
+  const withTask = buildSystemPrompt({
+    workdir: process.cwd(),
+    tools: createTools(process.cwd(), { subagents: true }),
+  })
+  assert.ok(
+    withTask.includes('## Task tool (subagents)'),
+    'Task guidance is missing even though Task is offered',
+  )
+  assert.ok(
+    withTask.includes('must be fully self-contained'),
+    'Task guidance lacks the self-contained-prompt warning',
+  )
+
+  const withoutTask = buildSystemPrompt({
+    workdir: process.cwd(),
+    tools: createTools(process.cwd(), { subagents: false }),
+  })
+  assert.ok(
+    !withoutTask.includes('## Task tool (subagents)'),
+    'Task guidance leaked into the prompt when Task is not offered',
+  )
+})

@@ -100,6 +100,10 @@ Key pieces:
 - **Project context** — reads `AGENTS.md`, `MEMORY.md`, skills (`SKILL.md`) and
   custom commands from the repo and `~/.zames`, the same idea as Codex / Claude
   Code.
+- **Subagents** — the `Task` tool delegates a self-contained sub-task to an
+  agent in its own separate chat (isolated context), which returns only a
+  report, so heavy research does not flood the main context. On by default;
+  tune with `browser.subagents` / `browser.maxSubagents`.
 - **MCP support** — plug in external tool servers (e.g. `@playwright/mcp`).
 - **Scheduling** — `/loop`, `/cron` and `/jobs` repeat tasks on a timer.
 - **Bilingual UI** — Russian / English (`/config lang`).
@@ -573,6 +577,10 @@ zames не вызывает API модели. Он запускает headless C
 - **Контекст проекта** — читает `AGENTS.md`, `MEMORY.md`, навыки (`SKILL.md`) и
   пользовательские команды из репозитория и `~/.zames`, как в Codex / Claude
   Code.
+- **Субагенты** — инструмент `Task` поручает самодостаточную подзадачу агенту
+  в отдельном чате (изолированный контекст), который возвращает только отчёт,
+  так что тяжёлая разведка не засоряет основной контекст. Включены по
+  умолчанию; настраиваются через `browser.subagents` / `browser.maxSubagents`.
 - **Поддержка MCP** — подключение внешних серверов инструментов (например,
   `@playwright/mcp`).
 - **Планировщик** — `/loop`, `/cron` и `/jobs` повторяют задачи по таймеру.
