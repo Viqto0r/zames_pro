@@ -2,7 +2,7 @@ import ora, { type Ora } from 'ora'
 import { theme, divider } from './theme.js'
 import { renderMarkdown } from './markdown.js'
 import { translate, type Locale } from './i18n.js'
-import { truncateToWidth } from './input/layout.js'
+import { truncateToWidth, wrapToWidth } from './input/layout.js'
 
 export interface SpinnerUI {
   /** Optional task-list badge source ("tasks: 2/5"), like LineEditor. */
@@ -223,7 +223,10 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
 
     warning: (msg: string) => {
       stop()
-      console.log(String.fromCharCode(10) + theme.warn('⚠ ' + msg))
+      const maxW = Math.max(20, (process.stdout.columns || 80) - 1)
+      console.log(
+        String.fromCharCode(10) + theme.warn(wrapToWidth('⚠ ' + msg, maxW)),
+      )
     },
 
     stop,

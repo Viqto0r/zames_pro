@@ -31,6 +31,7 @@ import {
   formatTokenStatus,
   tokenStatusLevel,
   truncateToWidth,
+  wrapToWidth,
   CONTEXT_LIMIT,
   type PasteBlock,
   type SlashCommand,
@@ -57,6 +58,7 @@ export {
   formatTokenStatus,
   formatCompactTokens,
   truncateToWidth,
+  wrapToWidth,
   CONTEXT_LIMIT,
   CONTEXT_YELLOW_PCT,
   CONTEXT_RED_PCT,
@@ -1211,7 +1213,12 @@ export class LineEditor {
   // Warning to the operator (e.g. the agent stopped suspiciously).
   // Printed above the input line without overwriting it.
   warning(msg: string): void {
-    this.printAbove(NL + theme.warn('⚠ ' + msg))
+    // Wrap long service messages (send failures, rate limits) to the same
+    // margin the tool previews use, instead of letting the terminal wrap them
+    // at the full width and mid-word — that mismatch looked ragged.
+    const maxW = Math.max(20, (process.stdout.columns || 80) - 1)
+    const wrapped = wrapToWidth('⚠ ' + msg, maxW)
+    this.printAbove(NL + theme.warn(wrapped))
   }
 
   // ---------- input ----------

@@ -173,6 +173,61 @@ export function charWidth(cp: number): number {
 // appending an ellipsis when it was cut. Used for one-line previews (tool call
 // args, tool results) so a long argument cannot print a line wider than the
 // terminal — which made some terminals show a horizontal scrollbar.
+// Word-wrap a PLAIN (no-ANSI) string to at most `maxCols` visible columns per
+// line. Used for service messages printed above the input (warnings): the
+// terminal's OWN wrap breaks at the full width and mid-word, while our previews
+// stop at cols-1 — the mismatch looked ragged. Wrapping here keeps every line
+// inside the same margin. A single word longer than the width is hard-split so
+// it never overflows.
+export function wrapToWidth(s: string, maxCols: number): string {
+  const width = Math.max(1, Math.floor(maxCols))
+  const text = String(s ?? '')
+  const out: string[] = []
+  for (const raw of text.split(NL)) {
+    if (raw === '') {
+      out.push('')
+      continue
+    }
+    let line = ''
+    let lineW = 0
+    for (const word of raw.split(' ')) {
+      const w = visLen(word)
+      // Hard-split a word longer than a whole line.
+      if (w > width) {
+        if (line) {
+          out.push(line)
+        }
+        let piece = ''
+        let pieceW = 0
+        for (const ch of word) {
+          const cw = charWidth(ch.codePointAt(0) as number)
+          if (pieceW + cw > width) {
+            out.push(piece)
+            piece = ''
+            pieceW = 0
+          }
+          piece += ch
+          pieceW += cw
+        }
+        line = piece
+        lineW = pieceW
+        continue
+      }
+      const sep = line ? 1 : 0
+      if (lineW + sep + w > width) {
+        out.push(line)
+        line = word
+        lineW = w
+      } else {
+        line = line ? line + ' ' + word : word
+        lineW += sep + w
+      }
+    }
+    out.push(line)
+  }
+  return out.join(NL)
+}
+
 export function truncateToWidth(s: string, maxCols: number): string {
   const width = Math.max(1, Math.floor(maxCols))
   const text = String(s ?? '')
