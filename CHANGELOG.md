@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.67.2] - 2026-10-08
+
+### Fixed
+
+- **input:** a terminal resize no longer leaves a DUPLICATE of the status/
+  input block on screen. After a resize the terminal re-flows the lines
+  above the block, so the old code re-pinned by padding to the bottom and
+  scrolled the previous copy of the block back into view. The repaint now
+  clears the visible viewport (`ESC[2J`) before re-pinning; this clears the
+  SCREEN, not the scrollback, so the history above is preserved.
+
 ## [2.67.1] - 2026-10-08
 
 ### Changed
