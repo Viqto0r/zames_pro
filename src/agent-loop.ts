@@ -1366,7 +1366,7 @@ ${diag}`
 }
 
 // The pure helpers (tool-call parser + answer heuristics) moved to
-// agent-loop-pure.ts (BACKLOG C3). They are imported for runAgentLoop and
+// answer-parse.ts (BACKLOG C3). They are imported for runAgentLoop and
 // RE-EXPORTED, so the public API of this module is unchanged (tests import
 // parseToolCall / responseLooksLikeToolCall / truncateToolResult from here).
 import {
@@ -1377,6 +1377,6 @@ import {
   looksLikeUnfinishedWork,
   isMeaningfulRespond,
   extractPreToolText,
-} from './agent-loop-pure.js'
+} from './answer-parse.js'
 
 export { parseToolCall, responseLooksLikeToolCall, truncateToolResult }

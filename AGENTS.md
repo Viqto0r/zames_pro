@@ -71,7 +71,7 @@ When a change touches one concern, start in the module that owns it:
 - `src/agent-loop.ts` — one task: send → parse → run tools → loop; the retry
   budgets, the protocol/stale guards, the auto-compact seam. The pure half
   (the tool-call PARSER + the answer heuristics) lives in
-  `src/agent-loop-pure.ts` and is RE-EXPORTED here, so the public API is
+  `src/answer-parse.ts` and is RE-EXPORTED here, so the public API is
   unchanged (C3).
 - `src/browser.ts` — the DeepSeekBrowser facade over Playwright: send/answer,
   toggles, Continue, login, chats, attachments, history. Large by nature; the
