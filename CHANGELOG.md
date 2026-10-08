@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.67.0] - 2026-10-08
+
+### Added
+
+- **agent:** one-shot exit code, recursive self-review, MCP dedupe/truncate/plan-filter, transcript flush (N3/N4/N5/N9/N20/N21)
+
+### Fixed
+
+- **input:** CSI-u Delete, visual-row Up/Down, ESC disambiguation, Ctrl+L/PageUp (N27/N28/N29/N30)
+- **security:** close shell-injection, symlink-escape and SSRF-redirect holes (N1/N2/N6/N7/N17/N18/N19/N22/N23)
+
 ### Fixed
 
 - **tools:** Edit/MultiEdit no longer corrupt dollar patterns (`$&`, `$$`, `$1`)
