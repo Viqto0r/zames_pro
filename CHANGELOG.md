@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.72.0] - 2026-10-08
+
+### Added
+
+- close the open BACKLOG items (N31-N38, D2) and type the helper scripts
+
+### Fixed
+
+- **agent-loop:** honor the abort contract in the parallel read-only batch
+- **changelog:** normalize the Unreleased group headings to ### and document changelog:sync
+- **subagent:** harden the runner guards and keep the parent UI alive
+
+### Changed
+
+- rename agent-loop-pure.ts to answer-parse.ts
+- **browser:** extract the chat DOM scrapers and the history parser (C3)
+- extract the pure halves of browser/agent-loop and the CLI parser (C3)
+
 ### Added
 
 - close the open BACKLOG items (N31-N38, D2) and type the helper scripts
