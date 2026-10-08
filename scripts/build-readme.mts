@@ -1,22 +1,21 @@
-// Assemble README.md and README.ru.md from two language sources.
+// Assemble README.md from the two language sources.
 //
 // Why: npm renders exactly ONE readme per package (README.md in the root) and
-// has no language tabs, so a separate README.ru.md is invisible on the npm
-// page. But npm renders the readme with GitHub Flavored Markdown (via
-// GitHub's API), so a <details> block DOES work there -- and on GitHub too.
-// We therefore keep the English text on top and fold the other language into
-// a collapsible block at the bottom. README.ru.md is generated too so the
-// GitHub switcher can point at it directly, but it is NOT published to npm
-// (see "files" in package.json):
-// it would just duplicate the folded block.
+// has no language tabs. npm renders the readme with GitHub Flavored Markdown
+// (via GitHub's API), so a <details> block DOES work there -- and on GitHub
+// too. We keep the English text on top and fold the Russian translation into
+// a collapsible block at the bottom. The language switcher is an in-page
+// `#readme-ru` anchor, so one README.md serves both languages -- there is
+// no separate README.ru.md anymore (it was invisible on npm and just
+// duplicated the folded block).
 //
 // The two sources (docs/readme.en.md, docs/readme.ru.md) are the single point
 // of edit for each language; this script wires the switcher and the collapsible
-// cross-language block so neither README has to be maintained by hand. The
-// generated files are committed; test/readme-built.test.ts re-runs buildReadmes()
-// and fails if they drift from the sources.
+// cross-language block so neither language has to be maintained by hand. The
+// generated file is committed; test/readme-built.test.ts re-runs buildReadmes()
+// and fails if it drifts from the sources.
 //
-// Usage:  npm run build:readme
+// Usage:  npom run build:readme
 
 import fs from 'node:fs'
 import path from 'node:path'
@@ -70,19 +69,14 @@ function details(summary: string, body: string): string {
   ].join(NL)
 }
 
-// Returns the two generated readmes WITHOUT touching the disk, so a test can
-// compare them against the committed files. Both files carry the SAME content
-// (English on top, Russian folded): README.md is what npm publishes, and
-// README.ru.md exists only so the GitHub language switcher has a target. The
-// switcher is an IN-PAGE `#readme-ru` anchor, so it works from either file
-// without fetching the other one.
-export function buildReadmes(rootDir: string): {
-  readmeEn: string
-  readmeRu: string
-} {
+// Returns the generated README.md WITHOUT touching the disk, so a test can
+// compare it against the committed file. Only README.md is generated: the
+// Russian translation lives inside it as a <details> block, and the switcher
+// is an in-page `#readme-ru` anchor.
+export function buildReadmes(rootDir: string): { readmeEn: string } {
   const en = readSource(rootDir, 'readme.en.md')
   const ru = readSource(rootDir, 'readme.ru.md')
-  const doc = [
+  const readmeEn = [
     en.head,
     '',
     EN_SWITCH,
@@ -93,7 +87,7 @@ export function buildReadmes(rootDir: string): {
     details('🇷🇺 Читать по-русски (Russian)', ru.body),
     '',
   ].join(NL)
-  return { readmeEn: doc, readmeRu: doc }
+  return { readmeEn }
 }
 
 // Run only when invoked directly (not when imported by a test).
@@ -101,8 +95,7 @@ const invoked =
   process.argv[1] &&
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 if (invoked) {
-  const { readmeEn, readmeRu } = buildReadmes(root)
+  const { readmeEn } = buildReadmes(root)
   fs.writeFileSync(path.join(root, 'README.md'), readmeEn)
-  fs.writeFileSync(path.join(root, 'README.ru.md'), readmeRu)
-  console.log('build-readme: wrote README.md and README.ru.md')
+  console.log('build-readme: wrote README.md')
 }
