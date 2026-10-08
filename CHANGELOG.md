@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.67.3] - 2026-10-08
+
+### Fixed
+
+- **input:** a terminal resize no longer clears the whole viewport. The
+  2.67.2 fix removed the duplicate footer by clearing the screen (`ESC[2J`),
+  but that pushed the history above into the scrollback and left a blank gap
+  between the input line and the text the operator was reading. The block is
+  now erased with a RELATIVE move (the cursor row within the block), which
+  lands on the block top row after a reflow and clears ONLY our own rows —
+  the history above stays visible and in place.
+
 ## [2.67.2] - 2026-10-08
 
 ### Fixed
