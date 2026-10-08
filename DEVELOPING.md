@@ -67,10 +67,14 @@ The pure helpers live in `src/backlog.ts` (unit-tested in
 
 ## CHANGELOG draft from commits
 
-`npm run changelog:draft [ref]` builds a draft `[Unreleased]` section from the
-conventional commits since the last tag (or the given `ref`). It PRINTS the
-draft — it never rewrites `CHANGELOG.md`, because the changelog is a deliberate
-document, not a commit-log byproduct. The pure logic lives in
+`npm run changelog:sync` writes the `[Unreleased]` section in `CHANGELOG.md`
+from the conventional commits since the last tag, and `npm run changelog:check`
+fails when the committed section is stale (a CI guard, D2).
+`npm run changelog:draft [ref]` PRINTS a draft without touching the file — use
+it to eyeball the wording before a sync. The sync is idempotent and only
+rewrites the region between `## [Unreleased]` and the next `## [x.y.z]` heading
+(group headings are normalized to `###`, the file's convention). The pure logic
+lives in
 `src/changelog.ts` (`parseConventionalCommit` / `groupCommits` /
 `renderChangelogDraft`, unit-tested); `types`/`chore`/`ci`/`test`/`docs` are
 skipped, `feat`->Added, `fix`->Fixed, `perf`/`refactor`/`style`/`revert`->Changed,

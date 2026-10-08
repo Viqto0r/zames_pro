@@ -119,6 +119,10 @@ export function syncUnreleased(changelog: string, body: string): string {
   const cleanBody = String(body || '')
     .replace(/^## \[Unreleased\]\s*/m, '')
     .trim()
+    // The draft renders groups as `## Added` (top-level), but INSIDE the file
+    // a version's groups are `### Added` (a subsection of the version heading).
+    // `## [` (the next version) is left alone.
+    .replace(/^## (?!\[)/gm, '### ')
   const section = cleanBody ? nl + nl + cleanBody + nl : nl
   return changelog.slice(0, afterAnchor) + section + tail
 }

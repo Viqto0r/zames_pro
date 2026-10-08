@@ -152,3 +152,14 @@ test('syncUnreleased is a no-op without an Unreleased heading', () => {
   const src = '## [1.0.0]\n\n- x\n'
   assert.equal(syncUnreleased(src, '## Fixed'), src)
 })
+
+test('syncUnreleased normalizes group headings to ### (version subsections)', () => {
+  const src = '## [Unreleased]\n\n## [1.0.0]\n\n### Added\n\n- old\n'
+  const out = syncUnreleased(src, '## Added\n\n- new thing')
+  // The inserted group is a SUBSECTION of Unreleased, not a top-level heading
+  // (which would look like a version to the next sync).
+  assert.ok(out.includes('### Added'))
+  assert.ok(out.includes('- new thing'))
+  // The next version heading is untouched.
+  assert.ok(out.includes('## [1.0.0]'))
+})

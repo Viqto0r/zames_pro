@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- close the open BACKLOG items (N31-N38, D2) and type the helper scripts
+
+### Fixed
+
+- **subagent:** harden the runner guards and keep the parent UI alive
+
 ## [2.71.0] - 2026-10-08
 
 ### Added
