@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.70.0] - 2026-10-08
+
+### Added
+
+- **browser:** centralize DeepSeek UI constants and add a UI health probe
+
 ## [2.69.0] - 2026-10-08
 
 ### Changed
