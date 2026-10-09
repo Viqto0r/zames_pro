@@ -317,3 +317,41 @@ How it works:
 If you change the marker format, update `AttachmentStore` (src/attachments.ts),
 the `## Attachments` section in src/system-prompt.ts and the note in
 `runAgentLoop`.
+
+---
+
+## The "Stopped" hang: `quasi_status` arrives in TWO shapes
+
+Symptom (seen live): the operator saw DeepSeek RENDER a chat message
+"Server is temporarily unavailable." with a retry button, while the agent's
+status stayed on "▶ генерация" and did nothing until the timeout. It was not
+clear whether the agent was waiting or generating.
+
+Root cause: DeepSeek sends the generation status in TWO different JSON shapes:
+
+1. the INITIAL message, as a property inside `v.response`:
+   `{"v":{"response":{...,"quasi_status":"FINISHED"}}}`
+2. later BATCH updates, as a key/value pair:
+   `{"p":"quasi_status","v":"FINISHED"}` (also `"response/status"` `SET`).
+
+`FINISHED_STATUS_RE` and `INCOMPLETE_STATUS_RE` (deepseek-ui.ts) matched ONLY
+the BATCH form: `"quasi_status","v":"FINISHED"`. So a turn that ended in the
+PROPERTY form (which is exactly how the "Server is temporarily unavailable"
+body came — `status: FINISHED`, empty `fragments`, no RESPONSE) was NOT
+detected. `extractAnswer()` returned '' (no RESPONSE fragment), so `_netCapture`
+was empty and the finish loop spun to `answerTimeoutMs`; the operator saw the
+stuck "generating" status and an unreacted error message in the chat.
+
+Fix: both regexes now match EITHER shape —
+`/"quasi_status"(?::|,"v":)"FINISHED"/i` (and the INCOMPLETE twin). Verified
+against the EXACT captured body that hung the live agent:
+`extractAnswer()` is still '' but `isFinishedWithoutAnswer()` is now true, so
+the finish loop clicks Continue / resends instead of waiting. Scale check
+across ~12k real captures: the property form appears in 21 FINISHED and 1
+INCOMPLETE body the old regexes missed. Covered by
+test/generation-incomplete.test.ts (adds the property-form regression case).
+
+LESSON: a status may be emitted both as an initial JSON property AND as an
+incremental BATCH path. A detector keyed on ONE textual shape silently misses
+the other; when adding a protocol detector, match every shape the live captures
+show.

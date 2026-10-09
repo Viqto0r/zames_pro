@@ -691,6 +691,15 @@ The reasoning text is never read: `_readLastAnswerText()` skips elements
 inside `.ds-think-content`, and `net-capture.ts` already ignores
 `reasoning_content`/thinking chunks.
 
+IMPORTANT — `quasi_status` arrives in TWO shapes and BOTH must be matched:
+the initial message as a JSON property (`"quasi_status":"FINISHED"` inside
+`v.response`) and later BATCH updates as `{"p":"quasi_status","v":"..."}`.
+The regexes used to match only the BATCH form, so a FINISHED-without-answer
+turn in the PROPERTY form (the real "Server is temporarily unavailable" body)
+was missed and the finish loop hung until the timeout while the status stayed
+"generating". `FINISHED_STATUS_RE` / `INCOMPLETE_STATUS_RE` (deepseek-ui.ts)
+now match BOTH. Covered by test/generation-incomplete.test.ts.
+
 `browser.maxIncompleteRetries` / `browser.incompleteWaitMs` (4 / 2000ms by
 default) — retries for a turn the SERVER truncated. With the reasoning
 ("Deep thinking") toggle ON, DeepSeek frequently cuts a turn short: the SSE
