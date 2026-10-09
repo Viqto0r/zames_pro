@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.72.7] - 2026-10-09
+
+### Fixed
+
+- **ui:** show a queued-message banner for EVERY queued message
+
 ### Fixed
 
 - **ui:** show a queued-message banner for EVERY queued message
