@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **input:** extract the pure slash-command suggestion logic into input/suggest.ts (C3)
+
 ## [2.72.4] - 2026-10-09
 
 ### Changed
