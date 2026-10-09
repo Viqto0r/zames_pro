@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { responseLooksLikeToolCall } from '../src/agent-loop.ts'
+import { responseLooksLikeToolCall } from '../src/answer-parse.ts'
 
 // Safeguard against "called a tool and stopped": if parseToolCall did not
 // recognize the answer but it looks like a call — the agent must re-ask, not

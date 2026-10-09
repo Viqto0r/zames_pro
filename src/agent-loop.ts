@@ -1365,10 +1365,9 @@ ${diag}`
   return 'Iteration limit reached.'
 }
 
-// The pure helpers (tool-call parser + answer heuristics) moved to
-// answer-parse.ts (BACKLOG C3). They are imported for runAgentLoop and
-// RE-EXPORTED, so the public API of this module is unchanged (tests import
-// parseToolCall / responseLooksLikeToolCall / truncateToolResult from here).
+// The pure helpers (tool-call parser + answer heuristics) live in
+// answer-parse.ts (BACKLOG C3) and are imported here for runAgentLoop. They are
+// NOT re-exported: importers get them from answer-parse.js directly (C3b).
 import {
   parseToolCall,
   responseLooksLikeToolCall,
@@ -1378,5 +1377,3 @@ import {
   isMeaningfulRespond,
   extractPreToolText,
 } from './answer-parse.js'
-
-export { parseToolCall, responseLooksLikeToolCall, truncateToolResult }

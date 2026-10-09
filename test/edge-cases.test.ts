@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
-import { parseToolCall } from '../src/agent-loop.ts'
+import { parseToolCall } from '../src/answer-parse.ts'
 import { createTools } from '../src/tools.ts'
 import type { ToolDef } from '../src/types.ts'
 

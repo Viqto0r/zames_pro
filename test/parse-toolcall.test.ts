@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseToolCall } from '../src/agent-loop.ts'
+import { parseToolCall } from '../src/answer-parse.ts'
 
 const NL = String.fromCharCode(10)
 const Q = String.fromCharCode(34)

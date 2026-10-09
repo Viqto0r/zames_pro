@@ -70,9 +70,8 @@ When a change touches one concern, start in the module that owns it:
   CLI argument parsing lives in `src/cli-args.ts` (`createCliArgs(argv)`, C3).
 - `src/agent-loop.ts` — one task: send → parse → run tools → loop; the retry
   budgets, the protocol/stale guards, the auto-compact seam. The pure half
-  (the tool-call PARSER + the answer heuristics) lives in
-  `src/answer-parse.ts` and is RE-EXPORTED here, so the public API is
-  unchanged (C3).
+  (the tool-call PARSER + the answer heuristics) lives in `src/answer-parse.ts`
+  and is imported directly (C3); it is NOT re-exported from here (C3b).
 - `src/browser.ts` — the DeepSeekBrowser facade over Playwright: send/answer,
   toggles, Continue, login, chats, attachments, history. Large by nature; the
   pure parts (answer cleaning, signal detection) live in `src/net-capture.ts`,
