@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **browser:** also treat generation_timeout as a truncated turn
+
 ## [2.72.7] - 2026-10-09
 
 ### Fixed
