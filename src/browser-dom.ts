@@ -278,6 +278,14 @@ export function clickContinueInDom(): boolean {
 }
 
 /**
+ * The real User-Agent the engine reports. Read after launch so a headless run
+ * can strip the "Headless" marker (DeepSeek's CDN 403s that UA).
+ */
+export function readUserAgentInDom(): string {
+  return navigator.userAgent
+}
+
+/**
  * Find the index of the text/email/tel input that immediately precedes the
  * password field, so the login form can be filled when no explicit
  * LOGIN_SELECTORS matched. Returns -1 when not found.

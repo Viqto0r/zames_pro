@@ -68,6 +68,7 @@ import {
   clickStopInDom,
   continueVisibleInDom,
   clickContinueInDom,
+  readUserAgentInDom,
   findLoginInputIndexInDom,
   submitLoginFormInDom,
   setBusyTitleInDom,
@@ -484,7 +485,7 @@ export class DeepSeekBrowser {
   async _fixHeadlessUserAgent(): Promise<void> {
     if (!this.headless) return
     try {
-      const ua: string = await this.page.evaluate(() => navigator.userAgent)
+      const ua: string = await this.page.evaluate(readUserAgentInDom)
       const fixed = sanitizeHeadlessUA(ua)
       if (fixed === ua) return
       this.userAgent = fixed
