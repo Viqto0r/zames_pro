@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.72.1] - 2026-10-09
+
+### Changed
+
+- **browser:** move cleanAnswer into browser-pure.ts (C3)
+- **browser:** extract the element-level DOM callbacks into browser-dom.ts (C3)
+- **browser:** extract the headless UA reader callback (C3)
+- **browser:** extract the login-submit, UA-scan and busy-title callbacks (C3)
+- **browser:** extract the in-page DOM callbacks into browser-dom.ts (C3)
+- **answer-parse:** import the parser directly, drop the agent-loop re-export (C3b)
+
 ### Changed
 
 - **browser:** move cleanAnswer into browser-pure.ts (C3)
