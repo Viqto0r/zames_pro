@@ -971,9 +971,18 @@ Isolation matters: the script sets a THROWAWAY `HOME` (via `ZAMES_SMOKE_HOME`)
 BEFORE importing any project module, copies the real `~/.zames/config.json` so
 auto-login works, and symlinks the real Playwright browser cache. It NEVER
 writes to the operator's `~/.zames/profile` and can run alongside a live agent.
-Flags: `--headed` (visible window), `ZAMES_SMOKE_KEEP=1` (keep the temp HOME).
-Scenario failures are reported, not thrown; exit code 1 means at least one
-failed. When you add a user-visible feature, add a self-smoke scenario for it.
+Flags: `--headed` (visible window), `--reuse-profile` (COPY the signed-in
+profile read-only so the browser starts logged in), `--profile <dir>` (source
+for the copy), `ZAMES_SMOKE_KEEP=1` (keep the temp HOME).
+Scenario failures are reported, not thrown; exit code 1 = a scenario failed,
+**exit code 2 = login failed** (could not even start).
+Why `--reuse-profile`: DeepSeek's anti-bot increasingly blocks a COLD login on
+a fresh profile (captcha / rate limit), so the default empty-profile run can
+fail for a reason unrelated to the agent. Copying the profile (never opening
+the live one; the Singleton files are dropped in the copy) lets the smoke
+exercise the AGENT against a real signed-in session. Use it before a release
+when a cold login is blocked; the empty-profile mode remains the default.
+When you add a user-visible feature, add a self-smoke scenario for it.
 
 - Syntax/types: `npm run typecheck` (tsc --noEmit, includes src/, test/ and scripts/**/*.mts)
 - Changelog sync: `npm run changelog:sync` (writes the Unreleased section from

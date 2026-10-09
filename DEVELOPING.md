@@ -136,6 +136,19 @@ CI. It never touches `~/.zames/profile` and can run alongside a live agent (see
 `scripts/self-smoke.mts`: a throwaway `HOME` via `ZAMES_SMOKE_HOME`, an isolated
 profile, a symlinked browser cache).
 
+The default run logs in from scratch on a FRESH profile. DeepSeek's anti-bot
+increasingly blocks a cold login there (captcha / rate limit), so the smoke can
+fail on login for a reason unrelated to the agent. In that case run it against
+a COPY of your signed-in profile (the live profile is only read, never opened):
+
+```bash
+npm run self-smoke -- --reuse-profile        # copy ~/.zames/profile read-only
+npm run self-smoke -- --profile /path/to/dir # copy an explicit profile
+```
+
+Exit codes: `0` all scenarios passed, `1` a scenario failed, `2` login failed
+(could not even start — the anti-bot case above).
+
 Coverage: `npx tsx --test --experimental-test-coverage test/*.test.ts` (this is
 also what CI runs).
 

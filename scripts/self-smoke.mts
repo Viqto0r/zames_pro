@@ -7,18 +7,35 @@
 // config.json (so auto-login works) and symlinks the Playwright browser cache.
 // Nothing in the operator's profile is written.
 //
-// Usage:  npm run self-smoke            (headless)
+// Usage:  npm run self-smoke                     (headless, empty profile)
 //         npm run self-smoke -- --headed
-// Exit code 0 = all scenarios passed.
+//         npm run self-smoke -- --reuse-profile   (logged-in profile, see below)
+// Exit code 0 = all scenarios passed; 2 = login failed (could not start).
+//
+// --reuse-profile: copy the REAL profile (~/.zames/profile) read-only into the
+// throwaway HOME so the browser starts ALREADY SIGNED IN. Reason: DeepSeek's
+// anti-bot increasingly blocks a COLD login on a fresh profile (captcha / rate
+// limit), so a smoke that logs in from scratch fails for reasons unrelated to
+// the agent. Copying (never opening the live profile) keeps isolation intact.
 
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
 
+// --- flags -----------------------------------------------------------------
 const HEADED = process.argv.includes('--headed')
+const REUSE_PROFILE =
+  process.argv.includes('--reuse-profile') ||
+  process.env.ZAMES_SMOKE_REUSE_PROFILE === '1'
+// Optional explicit source profile (default: the real ~/.zames/profile).
+const profileArgIdx = process.argv.indexOf('--profile')
+const REAL_HOME = os.homedir()
+const PROFILE_SRC =
+  profileArgIdx >= 0 && process.argv[profileArgIdx + 1]
+    ? path.resolve(process.argv[profileArgIdx + 1])
+    : path.join(REAL_HOME, '.zames', 'profile')
 
 // --- isolate HOME before importing project modules -------------------------
-const REAL_HOME = os.homedir()
 if (!process.env.ZAMES_SMOKE_HOME) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-smoke-'))
   process.env.HOME = tmp
@@ -34,6 +51,16 @@ if (!process.env.ZAMES_SMOKE_HOME) {
   const realPw = path.join(REAL_HOME, '.cache', 'ms-playwright')
   if (fs.existsSync(realPw)) {
     fs.symlinkSync(realPw, path.join(tmp, '.cache', 'ms-playwright'))
+  }
+  // Reuse a logged-in profile: COPY it (the live one is never opened) and drop
+  // the Singleton* files — Chrome refuses to start on a profile whose lock is
+  // present, and the live browser may hold it. The cookies survive the copy
+  // because Playwright launches with --password-store=basic.
+  if (REUSE_PROFILE && fs.existsSync(PROFILE_SRC)) {
+    fs.cpSync(PROFILE_SRC, path.join(tmp, '.zames', 'profile'), {
+      recursive: true,
+      filter: (src) => !/^Singleton/.test(path.basename(src)),
+    })
   }
 }
 const SMOKE_HOME = process.env.ZAMES_SMOKE_HOME
@@ -54,6 +81,9 @@ interface SmokeResult {
   note?: string
 }
 const results: SmokeResult[] = []
+// Set when we could not even start (login failed): exit code 2, distinct from a
+// scenario failure (1).
+let loginFailed = false
 const record = (name: string, ok: boolean, note?: string): void => {
   results.push({ name, ok, note })
   console.log((ok ? 'PASS ' : 'FAIL ') + name + (note ? '  — ' + note : ''))
@@ -76,9 +106,33 @@ const browser = new DeepSeekBrowser({
 })
 
 async function main() {
-  console.log('self-smoke: HOME=' + SMOKE_HOME + ' headed=' + HEADED)
+  console.log(
+    'self-smoke: HOME=' +
+      SMOKE_HOME +
+      ' headed=' +
+      HEADED +
+      ' reuse-profile=' +
+      REUSE_PROFILE,
+  )
   await browser.launch()
-  await browser.waitForLogin()
+  // waitForLogin() can block on a manual Enter in a pipe. Bound it so a cold
+  // login (anti-bot / captcha) fails fast with a clear hint instead of hanging
+  // until the caller's tool timeout. On failure exit code 2 signals "could not
+  // even start" — distinct from a scenario failure.
+  const loggedIn = await Promise.race([
+    browser.waitForLogin().then(() => true),
+    new Promise<boolean>((r) => setTimeout(() => r(false), 120_000)),
+  ])
+  if (!loggedIn) {
+    console.error(
+      '\nself-smoke: LOGIN FAILED — a cold login on a fresh profile is often\n' +
+        'blocked by DeepSeek anti-bot/captcha. Re-run against a signed-in profile:\n' +
+        '  npm run self-smoke -- --reuse-profile\n' +
+        '(or sign in once with: npm run self-smoke -- --headed).',
+    )
+    loginFailed = true
+    return
+  }
   record('login', true, 'DeepSeek session is active')
 
   const tools = createTools(WORK, {})
@@ -252,4 +306,4 @@ if (!process.env.ZAMES_SMOKE_KEEP) {
     fs.rmSync(SMOKE_HOME, { recursive: true, force: true })
   } catch {}
 }
-process.exit(anyFail ? 1 : 0)
+process.exit(loginFailed ? 2 : anyFail ? 1 : 0)
