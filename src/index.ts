@@ -1580,12 +1580,19 @@ async function main(): Promise<void> {
       const msg: PendingMessage = { text, attachments }
       pendingQueue.push(msg)
       // The operator typed this WHILE the agent was working, so the message is
-      // queued and only sent after the current task. Explain that once per
-      // session (via the editor's own status area) so it is clear nothing was
-      // lost; later queued messages stay as the compact msg.queued banner only.
-      if (ed.busy && !queueHintShown) {
-        queueHintShown = true
-        ed.printAbove(theme.dim(t('msg.queued_hint')))
+      // queued and only sent after the current task. In TTY the editor ALREADY
+      // echoed the message text (❯ …) above the input, so we add only a compact
+      // COUNT line (no repeated text) for EVERY queued message — so it is always
+      // clear the message was accepted and not lost. The FIRST one additionally
+      // explains what the queue is and how to inspect/clear it.
+      if (ed.busy) {
+        if (!queueHintShown) {
+          queueHintShown = true
+          ed.printAbove(theme.dim(t('msg.queued_hint')))
+        }
+        ed.printAbove(
+          theme.user(t('msg.queued_badge', { n: pendingQueue.length })),
+        )
       }
       if (waiter) {
         const r = waiter
