@@ -136,7 +136,10 @@ When a change touches one concern, start in the module that owns it:
 - `src/input.ts` — the custom `LineEditor` (permanent input line, status above,
   paste/attachments, history, slash hints). `src/spinner.ts` is the non-TTY
   fallback UI. Both draw an animated dot status; shared formatting is imported
-  from one another (`randomThinkingPhrase`, `stripEllipsis`).
+  from one another (`randomThinkingPhrase`, `stripEllipsis`). The editor's PURE
+  halves live in `src/input/layout.ts` (visual rows / cursor / paste markers /
+  token formatting) and `src/input/suggest.ts` (slash-command match / paging /
+  completion), both unit-tested without driving the real terminal.
 - `src/context.ts` — AGENTS.md / MEMORY.md / skills / custom commands loading.
   `loadProjectContext(workdir, touchPaths?)` also pulls NESTED AGENTS.md/MEMORY.md
   from the directories a task touches (B6, path-scoped rules) into a separate

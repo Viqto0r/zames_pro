@@ -21,7 +21,6 @@ import {
   PASTE_START,
   PASTE_END,
   SUGGEST_PAGE,
-  isSubsequence,
   pasteReplacement,
   expandPastes,
   safeJson,
@@ -69,6 +68,14 @@ export {
   type LayoutRow,
   type LayoutResult,
 } from './input/layout.js'
+
+// PURE slash-command suggestion logic (match / paging / completion), split out
+// of the class so the fuzzy match is unit-tested without driving the editor.
+import {
+  matchSlashCommands,
+  suggestWindow,
+  completeSlashCommand,
+} from './input/suggest.js'
 
 // How long a lone ESC is held before it is treated as the Escape key (and not
 // as the head of a control sequence split across two reads). 40ms is below a
@@ -451,30 +458,7 @@ export class LineEditor {
   // first, then a substring, then a subsequence (e.g. "hst" -> "/history"),
   // so a half-remembered command name still surfaces. Order is preserved.
   _suggestions(): SlashCommand[] {
-    const b = this.buf
-    if (!b.startsWith('/')) return []
-    if (b.includes(NL) || b.includes(' ')) return []
-    if (b.length > 40) return []
-    const q = b.toLowerCase()
-    if (q === '/') return this.slashCommands
-    // Match on the part AFTER the leading slash: comparing the raw query
-    // (which itself starts with '/') against the full name made the fuzzy
-    // subsequence match fire on the slash alone (e.g. "/x" matched
-    // "/self-fix"), so a stray letter pulled in unrelated commands.
-    const body = q.slice(1)
-    const prefix: SlashCommand[] = []
-    const substring: SlashCommand[] = []
-    const fuzzy: SlashCommand[] = []
-    // A single character only matches by PREFIX: a one-letter substring /
-    // subsequence match is far too loose ("x" would pull in "/self-fix").
-    const loose = body.length >= 2
-    for (const c of this.slashCommands) {
-      const name = c.name.toLowerCase().slice(1)
-      if (name.startsWith(body)) prefix.push(c)
-      else if (loose && name.includes(body)) substring.push(c)
-      else if (loose && isSubsequence(body, name)) fuzzy.push(c)
-    }
-    return prefix.concat(substring, fuzzy)
+    return matchSlashCommands(this.buf, this.slashCommands)
   }
 
   // Render the suggestion block for the current query. `offset` scrolls the
@@ -492,10 +476,7 @@ export class LineEditor {
       this._suggestOffset = 0
     }
     if (!sugg.length) return { lines: [], rows: 0 }
-    const pageSize = SUGGEST_PAGE
-    const maxOffset = Math.max(0, sugg.length - pageSize)
-    const off = Math.max(0, Math.min(offset, maxOffset))
-    const shown = sugg.slice(off, off + pageSize)
+    const { shown, off, moreCount } = suggestWindow(sugg, offset)
     this._suggestOffset = off
     this._suggestCount = sugg.length
     const label = (c: SlashCommand): string =>
@@ -508,14 +489,12 @@ export class LineEditor {
       const desc = theme.dim('  ' + c.description)
       return (selected ? theme.prompt(' ▸ ') : '   ') + name + desc
     })
-    if (sugg.length > pageSize) {
+    if (moreCount > 0) {
       const t = translate(this.locale)
       lines.push(
         theme.dim(
           '   ' +
-            t('editor.more', {
-              n: String(sugg.length - shown.length),
-            }) +
+            t('editor.more', { n: String(moreCount) }) +
             '  ' +
             t('editor.page_hint'),
         ),
@@ -561,26 +540,13 @@ export class LineEditor {
   // Tab: complete the command up to the common prefix; if there is a single
   // match — insert it whole and add a space.
   _completeCommand() {
-    const sugg = this._suggestions()
-    if (!sugg.length) return
-    if (this._suggestSelected >= 0 && this._suggestSelected < sugg.length) {
-      this.buf = sugg[this._suggestSelected].name + ' '
-      this.cursor = Array.from(this.buf).length
-      return
-    }
-    if (sugg.length === 1) {
-      this.buf = sugg[0].name + ' '
-      this.cursor = Array.from(this.buf).length
-      return
-    }
-    let prefix = sugg[0].name
-    for (const c of sugg) {
-      while (!c.name.toLowerCase().startsWith(prefix.toLowerCase())) {
-        prefix = prefix.slice(0, -1)
-      }
-    }
-    if (prefix.length > this.buf.length) {
-      this.buf = prefix
+    const next = completeSlashCommand(
+      this.buf,
+      this._suggestions(),
+      this._suggestSelected,
+    )
+    if (next !== null) {
+      this.buf = next
       this.cursor = Array.from(this.buf).length
     }
   }
