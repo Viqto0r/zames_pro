@@ -261,12 +261,19 @@ export const SERVER_BUSY_RE =
 // ---------- network protocol (SSE) ----------
 
 export const GENERATION_ERR_RE = /"finish_reason":\s*"generation_err"/i
-export const INCOMPLETE_STATUS_RE = /"quasi_status","v":"INCOMPLETE"/i
+// DeepSeek emits the generation status in TWO shapes: the initial message as a
+// JSON property (`"quasi_status":"FINISHED"` inside v.response) and later
+// BATCH updates (`{"p":"quasi_status","v":"FINISHED"}`). The old regex only
+// matched the BATCH form, so a FINISHED-without-answer turn that came in the
+// PROPERTY form (the real "Server is temporarily unavailable" case) was NOT
+// detected — the agent hung on "Stopped" until the timeout. Match both.
+export const INCOMPLETE_STATUS_RE = /"quasi_status"(?::|,"v":)"INCOMPLETE"/i
 
 // A turn that ENDED (`quasi_status: FINISHED`) but produced NO answer text —
 // the reasoning was generated and the model stopped WITHOUT a RESPONSE
-// fragment. The UI shows Stopped + Continue.
-export const FINISHED_STATUS_RE = /"quasi_status","v":"FINISHED"/i
+// fragment. The UI shows Stopped + Continue. Matches both the JSON-property
+// and the BATCH shape (see INCOMPLETE_STATUS_RE).
+export const FINISHED_STATUS_RE = /"quasi_status"(?::|,"v":)"FINISHED"/i
 export const RESPONSE_CONTENT_RE = /"type":"RESPONSE","content":"[^"]/
 
 // Only a completion/continue turn carries a real answer. Gating the capture

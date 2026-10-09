@@ -48,6 +48,27 @@ test('a normally finished answer is not truncated', () => {
   assert.equal(isGenerationIncompleteText(''), false)
 })
 
+// REGRESSION (live): DeepSeek sends the status in the JSON-PROPERTY form
+// (`"quasi_status":"..."`) in the initial message, not only as a BATCH
+// update. The detector used to match ONLY `"quasi_status","v":"..."`, so a
+// turn that ended with the property form was not recognized — the agent hung
+// until the timeout (the operator saw a rendered "Server is temporarily
+// unavailable." message with no reaction). Match both shapes.
+test('the JSON-property form of quasi_status is detected', () => {
+  const finProp =
+    'data: {"v":{"response":{"status":"WIP","fragments":[],"quasi_status":"FINISHED"}}}'
+  const incProp =
+    'data: {"v":{"response":{"status":"WIP","fragments":[],"quasi_status":"INCOMPLETE"}}}'
+  // INCOMPLETE in the property form is a truncated turn.
+  assert.equal(isGenerationIncompleteText(incProp), true)
+  // FINISHED in the property form is NOT "incomplete" by itself...
+  assert.equal(isGenerationIncompleteText(finProp), false)
+  // ...but it IS a "finished without answer" when there is no RESPONSE.
+  assert.equal(isFinishedWithoutAnswer(finProp), true)
+  // The BATCH form still works.
+  assert.equal(isFinishedWithoutAnswer(FINISHED_THINK_ONLY), true)
+})
+
 test('GenerationIncompleteError is its own error type', () => {
   const e = new GenerationIncompleteError('x')
   assert.equal(e.name, 'GenerationIncompleteError')
