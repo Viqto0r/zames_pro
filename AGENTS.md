@@ -76,10 +76,13 @@ When a change touches one concern, start in the module that owns it:
   toggles, Continue, login, chats, attachments, history. Large by nature; the
   pure parts (answer cleaning, signal detection) live in `src/net-capture.ts`,
   the state-free helpers (password prompt, headless-UA cache, answer/limit
-  predicates, error classes, profile cleanup) in `src/browser-pure.ts`, and the
+  predicates, error classes, profile cleanup) in `src/browser-pure.ts`, the
   chat-list / message DOM scrapers + the history-payload parser in
-  `src/browser-chats.ts`. All are RE-EXPORTED where the old API lived, so
-  importers are unchanged (C3).
+  `src/browser-chats.ts`, and the in-page DOM callbacks (answer/toast readers,
+  `_chatSignal`, Stop/Continue probes+clicks, /debug-dom counts) in
+  `src/browser-dom.ts`. The pure halves are RE-EXPORTED where the old API lived
+  (unchanged importers); the browser-dom callbacks have no public API and are
+  simply imported (C3).
 - `src/deepseek-ui.ts` — PURE DATA + resolvers: EVERY selector, button-label
   regex and SSE protocol marker for chat.deepseek.com. This is the ONE place to
   audit (and fix) when DeepSeek ships a redesign; `browser.ts` imports the
