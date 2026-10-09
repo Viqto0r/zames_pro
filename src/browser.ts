@@ -68,6 +68,9 @@ import {
   clickStopInDom,
   continueVisibleInDom,
   clickContinueInDom,
+  findLoginInputIndexInDom,
+  submitLoginFormInDom,
+  setBusyTitleInDom,
   dumpDomCountsInDom,
 } from './browser-dom.js'
 import path from 'path'
@@ -444,18 +447,7 @@ export class DeepSeekBrowser {
   // the send loop.
   async _setBusyTitle(busy: boolean): Promise<void> {
     try {
-      await this.page.evaluate((on: boolean) => {
-        const w = window as unknown as { __zamesTitle?: string }
-        if (on) {
-          if (typeof w.__zamesTitle !== 'string') {
-            w.__zamesTitle = document.title.replace(/^⏳\s*/, '')
-          }
-          document.title = '⏳ ' + w.__zamesTitle
-        } else if (typeof w.__zamesTitle === 'string') {
-          document.title = w.__zamesTitle
-          w.__zamesTitle = undefined
-        }
-      }, busy)
+      await this.page.evaluate(setBusyTitleInDom, busy)
     } catch {}
   }
 
@@ -882,19 +874,10 @@ export class DeepSeekBrowser {
     if (!userInput) {
       // Find the index of the password input and use the closest preceding
       // text/email/tel input as the login field.
-      const idx = await this.page.evaluate((pwdSel: string) => {
-        const p = document.querySelector(pwdSel) as HTMLInputElement | null
-        if (!p) return -1
-        const inputs = Array.from(
-          document.querySelectorAll('input'),
-        ) as HTMLInputElement[]
-        const pi = inputs.indexOf(p)
-        for (let i = pi - 1; i >= 0; i--) {
-          const t = (inputs[i].type || 'text').toLowerCase()
-          if (t === 'text' || t === 'email' || t === 'tel') return i
-        }
-        return -1
-      }, PASSWORD_SELECTORS[0])
+      const idx = await this.page.evaluate(
+        findLoginInputIndexInDom,
+        PASSWORD_SELECTORS[0],
+      )
       if (idx >= 0) userInput = this.page.locator('input').nth(idx)
     }
     if (!userInput) return false
@@ -944,44 +927,10 @@ export class DeepSeekBrowser {
 
     // Button inside the same form as the password field.
     const formClicked = await this.page
-      .evaluate(
-        (opts: { pwdSel: string; submitRe: string }) => {
-          const loginRe = new RegExp(opts.submitRe, 'i')
-          const p = document.querySelector(
-            opts.pwdSel,
-          ) as HTMLInputElement | null
-          if (!p) return false
-          const form = p.closest('form')
-          const scope: ParentNode = form || document
-          const btns = Array.from(
-            scope.querySelectorAll(
-              'button[type="submit"], button, div[role="button"]',
-            ),
-          ) as HTMLElement[]
-          for (const b of btns) {
-            const txt = (b.textContent || '').trim().toLowerCase()
-            const aria = (b.getAttribute('aria-label') || '').toLowerCase()
-            if (loginRe.test(txt + ' ' + aria)) {
-              b.click()
-              return true
-            }
-          }
-          // Fallback: the primary-looking button in the scope.
-          const primary = btns.find((b) => {
-            const cls = (b.className || '').toString()
-            return /primary|submit|ds-button--primary/i.test(cls)
-          })
-          if (primary) {
-            primary.click()
-            return true
-          }
-          return false
-        },
-        {
-          pwdSel: PASSWORD_SELECTORS[0],
-          submitRe: LOGIN_FORM_SUBMIT_RE.source,
-        },
-      )
+      .evaluate(submitLoginFormInDom, {
+        pwdSel: PASSWORD_SELECTORS[0],
+        submitRe: LOGIN_FORM_SUBMIT_RE.source,
+      })
       .catch(() => false)
     if (formClicked && (await tryLogin())) return true
 
