@@ -58,6 +58,18 @@ import {
   type UiHealthResult,
   type UiProbePage,
 } from './ui-health.js'
+import {
+  readPageToastsInDom,
+  readLoginErrorInDom,
+  readLastAnswerInDom,
+  chatSignalInDom,
+  continueVisibleCheapInDom,
+  stopButtonVisibleInDom,
+  clickStopInDom,
+  continueVisibleInDom,
+  clickContinueInDom,
+  dumpDomCountsInDom,
+} from './browser-dom.js'
 import path from 'path'
 import os from 'os'
 import fs from 'fs/promises'
@@ -837,25 +849,7 @@ export class DeepSeekBrowser {
    */
   async _readLoginError(): Promise<string> {
     try {
-      const txt = await this.page.evaluate(() => {
-        const sels = [
-          '[role="alert"]',
-          '[class*="error" i]',
-          '[class*="toast" i]',
-          '[class*="notification" i]',
-        ]
-        let out = ''
-        for (const s of sels) {
-          for (const el of Array.from(document.querySelectorAll(s))) {
-            const e = el as HTMLElement
-            const st = getComputedStyle(e)
-            if (st.display === 'none' || st.visibility === 'hidden') continue
-            const t = (e.innerText || '').trim()
-            if (t) out += ' ' + t
-          }
-        }
-        return out.replace(/\s+/g, ' ').trim()
-      })
+      const txt = await this.page.evaluate(readLoginErrorInDom)
       return txt.slice(0, 200)
     } catch {
       return ''
@@ -1146,42 +1140,10 @@ export class DeepSeekBrowser {
   // call". The DOM reader has no such self-comparison problem: before the
   // send the DOM shows the OLD answer, after it the NEW one.
   async _readLastAnswerTextDom(): Promise<string> {
-    return await this.page.evaluate(
-      (opts: { sels: string[]; thinkRe: string }) => {
-        const sels = opts.sels
-        // DeepSeek stores the model's reasoning in think blocks (THINK_CLASS_RE).
-        // They are NOT the answer and must never be picked up as the answer
-        // (otherwise the terminal would show the long reasoning). We also
-        // prefer the first (most specific) selector with a hit.
-        const think = new RegExp(opts.thinkRe, 'i')
-        const inThink = (e: Element | null): boolean => {
-          let n: Element | null = e
-          while (n) {
-            const cls = (n.className || '').toString()
-            if (think.test(cls)) return true
-            n = n.parentElement
-          }
-          return false
-        }
-        let el: HTMLElement | null = null
-        for (const s of sels) {
-          const list = document.querySelectorAll(s)
-          if (!list.length) continue
-          for (let i = list.length - 1; i >= 0; i--) {
-            const cand = list[i] as HTMLElement
-            if (inThink(cand)) continue
-            el = cand
-            break
-          }
-          if (el) break
-        }
-        if (!el) return ''
-        const out: string = el.innerText || el.textContent || ''
-        const NL = String.fromCharCode(10)
-        return out.replace(new RegExp(NL + '{3,}', 'g'), NL + NL).trim()
-      },
-      { sels: ANSWER_SELECTORS, thinkRe: THINK_CLASS_RE.source },
-    )
+    return await this.page.evaluate(readLastAnswerInDom, {
+      sels: ANSWER_SELECTORS,
+      thinkRe: THINK_CLASS_RE.source,
+    })
   }
 
   // We read ONLY visible toasts/notifications, not the whole page text.
@@ -1191,25 +1153,7 @@ export class DeepSeekBrowser {
   // text from the page and produced a FALSE rate limit (the agent stopped
   // while the chat had no error). Keep only real toast/alert containers.
   async _readPageText(): Promise<string> {
-    return await this.page
-      .evaluate(() => {
-        const sels = [
-          '[role="alert"]',
-          '[class*="toast" i]',
-          '[class*="notification" i]',
-        ]
-        let out = ''
-        for (const s of sels) {
-          for (const el of Array.from(document.querySelectorAll(s))) {
-            const e = el as HTMLElement
-            const st = getComputedStyle(e)
-            if (st.display === 'none' || st.visibility === 'hidden') continue
-            out += ' ' + (e.innerText || '')
-          }
-        }
-        return out
-      })
-      .catch(() => '')
+    return await this.page.evaluate(readPageToastsInDom).catch(() => '')
   }
 
   // The "clean" filter, but read from the DOM only. Used by _askOnce for the
@@ -1237,28 +1181,7 @@ export class DeepSeekBrowser {
     const explicit = await this._findVisible(STOP_SELECTORS, 250)
     if (explicit) return true
     return await this.page
-      .evaluate((btnRe: string) => {
-        const re = new RegExp(btnRe, 'i')
-        const btns = Array.from(
-          document.querySelectorAll('div[role="button"], button'),
-        ) as HTMLElement[]
-        for (const b of btns) {
-          const cls = (b.className || '').toString()
-          if (!re.test(cls)) continue
-          const label = (
-            (b.getAttribute('aria-label') || '') +
-            ' ' +
-            (b.getAttribute('title') || '') +
-            ' ' +
-            (b.textContent || '')
-          ).toLowerCase()
-          if (/stop|останов/.test(label)) return true
-          // A square icon = Stop button; an arrow (path without rect) = send.
-          const svg = b.querySelector('svg')
-          if (svg && svg.querySelector('rect')) return true
-        }
-        return false
-      }, BUTTON_CLASS_RE.source)
+      .evaluate(stopButtonVisibleInDom, BUTTON_CLASS_RE.source)
       .catch(() => false)
   }
 
@@ -1274,19 +1197,10 @@ export class DeepSeekBrowser {
   // all we need to tell "the page grew / a new answer is streaming".
   async _chatSignal(): Promise<{ nodes: number; lastLen: number }> {
     return await this.page
-      .evaluate(
-        (opts: { nodesSel: string; mdSel: string }) => {
-          const nodes = document.querySelectorAll(opts.nodesSel).length
-          let lastLen = 0
-          const answers = document.querySelectorAll(opts.mdSel)
-          if (answers.length) {
-            const lastEl = answers[answers.length - 1] as HTMLElement
-            lastLen = (lastEl.innerText || '').length
-          }
-          return { nodes, lastLen }
-        },
-        { nodesSel: CHAT_SIGNAL_NODES_SELECTOR, mdSel: MARKDOWN_SELECTOR },
-      )
+      .evaluate(chatSignalInDom, {
+        nodesSel: CHAT_SIGNAL_NODES_SELECTOR,
+        mdSel: MARKDOWN_SELECTOR,
+      })
       .catch(() => ({ nodes: 0, lastLen: 0 }))
   }
 
@@ -1298,27 +1212,7 @@ export class DeepSeekBrowser {
   // HITS do we run the full scan to get a clickable Locator.
   async _continueVisibleCheap(): Promise<boolean> {
     return await this.page
-      .evaluate((nameRe: string) => {
-        const re = new RegExp(nameRe, 'i')
-        const cands = Array.from(
-          document.querySelectorAll('div[role="button"], button'),
-        ) as HTMLElement[]
-        for (const e of cands) {
-          const label = (
-            (e.textContent || '') +
-            ' ' +
-            (e.getAttribute('aria-label') || '')
-          )
-            .replace(/\s+/g, ' ')
-            .trim()
-          if (!re.test(label)) continue
-          const st = getComputedStyle(e)
-          if (st.display === 'none' || st.visibility === 'hidden') continue
-          const r = e.getBoundingClientRect()
-          if (r.width > 0 && r.height > 0) return true
-        }
-        return false
-      }, CONTINUE_NAME_RE.source)
+      .evaluate(continueVisibleCheapInDom, CONTINUE_NAME_RE.source)
       .catch(() => false)
   }
 
@@ -1345,29 +1239,7 @@ export class DeepSeekBrowser {
     } catch {}
     // Fallback: the raw DOM scan (older/newer DeepSeek builds where the role
     // is absent).
-    return this.page
-      .evaluate(() => {
-        const labelOf = (b: HTMLElement): string =>
-          ((b.textContent || '') + ' ' + (b.getAttribute('aria-label') || ''))
-            .replace(/\s+/g, ' ')
-            .trim()
-        const isExact = (t: string): boolean =>
-          /^(?:continue|продолжить|продолжение)(?:\s+(?:think(?:ing)?|reason(?:ing)?|размышлени[ея]|генераци[юя]|ответ))?\s*[.!…]?$/i.test(
-            t,
-          )
-        const cands = Array.from(
-          document.querySelectorAll('div[role="button"], button'),
-        ) as HTMLElement[]
-        for (const e of cands) {
-          if (!isExact(labelOf(e))) continue
-          const st = getComputedStyle(e)
-          if (st.display === 'none' || st.visibility === 'hidden') continue
-          const r = e.getBoundingClientRect()
-          if (r.width > 0 && r.height > 0) return true
-        }
-        return false
-      })
-      .catch(() => false)
+    return this.page.evaluate(continueVisibleInDom).catch(() => false)
   }
 
   // Click the DeepSeek "Continue" button when it is visible (reasoning/answer
@@ -1445,46 +1317,7 @@ export class DeepSeekBrowser {
     // 2) Fallback: raw DOM scan + full pointer/mouse event sequence (an older
     //    build without a proper role, or a click intercepted by an overlay).
     try {
-      const clicked = await this.page.evaluate(() => {
-        const labelOf = (b: HTMLElement): string =>
-          ((b.textContent || '') + ' ' + (b.getAttribute('aria-label') || ''))
-            .replace(/\s+/g, ' ')
-            .trim()
-        const isExact = (t: string): boolean =>
-          /^(?:continue|продолжить|продолжение)(?:\s+(?:think(?:ing)?|reason(?:ing)?|размышлени[ея]|генераци[юя]|ответ))?\s*[.!…]?$/i.test(
-            t,
-          )
-        const cands = Array.from(
-          document.querySelectorAll('div[role="button"], button'),
-        ) as HTMLElement[]
-        for (const e of cands) {
-          const t = labelOf(e)
-          if (!isExact(t)) continue
-          const st = getComputedStyle(e)
-          if (st.display === 'none' || st.visibility === 'hidden') continue
-          const rect = e.getBoundingClientRect()
-          if (rect.width === 0 || rect.height === 0) continue
-          const cx = rect.left + rect.width / 2
-          const cy = rect.top + rect.height / 2
-          const opts = {
-            bubbles: true,
-            cancelable: true,
-            composed: true,
-            clientX: cx,
-            clientY: cy,
-            button: 0,
-          } as MouseEventInit
-          try {
-            e.dispatchEvent(new PointerEvent('pointerdown', opts))
-            e.dispatchEvent(new MouseEvent('mousedown', opts))
-            e.dispatchEvent(new PointerEvent('pointerup', opts))
-            e.dispatchEvent(new MouseEvent('mouseup', opts))
-          } catch {}
-          e.click()
-          return true
-        }
-        return false
-      })
+      const clicked = await this.page.evaluate(clickContinueInDom)
       if (clicked) {
         this._lastContinueAt = Date.now()
         this._notice(this._t('ds.continue_clicked'))
@@ -1614,33 +1447,7 @@ export class DeepSeekBrowser {
     // 3) Raw DOM scan + the full pointer/mouse sequence (older builds without
     //    a proper role, or a click intercepted by an overlay).
     const clicked = await this.page
-      .evaluate((btnRe: string) => {
-        const re = new RegExp(btnRe, 'i')
-        const btns = Array.from(
-          document.querySelectorAll('div[role="button"], button'),
-        ) as HTMLElement[]
-        for (const b of btns) {
-          const cls = (b.className || '').toString()
-          if (!re.test(cls)) continue
-          const svg = b.querySelector('svg')
-          if (svg && svg.querySelector('rect')) {
-            for (const type of [
-              'pointerdown',
-              'mousedown',
-              'pointerup',
-              'mouseup',
-              'click',
-            ]) {
-              b.dispatchEvent(
-                new MouseEvent(type, { bubbles: true, cancelable: true }),
-              )
-            }
-            b.click()
-            return true
-          }
-        }
-        return false
-      }, BUTTON_CLASS_RE.source)
+      .evaluate(clickStopInDom, BUTTON_CLASS_RE.source)
       .catch(() => false)
     if (clicked) return true
     try {
@@ -2688,30 +2495,11 @@ export class DeepSeekBrowser {
     const html = await this.page.content()
     await fs.writeFile(filePath, html, 'utf-8')
 
-    const report = await this.page.evaluate(
-      (sels: { answers: string[]; stops: string[]; inputs: string[] }) => {
-        const result: {
-          answers: Record<string, number>
-          stops: Record<string, number>
-          inputs: Record<string, number>
-        } = { answers: {}, stops: {}, inputs: {} }
-        for (const s of sels.answers) {
-          result.answers[s] = document.querySelectorAll(s).length
-        }
-        for (const s of sels.stops) {
-          result.stops[s] = document.querySelectorAll(s).length
-        }
-        for (const s of sels.inputs) {
-          result.inputs[s] = document.querySelectorAll(s).length
-        }
-        return result
-      },
-      {
-        answers: ANSWER_SELECTORS,
-        stops: STOP_SELECTORS,
-        inputs: INPUT_SELECTORS,
-      },
-    )
+    const report = await this.page.evaluate(dumpDomCountsInDom, {
+      answers: ANSWER_SELECTORS,
+      stops: STOP_SELECTORS,
+      inputs: INPUT_SELECTORS,
+    })
 
     return { file: filePath, selectors: report }
   }
