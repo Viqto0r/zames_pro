@@ -7,7 +7,18 @@ import {
   INCOMPLETE_STATUS_RE,
   RATE_LIMIT_RE,
   SERVER_BUSY_RE,
+  STATUS_RE,
 } from './deepseek-ui.js'
+
+// Drop service placeholders ("Reading…", "Thinking…") so they are not mistaken
+// for an answer; keep everything else as-is (including the whitespace the
+// tool-call relies on). Pure: no `this`, no page.
+export function cleanAnswer(raw: string): string {
+  const t = (raw || '').trim()
+  if (!t) return ''
+  if (STATUS_RE.test(t)) return ''
+  return raw
+}
 
 // Pure, state-free helpers extracted from browser.ts (BACKLOG C3). Nothing
 // here touches the DeepSeekBrowser instance state, so this module is safe to

@@ -50,7 +50,6 @@ import {
   DEEP_THINKING_RE,
   WEB_SEARCH_RE,
   ATTACH_SELECTORS,
-  STATUS_RE,
   ANSWER_URL_RE,
 } from './deepseek-ui.js'
 import {
@@ -109,6 +108,7 @@ import {
   isRateLimitText,
   isServerBusyText,
   normText,
+  cleanAnswer,
   RateLimitError,
   ServerBusyError,
   GenerationIncompleteError,
@@ -1119,14 +1119,10 @@ export class DeepSeekBrowser {
     return this._cleanAnswer(raw)
   }
 
-  // Drop service placeholders ("Reading…", "Thinking…") so they are not
-  // mistaken for an answer; keep everything else as-is (including whitespace
-  // the tool-call relies on).
+  // The pure filter lives in browser-pure.ts (cleanAnswer); kept as a method
+  // for the existing `this._cleanAnswer(...)` call sites.
   _cleanAnswer(raw: string): string {
-    const t = (raw || '').trim()
-    if (!t) return ''
-    if (STATUS_RE.test(t)) return ''
-    return raw
+    return cleanAnswer(raw)
   }
 
   // Find the Stop button in the DeepSeek UI. We can't rely on the class
