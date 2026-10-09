@@ -700,6 +700,12 @@ was missed and the finish loop hung until the timeout while the status stayed
 "generating". `FINISHED_STATUS_RE` / `INCOMPLETE_STATUS_RE` (deepseek-ui.ts)
 now match BOTH. Covered by test/generation-incomplete.test.ts.
 
+ALSO part of `isGenerationIncompleteText()`: `generation_timeout`
+(`"Server busy, please try again later."`, `finish_reason: generation_timeout`)
+is the SAME failure family as `generation_err` — the turn did not complete and
+has no RESPONSE, so it must be retried, not waited out
+(`GENERATION_TIMEOUT_RE`, deepseek-ui.ts). Covered by test/deepseek-ui.test.ts.
+
 `browser.maxIncompleteRetries` / `browser.incompleteWaitMs` (4 / 2000ms by
 default) — retries for a turn the SERVER truncated. With the reasoning
 ("Deep thinking") toggle ON, DeepSeek frequently cuts a turn short: the SSE

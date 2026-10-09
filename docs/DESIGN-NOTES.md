@@ -355,3 +355,18 @@ LESSON: a status may be emitted both as an initial JSON property AND as an
 incremental BATCH path. A detector keyed on ONE textual shape silently misses
 the other; when adding a protocol detector, match every shape the live captures
 show.
+
+### Related: `generation_timeout` (Server busy) was undetected too
+
+While auditing the protocol detectors against the real captures, a SECOND body
+in the same family turned up: `finish_reason: "generation_timeout"` with
+`"Server busy, please try again later."` and NO RESPONSE fragment. It was
+matched by NEITHER `generation_err` NOR `quasi_status`, so `isGenerationIncompleteText()`
+returned false and the finish loop would wait out the whole timeout — the same
+hang. `GENERATION_TIMEOUT_RE` (deepseek-ui.ts) now treats it like
+`generation_err` (retry, do not hang). Verified against the 3 real captures
+that carry it: all 3 are now detected. Covered by test/deepseek-ui.test.ts.
+
+The AUDIT method is the takeaway: for EVERY protocol detector, count how many
+real bodies contain the marker vs how many the detector actually matches. A
+non-zero gap is a silent hang. This caught both fixes.

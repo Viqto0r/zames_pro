@@ -108,6 +108,13 @@ test('SSE markers detect truncation / finished-without-answer', () => {
     isGenerationIncompleteText('"quasi_status","v":"INCOMPLETE"'),
     true,
   )
+  // A server-side timeout ("Server busy, please try again later."): the turn
+  // did not complete and has no RESPONSE, so it must be retried like
+  // generation_err instead of hanging the finish loop.
+  assert.equal(
+    isGenerationIncompleteText('data: {"finish_reason":"generation_timeout"}'),
+    true,
+  )
   assert.equal(GENERATION_ERR_RE.test('"finish_reason":"stop"'), false)
   assert.equal(
     INCOMPLETE_STATUS_RE.test('"quasi_status","v":"FINISHED"'),

@@ -261,6 +261,12 @@ export const SERVER_BUSY_RE =
 // ---------- network protocol (SSE) ----------
 
 export const GENERATION_ERR_RE = /"finish_reason":\s*"generation_err"/i
+// The server gave up on the turn ("Server busy, please try again later."):
+// finish_reason is `generation_timeout` and there is NO RESPONSE fragment, so
+// extractAnswer() returns '' and the finish loop would wait out the whole
+// timeout. Same failure family as generation_err — the turn did not complete,
+// so ask() must resend instead of hanging.
+export const GENERATION_TIMEOUT_RE = /"finish_reason":\s*"generation_timeout"/i
 // DeepSeek emits the generation status in TWO shapes: the initial message as a
 // JSON property (`"quasi_status":"FINISHED"` inside v.response) and later
 // BATCH updates (`{"p":"quasi_status","v":"FINISHED"}`). The old regex only

@@ -4,6 +4,7 @@ import fs from 'fs/promises'
 import { chromium } from 'playwright'
 import {
   GENERATION_ERR_RE,
+  GENERATION_TIMEOUT_RE,
   INCOMPLETE_STATUS_RE,
   RATE_LIMIT_RE,
   SERVER_BUSY_RE,
@@ -199,7 +200,11 @@ export const AUTH_MARKER_FILE = path.join(os.homedir(), '.zames', 'auth.json')
 
 export function isGenerationIncompleteText(text: string): boolean {
   const t = String(text || '')
-  return GENERATION_ERR_RE.test(t) || INCOMPLETE_STATUS_RE.test(t)
+  return (
+    GENERATION_ERR_RE.test(t) ||
+    GENERATION_TIMEOUT_RE.test(t) ||
+    INCOMPLETE_STATUS_RE.test(t)
+  )
 }
 
 export function isRateLimitText(text: string): boolean {
