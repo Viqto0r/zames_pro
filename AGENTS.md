@@ -64,10 +64,13 @@ root: tools cannot read/write above it.
 
 When a change touches one concern, start in the module that owns it:
 
-- `src/index.ts` — CLI, main loop, slash-command dispatch, `runTask`, the
-  message queue, the `/goal` and `/loop`|`/cron`|`/jobs` commands, the scheduler
-  ticker. Command _logic_ that can be pure lives in `src/commands.ts`; the pure
-  CLI argument parsing lives in `src/cli-args.ts` (`createCliArgs(argv)`, C3).
+- `src/index.ts` — CLI, main loop, slash-command dispatch, the message queue,
+  the `/goal` and `/loop`|`/cron`|`/jobs` commands, the scheduler ticker, and the
+  hot-reload `mod` bag (`reloadModules`/`autoReload`). Command _logic_ that can
+  be pure lives in `src/commands.ts`; the pure CLI argument parsing lives in
+  `src/cli-args.ts` (`createCliArgs(argv)`, C3); the paste-aware raw-TTY reader
+  `promptOnce()` lives in `src/prompt.ts`; `runTask` (task execution + queue
+  draining) lives in `src/run-task.ts`.
 - `src/agent-loop.ts` — one task: send → parse → run tools → loop; the retry
   budgets, the protocol/stale guards, the auto-compact seam. The pure half
   (the tool-call PARSER + the answer heuristics) lives in `src/answer-parse.ts`
@@ -487,7 +490,7 @@ in its buffer. On Enter, `LineEditor.onSubmit` puts the text into `pendingQueue`
 The queue (`pendingQueue`) lives in the interactive `main()` loop and is passed
 into `runTask()` via `opts.queue`. In one-shot mode (`--task`) the queue is empty.
 
-The non-TTY fallback (`watchInput()` in src/index.ts) is kept for pipes: it
+The non-TTY fallback (`watchInput()` in src/run-task.ts) is kept for pipes: it
 reads stdin in raw mode and via `ui.setPending()` shows the typed text in the
 spinner line, and on Enter puts it into the queue. It is not used in a normal
 interactive launch.
