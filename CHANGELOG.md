@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **index:** extract the pure /config rendering into config-commands.ts (C3)
+
 ## [2.72.3] - 2026-10-09
 
 ### Changed
