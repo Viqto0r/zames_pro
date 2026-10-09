@@ -1,6 +1,6 @@
 {
   "name": "zames_pro",
-  "version": "2.72.1",
+  "version": "2.72.2",
   "description": "Terminal coding agent that drives chat.deepseek.com through Playwright — no API key required. Reads and edits files, runs commands, commits to git, like Claude Code / Codex CLI.",
   "type": "module",
   "bin": {
