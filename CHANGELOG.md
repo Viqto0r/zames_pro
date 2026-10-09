@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.72.3] - 2026-10-09
+
+### Changed
+
+- **index:** extract the paste-aware terminal reader into src/prompt.ts
+
 ### Changed
 
 - **index:** extract the paste-aware terminal reader into src/prompt.ts
