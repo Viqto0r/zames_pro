@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **browser:** detect the property form of quasi_status (Stopped/FINISHED hang)
+
 ## [2.72.5] - 2026-10-09
 
 ### Changed
