@@ -278,6 +278,69 @@ export function clickContinueInDom(): boolean {
 }
 
 /**
+ * Insert text into a contenteditable/input element by dispatching a synthetic
+ * paste event (the way a real paste lands, which React handlers honor). Runs
+ * bound to the element, so it receives `el` + the text value.
+ */
+export function pasteTextIntoElement(el: HTMLElement, value: string): boolean {
+  el.focus()
+  const dt = new DataTransfer()
+  dt.setData('text/plain', value)
+  const ev = new ClipboardEvent('paste', {
+    clipboardData: dt,
+    bubbles: true,
+    cancelable: true,
+  })
+  el.dispatchEvent(ev)
+  return true
+}
+
+/**
+ * Read the current text of an input/textarea (its `value`) or a
+ * contenteditable element (its innerText/textContent). Runs bound to the
+ * element so it can distinguish the two by tagName.
+ */
+export function readElementText(el: HTMLElement): string {
+  const tag = el.tagName.toLowerCase()
+  if (tag === 'textarea' || tag === 'input') {
+    return (el as HTMLInputElement).value
+  }
+  return el.innerText || el.textContent || ''
+}
+
+/**
+ * Lowercased tagName of an element. Runs bound to the element (Playwright's
+ * Locator.evaluate), used to tell a native input/textarea from a
+ * contenteditable box.
+ */
+export function elementTagNameInDom(el: Element): string {
+  return el.tagName.toLowerCase()
+}
+
+/**
+ * Is the send control actually enabled? DeepSeek's send control is a
+ * div[role=button]; Playwright's isEnabled() does NOT honor aria-disabled on a
+ * div, and a click on a disabled button is silently ignored (during an upload
+ * the message stays in the box). Read the attribute and a disabled class
+ * directly. Runs bound to the element.
+ */
+export function isElementEnabledInDom(el: Element): boolean {
+  if (el.getAttribute('aria-disabled') === 'true') return false
+  const cls = (el.className || '').toString()
+  if (/disabled|is-disabled/.test(cls)) return false
+  return true
+}
+
+/**
+ * The current text of the input box, trimmed — used to verify the message was
+ * actually SENT (DeepSeek clears the box on accept; if the text is still there
+ * the click/Enter was ignored). Runs bound to the element.
+ */
+export function readInputTrimmedTextInDom(el: HTMLTextAreaElement): string {
+  return (el.value || el.innerText || el.textContent || '').trim()
+}
+
+/**
  * The real User-Agent the engine reports. Read after launch so a headless run
  * can strip the "Headless" marker (DeepSeek's CDN 403s that UA).
  */

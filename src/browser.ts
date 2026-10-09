@@ -72,6 +72,11 @@ import {
   findLoginInputIndexInDom,
   submitLoginFormInDom,
   setBusyTitleInDom,
+  pasteTextIntoElement,
+  readElementText,
+  elementTagNameInDom,
+  isElementEnabledInDom,
+  readInputTrimmedTextInDom,
   dumpDomCountsInDom,
 } from './browser-dom.js'
 import path from 'path'
@@ -1623,7 +1628,7 @@ export class DeepSeekBrowser {
   }
 
   async _setInputText(input: Locator, text: string): Promise<void> {
-    const tag = await input.evaluate((el) => el.tagName.toLowerCase())
+    const tag = await input.evaluate(elementTagNameInDom)
     const isNative = tag === 'textarea' || tag === 'input'
 
     if (isNative) {
@@ -1637,32 +1642,13 @@ export class DeepSeekBrowser {
     await this.page.keyboard.press('Control+A')
     await this.page.keyboard.press('Delete')
 
-    const ok = await input.evaluate((el, value) => {
-      el.focus()
-      const dt = new DataTransfer()
-      dt.setData('text/plain', value)
-      const ev = new ClipboardEvent('paste', {
-        clipboardData: dt,
-        bubbles: true,
-        cancelable: true,
-      })
-      el.dispatchEvent(ev)
-      return true
-    }, text)
+    const ok = await input.evaluate(pasteTextIntoElement, text)
 
     if (!ok) {
       await this.page.keyboard.insertText(text)
     }
 
-    const got = await input.evaluate((el: any) => {
-      if (
-        el.tagName.toLowerCase() === 'textarea' ||
-        el.tagName.toLowerCase() === 'input'
-      ) {
-        return el.value
-      }
-      return el.innerText || el.textContent || ''
-    })
+    const got = await input.evaluate(readElementText)
     const norm = (s: string | null | undefined): string =>
       (s || '')
         .replace(/\r\n/g, '\n')
@@ -1677,14 +1663,7 @@ export class DeepSeekBrowser {
       await this.page.keyboard.press('Control+A')
       await this.page.keyboard.press('Delete')
       await this.page.keyboard.insertText(text)
-      const got2 = await input.evaluate((el: any) => {
-        if (
-          el.tagName.toLowerCase() === 'textarea' ||
-          el.tagName.toLowerCase() === 'input'
-        )
-          return el.value
-        return el.innerText || el.textContent || ''
-      })
+      const got2 = await input.evaluate(readElementText)
       if (norm(got2) !== norm(text)) {
         throw new Error(
           this._t('ds.input_partial', {
@@ -2003,12 +1982,7 @@ export class DeepSeekBrowser {
           // attribute (and a disabled class) directly — during an upload the
           // button is aria-disabled=true and a click is silently ignored.
           const enabled = await btn
-            .evaluate((el: Element) => {
-              if (el.getAttribute('aria-disabled') === 'true') return false
-              const cls = (el.className || '').toString()
-              if (/disabled|is-disabled/.test(cls)) return false
-              return true
-            })
+            .evaluate(isElementEnabledInDom)
             .catch(() => true)
           if (!enabled) continue
           await btn.click({ timeout: 1500 })
@@ -2032,9 +2006,7 @@ export class DeepSeekBrowser {
     try {
       await this.page.waitForTimeout(300)
       const stillThere = await input
-        .evaluate((el: HTMLTextAreaElement) =>
-          (el.value || el.innerText || el.textContent || '').trim(),
-        )
+        .evaluate(readInputTrimmedTextInDom)
         .catch(() => '')
       if (stillThere) {
         this._askDebug('SEND not cleared, pressing Enter again')
