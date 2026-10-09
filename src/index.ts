@@ -48,6 +48,11 @@ import {
 } from './config.js'
 import { runConfigMenu } from './config-menu.js'
 import {
+  configGetValue,
+  configValueHint,
+  formatConfigList,
+} from './config-commands.js'
+import {
   translate,
   normalizeLocale,
   localeDisplayName,
@@ -1797,16 +1802,6 @@ async function main(): Promise<void> {
   // Human-readable hint of the accepted values for a field, used in the error
   // message when /config set gets a bad value. Enum -> the allowed list,
   // number -> a range, boolean -> "true|false".
-  function configValueHint(field: ConfigField): string {
-    if (field.values && field.values.length) return field.values.join('|')
-    if (field.type === 'boolean') return 'true|false'
-    if (field.type === 'number') {
-      const lo = field.min !== undefined ? String(field.min) : '-'
-      const hi = field.max !== undefined ? String(field.max) : '-'
-      return t('cfg.range_hint', { min: lo, max: hi })
-    }
-    return field.type
-  }
   function configResetField(field: ConfigField): void {
     resetConfigValue('home', field.path)
     // Reset the runtime value to the default.
@@ -1814,41 +1809,14 @@ async function main(): Promise<void> {
     setConfigRuntime(field.path, def)
   }
 
-  function configLabel(field: ConfigField): string {
-    return t(field.labelKey)
-  }
-
   function configShowList(): void {
-    console.log(theme.system(t('cfg.title')))
-    let lastGroup = ''
-    for (const f of CONFIG_SCHEMA) {
-      const g = t(f.groupKey)
-      if (g !== lastGroup) {
-        console.log(theme.system('\n  ' + g))
-        lastGroup = g
-      }
-      const cur = getByPath(config, f.path)
-      const shown =
-        cur === undefined
-          ? t('cfg.menu.default')
-          : typeof cur === 'boolean'
-            ? cur
-              ? t('common.on')
-              : t('common.off')
-            : /password/i.test(f.path) && String(cur).length > 0
-              ? '********'
-              : JSON.stringify(cur)
-      const extra = f.values ? '  [' + f.values.join('|') + ']' : ''
-      console.log(
-        '    ' +
-          theme.user(f.path) +
-          theme.dim(' = ') +
-          theme.assistant(shown) +
-          theme.dim(extra) +
-          theme.dim('   # ' + configLabel(f)),
-      )
+    for (const line of formatConfigList(
+      CONFIG_SCHEMA,
+      (p) => getByPath(config, p),
+      t,
+    )) {
+      console.log(line)
     }
-    console.log(theme.dim('\n' + t('cfg.usage')))
   }
 
   async function configOpenMenu(): Promise<void> {
@@ -1945,15 +1913,7 @@ async function main(): Promise<void> {
       const cur = getByPath(config, key)
       console.log(
         theme.system(
-          t('cfg.value', {
-            v: key,
-            value:
-              cur === undefined
-                ? t('cfg.menu.default')
-                : /password/i.test(key) && String(cur).length > 0
-                  ? '********'
-                  : JSON.stringify(cur),
-          }),
+          t('cfg.value', { v: key, value: configGetValue(key, cur, t) }),
         ),
       )
       return
@@ -1978,7 +1938,7 @@ async function main(): Promise<void> {
           theme.error(
             t('cfg.bad_value', {
               v: key,
-              type: configValueHint(field),
+              type: configValueHint(field, t),
             }),
           ),
         )

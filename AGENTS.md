@@ -70,7 +70,9 @@ When a change touches one concern, start in the module that owns it:
   be pure lives in `src/commands.ts`; the pure CLI argument parsing lives in
   `src/cli-args.ts` (`createCliArgs(argv)`, C3); the paste-aware raw-TTY reader
   `promptOnce()` lives in `src/prompt.ts`; `runTask` (task execution + queue
-  draining) lives in `src/run-task.ts`.
+  draining) lives in `src/run-task.ts`; the PURE `/config` text rendering
+  (`formatConfigList`/`configGetValue`/`configValueHint`) lives in
+  `src/config-commands.ts` (unit-tested).
 - `src/agent-loop.ts` — one task: send → parse → run tools → loop; the retry
   budgets, the protocol/stale guards, the auto-compact seam. The pure half
   (the tool-call PARSER + the answer heuristics) lives in `src/answer-parse.ts`
