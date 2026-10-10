@@ -7,7 +7,12 @@ import { fileURLToPath } from 'url'
 import { theme } from './theme.js'
 
 import { DeepSeekBrowser, headlessUACacheReady } from './browser.js'
-import { createTools, mergeTools, filterToolsForReadOnly } from './tools.js'
+import {
+  createTools,
+  mergeTools,
+  filterToolsForReadOnly,
+  filterToolsByAllowList,
+} from './tools.js'
 import {
   createTodoStore,
   getTodos,
@@ -642,7 +647,9 @@ async function expandSlashTarget(
   workdir: string,
   name: string,
   rest: string,
-): Promise<{ text: string } | { missing: string[] } | null> {
+): Promise<
+  { text: string; allowedTools?: string[] } | { missing: string[] } | null
+> {
   try {
     const { loadSkills, loadCommands, skillBody } = await import('./context.js')
     const commands = await loadCommands(workdir)
@@ -677,7 +684,16 @@ async function expandSlashTarget(
       const extra = rest
         ? '\n\nAdditional instructions from the operator: ' + rest
         : ''
-      return { text: header + '\n\n' + body + extra }
+      // A skill may declare allowed-tools (Claude Code frontmatter): the
+      // operator expects the skill to run with ONLY those tools. Carry the
+      // list to the task so the main loop can narrow the tool set.
+      return {
+        text: header + '\n\n' + body + extra,
+        allowedTools:
+          skill.allowedTools && skill.allowedTools.length
+            ? skill.allowedTools
+            : undefined,
+      }
     }
   } catch {
     // fall through: treated as an unknown command
@@ -3559,12 +3575,18 @@ async function main(): Promise<void> {
     // prompt templates with $ARGUMENTS / {{args}} placeholders.
     let expandedTask: string | null = null
     let missingArgs: string[] | null = null
+    let skillAllowedTools: string[] | null = null
     if (lower.startsWith('/')) {
       const name = trimmed.slice(1).split(/\s+/)[0]
       const rest = trimmed.slice(1 + name.length).trim()
       const res = await expandSlashTarget(currentWorkdir, name, rest)
       if (res && 'missing' in res) missingArgs = res.missing
-      else if (res) expandedTask = res.text
+      else if (res) {
+        expandedTask = res.text
+        if ('allowedTools' in res && res.allowedTools) {
+          skillAllowedTools = res.allowedTools
+        }
+      }
     }
 
     // B7: a custom command with mandatory `arguments:` refuses to run until the
@@ -3634,7 +3656,13 @@ async function main(): Promise<void> {
       // plan (read-only) mode — a `general` subagent could write otherwise.
       subagents: config.browser.subagents && !planMode,
     })
-    const tools = mergeTools(baseTools, mcpPool?.tools, planMode)
+    let tools = mergeTools(baseTools, mcpPool?.tools, planMode)
+    // A skill invoked via /skill with `allowed-tools:` narrows the tool set to
+    // that allow-list (Claude Code contract). respond is always kept so the run
+    // can still finish.
+    if (skillAllowedTools) {
+      tools = filterToolsByAllowList(tools, skillAllowedTools)
+    }
     if (editor) editor.busy = true
     try {
       await mod.runTask(

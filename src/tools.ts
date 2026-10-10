@@ -395,6 +395,20 @@ export function filterToolsForReadOnly(tools: ToolDef[]): ToolDef[] {
   return tools.filter((t) => !MUTATING_TOOLS.has(t.name))
 }
 
+// A skill may declare `allowed-tools:` in its SKILL.md frontmatter (the Claude
+// Code contract): the skill then runs with ONLY those tools. We keep the
+// `respond` seam so the run can still finish, and match names case-insensitively
+// (frontmatter is human-written). PURE; unit-tested.
+export function filterToolsByAllowList(
+  tools: ToolDef[],
+  allowed: string[] | null | undefined,
+): ToolDef[] {
+  if (!allowed || !allowed.length) return tools
+  const allow = new Set(allowed.map((n) => n.toLowerCase()))
+  allow.add('respond')
+  return tools.filter((t) => allow.has(t.name.toLowerCase()))
+}
+
 // MCP tool names are opaque (server + '__' + tool), so the exact-name
 // MUTATING_TOOLS set cannot classify them. Instead we match the common
 // mutating VERBS in the tool name. It is a heuristic deny-list, not a proof:

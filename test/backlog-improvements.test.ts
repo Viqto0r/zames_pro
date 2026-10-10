@@ -7,6 +7,7 @@ import { writeFileAtomic, writeJsonAtomic } from '../src/fsutil.ts'
 import {
   createTools,
   filterToolsForReadOnly,
+  filterToolsByAllowList,
   MUTATING_TOOLS,
 } from '../src/tools.ts'
 import { createGitTools } from '../src/gitTools.ts'
@@ -100,6 +101,23 @@ test('createTools({readOnly:true}) отдаёт тот же набор, что f
       .map((t) => t.name)
       .sort(),
   )
+})
+
+// A skill's allowed-tools frontmatter narrows the tool set to that list, but
+// respond is always kept so the run can still finish.
+test('filterToolsByAllowList оставляет только разрешённые + respond', () => {
+  const dir = tmpDir()
+  const all = createTools(dir, {})
+  const narrow = filterToolsByAllowList(all, ['Read', 'Grep'])
+  const names = narrow.map((t) => t.name).sort()
+  assert.deepEqual(names, ['Grep', 'Read', 'respond'])
+  // Case-insensitive (frontmatter is human-written).
+  const ci = filterToolsByAllowList(all, ['read'])
+    .map((t) => t.name)
+    .sort()
+  assert.deepEqual(ci, ['Read', 'respond'])
+  // An empty list is a no-op, not "no tools".
+  assert.equal(filterToolsByAllowList(all, []).length, all.length)
 })
 
 // ---------- GitPush branch validation ----------
