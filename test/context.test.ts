@@ -8,6 +8,8 @@ import {
   loadCommands,
   loadProjectContext,
   skillBody,
+  MAX_FILE_BASE,
+  MAX_MEMORY_FILE,
 } from '../src/context.ts'
 
 async function mkTmp(): Promise<string> {
@@ -125,14 +127,55 @@ test('skillBody strips frontmatter', () => {
 // clip them away with a head slice.
 test('an oversized MEMORY.md keeps its newest (tail) notes', async () => {
   const root = await mkTmp()
-  const head = 'OLD-'.repeat(20000) // ~80k of stale notes at the top
+  const head = 'OLD-'.repeat(60000) // ~240k of stale notes at the top
   const tail = '\n- NEWEST-FACT-KEEP-ME\n'
   await fs.writeFile(path.join(root, 'MEMORY.md'), head + tail, 'utf-8')
   const ctx = await loadProjectContext(root)
   const f = ctx.memory.find((x) => x.path.endsWith('MEMORY.md'))
   assert.ok(f, 'MEMORY.md must be present')
   assert.match(f!.content, /NEWEST-FACT-KEEP-ME/, 'the newest note survives')
-  assert.ok(f!.content.length <= 60000, 'clipped to the per-file budget')
+  assert.ok(
+    f!.content.length <= MAX_MEMORY_FILE,
+    'clipped to the memory per-file budget',
+  )
+})
+
+// The tail clip must not cut a note in half: it starts at a bullet/heading
+// boundary so the kept text is a sequence of whole notes.
+test('a tail clip starts at a note boundary, not mid-note', async () => {
+  const root = await mkTmp()
+  const filler = ('x'.repeat(79) + '\n').repeat(3000) // ~240k
+  // Newest notes are clearly delimited bullets.
+  const notes = '\n- NOTE-A\n- NOTE-B\n- NOTE-C\n'
+  await fs.writeFile(path.join(root, 'MEMORY.md'), filler + notes, 'utf-8')
+  const ctx = await loadProjectContext(root)
+  const f = ctx.memory.find((x) => x.path.endsWith('MEMORY.md'))!
+  assert.match(f.content, /NOTE-A/)
+  // The first kept CONTENT line (after the marker) is a whole bullet, not a
+  // leftover fragment of the filler run.
+  const afterMarker = f.content.split('...]')[1] || ''
+  const firstLine = afterMarker.replace(/^\n+/, '').split('\n')[0]
+  assert.match(
+    firstLine,
+    /^- /,
+    'first kept line is a whole note: ' + firstLine,
+  )
+})
+
+// A big AGENTS.md must NOT starve MEMORY.md: they have separate pools now.
+test('a large AGENTS.md does not drop MEMORY.md from the prompt', async () => {
+  const root = await mkTmp()
+  await fs.writeFile(
+    path.join(root, 'AGENTS.md'),
+    'A'.repeat(MAX_FILE_BASE),
+    'utf-8',
+  )
+  await fs.writeFile(path.join(root, 'MEMORY.md'), '- KEEP-MEMORY\n', 'utf-8')
+  const ctx = await loadProjectContext(root)
+  assert.ok(
+    ctx.memory.some((f) => /KEEP-MEMORY/.test(f.content)),
+    'memory must survive a full AGENTS.md',
+  )
 })
 
 // B6: a nested AGENTS.md is pulled in only when the task touches its directory.

@@ -128,8 +128,19 @@ export interface LoadedContext {
   commands: CustomCommand[]
 }
 
-const MAX_FILE_BASE = 60000
-const MAX_TOTAL = 240000
+// Per-file budgets. AGENTS.md/MEMORY.md are hand-maintained and grow over
+// time, so the caps are generous: an AGENTS.md of a real project (this repo's
+// own file is ~69k) must NOT be silently cut. The old 60k cap already
+// truncated it. Set higher and split per kind so a huge AGENTS.md can no
+// longer starve MEMORY.md of the shared pool (the old single pool filled on
+// agents first, so memory was dropped WHOLE when agents were large).
+export const MAX_FILE_BASE = 120000
+/** MEMORY.md is append-only, so it gets its own (larger) budget. */
+export const MAX_MEMORY_FILE = 200000
+/** Total spent on the AGENTS.md chain (project instructions + scoped). */
+const MAX_AGENTS_TOTAL = 240000
+/** Total spent on the MEMORY.md chain, independent of the agents pool. */
+const MAX_MEMORY_TOTAL = 200000
 
 const CRLF_RE = /\r\n/g
 const NL = String.fromCharCode(10)
@@ -152,9 +163,13 @@ function clipIf(
   // MEMORY.md is APPENDED to over time, so its newest (most relevant) notes
   // live at the TAIL — a head clip would drop exactly those. Keep the tail
   // for memory files, the head for AGENTS.md (whose top is the summary).
-  return fromTail
-    ? marker + NL + NL + cleaned.slice(cleaned.length - keep)
-    : cleaned.slice(0, keep) + NL + NL + marker
+  if (!fromTail) return cleaned.slice(0, keep) + NL + NL + marker
+  let slice = cleaned.slice(cleaned.length - keep)
+  // Cut at a NOTE boundary, not mid-note: start the kept tail at the next line
+  // that begins a bullet or a heading, so a half-sentence note is not left.
+  const m = slice.search(/\n(?=[-*] |#{1,6} )/)
+  if (m > 0) slice = slice.slice(m + 1)
+  return marker + NL + NL + slice
 }
 
 async function readIfFile(
@@ -459,7 +474,7 @@ async function loadMemoryChain(workdir: string): Promise<ContextFile[]> {
     path.join(os.homedir(), '.claude', 'MEMORY.md'),
   ]) {
     // Memory is append-only, so clip from the TAIL to keep the newest notes.
-    const f = await readIfFile(p, MAX_FILE_BASE, true)
+    const f = await readIfFile(p, MAX_MEMORY_FILE, true)
     if (f && !seen.has(f.path)) {
       seen.add(f.path)
       out.push(f)
@@ -469,7 +484,7 @@ async function loadMemoryChain(workdir: string): Promise<ContextFile[]> {
   for (const dir of chain) {
     const p = await findNamedFile(dir, MEMORY_NAMES)
     if (!p || seen.has(p)) continue
-    const f = await readIfFile(p, MAX_FILE_BASE, true)
+    const f = await readIfFile(p, MAX_MEMORY_FILE, true)
     if (f) {
       seen.add(p)
       out.push(f)
@@ -491,23 +506,30 @@ export async function loadProjectContext(
   const scopedAgents = await loadScopedAgents(workdir, touchPaths).catch(
     () => [],
   )
-  let used = 0
-  const withinBudget = (files: ContextFile[]): ContextFile[] => {
-    const kept = []
+  // SEPARATE pools for agents and memory: the old single pool filled on the
+  // agents chain first, so a large AGENTS.md dropped MEMORY.md WHOLE. Each
+  // category now has its own budget, and memory can never be starved by
+  // project instructions (or vice versa).
+  const takeWithin = (files: ContextFile[], total: number): ContextFile[] => {
+    let used = 0
+    const kept: ContextFile[] = []
     for (const f of files) {
-      if (used + f.content.length > MAX_TOTAL) break
+      if (used + f.content.length > total) break
       used += f.content.length
       kept.push(f)
     }
     return kept
   }
+  const keptAgents = takeWithin(agents, MAX_AGENTS_TOTAL)
+  const agentsUsed = keptAgents.reduce((n, f) => n + f.content.length, 0)
+  const keptScoped = takeWithin(scopedAgents, MAX_AGENTS_TOTAL - agentsUsed)
   return {
-    agents: withinBudget(agents),
-    // Scoped files are dropped silently when the total budget is already spent
+    agents: keptAgents,
+    // Scoped files are dropped silently when the AGENTS pool is already spent
     // on the main chain: a nested AGENTS.md is an optimization, not a hard
     // requirement, and must never push out a top-level instruction.
-    scopedAgents: withinBudget(scopedAgents),
-    memory: withinBudget(memory),
+    scopedAgents: keptScoped,
+    memory: takeWithin(memory, MAX_MEMORY_TOTAL),
     skills,
     commands,
   }
