@@ -4,10 +4,6 @@ export const promptMessages: Record<string, { ru: string; en: string }> = {
     ru: 'ВАЖНО: отвечай оператору на русском языке. Весь текст в поле message инструмента respond, а также любые пояснения — на русском.',
     en: 'IMPORTANT: reply to the operator in English. All text in the respond tool message field, and any explanations, must be in English.',
   },
-  'prompt.tools_header': {
-    ru: 'You have access to the following tools:',
-    en: 'You have access to the following tools:',
-  },
   // The hard "ONLY TOOL CALLS" block. All prose around a tool call is a
   // protocol violation: the operator never sees it (only tool calls and the
   // final respond reach the terminal), so it is pure pollution. We cannot

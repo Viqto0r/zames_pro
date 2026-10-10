@@ -128,10 +128,6 @@ export const doctorMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Часть модулей не перезагрузилась:',
     en: 'Some modules failed to reload:',
   },
-  'msg.reload_done': {
-    ru: 'Перезагружено модулей: {n}. Браузер и чат не тронуты.',
-    en: 'Reloaded modules: {n}. Browser and chat untouched.',
-  },
   'msg.reload_error': { ru: 'Ошибка reload:', en: 'Reload error:' },
   'msg.abort_gen_short': {
     ru: '⏹ Esc — прерываю генерацию...',

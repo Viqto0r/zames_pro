@@ -30,10 +30,6 @@ export const commonMessages: Record<string, { ru: string; en: string }> = {
     ru: 'System prompt на след. задаче: {v}',
     en: 'System prompt next task: {v}',
   },
-  'status.resend': {
-    ru: 'Resend prompt (--resend-prompt): {v}',
-    en: 'Resend prompt (--resend-prompt): {v}',
-  },
   'status.last_chat': { ru: 'Last chat: {v}', en: 'Last chat: {v}' },
   'status.sessions': { ru: 'Сессии: {v}', en: 'Sessions: {v}' },
   'status.dev': {
@@ -147,14 +143,6 @@ export const commonMessages: Record<string, { ru: string; en: string }> = {
   'msg.exit_summary': {
     ru: 'Транскрипт: {transcript} · чат: {chat}',
     en: 'Transcript: {transcript} · chat: {chat}',
-  },
-  'msg.abort_gen': {
-    ru: '⏹ Esc — прерываю генерацию...',
-    en: '⏹ Esc — aborting generation...',
-  },
-  'msg.abort_ctrlc': {
-    ru: '⏹ Ctrl+C — прерываю генерацию...',
-    en: '⏹ Ctrl+C — aborting generation...',
   },
   'msg.queued': { ru: '📨 В очередь ({n}): ', en: '📨 Queued ({n}): ' },
   // TTY variant: the editor already echoed the message text, so only the
@@ -309,10 +297,6 @@ export const commonMessages: Record<string, { ru: string; en: string }> = {
     en: 'undo is disabled in the config',
   },
   'rewind.empty': { ru: 'Чекпойнтов нет.', en: 'No checkpoints.' },
-  'rewind.created': {
-    ru: '📸 Чекпойнт: {v}',
-    en: '📸 Checkpoint: {v}',
-  },
   'rewind.list_title': { ru: 'Чекпойнты:', en: 'Checkpoints:' },
   'rewind.reverted': {
     ru: '↶ Откатили рабочее дерево к чекпойнту {v}',

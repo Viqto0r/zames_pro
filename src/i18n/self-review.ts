@@ -113,7 +113,6 @@ export const selfReviewMessages: Record<string, { ru: string; en: string }> = {
     ru: '\nИспользуй /resume <n> для продолжения.\n',
     en: '\nUse /resume <n> to continue.\n',
   },
-  'chats.none': { ru: 'Чатов не найдено.', en: 'No chats found.' },
   'chats.none_hint': {
     ru: 'Чатов не найдено. Возможно, сайдбар свёрнут или селекторы устарели.',
     en: 'No chats found. The sidebar may be collapsed or the selectors are outdated.',
@@ -143,10 +142,6 @@ export const selfReviewMessages: Record<string, { ru: string; en: string }> = {
     en: 'No chat #{n}. Total: {total}.',
   },
   'chats.opening': { ru: 'Открываю: {v}', en: 'Opening: {v}' },
-  'chats.context_kept': {
-    ru: ' Контекст чата сохранён. Системный промпт будет переслан на следующей задаче.\n',
-    en: ' Chat context kept. The system prompt will be resent on the next task.\n',
-  },
   'chats.prompt_will_resend': {
     ru: ' Системный промпт будет переслан на следующей задаче.\n',
     en: ' System prompt will be resent on the next task.\n',

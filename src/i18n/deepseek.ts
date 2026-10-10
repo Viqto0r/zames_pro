@@ -88,10 +88,6 @@ export const deepseekMessages: Record<string, { ru: string; en: string }> = {
     ru: '⏳ Агент не распознал ответ модели — прошу продолжить ({attempt}/{max})...',
     en: '⏳ The agent did not recognize the model answer — asking it to continue ({attempt}/{max})...',
   },
-  'ds.stalled': {
-    ru: '⚠ Агент остановился, не завершив задачу (модель перестала вызывать инструменты). Проверь чат DeepSeek — задача может быть не выполнена.',
-    en: '⚠ The agent stopped before finishing (the model stopped calling tools). Check the DeepSeek chat — the task may be incomplete.',
-  },
   'ds.not_launched': {
     ru: '✖ Браузер не запущен.',
     en: '✖ The browser is not launched.',
@@ -145,18 +141,6 @@ export const deepseekMessages: Record<string, { ru: string; en: string }> = {
   'auth.manual_hint_headless': {
     ru: 'Войдите в DeepSeek: откройте https://chat.deepseek.com/ в своём браузере. Если включён headless — задайте логин/пароль через /config или запустите с --headed.',
     en: 'Sign in to DeepSeek: open https://chat.deepseek.com/ in your browser. If headless is on — set the login/password via /config or run with --headed.',
-  },
-  'auth.session_saved': {
-    ru: 'Сессия DeepSeek сохранена.',
-    en: 'DeepSeek session saved.',
-  },
-  'auth.session_restored': {
-    ru: 'Сессия DeepSeek восстановлена.',
-    en: 'DeepSeek session restored.',
-  },
-  'auth.enter_to_continue': {
-    ru: 'Нажмите Enter, чтобы продолжить...',
-    en: 'Press Enter to continue...',
   },
 
   'cfg.menu.title': {

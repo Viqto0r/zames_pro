@@ -150,7 +150,6 @@ export const configMessages: Record<string, { ru: string; en: string }> = {
   },
 
   'cfg.title': { ru: 'Настройки zames', en: 'zames settings' },
-  'cfg.current': { ru: 'Текущий конфиг:', en: 'Current config:' },
   'cfg.usage': {
     ru: 'Использование: /config [menu | list | get <путь> | set <путь> <значение> | reset <путь> | path | lang <ru|en>]',
     en: 'Usage: /config [menu | list | get <path> | set <path> <value> | reset <path> | path | lang <ru|en>]',
@@ -181,7 +180,6 @@ export const configMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Конфиг (глобальный): {global}\nКонфиг (проект): {project}',
     en: 'Config (global): {global}\nConfig (project): {project}',
   },
-  'cfg.keys': { ru: 'Доступные параметры:', en: 'Available settings:' },
   'cfg.lang_set': {
     ru: 'Язык переключён на {v}.',
     en: 'Language switched to {v}.',
@@ -189,21 +187,5 @@ export const configMessages: Record<string, { ru: string; en: string }> = {
   'cfg.lang_usage': {
     ru: 'Использование: /config lang <ru|en>',
     en: 'Usage: /config lang <ru|en>',
-  },
-  'cfg.scope_current': {
-    ru: 'Запись конфига: {v} ({file})',
-    en: 'Config write scope: {v} ({file})',
-  },
-  'cfg.scope_usage': {
-    ru: 'Использование: /config scope <project|home>. project = .zamesrc.json (в git), home = ~/.zames/. Для личных настроек выбери home, чтобы не коммитить их.',
-    en: 'Usage: /config scope <project|home>. project = .zamesrc.json (committed), home = ~/.zames/. Use home for personal settings so they are not committed.',
-  },
-  'cfg.scope_set': {
-    ru: 'Запись конфига: {v} ({file})',
-    en: 'Config write scope: {v} ({file})',
-  },
-  'cfg.scope_bad': {
-    ru: 'Неизвестный scope: {v}. Используй project или home.',
-    en: 'Unknown scope: {v}. Use project or home.',
   },
 }

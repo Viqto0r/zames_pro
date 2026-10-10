@@ -377,10 +377,6 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     ru: '🗜️ Сжимаю историю чата (DeepSeek)...',
     en: '🗜️ Compacting the chat history (DeepSeek)...',
   },
-  'compact.empty': {
-    ru: 'Нечего сжимать: в чате ещё нет ответов.',
-    en: 'Nothing to compact: the chat has no answers yet.',
-  },
   'compact.summary_failed': {
     ru: 'Не удалось получить резюме от модели: {v}',
     en: 'Could not get the summary from the model: {v}',
@@ -460,10 +456,6 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
   'remember.saved': {
     ru: '🧠 Заметка добавлена в {v}',
     en: '🧠 Note appended to {v}',
-  },
-  'init.exists': {
-    ru: 'AGENTS.md уже существует: {v}',
-    en: 'AGENTS.md already exists: {v}',
   },
   'init.created': { ru: 'Создан {v}', en: 'Created {v}' },
   'init.analyzing': {
