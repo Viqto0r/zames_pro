@@ -343,12 +343,14 @@ export function createTools(
     description:
       'Delegate a self-contained sub-task to a SUBAGENT that works in its own ' +
       'separate chat with an isolated context, then returns ONLY a final ' +
-      'report. Use it to keep heavy research out of the main context. ' +
-      'subagent_type: "explore" (read-only: search/read, cannot modify) or ' +
-      '"general" (full tools). The subagent does NOT see this conversation, so ' +
-      '`prompt` must be fully self-contained: state the goal, the exact ' +
-      'questions, and any file paths/context it needs. Returns the subagent ' +
-      'report as text.',
+      'report. Use it to keep heavy research out of the main context — it ' +
+      'does NOT run in parallel (one browser, one send slot), so it saves ' +
+      'context, not time. subagent_type: "explore" (read-only: search/read, ' +
+      'cannot modify) or "general" (full tools). Each call opens a FRESH ' +
+      'subagent chat; nothing is reused between calls. The subagent does NOT ' +
+      'see this conversation, so `prompt` must be fully self-contained: state ' +
+      'the goal, the exact questions, and any file paths/context it needs. ' +
+      'Returns the subagent report as text.',
     parameters: {
       description: 'string',
       prompt: 'string',

@@ -122,8 +122,15 @@ When a change touches one concern, start in the module that owns it:
   (context isolation — in zames "context" IS the chat), runs a NESTED
   runAgentLoop (`freshChat:true`+`sendSystemPrompt:true`, `subagent_type`
   explore=read-only tools / general=full), restores the parent chat + send
-  hooks, and returns ONLY the subagent's final report. Sequential by design;
-  on when `browser.subagents` (default true). The `Task` tool's description and
+  hooks, and returns ONLY the subagent's final report. Sequential by design:
+  subagents SAVE CONTEXT, they do NOT run in parallel (one browser, one send
+  slot), so the guidance is never to "speed up" but to keep the main chat
+  small. Each Task call opens a FRESH chat (a new subagent); nothing is
+  reused. Subagent chats are NOT saved as sessions (`onChatReady: () => {}`)
+  and are left open under DeepSeek's own titles, so `/chats` (which reads the
+  DeepSeek sidebar) DOES show them, while `/sessions` (`~/.zames/.sessions`)
+  does NOT. On when `browser.subagents` (default true). The `Task` tool's
+  description and
   the system-prompt `## Task tool (subagents)` section (injected only when the
   tool is offered) tell the model WHEN to delegate.
   Guards baked into the runner: NO recursion (the subagent never gets the Task

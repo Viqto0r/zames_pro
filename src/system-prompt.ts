@@ -56,14 +56,18 @@ its OWN separate chat with an ISOLATED context and returns ONLY a final
 report. The subagent does NOT see this conversation, so the prompt you pass
 must be fully self-contained (goal, exact questions, file paths, context).
 
-Use it to PROTECT this chat's context and to parallelize independent work:
+Use it to PROTECT this chat's context — that is its ONLY purpose. zames
+runs subagents SEQUENTIALLY (one browser, one shared send slot), so a Task
+call does NOT speed anything up; it only keeps this chat's context small.
 
 - Broad exploration whose raw hits would flood this chat ("find every use of
   X", "map how module Y works end to end"): delegate it with
   subagent_type "explore" (read-only) and keep only the report.
 - A self-contained research or verification sub-task you can specify in a
-  paragraph: delegate it and continue the main line meanwhile.
-- Several INDEPENDENT investigations: emit several Task calls in ONE batch.
+  paragraph.
+- A long investigation, or several unrelated ones: call Task again for each.
+  EVERY call opens a FRESH isolated chat (a new subagent) — there is no
+  "reuse" of a previous subagent, so pass everything it needs in the prompt.
 
 Do NOT use it for:
 - work that depends on this conversation's history (the subagent cannot see
