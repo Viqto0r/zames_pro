@@ -160,19 +160,21 @@ if (dryRun) {
   process.exit(0)
 }
 
-// 5. Insert the section right after the `## [Unreleased]` heading.
+// 5. Insert the version section in place of the Unreleased BODY. The
+// Unreleased body is auto-synced from commits (see changelog:sync), so it is
+// the same content as the new section — leaving it in place duplicated every
+// entry (the real "### Fixed" block twice). Replace the whole body up to the
+// next version heading with the new section.
 const changelogPath = path.join(root, 'CHANGELOG.md')
 const changelog = fs.readFileSync(changelogPath, 'utf-8')
 const anchor = '## [Unreleased]'
 const idx = changelog.indexOf(anchor)
 if (idx < 0) fail('CHANGELOG.md has no "' + anchor + '" heading')
 const afterAnchor = idx + anchor.length
-const updated =
-  changelog.slice(0, afterAnchor) +
-  NL +
-  NL +
-  section +
-  changelog.slice(afterAnchor).replace(/^\n+/, NL)
+const rest = changelog.slice(afterAnchor)
+const nextHeading = rest.search(/\n## \[/)
+const tail = nextHeading < 0 ? NL : rest.slice(nextHeading)
+const updated = changelog.slice(0, afterAnchor) + NL + NL + section + tail
 fs.writeFileSync(changelogPath, updated)
 
 // 6. Bump package.json, preserving its exact formatting (single-line replace
