@@ -92,6 +92,7 @@ import {
   sessionsDir,
   loadHistory,
   saveHistory,
+  isInternalChat,
 } from './sessions.js'
 import type { ChatInfo } from './browser.js'
 import type { McpPool } from './mcp.js'
@@ -2186,7 +2187,11 @@ async function main(): Promise<void> {
       if (editor) editor.lock(t('msg.input_locked'))
       spin.thinking()
       try {
-        lastChats = await browser.listChats(30)
+        const all = await browser.listChats(30)
+        // Hide subagent chats: they are real DeepSeek chats, but they are
+        // internal context-isolation artifacts whose report already lives in
+        // the parent chat, so resuming one is never what the operator wants.
+        lastChats = all.filter((c) => !isInternalChat(c.id))
         spin.stop()
         // An optional query filters by title (substring, case-insensitive),
         // so a long chat list does not have to be scanned by eye.

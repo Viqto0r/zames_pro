@@ -19,6 +19,42 @@ interface SessionsIndex {
 
 export const SESSIONS_FORMAT_VERSION = 1
 
+// Subagent chats are real DeepSeek chats, but they are INTERNAL: they exist
+// only to isolate a sub-task's context and their report is already folded back
+// into the parent chat. They must never be resumable. DeepSeek's own sidebar
+// (`/chats`, which scrapes the DOM) still shows them under auto-generated
+// titles, so we cannot hide them there; but we CAN hide them from `/sessions`
+// (our own store) by keeping an id denylist here and filtering every read path.
+const INTERNAL_FILE = path.join(SESSIONS_DIR, 'internal.json')
+
+function readInternal(): Set<string> {
+  try {
+    const raw = JSON.parse(fs.readFileSync(INTERNAL_FILE, 'utf-8'))
+    return new Set(
+      Array.isArray(raw) ? raw.filter((x) => typeof x === 'string') : [],
+    )
+  } catch {
+    return new Set()
+  }
+}
+
+/** Remember a chat id as internal (a subagent chat) so it is never resumed. */
+export function markInternalChat(id: string | null | undefined): void {
+  if (!id) return
+  try {
+    ensureDir()
+    const set = readInternal()
+    set.add(String(id))
+    writeJsonAtomic(INTERNAL_FILE, Array.from(set))
+  } catch {}
+}
+
+/** True when `id` is a known internal (subagent) chat. */
+export function isInternalChat(id: string | null | undefined): boolean {
+  if (!id) return false
+  return readInternal().has(String(id))
+}
+
 function ensureDir(): void {
   fs.mkdirSync(SESSIONS_DIR, { recursive: true })
 }
@@ -99,9 +135,11 @@ export function loadLastSession(workdir = ''): Session | null {
     const candidates = [byWorkdir[workdir], index.last].filter(
       (x): x is string => Boolean(x),
     )
+    const internal = readInternal()
     for (const id of candidates) {
       // The session file may have been deleted — the index is then stale and
       // the session cannot be restored. We try the next candidate.
+      if (internal.has(id)) continue
       const s = readSession(id)
       if (s) return s
     }
@@ -121,20 +159,24 @@ export function readSession(id: string | null): Session | null {
   }
 }
 
-// List all sessions, newest first.
+// List all sessions, newest first. Internal (subagent) chats are excluded.
 export function listSessions(): Session[] {
   try {
     ensureDir()
+    const internal = readInternal()
     const files = fs
       .readdirSync(SESSIONS_DIR)
-      .filter((f) => f.endsWith('.json') && f !== 'last.json')
+      .filter(
+        (f) =>
+          f.endsWith('.json') && f !== 'last.json' && f !== 'internal.json',
+      )
     const out: Session[] = []
     for (const f of files) {
       try {
         const data = JSON.parse(
           fs.readFileSync(path.join(SESSIONS_DIR, f), 'utf-8'),
         )
-        if (data && data.id) out.push(data)
+        if (data && data.id && !internal.has(String(data.id))) out.push(data)
       } catch {}
     }
     out.sort((a, b) =>

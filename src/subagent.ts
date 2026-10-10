@@ -1,5 +1,6 @@
 import type { BrowserLike, ToolDef } from './types.js'
 import { loadHooks, runLifecycleHooks } from './hooks.js'
+import { markInternalChat } from './sessions.js'
 import type { Locale } from './i18n.js'
 import type { SubagentRequest, SubagentResult } from './agent-loop.js'
 import type { runAgentLoop as RunAgentLoopFn } from './agent-loop.js'
@@ -174,8 +175,11 @@ export function createSubagentRunner(
         selfImprovement: false,
         // No recursion: the subagent cannot spawn its own subagents.
         onSubagent: null,
-        // Do not persist the subagent chat as a session.
-        onChatReady: () => {},
+        // Do not persist the subagent chat as a session, but REMEMBER its id
+        // as internal so it is hidden from /sessions and never resumed.
+        onChatReady: (chatId) => {
+          if (chatId) markInternalChat(chatId)
+        },
         // Keep the PARENT's UI alive during the nested run. The nested loop
         // OVERWRITES browser.onSendStart/… with its own callbacks; without
         // forwarding the parent's hooks the spinner and the throttle countdown

@@ -912,6 +912,17 @@ API: `saveSession`, `loadLastSession(workdir)`, `readSession(id)`,
 `listSessions()`, `sessionsDir()`. Saving is called from `saveLastChat()` in
 `index.ts` after every task, new chat and `/resume`.
 
+SUBAGENT chats are INTERNAL and must never be resumed. They are real DeepSeek
+chats, but they exist only to isolate a sub-task's context (their report is
+already folded into the parent chat). `onChatReady` in `src/subagent.ts` does
+NOT call `saveSession`; instead it calls `markInternalChat(id)`, which appends
+the id to `~/.zames/.sessions/internal.json`. `isInternalChat(id)` filters that
+denylist in `loadLastSession` (skips to the next candidate), `listSessions` and
+the `/chats` listing in `index.ts` (`browser.listChats` reads DeepSeek's own
+sidebar, which shows the subagent chats under auto titles). `/resume-id` still
+opens by full id on purpose — it is an explicit override. So `/sessions` is the
+SAFE resumable list; `/chats` is the raw DeepSeek list with internals hidden.
+
 ### System-prompt on resume (`browser.resendPromptOnResume`)
 
 When a chat is resumed, its start already contains the system-prompt, so

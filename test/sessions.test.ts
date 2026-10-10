@@ -10,8 +10,15 @@ const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-home-'))
 process.env.HOME = fakeHome
 process.env.USERPROFILE = fakeHome
 
-const { saveSession, loadLastSession, readSession, listSessions, sessionsDir } =
-  await import('../src/sessions.ts')
+const {
+  saveSession,
+  loadLastSession,
+  readSession,
+  listSessions,
+  sessionsDir,
+  markInternalChat,
+  isInternalChat,
+} = await import('../src/sessions.ts')
 import type { Session } from '../src/types.ts'
 
 test('saveSession создаёт файл сессии и индекс', () => {
@@ -67,6 +74,39 @@ test('saveSession сохраняет todos и не стирает их при о
   // A later saveLastChat-style call (no todos) must keep the existing list.
   const s2 = saveSession({ id, title: 'T', workdir: '/p' })
   assert.deepEqual(s2?.todos, todos)
+})
+
+// ---------- internal (subagent) chats ----------
+
+test('internal chat ids are remembered and matched', () => {
+  const id = 'sub-' + Date.now()
+  assert.equal(isInternalChat(id), false)
+  markInternalChat(id)
+  assert.equal(isInternalChat(id), true)
+  assert.equal(isInternalChat(null), false)
+  assert.equal(isInternalChat(''), false)
+})
+
+test('listSessions hides an internal chat', () => {
+  const id = 'sub-list-' + Date.now()
+  saveSession({ id, title: 'subagent', workdir: '/p' })
+  assert.ok(listSessions().some((x: Session) => x.id === id))
+  markInternalChat(id)
+  assert.ok(!listSessions().some((x: Session) => x.id === id))
+})
+
+test('loadLastSession never returns an internal chat', () => {
+  const wd = '/proj/internal-' + Date.now()
+  const parent = 'parent-' + Date.now()
+  const sub = 'subagent-' + Date.now()
+  saveSession({ id: parent, title: 'parent', workdir: wd })
+  markInternalChat(sub)
+  // A subagent chat is not saved as a session in real use, so the parent is
+  // still the last real session for this workdir.
+  assert.equal(loadLastSession(wd)?.id, parent)
+  // Even if an internal id somehow becomes the index target, it is skipped.
+  saveSession({ id: sub, title: 'sub', workdir: wd })
+  assert.notEqual(loadLastSession(wd)?.id, sub)
 })
 
 // ---------- input history persistence ----------
