@@ -135,7 +135,27 @@ export function createSubagentRunner(
     }
     used++
 
-    const parentChatId = await browser.getCurrentChatId().catch(() => null)
+    // Resolve the parent chat id BEFORE anything else. The runner restores the
+    // parent chat in its finally block, and that restore is what keeps the
+    // subagent's isolated context from swallowing the parent's turn. If the id
+    // cannot be resolved we must NOT run the nested loop: without it the finally
+    // would skip openChat and the parent would continue INSIDE the subagent
+    // chat. A couple of quick retries cover the "id not known yet" window on a
+    // freshly opened chat; after that we fail safe and tell the model.
+    let parentChatId: string | null = null
+    for (let attempt = 0; attempt < 3 && !parentChatId; attempt++) {
+      parentChatId = await browser.getCurrentChatId().catch(() => null)
+      if (!parentChatId) await new Promise((r) => setTimeout(r, 300))
+    }
+    if (!parentChatId) {
+      return {
+        ok: false,
+        text:
+          'Cannot start a subagent: the current chat id is unknown, so the ' +
+          'parent chat could not be restored afterwards (context isolation ' +
+          'would be lost). Do the work yourself with the other tools.',
+      }
+    }
 
     const subTools = buildTools(req.type === 'explore')
 

@@ -175,3 +175,31 @@ test('runner возвращает ошибку, если вложенный ци
   assert.ok(res.text.includes('boom'))
   assert.ok(calls.includes('openChat:chat-parent'))
 })
+
+// If the parent chat id cannot be resolved the runner must NOT run the nested
+// loop: without an id the finally block would skip the restore and the parent
+// would continue INSIDE the subagent chat (context isolation lost).
+test('runner не запускает субагента, если id родительского чата неизвестен', async () => {
+  const { browser, calls } = fakeBrowser()
+  browser.getCurrentChatId = async () => null
+  let nestedRan = false
+  const runner = createSubagentRunner({
+    browser,
+    workdir: '/tmp/x',
+    locale: 'ru',
+    runAgentLoop: (async () => {
+      nestedRan = true
+      return 'report'
+    }) as never,
+    buildTools: () => [],
+    maxSubagents: 3,
+    askDeadlineMs: 1000,
+    maxAfterToolRetries: 1,
+  })
+
+  const res = await runner({ prompt: 'p', description: '', type: 'explore' })
+  assert.equal(res.ok, false)
+  assert.equal(nestedRan, false, 'nested loop must not run')
+  assert.ok(/chat id is unknown/i.test(res.text), res.text)
+  assert.ok(!calls.includes('newChat'), 'no fresh chat opened')
+})
