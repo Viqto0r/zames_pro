@@ -7,8 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.72.9] - 2026-10-10
+
 ### Fixed
 
+- **release:** do not duplicate the Unreleased body into the version section
 - **context:** raise the context budget and split agents/memory pools
 - **browser:** handle the DeepSeek email MFA dialog on login
 - **subagent:** fail safe when the parent chat id is unknown
