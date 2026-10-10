@@ -72,7 +72,12 @@ When a change touches one concern, start in the module that owns it:
   `promptOnce()` lives in `src/prompt.ts`; `runTask` (task execution + queue
   draining) lives in `src/run-task.ts`; the PURE `/config` text rendering
   (`formatConfigList`/`configGetValue`/`configValueHint`) lives in
-  `src/config-commands.ts` (unit-tested).
+  `src/config-commands.ts` (unit-tested), and the `/config` subcommand
+  DISPATCHER (`handleConfigCommand`: list/get/set/reset/lang/path) lives in
+  `src/config-command.ts` — it drives live state through INJECTED callbacks
+  (print/getValue/setValue/resetField/showList/openMenu/...), so the routing is
+  unit-tested without a live agent (test/config-command.test.ts); index.ts wires
+  the deps and keeps `setConfigRuntime` (live-apply for locale/toggles/width).
 - `src/agent-loop.ts` — one task: send → parse → run tools → loop; the retry
   budgets, the protocol/stale guards, the auto-compact seam. The pure half
   (the tool-call PARSER + the answer heuristics) lives in `src/answer-parse.ts`

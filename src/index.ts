@@ -47,11 +47,8 @@ import {
   type ConfigField,
 } from './config.js'
 import { runConfigMenu } from './config-menu.js'
-import {
-  configGetValue,
-  configValueHint,
-  formatConfigList,
-} from './config-commands.js'
+import { formatConfigList } from './config-commands.js'
+import { handleConfigCommand as runConfigCommand } from './config-command.js'
 import {
   translate,
   normalizeLocale,
@@ -1852,139 +1849,22 @@ async function main(): Promise<void> {
   }
 
   async function handleConfigCommand(input: string): Promise<void> {
-    const parts = input.trim().split(/\s+/)
-    const sub = (parts[1] || '').toLowerCase()
-
-    // With no subcommand — the menu (or a text list in non-TTY).
-    if (!sub || sub === 'menu' || sub === 'ui') {
-      await configOpenMenu()
-      return
-    }
-
-    if (sub === 'list' || sub === 'show' || sub === 'ls') {
-      configShowList()
-      return
-    }
-
-    if (sub === 'path' || sub === 'paths') {
-      console.log(
-        theme.system(
-          t('cfg.paths', {
-            global: CONFIG_PATHS.HOME_CONFIG,
-            project: CONFIG_PATHS.PROJECT_CONFIG,
-          }),
-        ),
-      )
-      return
-    }
-
-    // /config lang <ru|en> — quick access to ui.locale
-    if (sub === 'lang' || sub === 'language' || sub === 'язык') {
-      const val = parts[2]
-      if (!val) {
-        console.log(
-          theme.system(
-            t('status.locale', { v: localeDisplayName(currentLocale) }),
-          ),
-        )
-        console.log(theme.dim(t('cfg.lang_usage')))
-        return
-      }
-      const field = CONFIG_SCHEMA.find((f) => f.path === 'ui.locale')!
-      const loc = normalizeLocale(val)
-      try {
-        configSetRaw(field, loc)
-      } catch (e) {
-        console.error(
-          theme.error(t('cfg.write_error', { v: (e as Error).message })),
-        )
-        return
-      }
-      console.log(
-        theme.assistant(t('cfg.lang_set', { v: localeDisplayName(loc) })),
-      )
-      return
-    }
-
-    if (sub === 'get') {
-      const key = parts[2]
-      if (!key) {
-        console.log(theme.dim(t('cfg.usage')))
-        return
-      }
-      const field = CONFIG_SCHEMA.find((f) => f.path === key)
-      if (!field) {
-        console.error(theme.error(t('cfg.unknown_key', { v: key })))
-        return
-      }
-      const cur = getByPath(config, key)
-      console.log(
-        theme.system(
-          t('cfg.value', { v: key, value: configGetValue(key, cur, t) }),
-        ),
-      )
-      return
-    }
-
-    if (sub === 'set') {
-      const key = parts[2]
-      const raw = parts.slice(3).join(' ')
-      const field = CONFIG_SCHEMA.find((f) => f.path === key)
-      if (!field) {
-        console.error(theme.error(t('cfg.unknown_key', { v: key || '' })))
-        return
-      }
-      if (!raw) {
-        console.log(theme.dim(t('cfg.usage')))
-        return
-      }
-      try {
-        configSetRaw(field, raw)
-      } catch {
-        console.error(
-          theme.error(
-            t('cfg.bad_value', {
-              v: key,
-              type: configValueHint(field, t),
-            }),
-          ),
-        )
-        return
-      }
-      console.log(
-        theme.assistant(
-          t('cfg.saved', {
-            v: key,
-            value: JSON.stringify(getByPath(config, key)),
-            file: CONFIG_PATHS.HOME_CONFIG,
-          }),
-        ),
-      )
-      return
-    }
-
-    if (sub === 'reset' || sub === 'unset') {
-      const key = parts[2]
-      const field = CONFIG_SCHEMA.find((f) => f.path === key)
-      if (!field) {
-        console.error(theme.error(t('cfg.unknown_key', { v: key || '' })))
-        return
-      }
-      try {
-        configResetField(field)
-      } catch (e) {
-        console.error(
-          theme.error(t('cfg.write_error', { v: (e as Error).message })),
-        )
-        return
-      }
-      console.log(theme.assistant(t('cfg.reset', { v: key })))
-      return
-    }
-
-    // Unknown subcommand — show the list.
-    console.error(theme.error(t('cfg.unknown_key', { v: sub })))
-    configShowList()
+    await runConfigCommand(input, {
+      t,
+      print: (line) => console.log(line),
+      printErr: (line) => console.error(line),
+      getValue: (p) => getByPath(config, p),
+      setValue: (field, raw) => configSetRaw(field, raw),
+      resetField: (field) => configResetField(field),
+      showList: () => configShowList(),
+      openMenu: () => configOpenMenu(),
+      currentLocale: () => currentLocale,
+      normalizeLocale,
+      localeDisplayName,
+      schema: CONFIG_SCHEMA,
+      homeConfigPath: CONFIG_PATHS.HOME_CONFIG,
+      projectConfigPath: CONFIG_PATHS.PROJECT_CONFIG,
+    })
   }
 
   while (running) {

@@ -32,6 +32,9 @@ const FLOORS = {
   'permissions.ts': 85,
   'changelog.ts': 85,
   'attach-refs.ts': 85,
+  // C3: the pure /config subcommand dispatcher — silent routing regressions
+  // (a wrong subcommand branch) are invisible without tests.
+  'config-command.ts': 85,
   // N12: web.ts holds the SSRF guard and the DuckDuckGo/HTML parsers — a
   // regression there is silent. Floors sit below the current values.
   'web.ts': 40,
