@@ -120,6 +120,21 @@ test('skillBody strips frontmatter', () => {
   assert.equal(skillBody(raw), 'hello world')
 })
 
+// MEMORY.md is appended to over time, so its newest notes live at the TAIL.
+// A file over the per-file budget must keep the tail (the newest notes), not
+// clip them away with a head slice.
+test('an oversized MEMORY.md keeps its newest (tail) notes', async () => {
+  const root = await mkTmp()
+  const head = 'OLD-'.repeat(20000) // ~80k of stale notes at the top
+  const tail = '\n- NEWEST-FACT-KEEP-ME\n'
+  await fs.writeFile(path.join(root, 'MEMORY.md'), head + tail, 'utf-8')
+  const ctx = await loadProjectContext(root)
+  const f = ctx.memory.find((x) => x.path.endsWith('MEMORY.md'))
+  assert.ok(f, 'MEMORY.md must be present')
+  assert.match(f!.content, /NEWEST-FACT-KEEP-ME/, 'the newest note survives')
+  assert.ok(f!.content.length <= 60000, 'clipped to the per-file budget')
+})
+
 // B6: a nested AGENTS.md is pulled in only when the task touches its directory.
 test('loadProjectContext includes scoped AGENTS.md for touched dirs', async () => {
   const root = await mkTmp()

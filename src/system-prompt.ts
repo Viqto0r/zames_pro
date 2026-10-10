@@ -121,10 +121,17 @@ export function renderContextSection(
       '\n'
   }
   if (context.memory.length) {
+    // Point at the DEEPEST memory file (last in the chain: the loader pushes
+    // globals first, then the dir chain root->workdir). Before, this used
+    // memory[0] — the GLOBAL ~/.zames/MEMORY.md whenever it existed — so
+    // project-specific facts leaked into the global file and then loaded for
+    // every unrelated project. Fall back to the global file only when no
+    // project-level MEMORY.md exists.
+    const memoryTarget = context.memory[context.memory.length - 1].path
     out +=
       '\nWhen you learn a durable fact about this project or the operator preferences (build quirks, ' +
       'conventions, gotchas), append a short bullet to ' +
-      context.memory[0].path +
+      memoryTarget +
       ' via Edit/Write so it survives ' +
       'into future sessions. Keep entries concise.\n'
   }

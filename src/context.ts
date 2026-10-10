@@ -134,25 +134,33 @@ const MAX_TOTAL = 240000
 const CRLF_RE = /\r\n/g
 const NL = String.fromCharCode(10)
 
-function clipIf(name: string, content: string, budget: number): string {
+function clipIf(
+  name: string,
+  content: string,
+  budget: number,
+  fromTail = false,
+): string {
   const cleaned = content.replace(CRLF_RE, NL).trim()
   if (cleaned.length <= budget) return cleaned
   const keep = Math.max(0, budget - 120)
-  return (
-    cleaned.slice(0, keep) +
-    NL +
-    NL +
+  const marker =
     '[... ' +
     name +
     ' truncated (' +
     (cleaned.length - keep) +
     ' chars omitted) ...]'
-  )
+  // MEMORY.md is APPENDED to over time, so its newest (most relevant) notes
+  // live at the TAIL — a head clip would drop exactly those. Keep the tail
+  // for memory files, the head for AGENTS.md (whose top is the summary).
+  return fromTail
+    ? marker + NL + NL + cleaned.slice(cleaned.length - keep)
+    : cleaned.slice(0, keep) + NL + NL + marker
 }
 
 async function readIfFile(
   p: string,
   budget: number,
+  fromTail = false,
 ): Promise<ContextFile | null> {
   try {
     const st = await fs.stat(p)
@@ -161,7 +169,7 @@ async function readIfFile(
     // An EXISTING but empty file is still present: keep it so the prompt
     // shows an (empty) AGENTS.md/MEMORY.md section instead of silently
     // dropping the file. Only a read failure returns null.
-    const content = clipIf(path.basename(p), raw, budget)
+    const content = clipIf(path.basename(p), raw, budget, fromTail)
     return { path: p, content }
   } catch {
     return null
@@ -450,7 +458,8 @@ async function loadMemoryChain(workdir: string): Promise<ContextFile[]> {
     path.join(os.homedir(), '.zames', 'MEMORY.md'),
     path.join(os.homedir(), '.claude', 'MEMORY.md'),
   ]) {
-    const f = await readIfFile(p, MAX_FILE_BASE)
+    // Memory is append-only, so clip from the TAIL to keep the newest notes.
+    const f = await readIfFile(p, MAX_FILE_BASE, true)
     if (f && !seen.has(f.path)) {
       seen.add(f.path)
       out.push(f)
@@ -460,7 +469,7 @@ async function loadMemoryChain(workdir: string): Promise<ContextFile[]> {
   for (const dir of chain) {
     const p = await findNamedFile(dir, MEMORY_NAMES)
     if (!p || seen.has(p)) continue
-    const f = await readIfFile(p, MAX_FILE_BASE)
+    const f = await readIfFile(p, MAX_FILE_BASE, true)
     if (f) {
       seen.add(p)
       out.push(f)
