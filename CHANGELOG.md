@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **browser:** handle the DeepSeek email MFA dialog on login
+- **subagent:** fail safe when the parent chat id is unknown
+- **tools:** honor a skill's allowed-tools frontmatter
+- **context:** keep newest MEMORY.md notes and write facts to the project memory
+
 ## [2.72.8] - 2026-10-09
 
 ### Fixed
