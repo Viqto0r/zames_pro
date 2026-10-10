@@ -42,6 +42,10 @@ import {
   PASSWORD_SELECTORS,
   LOGIN_SELECTORS,
   LOGIN_SUBMIT_SELECTORS,
+  MFA_CODE_SELECTORS,
+  MFA_SUBMIT_SELECTORS,
+  MFA_SEND_CODE_SELECTORS,
+  MFA_SEND_CODE_RE,
   LOGIN_BUTTON_SELECTOR,
   LOGIN_NAME_RE,
   LOGIN_FORM_SUBMIT_RE,
@@ -60,6 +64,7 @@ import {
 import {
   readPageToastsInDom,
   readLoginErrorInDom,
+  readMfaAccountInDom,
   readLastAnswerInDom,
   chatSignalInDom,
   continueVisibleCheapInDom,
@@ -762,9 +767,17 @@ export class DeepSeekBrowser {
       this.auth.password,
     )
     if (!filled) return false
-    const ok = await this._waitLoggedIn(20_000)
-    if (ok) await this._persistSessionIfNeeded()
-    return ok
+    const ok = await this._waitLoggedInOrMfa(20_000)
+    if (ok) {
+      await this._persistSessionIfNeeded()
+      return true
+    }
+    // Password accepted but DeepSeek now wants an email one-time code: ask the
+    // operator for it instead of failing the whole auto-login.
+    if (process.stdin.isTTY && (await this._mfaVisible())) {
+      return await this._handleMfaIfPresent()
+    }
+    return false
   }
 
   /**
@@ -816,7 +829,7 @@ export class DeepSeekBrowser {
       console.log(theme.warn(this._t('auth.form_not_found')))
       return false
     }
-    const ok = await this._waitLoggedIn(20_000)
+    const ok = await this._waitLoggedInOrMfa(20_000)
     if (ok) {
       // Remember the credentials so the next launch can re-login silently.
       this.auth.username = user
@@ -824,9 +837,22 @@ export class DeepSeekBrowser {
       await this._persistSessionIfNeeded()
       this.onAuthSave?.(user, password)
       console.log(theme.assistant(this._t('auth.auto_login_ok')))
-    } else {
-      // Detect a credentials error shown by DeepSeek, otherwise report a
-      // generic failure with the page hint so the operator can react.
+      return true
+    }
+    // Password accepted, but DeepSeek wants an email one-time code. Ask the
+    // operator for it and submit the dialog.
+    if (await this._mfaVisible()) {
+      // The credentials are valid — remember them even before MFA completes,
+      // so the next launch can skip straight to the code dialog.
+      this.auth.username = user
+      this.auth.password = password
+      this.onAuthSave?.(user, password)
+      const mfaOk = await this._handleMfaIfPresent()
+      if (mfaOk) return true
+    }
+    // Detect a credentials error shown by DeepSeek, otherwise report a
+    // generic failure with the page hint so the operator can react.
+    {
       const reason = await this._readLoginError()
       if (reason) {
         console.log(theme.error(this._t('auth.login_rejected', { v: reason })))
@@ -838,7 +864,7 @@ export class DeepSeekBrowser {
         )
       }
     }
-    return ok
+    return false
   }
 
   /**
@@ -901,7 +927,10 @@ export class DeepSeekBrowser {
     // After each attempt we give the login a short window and stop as soon as
     // it succeeds, so a stray click does not fire on an already-logged-in page.
     const tryLogin = async (): Promise<boolean> => {
-      if (await this._waitLoggedIn(3000)) return true
+      if (await this._waitLoggedInOrMfa(3000)) return true
+      // An MFA dialog also means the password step was ACCEPTED — stop
+      // submitting, the caller will ask the operator for the one-time code.
+      if (await this._mfaVisible()) return true
       return false
     }
 
@@ -951,6 +980,130 @@ export class DeepSeekBrowser {
     while (Date.now() < deadline) {
       if (await this.isLoggedIn().catch(() => false)) return true
       await this.page.waitForTimeout(500)
+    }
+    return false
+  }
+
+  /**
+   * Like `_waitLoggedIn`, but the input field ALSO appears right after the
+   * password step even when DeepSeek demands an MFA one-time code — the code
+   * dialog only BLOCKS the first message. A plain `_waitLoggedIn` would then
+   * report success, swallow the real login failure (the next send would hit the
+   * dialog and hang), and never ask the operator for the code. Detect the MFA
+   * input first and treat it as "not logged in yet".
+   */
+  async _waitLoggedInOrMfa(timeoutMs: number): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs
+    while (Date.now() < deadline) {
+      if (await this._mfaVisible()) return false
+      if (await this.isLoggedIn().catch(() => false)) return true
+      await this.page.waitForTimeout(500)
+    }
+    return false
+  }
+
+  /** Is the email one-time-code (MFA) dialog currently shown? */
+  async _mfaVisible(): Promise<boolean> {
+    return await this._findVisible(MFA_CODE_SELECTORS, 300)
+      .then((l) => !!l)
+      .catch(() => false)
+  }
+
+  /**
+   * Handle DeepSeek's email MFA dialog ("Verify your account"). It appears
+   * after a correct password when the account has two-step verification on. The
+   * code is sent by email; we ask the operator for it in the terminal and type
+   * it into the dialog. Returns true when the session became active, false when
+   * there is no dialog or the operator could not complete it.
+   */
+  async _handleMfaIfPresent(): Promise<boolean> {
+    const codeInput = await this._findVisible(MFA_CODE_SELECTORS, 1000)
+    if (!codeInput) return false
+
+    const account = await this.page
+      .evaluate(readMfaAccountInDom)
+      .catch(() => '')
+
+    // The dialog opens with an EMPTY field: the email is only sent after
+    // "Send code" is clicked. Press it first (only when it is not already
+    // counting down), then ask the operator for the code that just arrived.
+    const clicked = await this._clickMfaSendCode()
+    console.log(
+      '\n' +
+        theme.warn(
+          this._t(clicked ? 'auth.mfa_code_sent' : 'auth.mfa_required', {
+            v: account || '—',
+          }),
+        ),
+    )
+
+    const readline = await import('readline')
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      terminal: true,
+    })
+    const code = (
+      await new Promise<string>((resolve) =>
+        rl.question(this._t('auth.mfa_prompt'), (a) => resolve(a)),
+      )
+    )
+      .trim()
+      .replace(/\s+/g, '')
+    rl.close()
+    if (!code) return false
+
+    await this._setInputText(codeInput, code)
+    await this.page.waitForTimeout(150)
+
+    // Submit the code. Prefer the dialog's own submit button; fall back to
+    // Enter in the code field (the form submits on Enter).
+    let submitted = false
+    for (const sel of MFA_SUBMIT_SELECTORS) {
+      const btn = this.page.locator(sel).last()
+      try {
+        if ((await btn.count()) === 0) continue
+        if (!(await btn.isVisible().catch(() => false))) continue
+        await btn.click({ timeout: 2000 })
+        submitted = true
+        break
+      } catch {}
+    }
+    if (!submitted) await codeInput.press('Enter').catch(() => {})
+
+    const ok = await this._waitLoggedIn(20_000)
+    if (ok) {
+      await this._persistSessionIfNeeded()
+      console.log(theme.assistant(this._t('auth.auto_login_ok')))
+    } else {
+      const reason = await this._readLoginError()
+      console.log(
+        theme.warn(
+          this._t('auth.mfa_failed', {
+            v: reason || this._t('auth.no_reason'),
+          }),
+        ),
+      )
+    }
+    return ok
+  }
+
+  /**
+   * Click the dialog's "Send code" button. Returns false when it is absent or
+   * already counting down (a resend cooldown), so we never hammer the endpoint.
+   */
+  async _clickMfaSendCode(): Promise<boolean> {
+    for (const sel of MFA_SEND_CODE_SELECTORS) {
+      const btn = this.page.locator(sel).last()
+      try {
+        if ((await btn.count()) === 0) continue
+        if (!(await btn.isVisible().catch(() => false))) continue
+        const label = ((await btn.innerText().catch(() => '')) || '').trim()
+        // Only click a REAL request button, never the countdown that replaces it.
+        if (label && !MFA_SEND_CODE_RE.test(label)) continue
+        await btn.click({ timeout: 2000 })
+        return true
+      } catch {}
     }
     return false
   }

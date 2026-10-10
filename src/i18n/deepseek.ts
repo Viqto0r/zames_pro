@@ -142,6 +142,22 @@ export const deepseekMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Войдите в DeepSeek: откройте https://chat.deepseek.com/ в своём браузере. Если включён headless — задайте логин/пароль через /config или запустите с --headed.',
     en: 'Sign in to DeepSeek: open https://chat.deepseek.com/ in your browser. If headless is on — set the login/password via /config or run with --headed.',
   },
+  'auth.mfa_required': {
+    ru: '🔐 DeepSeek требует код подтверждения на почту {v}.',
+    en: '🔐 DeepSeek requires a verification code sent to {v}.',
+  },
+  'auth.mfa_code_sent': {
+    ru: '🔐 DeepSeek требует код подтверждения. Запросил код на почту {v} — проверь почту.',
+    en: '🔐 DeepSeek requires a verification code. Requested a code to {v} — check your inbox.',
+  },
+  'auth.mfa_prompt': {
+    ru: 'Код из письма: ',
+    en: 'Code from the email: ',
+  },
+  'auth.mfa_failed': {
+    ru: 'Код подтверждения не принят: {v}',
+    en: 'The verification code was not accepted: {v}',
+  },
 
   'cfg.menu.title': {
     ru: '⚙ Настройки — выбери параметр',

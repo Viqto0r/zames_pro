@@ -52,6 +52,11 @@ class FakeLocator {
   async fill() {
     this.calls.push({ sel: this.sel, method: 'fill', args: [] })
   }
+  async innerText() {
+    // Emulate the "Send code" button's label; a countdown label is returned
+    // when the selector is the countdown class so the cooldown path is testable.
+    return this.sel.includes('countdown') ? 'Resend in 60s' : 'Send code'
+  }
 }
 
 class FakePage {
@@ -209,4 +214,82 @@ test('userAgent: an explicit UA is sanitized, headless derives it later', () => 
   // real engine UA after launch).
   const b2 = new DeepSeekBrowser({ headless: true })
   assert.equal(b2.userAgent, '')
+})
+
+// A visible password step is NOT a finished login when DeepSeek then demands an
+// email one-time code: the dialog must be detected so the operator is asked for
+// the code instead of the agent hanging on the first send.
+test('_mfaVisible: true when the one-time-code input is visible', async () => {
+  const { b, page } = makeBrowser()
+  ;(page as unknown as { locator: (s: string) => FakeLocator }).locator = (
+    s,
+  ) => {
+    const loc = new FakeLocator(page.calls, s)
+    loc.waitFor = async () => {
+      if (!s.includes('one-time-code')) throw new Error('not visible')
+    }
+    loc.isVisible = async () => s.includes('one-time-code')
+    return loc
+  }
+  assert.equal(await b._mfaVisible(), true)
+})
+
+test('_waitLoggedInOrMfa: an MFA dialog counts as not-logged-in', async () => {
+  const { b, page } = makeBrowser()
+  // Both the chat input and the MFA code field are "visible": the login must
+  // still be reported as NOT done, so the caller handles the code step.
+  ;(page as unknown as { locator: (s: string) => FakeLocator }).locator = (
+    s,
+  ) => {
+    const loc = new FakeLocator(page.calls, s)
+    loc.waitFor = async () => {}
+    loc.isVisible = async () => true
+    return loc
+  }
+  assert.equal(await b._waitLoggedInOrMfa(400), false)
+})
+
+test('_mfaVisible: false when no code field is present', async () => {
+  const { b } = makeBrowser()
+  assert.equal(await b._mfaVisible(), false)
+})
+
+// The email is only sent after "Send code" is clicked, so the handler must
+// click it BEFORE asking the operator for the code.
+test('_clickMfaSendCode: clicks a real Send code button', async () => {
+  const { b, page } = makeBrowser()
+  ;(page as unknown as { locator: (s: string) => FakeLocator }).locator = (
+    s,
+  ) => {
+    const loc = new FakeLocator(page.calls, s)
+    // Only the "Send code" button is visible/countable.
+    loc.count = async () => (s.includes('Send code') ? 1 : 0)
+    loc.isVisible = async () => s.includes('Send code')
+    return loc
+  }
+  assert.equal(await b._clickMfaSendCode(), true)
+  const clickedSend = page.calls.some(
+    (c) => c.method === 'click' && c.sel.includes('Send code'),
+  )
+  assert.ok(clickedSend, 'the Send code button must be clicked')
+})
+
+// Once clicked the button becomes a countdown; clicking it again would hammer
+// the endpoint, so the cooldown label must NOT be clicked.
+test('_clickMfaSendCode: skips the countdown (resend cooldown)', async () => {
+  const { b, page } = makeBrowser()
+  ;(page as unknown as { locator: (s: string) => FakeLocator }).locator = (
+    s,
+  ) => {
+    const loc = new FakeLocator(page.calls, s)
+    // Only the countdown element is visible and its label is a cooldown.
+    loc.count = async () => (s.includes('countdown') ? 1 : 0)
+    loc.isVisible = async () => s.includes('countdown')
+    return loc
+  }
+  assert.equal(await b._clickMfaSendCode(), false)
+  assert.ok(
+    !page.calls.some((c) => c.method === 'click'),
+    'the countdown must not be clicked',
+  )
 })

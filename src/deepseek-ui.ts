@@ -197,6 +197,45 @@ export const LOGIN_SUBMIT_SELECTORS = [
   'div[role="button"]:has-text("Войти")',
 ]
 
+// ---------- MFA / email verification ----------
+//
+// After a correct password DeepSeek may demand a one-time code sent to the
+// account email (the `.ds-mfa-verification-modal` dialog). The code input is
+// the reliable anchor: `autocomplete=one-time-code` is a semantic attribute
+// that survives class renames, so detection does not depend on DeepSeek's CSS.
+// The submit button is matched both by its own class and by its label, since
+// the modal is a newer component whose classes we cannot pin down.
+export const MFA_CODE_SELECTORS = [
+  'input[autocomplete="one-time-code"]',
+  '.ds-mfa-verification-modal input[type="tel"]',
+  'input[inputmode="numeric"][maxlength="6"]',
+]
+
+export const MFA_MODAL_SELECTOR = '.ds-mfa-verification-modal, [role="dialog"]'
+
+export const MFA_SUBMIT_SELECTORS = [
+  'div[role="button"].ds-mfa-verification-submit',
+  '.ds-mfa-verification-modal div[role="button"].ds-button--primary',
+  'div[role="button"]:has-text("Verify and log in")',
+  'div[role="button"]:has-text("Verify")',
+  'div[role="button"]:has-text("Подтвердить")',
+  'div[role="button"]:has-text("Войти")',
+]
+
+// The email is NOT sent until the operator clicks "Send code" — the dialog only
+// shows an empty field and a request button. The button lives inside the code
+// field suffix and turns into a countdown ("Resend in 60s") once clicked, so we
+// match it by its TEXT and skip it when it is already counting down.
+export const MFA_SEND_CODE_RE =
+  /^(send code|resend|отправить\s*код|отправить\s*повторно|выслать\s*код)\s*$/i
+
+export const MFA_SEND_CODE_SELECTORS = [
+  '.ds-verify-code-input-countdown',
+  '.ds-mfa-verification-modal div[role="button"]',
+  'div[role="button"]:has-text("Send code")',
+  'div[role="button"]:has-text("Отправить код")',
+]
+
 // ---------- sidebar / chats ----------
 
 export const SIDEBAR_TOGGLE_SELECTORS = [

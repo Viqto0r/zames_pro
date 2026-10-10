@@ -58,6 +58,26 @@ export function readLoginErrorInDom(): string {
 }
 
 /**
+ * Read the account email shown in the MFA verification dialog, so the operator
+ * knows WHERE the one-time code was sent (the code arrives by email; without
+ * this the operator cannot tell which inbox to check). Best-effort: '' when the
+ * dialog or the email line is absent.
+ */
+export function readMfaAccountInDom(): string {
+  const sels = [
+    '.ds-mfa-verification-account',
+    '.ds-mfa-verification-modal [title*="@"]',
+  ]
+  for (const s of sels) {
+    const el = document.querySelector(s) as HTMLElement | null
+    if (!el) continue
+    const t = (el.getAttribute('title') || el.innerText || '').trim()
+    if (t) return t
+  }
+  return ''
+}
+
+/**
  * The answer as RENDERED on the page, ALWAYS from the DOM (never the network
  * capture). Reasoning blocks (think class) are skipped and must never be
  * picked up as the answer.
