@@ -61,27 +61,31 @@ zames does not call the model API. It launches a headless Chromium with a
 persistent profile, signs in to a chat web app like a human, types the task
 into the chat box, and reads the answer back.
 
-Two chat backends are available, switched with `/provider <deepseek|qwen>`
-(restart required): **DeepSeek** (`chat.deepseek.com`, the default) and
-**Qwen** (`chat.qwen.ai`). Each keeps its own persistent profile, so switching
-never signs the other one out.
+Two chat backends are available, switched with `/provider <deepseek|qwen>`:
+**DeepSeek** (`chat.deepseek.com`, the default) and **Qwen** (`chat.qwen.ai`).
+The switch is **live** — zames closes the current backend and opens the other
+one in place, no restart needed. Each keeps its own persistent profile
+(`~/.zames/profile` and `~/.zames/qwen-profile`), so switching never signs the
+other one out.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/how-it-works.png" alt="how zames works" width="860">
 </p>
 
 In text: you type a task → zames sends the system prompt plus the task into
-the DeepSeek web chat → the model answers → zames parses the tool call, runs
-the tool locally, feeds the result back, and prints the final answer for you.
+the active chat web app (DeepSeek or Qwen) → the model answers → zames parses
+the tool call, runs the tool locally, feeds the result back, and prints the
+final answer for you.
 
 Key pieces:
 
 - **The answer is read from the raw network stream** (SSE), not the rendered
   DOM, so tool-call JSON with template strings and escapes survives intact.
-- **A persistent profile** (`~/.zames/profile`) keeps you signed in; the
-  headless User-Agent is patched so DeepSeek's CDN does not 403 the login.
-- **A send throttle** (15 s by default) keeps the web chat's rate limit happy
-  during long tool-heavy runs.
+- **A persistent per-provider profile** (`~/.zames/profile` for DeepSeek,
+  `~/.zames/qwen-profile` for Qwen) keeps you signed in; the headless
+  User-Agent is patched so the site's CDN does not 403 the login.
+- **A send throttle** (15 s on DeepSeek, ~1 s on Qwen, which tolerates rapid
+  sends) keeps the web chat's rate limit happy during long tool-heavy runs.
 - **The agent is sandboxed** to the directory it was started in — no tool can
   read or write above it.
 
@@ -172,7 +176,7 @@ zames can drive either **DeepSeek** (`chat.deepseek.com`, the default) or
 **Qwen** (`chat.qwen.ai`):
 
 ```bash
-/provider qwen      # switch to Qwen (persisted); restart zames to take effect
+/provider qwen      # switch to Qwen (persisted) — applied live, no restart
 /provider deepseek  # switch back
 /provider status    # show the active provider / model / login state
 /provider login     # (re)run the sign-in check
@@ -182,15 +186,18 @@ zames can drive either **DeepSeek** (`chat.deepseek.com`, the default) or
 
 Notes:
 
-- The two backends use **separate persistent profiles**
-  (`~/.zames/profile` for DeepSeek, `~/.zames/qwen-profile` for Qwen), so
-  switching never signs the other one out. A provider switch takes effect on
-  the next launch — the browser is created once at startup.
+- The switch is **live**: zames closes the current backend and opens the other
+  one in place, so no restart is needed. The two backends use **separate
+  persistent profiles** (`~/.zames/profile` for DeepSeek, `~/.zames/qwen-profile`
+  for Qwen), so switching never signs the other one out.
+- A chat id belongs to ONE backend, so the new provider opens a **fresh chat**.
+  If the previous chat had messages they are summarized and posted as a
+  handoff with the next task; an empty chat is switched silently.
 - Qwen works in **guest mode** without an account, but a guest is limited to a
   handful of messages per day; for long agent runs sign in (email / Google /
   GitHub — no phone required). zames auto-logins from the saved credentials or
   asks in the terminal, exactly like DeepSeek. `/model` changes the Qwen model
-  at runtime (no restart).
+  at runtime.
 - File attachments on Qwen go through the mode menu's **Upload attachment**
   item; DeepSeek uses its own paperclip.
 - `/doctor` shows the active provider and the UI health of that provider's
@@ -341,9 +348,10 @@ Codex CLI:
   (zames-export-<stamp>.md by default).
 - /doctor — diagnose node, git, config, browser, clipboard, MCP and the
   active chat provider (it also reports that provider's UI health).
-- /provider <deepseek|qwen> — switch the chat backend (restart to apply);
-  /provider status shows the active provider/model/login; /provider login
-  re-runs the sign-in check. /model [id] lists or picks a Qwen model at runtime.
+- /provider <deepseek|qwen> — switch the chat backend (applied live, no
+  restart); /provider status shows the active provider/model/login; /provider
+  login re-runs the sign-in check. /model [id] lists or picks a Qwen model at
+  runtime.
 - /add-dir <path> — validate an extra directory (the sandbox is fixed at
   startup; relaunch with --dir to write there).
 - /resume <n> (after /chats) and /resume-id <id> — open a chat and PRINT its
