@@ -1,13 +1,13 @@
-// Render docs/how-it-works.png — the architecture diagram used in README.md.
-//
-// Why a generator: the README must show BOTH chat backends (DeepSeek and
-// Qwen), not just DeepSeek. A hand-drawn PNG drifts; this renders a fixed
-// HTML page with headless Chromium so the diagram is reproducible and easy to
-// update when a provider is added.
+// Render docs/how-it-works.png — the "How it works" flowchart used in
+// README.md. Reproduces the ORIGINAL mermaid `flowchart LR` look (rounded
+// lavender nodes, gray arrows, white background, a simple left-to-right
+// chain) so the diagram stays visually the same as before. The ONLY change:
+// the model node now shows BOTH supported backends (chat.deepseek.com /
+// chat.qwen.ai) instead of only chat.deepseek.com.
 //
 // Run:  npm run render-how  (tsx scripts/render-how-it-works.mts)
 //
-// Isolation: chromium.launch() uses a THROWAWAY in-memory context, never
+// Isolation: chromium.launch() uses a THROWAWAY context, never
 // ~/.zames/profile (see AGENTS.md — never touch the live agent's browser).
 
 import { chromium } from 'playwright'
@@ -17,103 +17,165 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const out = path.join(root, 'docs', 'how-it-works.png')
 
-const C = {
-  bg: '#23272e',
-  panel: '#2b303a',
-  border: '#3b4250',
-  text: '#cfc9b0',
-  dim: '#8a9bb5',
-  user: '#b4b8d0',
-  accent: '#7fc4f0',
-  ds: '#6f8ed0',
-  qwen: '#6fd0b0',
-  tool: '#c6a97e',
+// Mermaid default-theme palette (matches the previous diagram).
+const FILL = '#ECECFF'
+const STROKE = '#9370DB'
+const TEXT = '#333333'
+const FONT = 'trebuchet ms, verdana, arial, sans-serif'
+
+const W = 1120
+const H = 150
+const NODE_W = 250
+const NODE_H = 70
+const CY = H / 2
+const PAD = 30
+
+// A left-to-right chain with the SAME three steps as the original diagram;
+// only the last node gained a second line (the two supported backends).
+interface Node {
+  x: number
+  w: number
+  lines: string[]
 }
 
-const W = 1300
-const H = 360
+const nodes: Node[] = [
+  { x: PAD, w: NODE_W, lines: ['terminal (you)'] },
+  {
+    x: PAD + NODE_W + 150,
+    w: 260,
+    lines: ['zames', 'parse tool-call · run tool'],
+  },
+  {
+    x: PAD + NODE_W + 150 + 260 + 150,
+    w: 260,
+    lines: ['chat.deepseek.com', 'chat.qwen.ai'],
+  },
+]
 
-const box = (
-  title: string,
-  sub: string,
-  color: string,
-): string =>
-  '<div class="box" style="border-color:' +
-  color +
+const esc = (s: string): string =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+const nodeSvg = (n: Node): string => {
+  const y = CY - NODE_H / 2
+  const rx = 12
+  const lh = 20
+  const startY = CY - ((n.lines.length - 1) * lh) / 2 + 5
+  const cx = n.x + n.w / 2
+  const texts = n.lines
+    .map(
+      (t, i) =>
+        '<text x="' +
+        cx +
+        '" y="' +
+        (startY + i * lh) +
+        '" text-anchor="middle" font-family="' +
+        FONT +
+        '" font-size="15" fill="' +
+        TEXT +
+        '">' +
+        esc(t) +
+        '</text>',
+    )
+    .join('')
+  return (
+    '<rect x="' +
+    n.x +
+    '" y="' +
+    y +
+    '" width="' +
+    n.w +
+    '" height="' +
+    NODE_H +
+    '" rx="' +
+    rx +
+    '" ry="' +
+    rx +
+    '" fill="' +
+    FILL +
+    '" stroke="' +
+    STROKE +
+    '" stroke-width="2"/>' +
+    texts
+  )
+}
+
+// A horizontal edge from x1 to x2 at height y, with a centered label above it.
+const edge = (
+  x1: number,
+  x2: number,
+  y: number,
+  label: string,
+  dir: 'r' | 'l',
+): string => {
+  const mid = (x1 + x2) / 2
+  const marker = dir === 'r' ? 'ar' : 'al'
+  return (
+    '<path d="M' +
+    x1 +
+    ' ' +
+    y +
+    ' L' +
+    x2 +
+    ' ' +
+    y +
+    '" fill="none" stroke="' +
+    TEXT +
+    '" stroke-width="1.6" marker-end="url(#' +
+    marker +
+    ')"/>' +
+    '<text x="' +
+    mid +
+    '" y="' +
+    (y - 8) +
+    '" text-anchor="middle" font-family="' +
+    FONT +
+    '" font-size="12" fill="' +
+    TEXT +
+    '">' +
+    esc(label) +
+    '</text>'
+  )
+}
+
+const a = nodes[0]
+const z = nodes[1]
+const m = nodes[2]
+
+const reqY = CY - 16
+const ansY = CY + 20
+
+const svg =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="' +
+  W +
+  '" height="' +
+  H +
+  '" viewBox="0 0 ' +
+  W +
+  ' ' +
+  H +
   '">' +
-  '<div class="box-t" style="color:' +
-  color +
-  '">' +
-  title +
-  '</div>' +
-  '<div class="box-s">' +
-  sub +
-  '</div></div>'
+  '<defs>' +
+  '<marker id="ar" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L9,3 L0,6 z" fill="' +
+  TEXT +
+  '"/></marker>' +
+  '<marker id="al" markerWidth="10" markerHeight="10" refX="1" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M9,0 L0,3 L9,6 z" fill="' +
+  TEXT +
+  '"/></marker>' +
+  '</defs>' +
+  '<rect width="100%" height="100%" fill="#ffffff"/>' +
+  // request edges (top, left -> right)
+  edge(a.x + a.w, z.x, reqY, 'task', 'r') +
+  edge(z.x + z.w, m.x, reqY, 'system prompt + task', 'r') +
+  // answer edges (bottom, right -> left)
+  edge(m.x, z.x + z.w, ansY, 'model answers (raw SSE)', 'l') +
+  edge(z.x, a.x + a.w, ansY, 'answer', 'l') +
+  nodes.map(nodeSvg).join('') +
+  '</svg>'
 
 const html =
-  '<!doctype html><html><head><meta charset="utf-8"><style>' +
-  '@font-face{font-family:ZM;src:local("DejaVu Sans Mono")}' +
-  'html,body{margin:0;padding:0;background:' +
-  C.bg +
-  '}' +
-  'body{font-family:"DejaVu Sans Mono",monospace;color:' +
-  C.text +
-  ';-webkit-font-smoothing:antialiased}' +
-  '.wrap{box-sizing:border-box;width:' +
-  W +
-  'px;height:' +
-  H +
-  'px;padding:26px 30px}' +
-  '.row{display:flex;align-items:center;justify-content:space-between;gap:8px}' +
-  '.box{box-sizing:border-box;border:2px solid;border-radius:10px;padding:14px 16px;' +
-  'background:' +
-  C.panel +
-  ';min-width:150px;text-align:center}' +
-  '.box-t{font-size:18px;font-weight:700;margin-bottom:6px}' +
-  '.box-s{font-size:12px;color:' +
-  C.dim +
-  ';line-height:1.5}' +
-  '.arrow{font-size:26px;color:' +
-  C.dim +
-  '}' +
-  '.flow-label{font-size:12px;color:' +
-  C.dim +
-  ';text-align:center;margin-top:4px}' +
-  '.providers{display:flex;flex-direction:column;gap:10px}' +
-  '.col{display:flex;flex-direction:column;align-items:center;gap:4px}' +
-  '.legend{margin-top:20px;font-size:12px;color:' +
-  C.dim +
-  ';text-align:center}' +
-  '.legend b{color:' +
-  C.text +
-  '}' +
-  '</style></head><body><div class="wrap">' +
-  '<div class="row">' +
-  // left: the operator
-  '<div class="col">' +
-  box('Operator', 'terminal task<br/>+ tool approval', C.user) +
-  '<div class="flow-label">types a task</div>' +
-  '</div>' +
-  '<div class="arrow">&#8594;</div>' +
-  // middle: zames
-  '<div class="col">' +
-  box(
-    'zames',
-    'sandboxed tools<br/>parses tool-calls<br/>runs them locally',
-    C.accent,
-  ) +
-  '<div class="flow-label">system prompt + task</div>' +
-  '</div>' +
-  '<div class="arrow">&#8644;</div>' +
-  // right: the two backends
-  '<div class="providers">' +
-  box('DeepSeek', 'chat.deepseek.com<br/>~/.zames/profile', C.ds) +
-  box('Qwen', 'chat.qwen.ai<br/>~/.zames/qwen-profile', C.qwen) +
-  '</div>' +
-  '</div>' +
-  '<div class="legend">zames drives a <b>real browser</b> over a persistent per-provider profile &mdash; no API key. ' +
-  'Switch live with <b>/provider &lt;deepseek|qwen&gt;</b> (each chat id belongs to one backend).</div>' +
-  '</div></body></html>'
+  '<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;background:#fff}svg{display:block}</style></head><body>' +
+  svg +
+  '</body></html>'
 
 const browser = await chromium.launch({ headless: true })
 try {
@@ -122,7 +184,8 @@ try {
     deviceScaleFactor: 2,
   })
   await page.setContent(html, { waitUntil: 'load' })
-  await page.screenshot({ path: out })
+  const el = await page.$('svg')
+  await (el || page).screenshot({ path: out })
   console.log('wrote', path.relative(root, out))
 } finally {
   await browser.close()

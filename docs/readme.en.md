@@ -26,8 +26,8 @@ through Playwright.
 In spirit it is similar to Claude Code / Codex CLI: it starts in the current
 directory, reads and edits files, runs commands, and commits to git.
 
-> No API key required — it drives the DeepSeek web chat like a regular user
-> through a real (headless) browser.
+> No API key required — it drives a DeepSeek or Qwen web chat like a regular
+> user through a real (headless) browser.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png" alt="zames session in the terminal" width="860">
@@ -42,10 +42,12 @@ zames                      # sign in once, then describe your task
 ```
 
 There is **no API key and no per-token bill**: zames signs in to **your own
-[chat.deepseek.com](https://chat.deepseek.com/) account** in a real (headless)
-Chromium and drives the web chat like a regular user. The first launch asks for
-your DeepSeek login once (the session is stored in `~/.zames/profile`); after
-that just run `zames` and type a task in plain language:
+[chat.deepseek.com](https://chat.deepseek.com/) or
+[chat.qwen.ai](https://chat.qwen.ai/) account** in a real (headless) Chromium
+and drives the web chat like a regular user. The first launch asks for your
+login once (the session is stored in `~/.zames/profile` for DeepSeek or
+`~/.zames/qwen-profile` for Qwen); after that just run `zames` and type a task
+in plain language:
 
 ```text
 ❯ refactor the config loader and add a test for the new default
@@ -120,8 +122,8 @@ Key pieces:
 
 ## Why zames?
 
-- **No API key, no per-token bill** — it uses your own DeepSeek chat account,
-  not the paid API. Good for long, tool-heavy tasks.
+- **No API key, no per-token bill** — it uses your own DeepSeek or Qwen chat
+  account, not the paid API. Good for long, tool-heavy tasks.
 - **Same workflow as Claude Code / Codex** — tools, `AGENTS.md`, skills, MCP
   and slash commands, so it feels familiar from day one.
 - **Runs unattended** — headless by default, resumable sessions, and `/loop`
@@ -141,11 +143,11 @@ Key pieces:
 
 ## Signing in
 
-The browser runs **headless by default**. When DeepSeek requires a sign-in,
-zames:
+The browser runs **headless by default**. When the active backend requires a
+sign-in, zames:
 
-1. reuses the session stored in the persistent profile (`~/.zames/profile`)
-   if it is still valid;
+1. reuses the session stored in the persistent profile (`~/.zames/profile` for
+   DeepSeek, `~/.zames/qwen-profile` for Qwen) if it is still valid;
 2. otherwise signs in automatically with the saved credentials
    (`browser.auth.username` / `browser.auth.password`);
 3. otherwise asks you for the login/password in the terminal (in a TTY) and,
@@ -163,7 +165,7 @@ The `--headless` flag (the default) and `headless: true` in the config keep
 the browser without a window; `--headed` / `headless: false` show it.
 
 Headless works out of the box: a headless Chrome normally advertises a
-`HeadlessChrome/...` User-Agent that DeepSeek's CDN blocks with a 403, so
+`HeadlessChrome/...` User-Agent that the site's CDN blocks with a 403, so
 zames strips that marker before loading the page (keeping the real engine
 version). You do not need `--headed` just to log in.
 
@@ -231,7 +233,7 @@ The agent works inside the directory it was started in and cannot leave it (sand
 While the agent is working you can keep typing: press Enter to queue a message
 (it is sent right after the current task, in the same chat), or Esc / Ctrl+C to
 abort the current generation. This mirrors typing during generation on the
-DeepSeek website.
+web chat.
 
 ### Input line
 
@@ -259,8 +261,8 @@ You can paste an image or a file into the input line (Ctrl+Shift+V / Shift+Inser
 or the terminal's own paste). zames saves it under `<project>/tmp` and shows a
 marker in the line - `[image#1]` for images, `[file#1]` for other files - then
 uploads the real file to the chat together with your message. These are the
-same formats the DeepSeek web chat accepts (PNG, JPEG, GIF, WEBP, BMP, SVG and
-the usual document types).
+same formats the DeepSeek / Qwen web chat accepts (PNG, JPEG, GIF, WEBP, BMP,
+SVG and the usual document types).
 
 Pasting an image works when the terminal sends it as a `data:` URL or as a
 base64 blob with a recognizable image signature. You can also paste a path to a
@@ -367,7 +369,7 @@ Codex CLI:
   (Write/Edit/MultiEdit/ApplyPatch/Bash, GitAdd/GitCommit/GitPush) are removed
   from the tool set, so the agent can investigate without touching the tree.
   Start in it with `--plan`.
-- /compact — ask DeepSeek to compress the current chat into a handover
+- /compact — ask the active backend to compress the current chat into a handover
   summary, then open a NEW chat, resend the system prompt and post the summary
   as the carried-over context. Use it when the context gets long.
 - /goal [text|clear] — set a long-lived session goal. It is prepended to every
@@ -503,31 +505,34 @@ Agent data is stored in `~/.zames`: browser profile, logs, undo history, session
 
 ## FAQ
 
-**Is this an official DeepSeek product?**
-No. zames drives the public chat.deepseek.com web UI through a real browser,
-like a regular user. It is not affiliated with DeepSeek.
+**Is this an official DeepSeek or Qwen product?**
+No. zames drives the public `chat.deepseek.com` / `chat.qwen.ai` web UIs through
+a real browser, like a regular user. It is not affiliated with DeepSeek or
+Alibaba.
 
 **Do I need an API key?**
-No. You sign in with your own DeepSeek account once; the session is stored in
-`~/.zames/profile` and reused.
+No. You sign in with your own account on the chat you use — DeepSeek (stored in
+`~/.zames/profile`) or Qwen (stored in `~/.zames/qwen-profile`) — and the session
+is reused. Qwen also works in guest mode for a few messages a day.
 
 **Which model does it use?**
-Whichever the DeepSeek web chat uses (DeepSeek-V3, or the reasoning model with
-"Deep thinking" on). zames never calls the API directly.
+Whichever the active web chat uses. On DeepSeek that is DeepSeek-V3 (or the
+reasoning model with "Deep thinking" on). On Qwen you can pick a model with
+`/model` (e.g. `qwen3.7-plus`). zames never calls the API directly.
 
 **Does it work headless / on a server?**
 Yes — headless is the default, and `--output-format jsonl` makes it scriptable.
 `--headed` is only needed for a manual sign-in or selector debugging.
 
 **Is automating the web UI allowed?**
-That depends on DeepSeek's terms; automating a website may violate them. Use at
-your own risk and keep the send throttle (15s by default) so you do not hammer
-the rate limit.
+That depends on the site's terms; automating a website may violate them. Use at
+your own risk and keep the send throttle (15 s on DeepSeek by default) so you do
+not hammer the rate limit.
 
 **How is it different from Claude Code / Codex?**
 Same shape (tools, `AGENTS.md`, skills, MCP, slash commands) but it runs on your
-DeepSeek account instead of an API, as a browser automation rather than a
-first-party API client.
+DeepSeek or Qwen account instead of an API, as a browser automation rather than
+a first-party API client.
 
 ## Links
 
