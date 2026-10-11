@@ -238,6 +238,10 @@ export class LineEditor {
   // plain field because the CALLER runs the command on its own timer (a
   // per-render spawn would block typing).
   statusLine: string
+  // Active chat provider label (e.g. "Qwen", "DeepSeek") shown as a small
+  // badge in the status line, so the operator always knows which backend is
+  // answering. Empty hides it. Set via setProvider().
+  providerBadge: string
   // Whether the DeepSeek "Deep thinking" / "Smart search" toggles are ON.
   // Shown as two colored icons before the context counter: a dim gray icon
   // means off, a teal-green icon means on.
@@ -336,6 +340,7 @@ export class LineEditor {
     this.onContextQuery = null
     this.queueLength = 0
     this.statusLine = ''
+    this.providerBadge = ''
     this.onQueueQuery = null
     this.onTasksQuery = null
   }
@@ -419,6 +424,15 @@ export class LineEditor {
   // A trailing space separates it from whatever follows; empty hides it.
   _statusLineBadge(): string {
     return this.statusLine ? theme.system(this.statusLine) + ' ' : ''
+  }
+
+  // A small badge with the ACTIVE provider (e.g. "Qwen"), shown before the
+  // toggles so the operator always knows which backend is answering (a
+  // multi-provider session can otherwise be ambiguous). Empty hides it.
+  _providerBadge(): string {
+    return this.providerBadge
+      ? theme.system('[' + this.providerBadge + ']') + ' '
+      : ''
   }
 
   // Icons for the DeepSeek toggles: 🧠 "Deep thinking" and 🌐 "Smart search",
@@ -672,6 +686,15 @@ export class LineEditor {
     this._render()
   }
 
+  // Set the provider badge (e.g. "Qwen"). An empty string hides it. Repaints
+  // only when the value actually changes.
+  setProvider(text: string): void {
+    const t = String(text || '').trim()
+    if (t === this.providerBadge) return
+    this.providerBadge = t
+    this._render()
+  }
+
   setContextLimit(limit: number): void {
     if (typeof limit === 'number' && Number.isFinite(limit) && limit > 0) {
       this.contextLimit = limit
@@ -776,6 +799,7 @@ export class LineEditor {
     this._refreshToggles()
     const ctxText =
       this._statusLineBadge() +
+      this._providerBadge() +
       this._queueBadge() +
       this._tasksBadge() +
       this._toggleIcons() +

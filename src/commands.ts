@@ -1,3 +1,4 @@
+import { providerLabel } from './providers.js'
 import path from 'path'
 import { isImageName } from './attachments.js'
 import { translate, type TranslateFn } from './i18n.js'
@@ -363,6 +364,10 @@ export interface DoctorInput {
   uiMissing?: string[]
   /** Missing capabilities that block the agent entirely (input/send). */
   uiMissingCritical?: string[]
+  /** Active chat provider ('deepseek' | 'qwen'). */
+  provider?: string
+  /** Configured Qwen model id (only meaningful when provider is qwen). */
+  providerModel?: string
 }
 
 export function renderDoctor(
@@ -379,6 +384,14 @@ export function renderDoctor(
   row(true, 'node', d.nodeVersion)
   row(true, 'platform', d.platform)
   row(true, 'workdir', d.workdir)
+  if (d.provider) {
+    const label = providerLabel(d.provider).toLowerCase()
+    row(
+      true,
+      'provider',
+      label + (d.providerModel ? ' (' + d.providerModel + ')' : ''),
+    )
+  }
   row(
     d.gitOk,
     'git',
@@ -1287,6 +1300,8 @@ export const SLASH_COMMANDS: SlashCommandEntry[] = [
   { name: '/queue', key: 'help.cmd.queue' },
   { name: '/tasks', key: 'help.cmd.tasks' },
   { name: '/config', key: 'help.cmd.config' },
+  { name: '/provider', key: 'help.cmd.provider' },
+  { name: '/model', key: 'help.cmd.model' },
   { name: '/skills', key: 'help.cmd.skills' },
   { name: '/memory', key: 'help.cmd.memory' },
   { name: '/remember', key: 'help.cmd.remember' },

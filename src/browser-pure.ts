@@ -260,27 +260,27 @@ export class GenerationIncompleteError extends Error {
 
 // ---------- profile cleanup ----------
 
-export async function cleanSingletonFiles() {
+export async function cleanSingletonFiles(dir: string = USER_DATA_DIR) {
   const names = ['SingletonLock', 'SingletonCookie', 'SingletonSocket']
   for (const name of names) {
-    const p = path.join(USER_DATA_DIR, name)
+    const p = path.join(dir, name)
     try {
       await fs.unlink(p)
     } catch {}
   }
 }
 
-export async function profileLooksLocked() {
+export async function profileLooksLocked(dir: string = USER_DATA_DIR) {
   try {
-    await fs.access(path.join(USER_DATA_DIR, 'SingletonLock'))
+    await fs.access(path.join(dir, 'SingletonLock'))
     return true
   } catch {
     return false
   }
 }
 
-export async function nukeProfile() {
+export async function nukeProfile(dir: string = USER_DATA_DIR) {
   try {
-    await fs.rm(USER_DATA_DIR, { recursive: true, force: true })
+    await fs.rm(dir, { recursive: true, force: true })
   } catch {}
 }

@@ -195,6 +195,7 @@ export interface ChatMessage {
 }
 
 export class DeepSeekBrowser {
+  providerName = 'deepseek'
   headless: boolean
   debug: boolean
   channel: string | null
@@ -413,7 +414,10 @@ export class DeepSeekBrowser {
 
   /** Translation bound to this browser's locale. */
   _t(key: string, params?: Record<string, string | number>): string {
-    return translate(this.locale)(key, params)
+    // Default the {provider} placeholder to DeepSeek for the shared `ds.*`
+    // messages (QwenBrowser overrides it with 'Qwen'), so a provider-agnostic
+    // string never lies about which backend is talking.
+    return translate(this.locale)(key, { provider: 'DeepSeek', ...params })
   }
 
   /**

@@ -1,6 +1,5 @@
 import { theme } from './theme.js'
-import type { DeepSeekBrowser } from './browser.js'
-import type { ToolDef } from './types.js'
+import type { ChatProvider, ToolDef } from './types.js'
 import type { Transcript } from './transcript.js'
 import type { LineEditor } from './input.js'
 import {
@@ -18,6 +17,7 @@ import type {
 import type { createSpinner } from './spinner.js'
 import type { TranslateFn, Locale } from './i18n.js'
 import type { ZamesConfig } from './types.js'
+import { providerAskDeadlineMs } from './config.js'
 
 // The TASK RUNNER, extracted from index.ts (C3 step 4). One task = send the
 // first message, then drain the operator's queue (messages typed while the
@@ -336,7 +336,7 @@ export interface TaskResult {
 
 export async function runTask(
   deps: RunTaskDeps,
-  browser: DeepSeekBrowser,
+  browser: ChatProvider,
   tools: ToolDef[],
   taskText: string,
   workdir: string,
@@ -478,7 +478,7 @@ export async function runTask(
         onChatReady,
         debugLog: debug,
         locale,
-        askDeadlineMs: config.browser.askDeadlineMs,
+        askDeadlineMs: providerAskDeadlineMs(config),
         maxAfterToolRetries: config.browser.maxAfterToolRetries,
         // Auto-compact between tool calls when the context nears the window
         // limit. The callback is provided by the caller so it can refresh the

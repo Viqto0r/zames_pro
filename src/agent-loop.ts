@@ -1,4 +1,5 @@
 import { buildSystemPrompt } from './system-prompt.js'
+import { providerLabel as providerHumanLabel } from './providers.js'
 import { loadProjectContext } from './context.js'
 import { getGitContext, formatGitContext } from './gitTools.js'
 import type { BrowserLike, ToolArgs, ToolDef, TranscriptLike } from './types.js'
@@ -234,6 +235,13 @@ export async function runAgentLoop({
   const safeToolResult = safe(onToolResult)
   const safeAssistantMessage = safe(onAssistantMessage)
   const safeWarning = safe(onWarning)
+
+  // Human label of the active backend, so provider-agnostic notices do not say
+  // "DeepSeek" while the loop is actually driving Qwen. Falls back to DeepSeek
+  // when the browser (a test double) does not expose a provider name.
+  const providerLabel = providerHumanLabel(browser.providerName || 'deepseek')
+  const tr = (key: string, params?: Record<string, string | number>): string =>
+    translate(locale)(key, { provider: providerLabel, ...params })
 
   // One AbortController per task. A tool gets `toolAbort.signal`; the loop
   // aborts it as soon as the operator presses Esc/Ctrl+C (browser._abort /
@@ -519,7 +527,7 @@ export async function runAgentLoop({
       // Show how many watchdog retries remain, so the operator can tell a
       // single hiccup from a genuine stall (the budget used to be invisible).
       safeWarning(
-        translate(locale)('ds.answer_timeout', {
+        tr('ds.answer_timeout', {
           sec: Math.round(askDeadlineMs / 1000),
           attempt: Math.min(afterToolRetries + 1, MAX_AFTER_TOOL_RETRIES),
           max: MAX_AFTER_TOOL_RETRIES,
@@ -534,7 +542,7 @@ export async function runAgentLoop({
         message:
           'ask() did not return an answer and the retry limit is exhausted',
       })
-      safeWarning(translate(locale)('ds.answer_timeout_give_up'))
+      safeWarning(tr('ds.answer_timeout_give_up'))
       return 'ask() watchdog: no model answer received'
     }
     await reportChat()
@@ -755,7 +763,7 @@ export async function runAgentLoop({
         if (!toolRetryWarned) {
           toolRetryWarned = true
           safeWarning(
-            translate(locale)('ds.tool_retry', {
+            tr('ds.tool_retry', {
               attempt: unparsedRetries,
               max: MAX_UNPARSED_RETRIES,
             }),
@@ -830,7 +838,9 @@ export async function runAgentLoop({
           ? lastText +
               String.fromCharCode(10) +
               String.fromCharCode(10) +
-              '(The model stopped calling tools before finishing. The task may be incomplete - check the DeepSeek chat.)'
+              '(The model stopped calling tools before finishing. The task may be incomplete - check the ' +
+              providerLabel +
+              ' chat.)'
           : 'The model stopped calling tools before finishing the task.'
       }
       const suspiciousFinal =
@@ -909,7 +919,9 @@ export async function runAgentLoop({
         transcript?.log('empty_respond_exhausted', { response: rawResponse })
         safeWarning(
           'The model called respond without text, and the retry limit is exhausted. ' +
-            'Check the DeepSeek chat manually.',
+            'Check the ' +
+            providerLabel +
+            ' chat manually.',
         )
         return 'The model produced no final message (empty respond).'
       }

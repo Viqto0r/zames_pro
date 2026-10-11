@@ -114,6 +114,96 @@ Suggested order (safest first):
    needs a manual smoke run).
 5. `browser.ts` — leave alone unless necessary.
 
+## Multiple providers (DeepSeek, Qwen, …)
+
+zames drives more than one chat backend. The provider boundary is the
+`ChatProvider` interface (`src/types.ts`); everything above the browser (agent
+loop, tools, answer parser, system-prompt, sessions) depends only on
+`BrowserLike` and is provider-agnostic.
+
+The **registry** (`src/providers.ts`) is the SINGLE source of truth: provider
+ids, human labels, the `/chat` URL prefix. The config enum, `/provider`
+validation, the `{provider}` label in operator messages, the `/doctor` row and
+`/chat` all read from it, so adding a backend touches ONE data file plus the
+provider's own modules — not a dozen ternaries.
+
+### Adding a provider (ChatGPT, Gemini, …)
+
+1. Add an entry to `PROVIDERS` in `src/providers.ts` (id, label,
+   `chatUrlPrefix`, `isDefault`). The config enum, `/provider` and the rest
+   pick it up automatically (see `test/providers.test.ts`).
+2. Add `<name>-ui.ts` (selectors), `<name>-net-capture.ts` (SSE parser) and
+   `<name>-browser.ts` (a class implementing `ChatProvider`).
+3. Register the class in the `createBrowser()` switch in `index.ts`
+   (`provider === 'yourid' ? new YourBrowser({…}) : …`).
+4. Add the provider's own config section (`qwen.model` etc.) to
+   `ZamesConfig`/`DEFAULTS`/`CONFIG_SCHEMA` if it needs one.
+
+Everything else (sessions tagged with `provider`, `probeUiHealth`,
+per-provider profiles, the `{provider}` label) already works for any backend.
+
+### Provider mechanics worth knowing:
+
+- **Selectors and protocol markers go in ONE `*-ui.ts`** (`deepseek-ui.ts`,
+  `qwen-ui.ts`). Never scatter a site-specific selector elsewhere.
+- **SSE parsing goes in ONE `*-net-capture.ts`** (`net-capture.ts`,
+  `qwen-net-capture.ts`). The answer is read from the raw network stream, not
+  the rendered DOM, so a tool-call JSON survives intact. Qwen's stream is
+  PHASE-based: `choices[].delta.content` is the answer only when `phase` is
+  not `thinking_summary` (reasoning must never leak into the answer).
+- **The Playwright facade is the `*-browser.ts` class** (`browser.ts`,
+  `qwen-browser.ts`); it implements `ChatProvider`.
+- **`probeUiHealth(page, capabilities)`** takes the capability list as a
+  parameter, so each provider passes its own selectors while the probe logic
+  stays shared (`ui-health.ts`).
+- **Profiles are per provider**: `~/.zames/profile` (DeepSeek) and
+  `~/.zames/qwen-profile` (Qwen). Two persistent contexts cannot share one
+  `--user-data-dir` (SingletonLock), and separate profiles mean switching never
+  signs the other provider out.
+- **A provider switch needs a restart**: the browser is built once at startup
+  in `index.ts` (`config.provider`). `/model` is the only provider setting that
+  applies live.
+
+Qwen specifics worth knowing when you touch it:
+
+- The flow is `POST /api/v2/chats/new` → `POST /api/v2/chat/completions?chat_id=…`
+  (the older `/api/chat/completions` is dead). Chat ids are UUIDs; a guest
+  chat is `/c/guest`.
+- **Guest mode has a hard daily limit.** `POST /api/v2/files/getstsToken` (and
+  the completions endpoint) answers `RateLimited`
+  ("You've reached the guest chat limit for today's usage") once exhausted. A
+  guest cannot upload files at all. For real work the operator must sign in.
+- **Attachments** go through the mode menu: click `.mode-select-open` (the
+  "+"), then the "Upload attachment" item — that click fires a real
+  `filechooser`. Setting files directly on the hidden `input#filesUpload`
+  bypasses the UI state (it can show "Upload failed"), so it is only the
+  fallback.
+- **The model is driven through the header `.wms-trigger` dropdown**
+  (`_applyModel()`), matched by a NORMALIZED label (`qwen3.7-plus` ↔
+  `Qwen3.7-Plus`).
+- **Login is email → code.** Qwen's default sign-in (`chat.qwen.ai/auth`) sends
+  a one-time code to the email; the password form is behind "Log in with a
+  password". `_promptAndLogin()` implements email → Continue → ask the operator
+  for the code in the terminal → submit. `isLoggedIn()` is detected from the
+  PAGE (the guest header has "Log in"/"Sign up" buttons; a signed-in one shows
+  the account menu) and POLLS, because the app briefly renders the guest header
+  before hydrating. The `auths/refresh` API answers `Bad_Request` without the
+  app's own header, so it cannot be used from a bare fetch.
+- **The page mounts late** ("Model loading…"): always poll for the input
+  (`_awaitInput`) instead of a single lookup. If the input is gone entirely
+  (the page crashed during a cancelled send), re-navigate to `CHAT_URL` before
+  failing the attempt.
+- **The guest tier is slow and rate-limited.** A cold guest turn measured up
+  to ~9 minutes (huge system prompt + thinking phase); the rest of the turns
+  are 8-25 s. The agent-loop watchdog is therefore derived from the Qwen
+  answer timeout (`providerAskDeadlineMs` in `config.ts`), NOT the DeepSeek
+  240 s default. The guest **daily** limit is a separate, non-retryable
+  failure (`isGuestLimitText`), surfaced as a clear "sign in" message instead
+  of the rate-limit wait.
+- **No 15 s throttle.** Qwen tolerated 4 back-to-back sends at 0 ms gap, so
+  `qwen.minSendIntervalMs` defaults to 1000 ms (a courtesy, not a limit) — do
+  not copy DeepSeek's 15 s value.
+
 ## Checks before a release
 
 Run all of these; the git hooks run most of them on commit/push too.

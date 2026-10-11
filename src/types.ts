@@ -131,6 +131,27 @@ export interface BrowserConfig {
 }
 
 import type { Locale } from './i18n.js'
+import type { UiHealthResult } from './ui-health.js'
+import type { ProviderId } from './providers.js'
+
+// Qwen Chat (chat.qwen.ai) provider settings. The shared timings (timeouts,
+// throttle, retries) live in `browser`; only Qwen-only knobs are here.
+export interface QwenConfig {
+  /** Model id sent with each completion (from GET /api/v2/models/). */
+  model: string
+  /** Open the Qwen provider (mirrors the top-level `provider` switch). */
+  enabled: boolean
+  /**
+   * Minimum pause between agent sends (ms). Qwen does NOT rate-limit the way
+   * DeepSeek does — a live experiment (4 back-to-back sends, 0 ms gap) hit no
+   * limit — so the 15 s DeepSeek default is unnecessary latency here. A small
+   * gap is kept as a courtesy. Set to 0 to disable entirely.
+   */
+  minSendIntervalMs: number
+  /** Qwen answer timeout (ms). The first send after a cold load is slow
+   *  ("Model loading…" + thinking), so it gets more room than DeepSeek. */
+  answerTimeoutMs: number
+}
 
 export interface UiConfig {
   /** Language of the interface and the agent's answers. */
@@ -162,6 +183,10 @@ export interface UiConfig {
 
 export interface ZamesConfig {
   maxIterations: number
+  /** Active chat backend. See src/providers.ts for the registry. */
+  provider: ProviderId
+  /** Qwen-specific settings (the shared timings live in `browser`). */
+  qwen: QwenConfig
   headless: boolean
   debug: boolean
   browserChannel: string | null
@@ -217,6 +242,13 @@ export interface Session {
    * are treated as version 1.
    */
   version?: number
+  /**
+   * The chat backend that owns `id` ('deepseek' | 'qwen'). A chat id is only
+   * meaningful to ITS provider, so a resume must open it in the right one (or
+   * warn). Optional: files written before the second provider have no field
+   * and default to deepseek.
+   */
+  provider?: ProviderId
 }
 
 export interface SessionsIndex {
@@ -260,6 +292,12 @@ export interface BrowserLike {
   // watchdog) already gave up on it, and wait for it to settle. Optional so
   // test doubles do not have to implement it.
   cancelPendingAsk?: () => void
+  /**
+   * Name of the chat backend ('deepseek' | 'qwen'). Used only to pick the
+   * label in provider-agnostic operator notices (the agent loop must not say
+   * "DeepSeek" while driving Qwen). Optional so test doubles need not set it.
+   */
+  providerName?: string
   newChat: () => Promise<void>
   stopGeneration: () => Promise<boolean>
   // Set by stopGeneration() (Esc/Ctrl+C). Optional so test doubles do not
@@ -268,7 +306,7 @@ export interface BrowserLike {
   _abort?: boolean
   _stopped?: boolean
   getCurrentChatId: () => Promise<string | null>
-  listChats: (limit?: number) => Promise<Array<{ id: string; title: string }>>
+  listChats: (limit?: number) => Promise<ChatInfo[]>
   openChat: (id: string) => Promise<boolean>
   // Optional: read the whole visible dialogue of the open chat so /resume can
   // print it. Optional so test doubles / self-review do not have to implement
@@ -281,8 +319,63 @@ export interface BrowserLike {
   fetchChatMessages?: (
     id: string,
   ) => Promise<Array<{ role: 'user' | 'assistant'; text: string }>>
-  // Optional: the latest context size (tokens) DeepSeek reported for the
+  // Optional: the latest context size (tokens) the provider reported for the
   // current chat. Used by /cost, /status and auto-compact.
   getLastTokenUsage?: () => number | null
   close: () => Promise<void>
+}
+
+// ---------- chat provider ----------
+
+/** A chat entry in the provider's sidebar. */
+export interface ChatInfo {
+  id: string
+  title: string
+  href?: string
+}
+
+/** One message of a restored dialogue (role + text). */
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  text: string
+}
+
+// A chat backend the agent can drive. DeepSeekBrowser is the reference
+// implementation; QwenBrowser is the second one. The agent loop only needs
+// BrowserLike; the full surface below (chat management, login, health probe,
+// diagnostics) is what index.ts / run-task.ts / compact.ts reach for. Keeping
+// the concrete type behind this interface is what lets the operator switch
+// providers without touching the loop.
+export interface ChatProvider extends BrowserLike {
+  // Chat management.
+  newChat: () => Promise<void>
+  stopGeneration: () => Promise<boolean>
+  getCurrentChatId: () => Promise<string | null>
+  listChats: (limit?: number) => Promise<ChatInfo[]>
+  openChat: (id: string) => Promise<boolean>
+  // Required history/usage access (both providers implement them, even though
+  // BrowserLike declares them optional for test doubles).
+  readChatMessages: () => Promise<ChatMessage[]>
+  fetchChatMessages: (id: string) => Promise<ChatMessage[]>
+  getLastTokenUsage: () => number | null
+  // Lifecycle.
+  launch: () => Promise<void>
+  waitForLogin: () => Promise<void>
+  close: () => Promise<void>
+  // Diagnostics / UI.
+  probeUiHealth: () => Promise<UiHealthResult>
+  dumpDom: (file: string) => Promise<{ file: string; selectors: unknown }>
+  setLocale: (locale: Locale) => void
+  getToggleStatesSync: () => { deepThinking: boolean; webSearch: boolean }
+  setToggleState: (s: { deepThinking?: boolean; webSearch?: boolean }) => void
+  sendIntervalMs: () => number
+  // Flags the agent loop checks after each tool. `_abort` is reset per send,
+  // `_stopped` lives for the whole batch.
+  _abort: boolean
+  _stopped: boolean
+  // Provider name shown to the operator ('deepseek' | 'qwen').
+  providerName: string
+  // Paths used by the restored-dialogue debug line.
+  _apiAuth: string
+  _lastHistoryError: string
 }

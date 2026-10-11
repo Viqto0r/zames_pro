@@ -1,12 +1,12 @@
 // UI health check — a cheap "can the agent still drive this page?" probe.
 //
-// WHY: every selector in deepseek-ui.ts is an assumption about a page we do
-// not control. When DeepSeek ships a redesign, the FIRST symptom used to be a
-// task hanging on "input field not found" (or a silently mis-clicked send),
-// minutes into a run. This module turns that into an explicit answer BEFORE
-// the task: it checks the capabilities the agent ALWAYS needs and reports the
-// missing ones. The page object is injected (the browser owns Playwright), so
-// the decision logic here stays pure and unit-testable.
+// WHY: every selector in the provider's *-ui.ts is an assumption about a page
+// we do not control. When the site ships a redesign, the FIRST symptom used to
+// be a task hanging on "input field not found" (or a silently mis-clicked
+// send), minutes into a run. This module turns that into an explicit answer
+// BEFORE the task: it checks the capabilities the agent ALWAYS needs and
+// reports the missing ones. The page object is injected (the browser owns
+// Playwright), so the decision logic here stays pure and unit-testable.
 //
 // Only ALWAYS-PRESENT capabilities are probed. The Stop button and the answer
 // nodes are TRANSIENT (Stop exists only during generation, answers only after
@@ -36,17 +36,29 @@ export interface UiCapabilitySpec {
   selectors: string[]
   /** A missing CRITICAL capability means the agent cannot work at all. */
   critical: boolean
+  /**
+   * Optional EXACT text label matcher. DeepSeek's new-chat control is a <div>
+   * matched by its label; a provider whose control is a normal button (Qwen)
+   * leaves this unset and relies on the selector alone.
+   */
+  textRe?: RegExp
 }
 
-// Critical: without the input the prompt cannot be typed, without send it
-// cannot be submitted — a task would hang on `ds.input_missing`. Advisory:
-// toggles/newChat degrade gracefully (the toggles fall back to the configured
-// state, newChat falls back to navigating to the base URL).
+// DeepSeek's default capability list. Critical: without the input the prompt
+// cannot be typed, without send it cannot be submitted — a task would hang on
+// `ds.input_missing`. Advisory: toggles/newChat degrade gracefully (the toggles
+// fall back to the configured state, newChat falls back to navigating to the
+// base URL).
 export const UI_CAPABILITIES: UiCapabilitySpec[] = [
   { capability: 'input', selectors: INPUT_SELECTORS, critical: true },
   { capability: 'send', selectors: SEND_SELECTORS, critical: true },
   { capability: 'toggles', selectors: TOGGLE_SELECTORS, critical: false },
-  { capability: 'newChat', selectors: [NEW_CHAT_SELECTOR], critical: false },
+  {
+    capability: 'newChat',
+    selectors: [NEW_CHAT_SELECTOR],
+    critical: false,
+    textRe: NEW_CHAT_TEXT_RE,
+  },
 ]
 
 export interface UiHealthResult {
@@ -73,24 +85,25 @@ async function hasAny(
 }
 
 /**
- * Probe the always-present DeepSeek controls. Never throws: a dead page is
- * reported as every capability missing, which the caller surfaces to the
- * operator instead of letting the next task hang.
+ * Probe the always-present controls of a provider's chat page. Never throws: a
+ * dead page is reported as every capability missing, which the caller surfaces
+ * to the operator instead of letting the next task hang.
+ *
+ * `capabilities` is a parameter so each provider (deepseek-ui.ts, qwen-ui.ts)
+ * can supply its own selectors while the probe logic stays shared.
  */
 export async function probeUiHealth(
   page: UiProbePage,
+  capabilities: UiCapabilitySpec[] = UI_CAPABILITIES,
 ): Promise<UiHealthResult> {
   const present: UiCapability[] = []
   const missing: UiCapability[] = []
   const missingCritical: UiCapability[] = []
 
-  for (const spec of UI_CAPABILITIES) {
+  for (const spec of capabilities) {
     let found = false
-    // The new-chat control is matched by an EXACT text label on a broad
-    // element set (it is a <div> on the current build, not a <button>).
-    const textRe = spec.capability === 'newChat' ? NEW_CHAT_TEXT_RE : undefined
     for (const sel of spec.selectors) {
-      if (await hasAny(page, sel, textRe)) {
+      if (await hasAny(page, sel, spec.textRe)) {
         found = true
         break
       }

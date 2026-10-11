@@ -5,6 +5,7 @@ import type { ZamesConfig } from './types.js'
 import { DEFAULT_DIAGNOSTICS } from './diagnostics.js'
 import { DEFAULT_LOCALE } from './i18n.js'
 import { writeJsonAtomic } from './fsutil.js'
+import { PROVIDER_IDS } from './providers.js'
 
 const ZAMES_HOME = path.join(os.homedir(), '.zames')
 const HOME_CONFIG = path.join(ZAMES_HOME, 'config.json')
@@ -18,8 +19,23 @@ export function projectConfigPath(): string {
 
 export const DEFAULTS: ZamesConfig = {
   maxIterations: 0,
+  // Default backend stays DeepSeek so existing users see no change; the
+  // operator switches with /provider qwen (persisted to the home config).
+  provider: 'deepseek',
+  qwen: {
+    model: '',
+    enabled: false,
+    // Qwen tolerates back-to-back sends (verified live: 4 sends at 0 ms gap,
+    // no rate limit), so the DeepSeek 15 s throttle is pure latency here.
+    minSendIntervalMs: 1000,
+    // The first send after a cold load can take minutes ("Model loading…" +
+    // thinking); a GUEST turn measured up to ~9 min live on a cold profile, so
+    // give it generous room. A signed-in session answers in seconds; this only
+    // bounds the worst case.
+    answerTimeoutMs: 900000,
+  },
   // Headless by default: the browser runs without a visible window. Set
-  // headless: false (or pass --headed) to watch/debug the DeepSeek page.
+  // headless: false (or pass --headed) to watch/debug the page.
   headless: true,
   debug: false,
   browserChannel: null,
@@ -100,6 +116,16 @@ export function loadConfig(): ZamesConfig {
     }
   }
   return merged
+}
+
+// The agent-loop watchdog deadline per provider. The loop default (240s) is
+// tuned for DeepSeek; a Qwen GUEST turn regularly takes 7-8 minutes (cold
+// "Model loading…" + a long thinking phase) and would trip the watchdog on
+// every send. Derive the deadline from the provider's own answer timeout so
+// there is headroom. DeepSeek keeps browser.askDeadlineMs (the loop default).
+export function providerAskDeadlineMs(cfg: ZamesConfig): number {
+  if (cfg.provider === 'qwen') return cfg.qwen.answerTimeoutMs + 120_000
+  return cfg.browser.askDeadlineMs
 }
 
 function deepMerge(
@@ -199,6 +225,35 @@ export const CONFIG_SCHEMA: ConfigField[] = [
     path: 'browser.auth.saveSession',
     type: 'boolean',
     labelKey: 'cfg.f.browser_authSaveSession',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'provider',
+    type: 'enum',
+    values: [...PROVIDER_IDS],
+    labelKey: 'cfg.f.provider',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'qwen.model',
+    type: 'string',
+    labelKey: 'cfg.f.qwen_model',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'qwen.minSendIntervalMs',
+    type: 'number',
+    min: 0,
+    max: 600000,
+    labelKey: 'cfg.f.qwen_minSendIntervalMs',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'qwen.answerTimeoutMs',
+    type: 'number',
+    min: 1000,
+    max: 3600000,
+    labelKey: 'cfg.f.qwen_answerTimeoutMs',
     groupKey: 'cfg.group.browser',
   },
   {

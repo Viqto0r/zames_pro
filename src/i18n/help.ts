@@ -423,6 +423,14 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     ru: '/config lang <ru|en>     сменить язык интерфейса и агента',
     en: '/config lang <ru|en>     switch UI and agent language',
   },
+  'help.cmd.provider': {
+    ru: '/provider <deepseek|qwen> переключить провайдера чата',
+    en: '/provider <deepseek|qwen> switch the chat provider',
+  },
+  'help.cmd.model': {
+    ru: '/model [id]              показать/выбрать модель Qwen',
+    en: '/model [id]              show/pick the Qwen model',
+  },
   'help.cmd.debug_dom': {
     ru: '/debug-dom               сохранить HTML страницы (для отладки)',
     en: '/debug-dom               dump page HTML (debug)',

@@ -17,6 +17,7 @@ import { selfReviewMessages } from './i18n/self-review.js'
 import { mcpMessages } from './i18n/mcp.js'
 import { configMessages } from './i18n/config.js'
 import { promptMessages } from './i18n/prompt.js'
+import { qwenMessages } from './i18n/qwen.js'
 
 export type Locale = 'ru' | 'en'
 
@@ -60,6 +61,7 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
   ...mcpMessages,
   ...configMessages,
   ...promptMessages,
+  ...qwenMessages,
 }
 
 export type TranslateFn = (key: string, params?: TranslateParams) => string

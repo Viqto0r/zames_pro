@@ -18,8 +18,9 @@ is not a sandbox:
   common escape vectors, not full OS isolation — `Bash` runs a real shell as
   your user. Treat every task you give the agent as code you are willing to
   run.
-- The DeepSeek credentials in `~/.zames/config.json` and the browser profile
-  in `~/.zames/profile` are sensitive. They never leave your machine. Files
+- The chat-provider credentials in `~/.zames/config.json` and the browser
+  profiles (`~/.zames/profile`, `~/.zames/qwen-profile`) are sensitive. They
+  never leave your machine. Files
   written by the agent's own state/config writers are created with `0600`
   permissions, but files created by your own tools or by `Bash` follow your
   umask.

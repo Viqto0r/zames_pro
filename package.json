@@ -1,7 +1,7 @@
 {
   "name": "zames_pro",
   "version": "2.72.9",
-  "description": "Terminal coding agent that drives chat.deepseek.com through Playwright — no API key required. Reads and edits files, runs commands, commits to git, like Claude Code / Codex CLI.",
+  "description": "Terminal coding agent that drives a real browser to chat with DeepSeek, Qwen and other web LLMs — no API key required. Reads and edits files, runs commands, commits to git, like Claude Code / Codex CLI.",
   "type": "module",
   "bin": {
     "zames": "dist/index.js"
@@ -56,7 +56,11 @@
     "browser-automation",
     "llm",
     "no-api-key",
-    "automation"
+    "automation",
+    "qwen",
+    "qwen-chat",
+    "multi-provider",
+    "provider"
   ],
   "license": "MIT",
   "engines": {

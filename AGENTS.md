@@ -41,8 +41,19 @@ conflicted with the live agent, and the cleanup killed the agent browser.
 ## What it is
 
 zames is a terminal coding agent. It does not use the model API directly; it
-drives a browser (Playwright) and talks to [chat.deepseek.com](https://chat.deepseek.com/) like a regular
-user: it types the prompt into the input field and reads the answer from the page.
+drives a browser (Playwright) and talks to a chat web app like a regular user:
+it types the prompt into the input field and reads the answer from the page.
+
+Two chat backends are supported, selected with `/provider <deepseek|qwen>`:
+
+- **DeepSeek** (`chat.deepseek.com`) — the original and the default; provider
+  code in `src/browser.ts` + `src/deepseek-ui.ts` + `src/net-capture.ts`.
+- **Qwen** (`chat.qwen.ai`) — the second backend; provider code in
+  `src/qwen-browser.ts` + `src/qwen-ui.ts` + `src/qwen-net-capture.ts`.
+
+Both implement the `ChatProvider` interface (`src/types.ts`); everything above
+the browser (agent loop, tools, parser, system-prompt) is provider-agnostic and
+only depends on `BrowserLike`.
 
 It runs in the project directory (`process.cwd()`), which is the sandbox
 root: tools cannot read/write above it.
@@ -99,11 +110,28 @@ When a change touches one concern, start in the module that owns it:
   constants and keeps only the Playwright logic. The `ds-*` class anchors stay
   as a high-precision FIRST hit with SEMANTIC fallbacks after them. A few
   regexes are re-exported from `browser.ts` for the existing tests.
+- `src/qwen-ui.ts`, `src/qwen-net-capture.ts`, `src/qwen-chats.ts`,
+  `src/qwen-browser.ts` — the Qwen
+  provider, mirroring the DeepSeek split: PURE selectors/protocol data
+  (`qwen-ui.ts`), the PURE phase-aware SSE parser
+  (`qwen-net-capture.ts`: `extractAnswer` skips `thinking_summary`,
+  `extractTokenUsage`, `isFinishedWithoutAnswer`, `isRateLimitText`,
+  `isGuestLimitText`), the PURE chat-list/dialogue scrapers
+  (`qwen-chats.ts`: `scrapeQwenChatList`, `scrapeQwenChatMessages` — the latter
+  keeps only the OUTERMOST message container so a turn is not printed twice),
+  and the Playwright facade `QwenBrowser` (`qwen-browser.ts`). Qwen's flow
+  differs from DeepSeek's: the model is chosen via the header `.wms-trigger`
+  dropdown (`_applyModel()`), the sign-in is email → one-time CODE (not a
+  password) on `chat.qwen.ai/auth`, attachments go through the mode menu's
+  "Upload attachment" item (`_attachFiles`), and a guest gets a limited number
+  of turns before `getstsToken` answers `RateLimited`.
 - `src/ui-health.ts` — PURE UI health probe (`probeUiHealth`): checks the
   ALWAYS-present controls (input/send/toggles/new-chat) via an injected page
-  and reports the missing ones. `browser.probeUiHealth()` adapts the live page;
-  startup and `/doctor` surface a missing CRITICAL capability as a warning
-  BEFORE a task hangs on it. Unit-tested (test/ui-health.test.ts).
+  and reports the missing ones. The capability LIST is a parameter, so each
+  provider passes its own selectors (deepseek-ui.ts / qwen-ui.ts); the probe
+  logic is shared. `browser.probeUiHealth()` adapts the live page; startup and
+  `/doctor` surface a missing CRITICAL capability as a warning BEFORE a task
+  hangs on it. Unit-tested (test/ui-health.test.ts).
 - `src/commands.ts` — PURE helpers for the slash commands (`/diff`, `/cost`,
   `/export`, `/doctor`, `/add-dir`, `/review`, `/compact`,
   `/queue`, `/goal`, live toggles) and the restored-history rendering. No

@@ -6,6 +6,20 @@ export const configMessages: Record<string, { ru: string; en: string }> = {
   'cfg.group.checkpoint': { ru: 'Чекпойнты', en: 'Checkpoints' },
   'cfg.group.transcript': { ru: 'Транскрипт', en: 'Transcript' },
   'cfg.group.browser': { ru: 'Браузер / DeepSeek', en: 'Browser / DeepSeek' },
+  'cfg.group.qwen': { ru: 'Qwen', en: 'Qwen' },
+  'cfg.f.provider': { ru: 'Провайдер чата', en: 'Chat provider' },
+  'cfg.f.qwen_model': {
+    ru: 'Модель Qwen (id)',
+    en: 'Qwen model (id)',
+  },
+  'cfg.f.qwen_minSendIntervalMs': {
+    ru: 'Qwen: пауза между отправками (мс)',
+    en: 'Qwen: pause between sends (ms)',
+  },
+  'cfg.f.qwen_answerTimeoutMs': {
+    ru: 'Qwen: таймаут ответа (мс)',
+    en: 'Qwen: answer timeout (ms)',
+  },
 
   'cfg.f.ui_contextLimit': {
     ru: 'Размер контекста (токены)',

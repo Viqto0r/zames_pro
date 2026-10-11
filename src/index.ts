@@ -7,6 +7,13 @@ import { fileURLToPath } from 'url'
 import { theme } from './theme.js'
 
 import { DeepSeekBrowser, headlessUACacheReady } from './browser.js'
+import { QwenBrowser } from './qwen-browser.js'
+import {
+  isProviderId,
+  asProviderId,
+  providerChatUrlPrefix,
+  providerLabel,
+} from './providers.js'
 import {
   createTools,
   mergeTools,
@@ -49,6 +56,7 @@ import {
   validateConfigValue,
   writeConfigValue,
   resetConfigValue,
+  providerAskDeadlineMs,
   type ConfigField,
 } from './config.js'
 import { runConfigMenu } from './config-menu.js'
@@ -67,6 +75,12 @@ import { CheckpointStore, pickRecord as pickCheckpoint } from './checkpoint.js'
 import { selfReview, selfDiff, selfApply, selfList } from './self-review.js'
 import { type RestoredMessage } from './commands.js'
 import { performCompact } from './compact.js'
+import {
+  buildHandoffText,
+  saveProviderHandoff,
+  readProviderHandoff,
+  clearProviderHandoff,
+} from './provider-handoff.js'
 import {
   Scheduler,
   parseInterval,
@@ -99,7 +113,7 @@ import {
   saveHistory,
   isInternalChat,
 } from './sessions.js'
-import type { ChatInfo } from './browser.js'
+import type { ChatInfo, ChatProvider } from './types.js'
 import type { McpPool } from './mcp.js'
 
 interface ReviewMode {
@@ -207,11 +221,15 @@ if (jsonMode) {
 // project changed and gave no list of sessions to restore.
 function saveLastChat(id: string | null, workdir = '', title = ''): void {
   if (!id) return
-  saveSession({ id, workdir, title })
+  // Tag the session with the ACTIVE provider: a chat id is only meaningful to
+  // the backend that created it, so a later resume must open it in the same
+  // one (or refuse). Without this a /provider switch made /resume try to open a
+  // qwen id in DeepSeek (and vice versa).
+  saveSession({ id, workdir, title, provider: config.provider })
 }
 
 function loadLastChat(workdir = ''): string | null {
-  const s = loadLastSession(workdir)
+  const s = loadLastSession(workdir, config.provider)
   return s ? s.id : null
 }
 
@@ -744,6 +762,23 @@ async function resolveWorkdir(): Promise<string> {
 // ---------- restored dialogue ----------
 
 /**
+ * The answer timeout for a one-off provider call (compact summary, etc.).
+ * Qwen's cold guest turns are far slower than DeepSeek's, so using
+ * config.browser.answerTimeoutMs there cut them off; pick the active
+ * provider's own value.
+ */
+function providerAnswerTimeoutMs(): number {
+  return config.provider === 'qwen'
+    ? config.qwen.answerTimeoutMs
+    : config.browser.answerTimeoutMs
+}
+
+/** The provider's base chat URL, used by /chat to build the right link. */
+function browserProviderUrl(): string {
+  return providerChatUrlPrefix(config.provider)
+}
+
+/**
  * Print the dialogue of the just-opened chat into the terminal. Called by
  * /resume, /resume-id and on startup when a previous session is restored, so
  * the operator sees the context instead of a bare "Chat opened.".
@@ -751,7 +786,7 @@ async function resolveWorkdir(): Promise<string> {
  * Best-effort: a DOM-scraping failure must never break the restore.
  */
 async function printRestoredHistory(
-  browser: DeepSeekBrowser,
+  browser: ChatProvider,
   ui: { printAbove: (t: string) => void } | null,
   chatId: string | null = null,
 ): Promise<void> {
@@ -862,6 +897,7 @@ function runTaskDeps(): RunTaskDeps {
     },
   }
 }
+
 // ---------- main ----------
 
 async function main(): Promise<void> {
@@ -941,23 +977,51 @@ async function main(): Promise<void> {
     console.error(theme.warn(t('mcp.load_failed', { v: (e as Error).message })))
   }
 
-  const browser = new DeepSeekBrowser({
-    headless,
-    debug,
-    channel: config.browserChannel,
-    ...config.browser,
-    locale: currentLocale,
-    // Persist credentials the operator typed in the terminal so the next
-    // launch can re-login silently after a logout.
-    onAuthSave: (username, password) => {
-      config.browser.auth.username = username
-      config.browser.auth.password = password
-      try {
-        writeConfigValue('home', 'browser.auth.username', username)
-        writeConfigValue('home', 'browser.auth.password', password)
-      } catch {}
-    },
-  })
+  // Build the browser for the ACTIVE provider. The two backends differ in
+  // every layer (selectors, SSE format, chat-id scheme), so the switch is a
+  // class choice, not a flag. The shared timings live in config.browser; only
+  // the model is provider-specific. A provider switch takes effect on the
+  // next launch (the operator is told to restart).
+  const provider = asProviderId(config.provider)
+  const browser: ChatProvider =
+    provider === 'qwen'
+      ? new QwenBrowser({
+          headless,
+          debug,
+          channel: config.browserChannel,
+          ...config.browser,
+          // Qwen-specific overrides (see config.qwen): no 15s DeepSeek
+          // throttle, a longer cold-start answer timeout.
+          minSendIntervalMs: config.qwen.minSendIntervalMs,
+          answerTimeoutMs: config.qwen.answerTimeoutMs,
+          model: config.qwen.model,
+          locale: currentLocale,
+          onAuthSave: (username, password) => {
+            config.browser.auth.username = username
+            config.browser.auth.password = password
+            try {
+              writeConfigValue('home', 'browser.auth.username', username)
+              writeConfigValue('home', 'browser.auth.password', password)
+            } catch {}
+          },
+        })
+      : new DeepSeekBrowser({
+          headless,
+          debug,
+          channel: config.browserChannel,
+          ...config.browser,
+          locale: currentLocale,
+          // Persist credentials the operator typed in the terminal so the next
+          // launch can re-login silently after a logout.
+          onAuthSave: (username, password) => {
+            config.browser.auth.username = username
+            config.browser.auth.password = password
+            try {
+              writeConfigValue('home', 'browser.auth.username', username)
+              writeConfigValue('home', 'browser.auth.password', password)
+            } catch {}
+          },
+        })
 
   const bootSpinner = mod.createSpinner(currentLocale)
   bootSpinner.thinking()
@@ -1014,7 +1078,7 @@ async function main(): Promise<void> {
     // explicitly: --chat <id> or --resume-last.
     let resumeId = chatIdArg
     if (!resumeId && resumeLastFlag && !newChatFlag) {
-      const last = loadLastSession(currentWorkdir)
+      const last = loadLastSession(currentWorkdir, config.provider)
       if (last && last.id) {
         resumeId = last.id
         console.log(theme.system(t('msg.resuming', { id: resumeId })))
@@ -1150,7 +1214,7 @@ async function main(): Promise<void> {
           },
           transcript,
           maxSubagents: config.browser.maxSubagents,
-          askDeadlineMs: config.browser.askDeadlineMs,
+          askDeadlineMs: providerAskDeadlineMs(config),
           maxAfterToolRetries: config.browser.maxAfterToolRetries,
           // An `ask` permission rule must also gate the subagent: otherwise a
           // guarded tool (e.g. a dangerous Bash command) would run inside the
@@ -1306,7 +1370,7 @@ async function main(): Promise<void> {
   //   --new-chat      kept for compatibility (this is the default behavior)
   let resumeId = chatIdArg
   if (!resumeId && resumeLastFlag && !newChatFlag) {
-    const last = loadLastSession(currentWorkdir)
+    const last = loadLastSession(currentWorkdir, config.provider)
     if (last && last.id) {
       resumeId = last.id
       console.log(
@@ -1381,6 +1445,8 @@ async function main(): Promise<void> {
     })
     editor = ed
     ed.setTmpDir(TMP_DIR)
+    // Provider badge: show which backend is answering ([Qwen]/[DeepSeek]).
+    ed.setProvider(providerLabel(config.provider))
     // Restore the input history from the previous runs and persist every new
     // entry, so Ctrl+R / arrows can recall older messages after a restart.
     ed.history = loadHistory()
@@ -2293,13 +2359,135 @@ async function main(): Promise<void> {
       continue
     }
 
+    if (lower === '/provider' || lower.startsWith('/provider ')) {
+      const arg = trimmed.slice('/provider'.length).trim().toLowerCase()
+      if (!arg || arg === 'status') {
+        const model =
+          config.provider === 'qwen' ? config.qwen.model || '(default)' : 'n/a'
+        console.log(
+          theme.system(
+            t('provider.status', {
+              v: config.provider,
+              m: model,
+              auth: authMarkerExists() ? 'yes' : 'no',
+            }),
+          ),
+        )
+        continue
+      }
+      if (arg === 'login') {
+        try {
+          await browser.waitForLogin()
+          console.log(theme.system(t('provider.login_done')))
+        } catch (e) {
+          console.error(theme.warn((e as Error).message))
+        }
+        continue
+      }
+      if (isProviderId(arg)) {
+        const from = config.provider
+        if (arg === from) {
+          console.log(theme.system(t('provider.switched', { v: arg })))
+          continue
+        }
+        // CARRY-OVER: a chat id only exists on its own backend, so switching
+        // providers loses the conversation. Summarize the CURRENT chat (still
+        // on the OLD browser object) and persist a handoff for the target; on
+        // the next launch the new provider posts it as the first message.
+        if (editor) editor.lock(t('msg.input_locked'))
+        try {
+          const spin = editor || mod.createSpinner(currentLocale)
+          spin.thinking()
+          let summary = ''
+          try {
+            const answer = await browser.ask(
+              mod.commands.buildCompactPrompt(currentLocale),
+              {
+                agent: true,
+                timeout: providerAnswerTimeoutMs(),
+              },
+            )
+            const trimmed = String(answer || '').trim()
+            if (mod.commands.isUsableCompactSummary(trimmed)) summary = trimmed
+          } catch (e) {
+            if (debug)
+              console.error('handoff summary failed:', (e as Error).message)
+          }
+          // Fall back to the LOCAL history when the model summary is unusable.
+          if (!summary && browser.fetchChatMessages) {
+            const cid = await browser.getCurrentChatId().catch(() => null)
+            const all = cid
+              ? await browser.fetchChatMessages(cid).catch(() => [])
+              : []
+            const msgs = mod.commands.trimRestoredMessages(all, 0)
+            if (msgs.length) {
+              summary = mod.commands.formatRestoredHistory(msgs, { limit: 40 })
+            }
+          }
+          spin.stop()
+          if (summary) {
+            saveProviderHandoff({
+              provider: arg,
+              workdir: currentWorkdir,
+              summary,
+              task: lastTaskText || undefined,
+              createdAt: new Date().toISOString(),
+            })
+            console.log(theme.system(t('provider.handoff_saved', { v: arg })))
+          } else {
+            console.log(theme.warn(t('provider.handoff_empty')))
+          }
+        } finally {
+          if (editor) editor.unlock()
+        }
+        // Tag the current session with the OLD provider before switching.
+        if (currentChatId) saveLastChat(currentChatId, currentWorkdir)
+        config.provider = arg
+        config.qwen.enabled = arg === 'qwen'
+        try {
+          writeConfigValue('home', 'provider', arg)
+        } catch {}
+        console.log(theme.system(t('provider.switched', { v: arg })))
+        continue
+      }
+      console.error(theme.warn(t('provider.usage')))
+      continue
+    }
+
+    if (lower === '/model' || lower.startsWith('/model ')) {
+      const arg = trimmed.slice('/model'.length).trim()
+      if (config.provider !== 'qwen') {
+        console.log(theme.system(t('provider.usage')))
+        continue
+      }
+      const qb = browser as unknown as {
+        listModels?: () => Promise<Array<{ id: string; name: string }>>
+        model?: string
+      }
+      if (!arg) {
+        const models = qb.listModels ? await qb.listModels() : []
+        if (!models.length) {
+          console.log(theme.system(t('qwen.model_list', { v: '(none)' })))
+        } else {
+          const lines = models.map((m) => `  ${m.id}  —  ${m.name}`).join(NL)
+          console.log(theme.system(t('qwen.model_list', { v: lines })))
+        }
+        continue
+      }
+      config.qwen.model = arg
+      if (typeof qb.model === 'string') qb.model = arg
+      try {
+        writeConfigValue('home', 'qwen.model', arg)
+      } catch {}
+      console.log(theme.system(t('qwen.model_set', { v: arg })))
+      continue
+    }
+
     if (lower === '/chat') {
       if (currentChatId) {
         console.log(theme.system(t('chats.current_id', { v: currentChatId })))
         console.log(
-          theme.system(
-            `URL: https://chat.deepseek.com/a/chat/s/${currentChatId}`,
-          ),
+          theme.system(`URL: ${browserProviderUrl()}/${currentChatId}`),
         )
       } else {
         const id = await browser.getCurrentChatId()
@@ -2353,7 +2541,7 @@ async function main(): Promise<void> {
     if (lower === '/last') {
       // Quick resume of the last chat for THIS working directory — otherwise
       // finding it meant /chats (a network fetch) or copying the id.
-      const last = loadLastSession(currentWorkdir)
+      const last = loadLastSession(currentWorkdir, config.provider)
       if (!last || !last.id) {
         console.error(theme.error(t('sessions.none')))
         continue
@@ -3180,6 +3368,9 @@ async function main(): Promise<void> {
               uiPresent: uiHealth?.present,
               uiMissing: uiHealth?.missing,
               uiMissingCritical: uiHealth?.missingCritical,
+              provider: config.provider,
+              providerModel:
+                config.provider === 'qwen' ? config.qwen.model : undefined,
             },
             t,
           ),
@@ -3220,7 +3411,7 @@ async function main(): Promise<void> {
         ui: editor,
         buildSystemPrompt: mod.buildSystemPrompt,
         tools: mod.createTools(currentWorkdir, { undo, todos: todoStore }),
-        answerTimeoutMs: config.browser.answerTimeoutMs,
+        answerTimeoutMs: providerAnswerTimeoutMs(),
         fallbackLimit: COMPACT_FALLBACK_LIMIT,
         selfImprovement: devMode,
       })
@@ -3626,6 +3817,28 @@ async function main(): Promise<void> {
     }
     lastTaskText = finalTaskText
 
+    // Provider handoff: if the operator switched providers, the new backend
+    // has NO chat history. Post the carried-over summary as a preface so the
+    // model continues instead of starting cold. Consumed once.
+    {
+      const handoff = readProviderHandoff(config.provider, currentWorkdir)
+      if (handoff) {
+        finalTaskText =
+          buildHandoffText({
+            from: handoff.provider === 'qwen' ? 'DeepSeek' : 'Qwen',
+            to: providerLabel(config.provider),
+            summary: handoff.summary,
+            task: handoff.task,
+          }) +
+          String.fromCharCode(10, 10) +
+          'Now continue with this task:' +
+          String.fromCharCode(10) +
+          finalTaskText
+        clearProviderHandoff()
+        console.log(theme.system(t('provider.handoff_used')))
+      }
+    }
+
     // Dev mode: pick up fresh logic modules before the task.
     await autoReload()
     // Re-scan skills/custom commands before every task: a SKILL.md or a
@@ -3705,7 +3918,7 @@ async function main(): Promise<void> {
                     undo,
                     todos: todoStore,
                   }),
-                  answerTimeoutMs: config.browser.answerTimeoutMs,
+                  answerTimeoutMs: providerAnswerTimeoutMs(),
                   quiet: true,
                   skipUiLock: true,
                   selfImprovement: devMode,

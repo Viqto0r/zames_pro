@@ -5,7 +5,7 @@
 <h1 align="center">zames_pro</h1>
 
 <p align="center">
-  <strong>A terminal coding agent that drives chat.deepseek.com through Playwright — no API key required.</strong>
+  <strong>A terminal coding agent that drives real web chat LLMs (DeepSeek, Qwen, …) through a browser — no API key required.</strong>
 </p>
 
 <p align="center">
@@ -22,7 +22,9 @@
   <strong>English</strong> | <a href="#readme-ru">Русский</a>
 </p>
 
-A terminal coding agent that works on top of [chat.deepseek.com](https://chat.deepseek.com/) through Playwright.
+A terminal coding agent that works on top of real web chat LLMs
+([chat.deepseek.com](https://chat.deepseek.com/), [chat.qwen.ai](https://chat.qwen.ai/), …)
+through Playwright.
 In spirit it is similar to Claude Code / Codex CLI: it starts in the current
 directory, reads and edits files, runs commands, and commits to git.
 
@@ -58,8 +60,13 @@ and runs right after it, in the same chat. `Esc` aborts the current generation,
 ## How it works
 
 zames does not call the model API. It launches a headless Chromium with a
-persistent profile, signs in to `chat.deepseek.com` like a human, types the task
+persistent profile, signs in to a chat web app like a human, types the task
 into the chat box, and reads the answer back.
+
+Two chat backends are available, switched with `/provider <deepseek|qwen>`
+(restart required): **DeepSeek** (`chat.deepseek.com`, the default) and
+**Qwen** (`chat.qwen.ai`). Each keeps its own persistent profile, so switching
+never signs the other one out.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/how-it-works.png" alt="how zames works" width="860">
@@ -84,6 +91,7 @@ Key pieces:
 
 - [Quick start](#quick-start) · [Features](#features) · [Why zames?](#why-zames) · [Requirements](#requirements)
 - [How it works](#how-it-works) · [Installation](#installation) · [Signing in](#signing-in) · [Usage](#usage)
+- [Switching providers (DeepSeek / Qwen)](#switching-providers-deepseek--qwen)
 - [Tools](#tools) · [Slash commands](#slash-commands)
 - [Project context, skills and memory](#project-context-skills-and-memory) · [MCP (external tools)](#mcp-external-tools) · [Configuration](#configuration)
 - [FAQ](#faq) · [Links](#links) · [License](#license)
@@ -122,11 +130,12 @@ Key pieces:
 ## Requirements
 
 - Node.js >= 20
-- A DeepSeek account. On first launch zames asks for your DeepSeek
-  login/password in the terminal (and stores them in `~/.zames/config.json`
-  after a successful sign-in, so a later logout is handled automatically
-  without asking you again). You can also sign in manually in the browser
-  window when the browser is headed.
+- An account on the chat you want to use — **DeepSeek** (`chat.deepseek.com`,
+  the default) or **Qwen** (`chat.qwen.ai`). Qwen also works in guest mode for
+  a few messages. On first launch zames asks for your login in the terminal
+  (and stores it in `~/.zames/config.json` after a successful sign-in, so a
+  later logout is handled automatically without asking you again). You can also
+  sign in manually in the browser window when the browser is headed.
 
 ## Signing in
 
@@ -158,6 +167,36 @@ version). You do not need `--headed` just to log in.
 
 Credentials and toggles can also be edited from `/config`
 (`browser.auth.username`, `browser.auth.password`, `browser.auth.saveSession`).
+
+## Switching providers (DeepSeek / Qwen)
+
+zames can drive either **DeepSeek** (`chat.deepseek.com`, the default) or
+**Qwen** (`chat.qwen.ai`):
+
+```bash
+/provider qwen      # switch to Qwen (persisted); restart zames to take effect
+/provider deepseek  # switch back
+/provider status    # show the active provider / model / login state
+/provider login     # (re)run the sign-in check
+/model              # list Qwen models
+/model qwen3.7-plus # pick one
+```
+
+Notes:
+
+- The two backends use **separate persistent profiles**
+  (`~/.zames/profile` for DeepSeek, `~/.zames/qwen-profile` for Qwen), so
+  switching never signs the other one out. A provider switch takes effect on
+  the next launch — the browser is created once at startup.
+- Qwen works in **guest mode** without an account, but a guest is limited to a
+  handful of messages per day; for long agent runs sign in (email / Google /
+  GitHub — no phone required). zames auto-logins from the saved credentials or
+  asks in the terminal, exactly like DeepSeek. `/model` changes the Qwen model
+  at runtime (no restart).
+- File attachments on Qwen go through the mode menu's **Upload attachment**
+  item; DeepSeek uses its own paperclip.
+- `/doctor` shows the active provider and the UI health of that provider's
+  page.
 
 ## Installation
 
@@ -302,7 +341,11 @@ Codex CLI:
   context size in tokens (DeepSeek's `accumulated_token_usage`).
 - /export [file] — write the session transcript to a Markdown file
   (zames-export-<stamp>.md by default).
-- /doctor — diagnose node, git, config, browser, clipboard and MCP.
+- /doctor — diagnose node, git, config, browser, clipboard, MCP and the
+  active chat provider (it also reports that provider's UI health).
+- /provider <deepseek|qwen> — switch the chat backend (restart to apply);
+  /provider status shows the active provider/model/login; /provider login
+  re-runs the sign-in check. /model [id] lists or picks a Qwen model at runtime.
 - /add-dir <path> — validate an extra directory (the sandbox is fixed at
   startup; relaunch with --dir to write there).
 - /resume <n> (after /chats) and /resume-id <id> — open a chat and PRINT its
@@ -329,7 +372,10 @@ tests`). /cron "<min> <hour> <dom> <month> <dow>" <task> — run on a schedule.
   /jobs [rm <id>|clear] lists and stops them. A fired job is put into the same
   message queue you type into, so it runs when the agent is free (never mid-
   generation) and still respects the send throttle.
-- /thinking [on|off] and /web [on|off] — toggle Deep thinking / Smart search.
+- /thinking [on|off] and /web [on|off] — toggle the reasoning / web-search
+  behaviour. On **DeepSeek** these are the "Deep thinking" / "Smart search"
+  toggles; on **Qwen** they drive its thinking MODE (Thinking / Fast) and the
+  "Web search" item in the "+" menu.
   These (and /queue, /jobs, /goal, `/config <sub>`) can be used WHILE the agent
   is working — they do not touch the in-flight generation.
 - /queue [clear] — list or clear the messages waiting to be sent after the
@@ -494,7 +540,9 @@ MIT
 <details>
 <summary>🇷🇺 Читать по-русски (Russian)</summary>
 
-Терминальный coding-агент, работающий поверх [chat.deepseek.com](https://chat.deepseek.com/) через Playwright.
+Терминальный coding-агент, работающий поверх веб-чатов LLM
+([chat.deepseek.com](https://chat.deepseek.com/), [chat.qwen.ai](https://chat.qwen.ai/), …)
+через Playwright.
 По духу он похож на Claude Code / Codex CLI: запускается в текущей
 директории, читает и правит файлы, выполняет команды и коммитит в git.
 
@@ -531,8 +579,13 @@ zames                      # один раз войти, дальше прост
 ## Как это работает
 
 zames не вызывает API модели. Он запускает headless Chromium с постоянным
-профилем, входит в `chat.deepseek.com` как человек, печатает задачу в поле
-чата и читает ответ обратно.
+профилем, входит в веб-чат как человек, печатает задачу в поле чата и читает
+ответ обратно.
+
+Доступны два бэкенда, переключаются командой `/provider <deepseek|qwen>`
+(нужен перезапуск): **DeepSeek** (`chat.deepseek.com`, по умолчанию) и
+**Qwen** (`chat.qwen.ai`). У каждого свой постоянный профиль, поэтому
+переключение не разлогинивает другой.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/how-it-works.png" alt="как работает zames" width="860">
@@ -560,6 +613,7 @@ zames не вызывает API модели. Он запускает headless C
 
 - [Быстрый старт](#быстрый-старт) · [Возможности](#возможности) · [Почему zames?](#почему-zames) · [Требования](#требования)
 - [Как это работает](#как-это-работает) · [Установка](#установка) · [Вход в аккаунт](#вход-в-аккаунт) · [Использование](#использование)
+- [Переключение провайдера (DeepSeek / Qwen)](#переключение-провайдера-deepseek--qwen)
 - [Инструменты](#инструменты) · [Слэш-команды](#слэш-команды)
 - [Контекст проекта, навыки и память](#контекст-проекта-навыки-и-память) · [MCP (внешние инструменты)](#mcp-внешние-инструменты) · [Конфигурация](#конфигурация)
 - [FAQ](#faq) · [Ссылки](#ссылки) · [Лицензия](#лицензия)
@@ -600,10 +654,12 @@ zames не вызывает API модели. Он запускает headless C
 ## Требования
 
 - Node.js >= 20
-- Аккаунт DeepSeek. При первом запуске zames спросит логин/пароль DeepSeek в
-  терминале (и сохранит их в `~/.zames/config.json` после успешного входа,
-  поэтому более поздний разлогин обрабатывается автоматически, без повторных
-  вопросов). Можно также войти вручную в окне браузера, когда он headed.
+- Аккаунт в нужном чате — **DeepSeek** (`chat.deepseek.com`, по умолчанию) или
+  **Qwen** (`chat.qwen.ai`). Qwen также работает в гостевом режиме на несколько
+  сообщений. При первом запуске zames спросит логин в терминале (и сохранит его
+  в `~/.zames/config.json` после успешного входа, поэтому более поздний
+  разлогин обрабатывается автоматически, без повторных вопросов). Можно также
+  войти вручную в окне браузера, когда он headed.
 
 ## Вход в аккаунт
 
@@ -635,6 +691,35 @@ Headless работает из коробки: headless Chrome обычно пр
 
 Учётные данные и переключатели можно также править из `/config`
 (`browser.auth.username`, `browser.auth.password`, `browser.auth.saveSession`).
+
+## Переключение провайдера (DeepSeek / Qwen)
+
+zames умеет работать с **DeepSeek** (`chat.deepseek.com`, по умолчанию) и
+**Qwen** (`chat.qwen.ai`):
+
+```bash
+/provider qwen      # переключиться на Qwen (сохраняется); нужен перезапуск
+/provider deepseek  # вернуться обратно
+/provider status    # активный провайдер / модель / статус входа
+/provider login     # повторно пройти проверку входа
+/model              # список моделей Qwen
+/model qwen3.7-plus # выбрать модель
+```
+
+Замечания:
+
+- У бэкендов **разные постоянные профили** (`~/.zames/profile` у DeepSeek,
+  `~/.zames/qwen-profile` у Qwen), поэтому переключение не разлогинивает
+  другой. Смена провайдера применяется при следующем запуске — браузер
+  создаётся один раз на старте.
+- Qwen работает в **гостевом режиме** без аккаунта, но гостю доступно всего
+  несколько сообщений в день; для долгих прогонов войдите (email / Google /
+  GitHub — телефон не нужен). zames сам логинится по сохранённым кредам или
+  спросит в терминале, как и с DeepSeek. `/model` меняет модель Qwen на лету
+  (без перезапуска).
+- Вложения в Qwen идут через пункт **Upload attachment** в меню режима; в
+  DeepSeek — своя скрепка.
+- `/doctor` показывает активный провайдер и состояние UI его страницы.
 
 ## Установка
 
@@ -785,7 +870,11 @@ zames --task "..." --output-format jsonl \
   `accumulated_token_usage`).
 - /export [file] — записать транскрипт сессии в Markdown-файл
   (по умолчанию zames-export-<stamp>.md).
-- /doctor — диагностика node, git, конфига, браузера, буфера обмена и MCP.
+- /doctor — диагностика node, git, конфига, браузера, буфера обмена, MCP и
+  активного провайдера чата (плюс состояние UI его страницы).
+- /provider <deepseek|qwen> — сменить бэкенд чата (нужен перезапуск);
+  /provider status показывает активный провайдер/модель/вход; /provider login
+  повторно проверяет вход. /model [id] покажет или выберет модель Qwen на лету.
 - /add-dir <path> — проверить дополнительную директорию (песочница
   фиксируется при старте; для записи туда перезапустите с --dir).
 - /resume <n> (после /chats) и /resume-id <id> — открыть чат и НАПЕЧАТАТЬ его
@@ -814,7 +903,10 @@ zames --task "..." --output-format jsonl \
   Сработавшая задача попадает в ту же очередь сообщений, что и ваш ввод, так
   что выполняется, когда агент свободен (никогда посреди генерации), и всё
   равно соблюдает троттлинг отправки.
-- /thinking [on|off] и /web [on|off] — переключить Deep thinking / Smart search.
+- /thinking [on|off] и /web [on|off] — переключить режим размышления /
+  веб-поиска. В **DeepSeek** это тумблеры «Deep thinking» / «Smart search»;
+  в **Qwen** — это режим размышления (Thinking / Fast) и пункт «Web search»
+  в меню «+».
   Их (а также /queue, /jobs, /goal, `/config <sub>`) можно использовать, ПОКА
   агент работает — они не трогают текущую генерацию.
 - /queue [clear] — показать или очистить сообщения, ждущие отправки после

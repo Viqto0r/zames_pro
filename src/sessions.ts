@@ -3,6 +3,7 @@ import path from 'path'
 import os from 'os'
 import type { Session } from './types.js'
 import { writeJsonAtomic } from './fsutil.js'
+import type { ProviderId } from './providers.js'
 
 // We store sessions (DeepSeek chats) in a separate folder so they aren't lost
 // after a process restart. Each session is a separate JSON file
@@ -70,11 +71,13 @@ export function saveSession({
   title = '',
   workdir = '',
   todos,
+  provider,
 }: {
   id: string
   title?: string
   workdir?: string
   todos?: Array<{ content: string; status: string }>
+  provider?: ProviderId
 }): Session | null {
   if (!id) return null
   try {
@@ -92,6 +95,7 @@ export function saveSession({
       createdAt: prev.createdAt || now,
       updatedAt: now,
       version: SESSIONS_FORMAT_VERSION,
+      provider: provider || prev.provider || 'deepseek',
     }
     // Keep the previous checklist unless a new one is explicitly passed —
     // saveLastChat() calls this for title/workdir only and must not wipe it.
@@ -126,7 +130,15 @@ function writeIndex({ id, workdir }: { id: string; workdir: string }): void {
 
 // The last session for the working directory. If there is none —
 // we return the last session overall (useful when launched from a new place).
-export function loadLastSession(workdir = ''): Session | null {
+// The last session for the working directory, restricted to `provider` when
+// given. A chat id only exists on ITS backend, so restoring a DeepSeek chat
+// while the active provider is Qwen (or vice versa) would fail to open — the
+// filter makes auto-restore and /last pick the right one (and fall back to the
+// global last only within the same provider).
+export function loadLastSession(
+  workdir = '',
+  provider?: ProviderId,
+): Session | null {
   try {
     const index: SessionsIndex = JSON.parse(
       fs.readFileSync(INDEX_FILE, 'utf-8'),
@@ -141,7 +153,11 @@ export function loadLastSession(workdir = ''): Session | null {
       // the session cannot be restored. We try the next candidate.
       if (internal.has(id)) continue
       const s = readSession(id)
-      if (s) return s
+      if (!s) continue
+      // Older files have no provider: treat them as deepseek (the only backend
+      // that existed when they were written).
+      if (provider && (s.provider || 'deepseek') !== provider) continue
+      return s
     }
     return null
   } catch {

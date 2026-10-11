@@ -7,6 +7,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **qwen:** a second chat provider (`chat.qwen.ai`), selectable with
+  `/provider <deepseek|qwen>`, so the operator can switch models without
+  leaving zames. Adds `src/qwen-ui.ts` (selectors), `src/qwen-net-capture.ts`
+  (phase-aware SSE parser), `src/qwen-browser.ts` (`QwenBrowser`), a separate
+  persistent profile (`~/.zames/qwen-profile`), `/model` to list/pick a Qwen
+  model, and file attachments via the mode menu's "Upload attachment" item.
+- **provider:** switching `/provider` mid-session now carries the conversation
+  over: the current chat is summarized (on the old backend) and persisted as a
+  handoff (`src/provider-handoff.ts`); the next launch posts it as the first
+  message of the new provider's chat, so context is not lost. Falls back to a
+  local history dump when the model summary is unusable. Unit-tested.
+- **provider:** a `PROVIDERS` registry (`src/providers.ts`) is the SINGLE
+  source of truth (ids, labels, `/chat` URL prefix), so adding a backend
+  (ChatGPT, Gemini, …) is a data change plus the provider's own modules — not a
+  dozen ternaries. `/provider` accepts any registered id; the config enum, the
+  `{provider}` label and `/doctor` read from the registry. Unit-tested
+  (`test/providers.test.ts`).
+- **provider:** a `ChatProvider` interface (`src/types.ts`) both backends
+  implement; the agent loop only depends on `BrowserLike` and never sees a
+  concrete class. Operator notices (`ds.answer_timeout`, `ds.tool_retry`, …)
+  now use a `{provider}` label so they never say "DeepSeek" while driving Qwen.
+
+### Changed
+
+- **ui:** the status line shows a provider badge ([Qwen]/[DeepSeek]) so the
+  active backend is always visible in a multi-provider session.
+- **qwen:** `listChats` / `fetchChatMessages` now use Qwen's OWN API
+  (`GET /api/v2/chats/?page=1&exclude_project=true` and
+  `GET /api/v2/chats/<id>?direction=up&limit=N`) with the DOM scrape as a
+  fallback, so `/chats` and `/resume` work on a signed-in account (verified
+  live: 9 chats with titles, 20 messages). Parsers are pure + tested.
+- **qwen:** password login (`_autoLogin`) fixed to the verified order (email ->
+  "Log in with a password" -> password -> submit); the email-CODE flow needs the
+  operator to read the mail, so a saved password is preferred. Verified live.
+- **qwen:** the context counter now uses `input_tokens` (the prompt size) —
+  the true "used context" — instead of `total_tokens` (which adds the answer),
+  so the status bar matches DeepSeek's semantics.
+- **qwen:** thinking / web search are mapped onto Qwen's own UI: deepThinking
+  ON selects the "Thinking" mode (OFF → "Fast") in the
+  `.qwen-thinking-selector` dropdown, and webSearch toggles the "Web search"
+  item in the "+" mode menu. `/thinking` and `/web` therefore work on Qwen too.
+- **qwen:** no 15 s send throttle — a live experiment (4 back-to-back sends at
+  0 ms gap) hit no rate limit, so `qwen.minSendIntervalMs` defaults to 1000 ms.
+  The agent-loop watchdog deadline is derived from the Qwen answer timeout
+  (a cold guest turn can take minutes), not the DeepSeek 240 s default.
+
+- **provider:** sessions are tagged with the ACTIVE provider
+  (`saveSession({…, provider})`), so `/resume`/`/last`/auto-restore only ever
+  reopen a chat in the backend that created it (a chat id is meaningless to the
+  other one). `loadLastSession(workdir, provider)` filters accordingly.
+- **qwen:** the restored-dialogue scraper moved to a PURE `src/qwen-chats.ts`
+  (mirroring `browser-chats.ts`) and now keeps only the OUTERMOST message
+  container — the broad `[class*="message"]` chain matched an outer and an
+  inner block, so every turn printed twice. `listChats` opens the sidebar first
+  and matches `/c/<id>` links. Compact / auto-compact use the active provider's
+  own answer timeout (`providerAnswerTimeoutMs()`), not DeepSeek's.
+
+### Fixed
+
+- **qwen:** recover from a lost page/context mid-run (relaunch + re-login, and
+  re-navigate to the chat if the input is gone) instead of failing every retry.
+- **qwen:** the guest daily limit (`getstsToken` → `RateLimited`) fails fast
+  with a "sign in" message instead of a 20-minute rate-limit wait.
+- **qwen:** the real sign-in flow is **email → one-time code from the letter**
+  (not email+password): `_promptAndLogin()` now sends the email, asks the
+  operator for the code in the terminal, submits it, and verifies the session
+  from the page (guest header CTAs absent). `/provider login` re-runs it.
+- **qwen:** a longer send-button wait when files are attached (the upload keeps
+  the button disabled).
+
 ## [2.72.9] - 2026-10-10
 
 ### Fixed

@@ -1,14 +1,15 @@
 # Contributing
 
 Thanks for your interest in zames! This is a small CLI that drives a real
-browser against chat.deepseek.com. Below is how to set up, run and verify a
-change locally.
+browser against a web chat LLM (DeepSeek or Qwen by default; see
+`/provider`). Below is how to set up, run and verify a change locally.
 
 ## Requirements
 
 - Node.js 24 (see `.nvmrc`; `nvm use`)
-- A logged-in DeepSeek session in `~/.zames/profile` for the end-to-end smoke
-  test (the unit suite does not need one)
+- A logged-in session in the provider's profile (`~/.zames/profile` for
+  DeepSeek, `~/.zames/qwen-profile` for Qwen) for the end-to-end smoke test
+  (the unit suite does not need one)
 
 ## Setup
 
@@ -50,7 +51,7 @@ pass/fail signal.
 
 `npm run self-smoke` launches a REAL isolated zames instance (throwaway
 `HOME`, its own Playwright profile) and exercises login, tools and
-attachments. It needs network access and valid DeepSeek credentials, so it is
+attachments. It needs network access and valid provider credentials, so it is
 NOT part of CI. Run it manually before a release:
 
 ```bash
