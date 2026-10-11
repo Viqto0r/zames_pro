@@ -100,3 +100,31 @@ test('formatGitContext keeps a plain fence for a clean preview', () => {
   const s = formatGitContext(ctx)
   assert.ok(s.includes('```\n M src/a.ts\n```'))
 })
+
+test('GitLog: отрицательный/нечисловой count не превращается в option', async () => {
+  const tools = createGitTools(process.cwd())
+  // `-n -3` used to reach git; now a bad count falls back to the default 10.
+  const neg = String(await tool(tools, 'GitLog').fn({ count: -3 }))
+  assert.ok(!/Exit code: \d/.test(neg), neg)
+  const inf = String(await tool(tools, 'GitLog').fn({ count: Infinity }))
+  assert.ok(!/Exit code: \d/.test(inf), inf)
+  const nan = String(await tool(tools, 'GitLog').fn({ count: 'abc' }))
+  assert.ok(!/Exit code: \d/.test(nan), nan)
+})
+
+test('GitPush: невалидное имя ветки (refspec range) отклоняется', async () => {
+  const tools = createGitTools(process.cwd())
+  const out = String(await tool(tools, 'GitPush').fn({ branch: 'a..b' }))
+  assert.ok(/invalid branch name/i.test(out), out)
+  // A leading dash and shell metacharacters are still rejected.
+  assert.ok(
+    /invalid branch name/i.test(
+      String(await tool(tools, 'GitPush').fn({ branch: '-x' })),
+    ),
+  )
+  assert.ok(
+    /invalid branch name/i.test(
+      String(await tool(tools, 'GitPush').fn({ branch: 'a;rm -rf' })),
+    ),
+  )
+})

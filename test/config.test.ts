@@ -50,6 +50,28 @@ test('локальный .zamesrc.json переопределяет дефолт
   }
 })
 
+test('прототип-загрязнение через .zamesrc.json не проходит', async () => {
+  const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-proj-'))
+  fs.writeFileSync(
+    path.join(proj, '.zamesrc.json'),
+    JSON.stringify({ __proto__: { polluted: 'yes' }, constructor: { x: 1 } }),
+  )
+  const origCwd = process.cwd()
+  process.chdir(proj)
+  try {
+    const { loadConfig } = await freshConfig()
+    loadConfig()
+    // The poisoned key must NOT have reached Object.prototype.
+    assert.equal(
+      ({} as Record<string, unknown>).polluted,
+      undefined,
+      'Object.prototype was polluted',
+    )
+  } finally {
+    process.chdir(origCwd)
+  }
+})
+
 test('битый конфиг не роняет loadConfig', async () => {
   const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-proj-'))
   fs.writeFileSync(path.join(proj, '.zamesrc.json'), '{ not valid json')

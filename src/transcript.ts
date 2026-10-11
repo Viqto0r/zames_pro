@@ -84,10 +84,10 @@ export class Transcript {
     this.stream = null
     if (!stream) return Promise.resolve()
     return new Promise((resolve) => {
-      stream.end(() => resolve())
-      // A write error must not hang the exit; the error listener is installed
-      // in the constructor.
+      // Attach the error handler BEFORE end(): an error emitted synchronously
+      // by end() would otherwise reach no listener on this tick.
       stream.on('error', () => resolve())
+      stream.end(() => resolve())
     })
   }
 }

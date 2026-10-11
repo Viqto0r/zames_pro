@@ -138,9 +138,9 @@ export function hardenPlaywrightArgs(
   if (
     args.some(
       (a) =>
-        a === '--isolated' ||
+        a.startsWith('--isolated') ||
         a.startsWith('--user-data-dir') ||
-        a === '--extension' ||
+        a.startsWith('--extension') ||
         a.startsWith('--cdp-endpoint'),
     )
   ) {
@@ -430,14 +430,19 @@ async function connectServer(
   cfg: McpServerConfig,
   debug?: (message: string) => void,
 ): Promise<McpConnection | { error: string }> {
+  // Declared OUTSIDE the try so the catch can close a half-open server: a
+  // stdio transport SPAWNS a child process on connect, and if connect() or
+  // listTools() throws we would otherwise leak an orphan process on every run.
+  let client: McpClientLike | null = null
+  let transport: { close?: () => Promise<void> | void } | null = null
   try {
     const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
-    const client = new Client(
+    const c = new Client(
       { name: 'zames', version: packageVersion() },
       { capabilities: {} },
     ) as unknown as McpClientLike
+    client = c
 
-    let transport: unknown
     if (cfg.url) {
       if (cfg.transport === 'sse') {
         const { SSEClientTransport } =
@@ -464,8 +469,8 @@ async function connectServer(
       })
     }
 
-    await client.connect(transport as never)
-    const listed = await client.listTools()
+    await c.connect(transport as never)
+    const listed = await c.listTools()
     const tools = (listed.tools || []).map((t) => {
       const tool = t as {
         name: string
@@ -479,10 +484,18 @@ async function connectServer(
       }
     })
     debug?.(`MCP: connected to ${name} (${tools.length} tools)`)
-    return { name, client, tools }
+    return { name, client: c, tools }
   } catch (e) {
     const msg = (e as Error).message || String(e)
     debug?.(`MCP: failed to connect to ${name}: ${msg}`)
+    // Close a half-open connection so a spawned stdio child is not orphaned.
+    try {
+      if (client) await client.close().catch(() => {})
+    } catch {}
+    try {
+      if (transport?.close)
+        await Promise.resolve(transport.close()).catch(() => {})
+    } catch {}
     return { error: msg }
   }
 }

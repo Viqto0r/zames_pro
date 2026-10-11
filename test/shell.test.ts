@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import path from 'node:path'
+import os from 'node:os'
 import { assertCommandInsideRoot, runShell } from '../src/shell.ts'
 
 // The `!command` operator escape and the Bash tool share this module, so the
@@ -56,4 +57,32 @@ test('startBackground/pollBackground/killBackground lifecycle (N33)', async () =
 test('pollBackground on an unknown id is a clear message, not a throw', async () => {
   const { pollBackground } = await import('../src/shell.ts')
   assert.ok(pollBackground('zzzzzz').includes('No background process'))
+})
+
+test('assertCommandInsideRoot blocks a cd with an unverifiable target', () => {
+  const root = process.cwd()
+  // A variable that is NOT $HOME cannot be resolved statically, so it is
+  // refused instead of silently resolving to root/$d.
+  assert.throws(
+    () => assertCommandInsideRoot(root, 'd=/; cd $d'),
+    /cannot verify cd target/,
+  )
+  assert.throws(
+    () => assertCommandInsideRoot(root, 'cd `echo /`'),
+    /cannot verify cd target/,
+  )
+  // ~user (another user's home) is also unverifiable.
+  assert.throws(
+    () => assertCommandInsideRoot(root, 'cd ~root'),
+    /cannot verify cd target/,
+  )
+  // $HOME IS expanded and checked: it points outside this project, so it is
+  // blocked for LEAVING (not for being unverifiable).
+  assert.throws(
+    () => assertCommandInsideRoot(root, 'cd $HOME && ls'),
+    /leaving/,
+  )
+  // A $HOME-relative path that stays inside the root is allowed.
+  const inside = '$HOME/' + path.relative(os.homedir(), root)
+  assert.doesNotThrow(() => assertCommandInsideRoot(root, 'cd ' + inside))
 })

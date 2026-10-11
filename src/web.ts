@@ -79,11 +79,36 @@ export function isPrivateIp(ip: string): boolean {
   }
   const low = ip.toLowerCase()
   if (low === '::1' || low === '::') return true
-  if (low.startsWith('fe80') || low.startsWith('fc') || low.startsWith('fd')) {
+  // IPv6 link-local is fe80::/10, i.e. fe80..febf (the old `startsWith('fe80')`
+  // missed fe90::, fea0:: and febf::). ULA is fc00::/7 (fc..fd). fec0::/10
+  // (deprecated site-local) is also treated as non-public.
+  if (
+    /^fe[89abcde]/.test(low) ||
+    low.startsWith('fc') ||
+    low.startsWith('fd')
+  ) {
     return true
   }
+  // IPv4-mapped in DOTTED form (::ffff:127.0.0.1).
   const mapped = low.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/)
   if (mapped) return isPrivateIp(mapped[1])
+  // IPv4-mapped in HEX form (::ffff:7f00:1 == 127.0.0.1) and the NAT64
+  // well-known prefix 64:ff9b::/96 (which can encode 127.0.0.1 too).
+  const mappedHex = low.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/)
+  if (mappedHex) {
+    const hi = parseInt(mappedHex[1], 16)
+    const lo = parseInt(mappedHex[2], 16)
+    return isPrivateIp(
+      ((hi >> 8) & 0xff) +
+        '.' +
+        (hi & 0xff) +
+        '.' +
+        ((lo >> 8) & 0xff) +
+        '.' +
+        (lo & 0xff),
+    )
+  }
+  if (low.startsWith('64:ff9b:')) return true
   return false
 }
 
@@ -92,6 +117,10 @@ export function isPrivateHostname(host: string): boolean {
   if (!h) return true
   if (h === 'localhost' || h.endsWith('.localhost')) return true
   if (h === 'metadata.google.internal') return true
+  // Internal/mDNS/service names that never belong to the public internet.
+  if (h.endsWith('.internal') || h === 'internal') return true
+  if (h.endsWith('.local') || h === 'local') return true
+  if (h.endsWith('.home.arpa')) return true
   return false
 }
 
@@ -215,6 +244,10 @@ export async function httpFetch(
           const next = new URL(loc, current).toString()
           // Validate the TARGET before requesting it.
           await assertPublicUrl(next)
+          // Drain/close the redirect body: otherwise each hop leaks a socket
+          // (up to MAX_REDIRECTS per fetch), which exhausts the pool on a long
+          // series of fetches.
+          await res.body?.cancel().catch(() => {})
           current = next
           continue
         }
@@ -350,7 +383,10 @@ export function createWebTools(): ToolDef[] {
           return `Error: URL must start with http:// or https://`
         }
 
-        const limit = Math.min(Number(maxChars) || MAX_TEXT, 60_000)
+        const limit = Math.max(
+          1,
+          Math.min(Number(maxChars) || MAX_TEXT, 60_000),
+        )
 
         try {
           await assertPublicUrl(String(url))

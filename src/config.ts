@@ -133,6 +133,12 @@ function deepMerge(
   source: Record<string, unknown>,
 ): void {
   for (const key of Object.keys(source)) {
+    // A `.zamesrc.json` (possibly shared/copied from elsewhere) could carry a
+    // `__proto__` / `constructor` / `prototype` key; assigning those to a
+    // plain object mutates Object.prototype (prototype pollution). Skip them.
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+      continue
+    }
     if (
       source[key] &&
       typeof source[key] === 'object' &&

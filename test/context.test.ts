@@ -122,6 +122,17 @@ test('skillBody strips frontmatter', () => {
   assert.equal(skillBody(raw), 'hello world')
 })
 
+test('skillBody: closing --- at EOF without a trailing newline', () => {
+  // The frontmatter closes on the LAST line with no final newline: the body
+  // must be empty, not the whole file (a past bug returned the entire input).
+  const raw = '---\nname: x\n---'
+  const body = skillBody(raw)
+  assert.ok(!body.includes('name: x'), 'frontmatter leaked: ' + body)
+  assert.equal(body, '')
+  // With a real body after a newline-terminated close.
+  assert.equal(skillBody('---\nname: x\n---\nBODY'), 'BODY')
+})
+
 // MEMORY.md is appended to over time, so its newest notes live at the TAIL.
 // A file over the per-file budget must keep the tail (the newest notes), not
 // clip them away with a head slice.

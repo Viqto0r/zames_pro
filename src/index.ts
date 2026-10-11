@@ -181,7 +181,13 @@ const headless = hasFlag('--headed')
   : hasFlag('--headless') || config.headless
 const debug = hasFlag('--debug') || config.debug
 const maxIterArg = getArg('--max-iter', null)
-const maxIter = maxIterArg !== null ? Number(maxIterArg) : config.maxIterations
+// A non-numeric `--max-iter abc` yields NaN, which the loop treats as
+// "unlimited" (NaN > 0 is false). Fall back to the configured value instead
+// of silently disabling the cap.
+const maxIterParsed = maxIterArg !== null ? Number(maxIterArg) : NaN
+const maxIter = Number.isFinite(maxIterParsed)
+  ? maxIterParsed
+  : config.maxIterations
 
 const positional = getPositional()
 const task = getArg('--task', positional.join(' ').trim() || null)

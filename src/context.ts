@@ -304,7 +304,17 @@ export function skillBody(raw: string): string {
   if (!norm.startsWith('---')) return norm.trim()
   const end = norm.indexOf(NL + '---', 3)
   if (end === -1) return norm.trim()
-  return norm.slice(norm.indexOf(NL, end + 1) + 1).trim()
+  // The closing `---` may be the LAST line with no trailing newline; then
+  // indexOf(NL, …) is -1 and slice(0) returned the WHOLE file (frontmatter
+  // included). Guard the -1 -> the body is everything after the closing ---.
+  const after = norm.indexOf(NL, end + 1)
+  if (after === -1) {
+    // No newline after the closing delimiter: the body is empty (or just the
+    // rest of that final line, which IS the `---`).
+    const rest = norm.slice(end + 1)
+    return rest.replace(/^-*$/, '').trim()
+  }
+  return norm.slice(after + 1).trim()
 }
 
 async function findSkillFiles(root: string, depth = 3): Promise<string[]> {
@@ -590,10 +600,16 @@ async function loadScopedAgents(
   const out: ContextFile[] = []
   const seen = new Set<string>()
   for (const dir of dirs) {
+    // AGENTS.md is head-clipped; MEMORY.md is append-only so it uses the
+    // memory budget and keeps its TAIL (same rule as the main memory chain) —
+    // otherwise the newest notes in a large nested MEMORY.md were lost.
     for (const names of [AGENT_NAMES, MEMORY_NAMES]) {
+      const isMemory = names === MEMORY_NAMES
       const p = await findNamedFile(dir, names)
       if (!p || seen.has(p)) continue
-      const f = await readIfFile(p, MAX_FILE_BASE)
+      const f = isMemory
+        ? await readIfFile(p, MAX_MEMORY_FILE, true)
+        : await readIfFile(p, MAX_FILE_BASE)
       if (!f) continue
       seen.add(p)
       out.push(f)

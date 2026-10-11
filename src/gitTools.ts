@@ -185,8 +185,12 @@ export function createGitTools(workdir: string): ToolDef[] {
       fn: async ({ count }) => {
         const err = await ensureRepo()
         if (err) return err
+        // Guard the count: `Number(count)||10` let -3 and Infinity through as
+        // literal `-n -3` / `-n Infinity`. Keep a positive integer only.
+        const n = Math.trunc(Number(count))
+        const lim = Number.isFinite(n) && n > 0 ? n : 10
         return runGitArgs(
-          ['log', '--oneline', '--decorate', '-n', String(Number(count) || 10)],
+          ['log', '--oneline', '--decorate', '-n', String(lim)],
           workdir,
           10_000,
         )
@@ -291,8 +295,11 @@ export function createGitTools(workdir: string): ToolDef[] {
         const fs = await import('fs/promises')
         const path = await import('path')
         const os = await import('os')
-        const tmp = path.join(os.tmpdir(), `dsa-commit-${Date.now()}.txt`)
-        await fs.writeFile(tmp, msg, 'utf-8')
+        // O_EXCL ('wx') so a pre-created symlink at this predictable path
+        // cannot redirect the write to another file (TOCTOU on a shared /tmp).
+        const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-commit-'))
+        const tmp = path.join(tmpDir, 'msg.txt')
+        await fs.writeFile(tmp, msg, { encoding: 'utf-8', flag: 'wx' })
         try {
           const result = await runGitArgs(
             ['commit', '-F', tmp],
@@ -301,7 +308,7 @@ export function createGitTools(workdir: string): ToolDef[] {
           )
           return `add: ${addResult}\ncommit: ${result}`
         } finally {
-          await fs.unlink(tmp).catch(() => {})
+          await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
         }
       },
     },
@@ -327,6 +334,19 @@ export function createGitTools(workdir: string): ToolDef[] {
         // leading dash. The remote stays a literal 'origin' and is not
         // user-controlled.
         if (!/^[A-Za-z0-9._/-]+$/.test(b) || b.startsWith('-')) {
+          return `Error: invalid branch name: ${b}`
+        }
+        // The regex above allows `..` and `@{`, which git parses as a REFSPEC
+        // RANGE (`git push origin a..b`), not a branch. Ask git itself so the
+        // name is valid by construction.
+        const refCheck = await runGitArgs(
+          ['check-ref-format', '--branch', b],
+          workdir,
+          5000,
+        )
+        // On success git echoes the branch name; on failure it prints an
+        // `Exit code: <n>` / `fatal:` block instead.
+        if (refCheck.trim() !== b) {
           return `Error: invalid branch name: ${b}`
         }
 

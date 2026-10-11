@@ -979,30 +979,17 @@ export class LineEditor {
     }
     const cols = process.stdout.columns || 80
     const lay = layoutInput(this.promptStr, this.buf, this.cursor, cols)
-    const sugg = this._suggestions()
-    const shown = sugg.slice(0, 8)
-    this._suggestCount = shown.length
-    const linesBelow = shown.length
-      ? shown.length + (sugg.length > shown.length ? 1 : 0)
-      : 0
+    // Reuse the SAME windowed+highlighted suggestion lines as _writeBlock.
+    // Before, this used a hardcoded `sugg.slice(0, 8)`, so navigating past
+    // page 1 (Ctrl+N/P) left the repaint showing the first page without the
+    // highlight, and linesBelow drifted from the real row count.
+    const sug = this._suggestionLines(this._suggestOffset)
+    const linesBelow = sug.rows
     // Move up to the INPUT top using the OLD cursor row (on screen right now).
     this._eraseInputOnly(this.cursorRowFromTop - this._statusTop)
     let out = lay.rows.map((r) => r.prefix + r.text).join(NL)
-    if (shown.length) {
-      const maxName = Math.max(...shown.map((c) => c.name.length))
-      const lines = shown.map((c) => {
-        const name = theme.prompt(c.name.padEnd(maxName))
-        const desc = theme.dim('  ' + c.description)
-        return '   ' + name + desc
-      })
-      out += NL + lines.join(NL)
-      const hidden = sugg.length - shown.length
-      if (hidden > 0)
-        out +=
-          NL +
-          theme.dim(
-            '   ' + translate(this.locale)('editor.more', { n: hidden }),
-          )
+    if (sug.lines.length) {
+      out += NL + sug.lines.join(NL)
     }
     // A buffer change can UNWRAP the input (backspace on a wrapped line), so
     // the block can get shorter here too — push it back to the bottom BEFORE

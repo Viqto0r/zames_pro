@@ -26,6 +26,17 @@ export function assertCommandInsideRoot(root: string, command: string): void {
   while ((m = cdRe.exec(cmd))) {
     const raw = m[1].trim().replace(/^["']|["']$/g, '')
     if (!raw || raw === '-') continue
+    // A `cd` target we cannot RESOLVE statically is rejected: the shell would
+    // expand it AFTER this scan, so `d=/; cd $d` would otherwise slip past as
+    // root/$d. `$HOME`/`${HOME}` is the one variable we CAN expand (below), so
+    // it is allowed; any OTHER `$var`, a backtick substitution or `~user` is
+    // refused outright.
+    const withoutHome = raw.replace(/\$\{?HOME\}?/g, '')
+    if (/[$`]/.test(withoutHome) || /^~[^/\\]/.test(raw)) {
+      throw new Error(
+        'Sandbox: cannot verify cd target ' + raw + ' (variable/substitution)',
+      )
+    }
     // sh expands ~ and $HOME AFTER this check, so expand them here as well —
     // otherwise `cd ~` passes the guard and then leaves the root.
     const expanded = raw

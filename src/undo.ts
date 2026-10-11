@@ -1,6 +1,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
+import { randomBytes } from 'crypto'
 import { writeJsonAtomic } from './fsutil.js'
 
 const UNDO_DIR = path.join(os.homedir(), '.zames', 'undo')
@@ -68,7 +69,12 @@ export class UndoStore {
 
     let backupFile: string | null = null
     if (existed) {
-      backupFile = path.join(UNDO_DIR, `${stamp}-${hash}.bak`)
+      // The stamp is only ms-precision and the hash is the first 8 bytes of
+      // the path, so two SIBLING files edited in the same millisecond would
+      // collide and the second write would clobber the first (losing the
+      // backup). Add a random suffix so a backup name is unique.
+      const uniq = randomBytes(4).toString('hex')
+      backupFile = path.join(UNDO_DIR, `${stamp}-${hash}-${uniq}.bak`)
       await fs.writeFile(backupFile, content as Buffer)
     }
 

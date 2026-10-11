@@ -2,6 +2,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
 import { execFile } from 'child_process'
+import { randomBytes } from 'crypto'
 import { writeJsonAtomic } from './fsutil.js'
 
 // Checkpoints / rewind (BACKLOG B3).
@@ -37,6 +38,8 @@ export interface CheckpointRecord {
 export interface CheckpointResult {
   ok: boolean
   reason?: string
+  /** Extra human context for a failure (e.g. the copy error message). */
+  detail?: string
   record?: CheckpointRecord
   backup?: CheckpointRecord | null
 }
@@ -162,7 +165,11 @@ export class CheckpointStore {
     if (!this.enabled) return null
     await this._ensure()
     const stamp = Date.now()
-    const file = path.join(this.dir, `${stamp}.tgz`)
+    // Two checkpoints in the SAME millisecond would share `${stamp}.tgz` and
+    // the second would overwrite the first (losing a snapshot). Add a random
+    // suffix so an archive name is unique.
+    const uniq = randomBytes(3).toString('hex')
+    const file = path.join(this.dir, `${stamp}-${uniq}.tgz`)
     const res = await runTar(tarCreateArgs(file, workdir), workdir)
     if (res.code !== 0) {
       await fs.rm(file, { force: true }).catch(() => {})
@@ -231,7 +238,18 @@ export class CheckpointStore {
           .rm(path.join(record.workdir, e), { recursive: true, force: true })
           .catch(() => {})
       }
-      await copyTree(tmp, record.workdir)
+      // A copy failure here must NOT surface as an uncaught throw that leaves
+      // the (already wiped) tree half-restored: report it as a failure so the
+      // caller can tell the operator to /rewind from the pre-rewind backup.
+      try {
+        await copyTree(tmp, record.workdir)
+      } catch (e) {
+        return {
+          ok: false,
+          reason: 'copy_failed',
+          detail: (e as Error).message,
+        }
+      }
       return { ok: true, record, backup }
     } finally {
       await fs.rm(tmp, { recursive: true, force: true }).catch(() => {})

@@ -120,11 +120,16 @@ function writeIndex({ id, workdir }: { id: string; workdir: string }): void {
     if (!index.byWorkdir || typeof index.byWorkdir !== 'object') {
       index.byWorkdir = {}
     }
+    // An EMPTY workdir must not become a byWorkdir key: it would make every
+    // project fall back to `index.last` and restore a chat from ANOTHER
+    // project on the next launch. Only track a real directory.
     const key = workdir || ''
-    index.byWorkdir[key] = id
-    index.last = id
-    index.updatedAt = new Date().toISOString()
-    writeJsonAtomic(INDEX_FILE, index)
+    if (key) {
+      index.byWorkdir[key] = id
+      index.last = id
+      index.updatedAt = new Date().toISOString()
+      writeJsonAtomic(INDEX_FILE, index)
+    }
   } catch {}
 }
 

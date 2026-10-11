@@ -224,18 +224,20 @@ export async function saveToTemp(
 ): Promise<string> {
   await fs.mkdir(tmpDir, { recursive: true })
   const base = sanitize(name)
-  let target = path.join(tmpDir, base)
-  if (await fs.stat(target).catch(() => null)) {
-    const ext = path.extname(base)
-    const stem = base.slice(0, base.length - ext.length)
-    let i = 1
-    while (await fs.stat(target).catch(() => null)) {
-      target = path.join(tmpDir, stem + '-' + i + ext)
-      i++
+  const ext = path.extname(base)
+  const stem = base.slice(0, base.length - ext.length)
+  // O_EXCL ('wx'): pick the first free name and CREATE it atomically. A
+  // stat-then-write raced with another attach and silently overwrote a file.
+  for (let i = 0; i < 10_000; i++) {
+    const target = path.join(tmpDir, i === 0 ? base : stem + '-' + i + ext)
+    try {
+      await fs.writeFile(target, data, { flag: 'wx' })
+      return target
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e
     }
   }
-  await fs.writeFile(target, data)
-  return target
+  throw new Error('could not find a free temp name for ' + base)
 }
 
 export interface ClipboardResult {
