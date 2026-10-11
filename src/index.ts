@@ -1026,7 +1026,9 @@ async function main(): Promise<void> {
   // `let`, not `const`: a live /provider switch disposes this instance and
   // builds the other one IN PLACE (see the /provider block in the main loop),
   // so the URL changes without restarting zames.
-  let browser: ChatProvider = createProviderBrowser(asProviderId(config.provider))
+  let browser: ChatProvider = createProviderBrowser(
+    asProviderId(config.provider),
+  )
 
   const bootSpinner = mod.createSpinner(currentLocale)
   bootSpinner.thinking()
@@ -2404,10 +2406,9 @@ async function main(): Promise<void> {
         if (browser.fetchChatMessages) {
           const cid = await browser.getCurrentChatId().catch(() => null)
           if (cid) {
-            const all = await browser
-              .fetchChatMessages(cid)
-              .catch(() => [])
-            chatHasMessages = mod.commands.trimRestoredMessages(all, 0).length > 0
+            const all = await browser.fetchChatMessages(cid).catch(() => [])
+            chatHasMessages =
+              mod.commands.trimRestoredMessages(all, 0).length > 0
           }
         }
 
