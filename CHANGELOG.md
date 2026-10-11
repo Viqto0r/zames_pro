@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.73.0] - 2026-10-11
+
 ### Added
 
 - **qwen:** a second chat provider (`chat.qwen.ai`), selectable with
@@ -54,7 +56,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   0 ms gap) hit no rate limit, so `qwen.minSendIntervalMs` defaults to 1000 ms.
   The agent-loop watchdog deadline is derived from the Qwen answer timeout
   (a cold guest turn can take minutes), not the DeepSeek 240 s default.
-
 - **provider:** sessions are tagged with the ACTIVE provider
   (`saveSession({…, provider})`), so `/resume`/`/last`/auto-restore only ever
   reopen a chat in the backend that created it (a chat id is meaningless to the
