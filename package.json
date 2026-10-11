@@ -33,6 +33,7 @@
     "test": "tsx --test test/*.test.ts",
     "test:watch": "tsx --test --watch test/*.test.ts",
     "self-smoke": "tsx scripts/self-smoke.mts",
+    "qwen-smoke": "tsx scripts/qwen-smoke.mts",
     "render-demo": "tsx scripts/render-demo.mts",
     "build:readme": "tsx scripts/build-readme.mts",
     "postinstall": "node scripts/postinstall.mjs",

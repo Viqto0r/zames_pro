@@ -773,9 +773,11 @@ export async function runAgentLoop({
           (justRanTool
             ? 'You stopped after a tool call and wrote plain text. '
             : 'You wrote plain text without a tool call. ') +
+          'Plain text is a PROTOCOL VIOLATION — the operator never sees it. ' +
           'The task is not finished. Reply with EXACTLY one JSON tool-call ' +
           'object, no text before or after, for example: ' +
           '{\"tool\": \"Bash\", \"args\": {\"command\": \"...\"}}. ' +
+          'Do NOT explain, plan or narrate — call a tool. ' +
           'If the task is really done — call respond with the final message.'
         continue
       }

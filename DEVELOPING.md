@@ -134,8 +134,10 @@ provider's own modules — not a dozen ternaries.
    pick it up automatically (see `test/providers.test.ts`).
 2. Add `<name>-ui.ts` (selectors), `<name>-net-capture.ts` (SSE parser) and
    `<name>-browser.ts` (a class implementing `ChatProvider`).
-3. Register the class in the `createBrowser()` switch in `index.ts`
-   (`provider === 'yourid' ? new YourBrowser({…}) : …`).
+3. Register the class in `createProviderBrowser()` in `index.ts`
+   (`provider === 'yourid' ? new YourBrowser({…}) : …`). This one factory is
+   used BOTH at startup and by the live `/provider` switch, so a new backend is
+   switchable without a restart for free.
 4. Add the provider's own config section (`qwen.model` etc.) to
    `ZamesConfig`/`DEFAULTS`/`CONFIG_SCHEMA` if it needs one.
 
@@ -160,8 +162,12 @@ per-provider profiles, the `{provider}` label) already works for any backend.
   `~/.zames/qwen-profile` (Qwen). Two persistent contexts cannot share one
   `--user-data-dir` (SingletonLock), and separate profiles mean switching never
   signs the other provider out.
-- **A provider switch needs a restart**: the browser is built once at startup
-  in `index.ts` (`config.provider`). `/model` is the only provider setting that
+- **A provider switch is LIVE**: `/provider <id>` disposes the old browser
+  and builds+launches the new one in place (`createProviderBrowser`), so no
+  restart is needed. The chat is NOT portable across providers (ids belong to
+  one backend), so the new backend opens a FRESH chat; if the old chat had
+  messages they are summarized and posted as a handoff with the next task. An
+  EMPTY chat is switched silently (nothing to carry over). `/model` also
   applies live.
 
 Qwen specifics worth knowing when you touch it:
@@ -238,6 +244,18 @@ npm run self-smoke -- --profile /path/to/dir # copy an explicit profile
 
 Exit codes: `0` all scenarios passed, `1` a scenario failed, `2` login failed
 (could not even start — the anti-bot case above).
+
+### Qwen smoke
+
+`npm run qwen-smoke` is the Qwen counterpart: a REAL isolated `QwenBrowser`
+against live `chat.qwen.ai`. It copies `~/.zames/qwen-profile` read-only into a
+throwaway `HOME` (`ZAMES_QWEN_SMOKE_HOME`), symlinks the Playwright cache and
+NEVER opens the live profile — it can run alongside a live agent. Scenarios:
+`login`, `newChat`, `ask:simple`, `ask:second-send` (guards the "text entered
+but the send button was not pressed" regression), `listModels`, `tokenUsage`,
+`toolCall` (the model must return a parser-recognised JSON tool call). Flags:
+`--headed`, `--no-reuse-profile`, `ZAMES_QWEN_SMOKE_KEEP=1` keeps the temp HOME.
+Exit codes match self-smoke (`0`/`1`/`2`).
 
 Coverage: `npx tsx --test --experimental-test-coverage test/*.test.ts` (this is
 also what CI runs).

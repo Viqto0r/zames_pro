@@ -98,6 +98,7 @@ import {
   isFinishedWithoutAnswer,
   isRateLimitText,
   isGuestLimitText,
+  isServerBusyText,
 } from './qwen-net-capture.js'
 
 // A SEPARATE profile from DeepSeek's ~/.zames/profile. Two persistent Chromium
@@ -140,6 +141,13 @@ export interface QwenBrowserOptions {
   serverBusyWaitMs?: number
   maxIncompleteRetries?: number
   incompleteWaitMs?: number
+  /**
+   * How long to wait for the answer to START after a send (ms). Qwen's cold
+   * guest turns can be slow, so this is more generous than DeepSeek's.
+   */
+  startWaitMs?: number
+  /** How long to poll for a usable send button before falling back to Enter. */
+  sendButtonWaitMs?: number
   /** Desired Qwen model id (from GET /api/v2/models/). Empty = site default. */
   model?: string
   deepThinking?: boolean
@@ -166,6 +174,8 @@ export class QwenBrowser {
   serverBusyWaitMs: number
   maxIncompleteRetries: number
   incompleteWaitMs: number
+  startWaitMs: number
+  sendButtonWaitMs: number
   // The Qwen model id sent with each completion request. Empty means "let the
   // site pick" (its own default). Read from config, overridable with /model.
   model: string
@@ -192,6 +202,11 @@ export class QwenBrowser {
   // limit for today's usage"). Distinct from _netRateLimited: it cannot be
   // waited out, so ask() fails fast with a "log in" message.
   _netGuestLimit: boolean
+  // True when the completion body carries the server-busy / service-unavailable
+  // notice. Mirrors _netRateLimited: the DOM toast is short-lived, so the RAW
+  // body is the reliable signal. ask() then backs off instead of waiting out
+  // the whole answer deadline.
+  _netServerBusy: boolean
   _netChatId: string | null
   _lastTokenUsage: number | null
   _toggles: { deepThinking: boolean; webSearch: boolean }
@@ -227,6 +242,8 @@ export class QwenBrowser {
     serverBusyWaitMs = 3000,
     maxIncompleteRetries = 4,
     incompleteWaitMs = 2000,
+    startWaitMs = 30000,
+    sendButtonWaitMs = 8000,
     model = '',
     deepThinking = false,
     webSearch = true,
@@ -249,6 +266,8 @@ export class QwenBrowser {
     this.serverBusyWaitMs = serverBusyWaitMs
     this.maxIncompleteRetries = maxIncompleteRetries
     this.incompleteWaitMs = incompleteWaitMs
+    this.startWaitMs = startWaitMs
+    this.sendButtonWaitMs = sendButtonWaitMs
     this.model = model
     this.deepThinking = deepThinking
     this.webSearch = webSearch
@@ -271,6 +290,7 @@ export class QwenBrowser {
     this._netNoAnswer = false
     this._netRateLimited = false
     this._netGuestLimit = false
+    this._netServerBusy = false
     this._netChatId = null
     this._lastTokenUsage = null
     this._toggles = { deepThinking, webSearch }
@@ -515,6 +535,12 @@ export class QwenBrowser {
         if (isRateLimitText(body)) {
           this._netRateLimited = true
           this._netCapture = ''
+        }
+        // The server-busy notice can arrive with a non-empty (partial) answer
+        // too, so it is checked OUTSIDE the `!extracted` branch as well — the
+        // point is to back off, not to discard a usable answer.
+        if (isServerBusyText(body)) {
+          this._netServerBusy = true
         }
         this._netCaptureAt = Date.now()
       }
@@ -965,6 +991,10 @@ export class QwenBrowser {
       )
       if (res?.error) {
         this._lastHistoryError = res.error
+        // Surface the failure: an empty list otherwise looks identical to
+        // "the catalogue is empty", so /model would print "(none)" with no
+        // hint that the API call failed.
+        this._notice(this._t('qwen.model_error', { v: res.error }))
         return []
       }
       const data = (res?.data as Record<string, unknown>) || {}
@@ -994,6 +1024,7 @@ export class QwenBrowser {
       return out
     } catch (e) {
       this._lastHistoryError = (e as Error).message
+      this._notice(this._t('qwen.model_error', { v: (e as Error).message }))
       return []
     }
   }
@@ -1181,6 +1212,12 @@ export class QwenBrowser {
   // Pick Auto/Thinking/Fast in the `.qwen-thinking-selector` dropdown. The
   // option labels are localized, so they are matched by a loose regex.
   async _applyThinkingMode(): Promise<void> {
+    // Only touch the mode dropdown when the desired state changed since the
+    // last apply (same rationale as _applyWebSearch): opening it on every send
+    // is slow and can steal focus from the send button. A manual flip by the
+    // operator is still honored because we re-read the current label below.
+    const wantMode = this.deepThinking ? 1 : 0
+    if (this._appliedThinking === wantMode) return
     try {
       const trigger = this.page.locator(THINKING_SELECTOR).first()
       if ((await trigger.count().catch(() => 0)) === 0) return
@@ -1457,7 +1494,7 @@ export class QwenBrowser {
             if (rateLimitRetries >= this.maxRateLimitRetries) break
             rateLimitRetries++
             this._notice(
-              this._t('ds.rate_limit_wait', {
+              this._t('qwen.rate_limit_wait', {
                 min: Math.ceil(this.rateLimitWaitMs / 60000),
                 attempt: rateLimitRetries,
                 max: this.maxRateLimitRetries,
@@ -1466,9 +1503,16 @@ export class QwenBrowser {
             await this._sleepInterruptible(this.rateLimitWaitMs)
             continue
           }
-          if (/server busy/i.test(msg)) {
+          if (e instanceof QwenServerBusyError || /server busy/i.test(msg)) {
             if (serverBusyRetries >= this.maxServerBusyRetries) break
             serverBusyRetries++
+            this._notice(
+              this._t('qwen.server_busy_wait', {
+                sec: Math.ceil(this.serverBusyWaitMs / 1000),
+                attempt: serverBusyRetries,
+                max: this.maxServerBusyRetries,
+              }),
+            )
             await this._sleepInterruptible(this.serverBusyWaitMs)
             continue
           }
@@ -1477,7 +1521,7 @@ export class QwenBrowser {
             incompleteRetries++
             this._notice(
               theme.warn(
-                this._t('ds.incomplete_retry', {
+                this._t('qwen.incomplete_retry', {
                   attempt: incompleteRetries,
                   max: this.maxIncompleteRetries,
                 }),
@@ -1512,7 +1556,7 @@ export class QwenBrowser {
           }
           this._notice(
             theme.warn(
-              this._t('ds.ask_retry', {
+              this._t('qwen.ask_retry', {
                 attempt: attempt + 1,
                 max: this.askRetries,
                 error: msg,
@@ -1526,7 +1570,7 @@ export class QwenBrowser {
         }
       }
       throw new Error(
-        this._t('ds.ask_failed', {
+        this._t('qwen.ask_failed', {
           max: this.askRetries,
           error: lastErr?.message || '',
         }),
@@ -1557,7 +1601,7 @@ export class QwenBrowser {
         failed.push({ path: f.path, name: f.name })
         this._notice(
           theme.warn(
-            this._t('ds.attach_read_failed', {
+            this._t('qwen.attach_read_failed', {
               name: f.name,
               error: (e as Error).message,
             }),
@@ -1609,7 +1653,7 @@ export class QwenBrowser {
       } catch {}
     }
 
-    this._notice(this._t('ds.attach_no_input'))
+    this._notice(this._t('qwen.attach_no_input'))
     for (const f of files) failed.push({ path: f.path, name: f.name })
     return failed
   }
@@ -1697,7 +1741,7 @@ export class QwenBrowser {
         input = await this._findVisible(INPUT_SELECTORS, 3000)
       } catch {}
     }
-    if (!input) throw new Error(this._t('ds.input_missing'))
+    if (!input) throw new Error(this._t('qwen.input_missing'))
 
     const beforeText = await this._readLastAnswerTextCleanDom().catch(() => '')
     await this._waitForSendSlot(agent)
@@ -1714,6 +1758,7 @@ export class QwenBrowser {
     this._netNoAnswer = false
     this._netRateLimited = false
     this._netGuestLimit = false
+    this._netServerBusy = false
     this._netBody = ''
 
     await this._applyToggles()
@@ -1723,13 +1768,27 @@ export class QwenBrowser {
     }
     await this._setInputText(input, prompt)
 
-    // Send: wait for an ENABLED send button (it is disabled while the input is
-    // empty or an upload is in flight), then click; fall back to Enter. With
-    // attachments the upload can keep the button disabled for a while, so the
-    // window is longer in that case.
-    const sendDeadline = Date.now() + (attachments.length ? 30_000 : 8000)
+    // Send. The input may hold the text WITHOUT the message having been sent
+    // (a real complaint: "text is in the Qwen chat but the send button was not
+    // pressed"). So we do not merely click once — we click AND verify, retrying
+    // through a deadline until the input actually clears (Qwen clears the
+    // textarea the moment it accepts the message). Verification is the ONLY
+    // reliable signal: a disabled button, a menu that stole focus, or a click
+    // that landed on an overlay all leave the text in place.
+    //
+    // We try, in order each round: (1) a click on a VISIBLE, ENABLED send
+    // button, (2) Enter as a fallback. With attachments the upload can keep the
+    // button disabled for a while, so the window is longer in that case.
+    const sendDeadline =
+      Date.now() + (attachments.length ? 30_000 : this.sendButtonWaitMs)
+    const preSendSignal = await this._chatSignal()
     let sent = false
     while (!sent && Date.now() < sendDeadline) {
+      // (1) the send button, if present/enabled/visible. We remember whether a
+      // click was actually issued: pressing Enter in the SAME round could send
+      // the message a SECOND time if the click already worked but the input
+      // had not cleared yet.
+      let clicked = false
       for (const sel of SEND_SELECTORS) {
         const btn = this.page.locator(sel).last()
         try {
@@ -1740,30 +1799,51 @@ export class QwenBrowser {
             .catch(() => true)
           if (!enabled) continue
           await btn.click({ timeout: 1500 })
-          sent = true
+          clicked = true
           break
         } catch {}
       }
-      if (!sent) await this.page.waitForTimeout(150)
-    }
-    if (!sent) await this.page.keyboard.press('Enter')
-    this._lastSentAt = Date.now()
+      // (2) Enter fallback — ONLY when no send button was clicked this round
+      // (a build that sends solely on Enter, or a missing button). This is
+      // what avoids a double send.
+      if (!clicked) {
+        await this.page.keyboard.press('Enter').catch(() => {})
+      }
 
-    // Verify the send really went out: Qwen clears the textarea when the
-    // message is accepted. If the text is still there, press Enter once more.
-    try {
+      // VERIFY: the input must clear. Give the app a moment to react. A send
+      // ALSO counts as successful when the page started generating (the chat
+      // signal grew / a Stop button appeared) even if the textarea did not
+      // clear immediately — some builds keep the last message in the box.
       await this.page.waitForTimeout(300)
       const stillThere = await input
         .evaluate(readInputTrimmedTextInDom)
         .catch(() => '')
-      if (stillThere) {
-        await this.page.keyboard.press('Enter')
-        this._lastSentAt = Date.now()
+      if (!stillThere) {
+        sent = true
+        break
       }
-    } catch {}
+      const sig = await this._chatSignal().catch(() => preSendSignal)
+      const stopVisible = await this._stopButtonVisible().catch(() => false)
+      if (
+        stopVisible ||
+        sig.nodes > preSendSignal.nodes ||
+        sig.lastLen > preSendSignal.lastLen
+      ) {
+        sent = true
+        break
+      }
+      await this.page.waitForTimeout(150)
+    }
+    this._lastSentAt = Date.now()
+    if (!sent) {
+      // The text is still in the input after the whole deadline: the message
+      // was NOT sent. Throw so ask() retries the send instead of waiting out
+      // the full answer timeout for a turn that never started.
+      throw new Error(this._t('qwen.send_button_missing'))
+    }
 
     // Wait for the answer to start, then for it to settle.
-    const startDeadline = Date.now() + 30_000
+    const startDeadline = Date.now() + this.startWaitMs
     const startSignal = await this._chatSignal()
     let started = false
     while (Date.now() < startDeadline) {
@@ -1777,6 +1857,9 @@ export class QwenBrowser {
       }
       if (this._netRateLimited && this._netCaptureAt >= this._lastSentAt) {
         throw new QwenRateLimitError(this._netBody.slice(0, 300))
+      }
+      if (this._netServerBusy && this._netCaptureAt >= this._lastSentAt) {
+        throw new QwenServerBusyError(this._netBody.slice(0, 300))
       }
       const sig = await this._chatSignal()
       if (sig.nodes > startSignal.nodes || sig.lastLen > startSignal.lastLen) {
@@ -1809,6 +1892,9 @@ export class QwenBrowser {
       if (this._netRateLimited && this._netCaptureAt >= this._lastSentAt) {
         throw new QwenRateLimitError(this._netBody.slice(0, 300))
       }
+      if (this._netServerBusy && this._netCaptureAt >= this._lastSentAt) {
+        throw new QwenServerBusyError(this._netBody.slice(0, 300))
+      }
       if (this._netNoAnswer && this._netCaptureAt >= this._lastSentAt) {
         throw new QwenIncompleteError('finished without answer')
       }
@@ -1832,7 +1918,7 @@ export class QwenBrowser {
     }
     const answer = this._netCapture || last
     if (answer && answer !== beforeText) return answer
-    throw new Error(this._t('ds.send_no_new_answer'))
+    throw new Error(this._t('qwen.send_no_new_answer'))
   }
 }
 
@@ -1855,5 +1941,11 @@ class QwenIncompleteError extends Error {
   constructor(detail: string) {
     super('generation incomplete: ' + detail)
     this.name = 'QwenIncompleteError'
+  }
+}
+class QwenServerBusyError extends Error {
+  constructor(detail: string) {
+    super('server busy: ' + detail)
+    this.name = 'QwenServerBusyError'
   }
 }

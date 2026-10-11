@@ -13,6 +13,7 @@ import {
   asProviderId,
   providerChatUrlPrefix,
   providerLabel,
+  type ProviderId,
 } from './providers.js'
 import {
   createTools,
@@ -779,6 +780,46 @@ function browserProviderUrl(): string {
 }
 
 /**
+ * Build the browser for a provider. Called at startup AND on a live
+ * `/provider` switch, so both paths construct the class the same way. The
+ * two backends differ in every layer (selectors, SSE format, chat-id scheme),
+ * so the choice is a class, not a flag; the shared timings live in
+ * config.browser and only Qwen-only knobs are overridden.
+ */
+function createProviderBrowser(provider: ProviderId): ChatProvider {
+  const persistAuth = (username: string, password: string): void => {
+    config.browser.auth.username = username
+    config.browser.auth.password = password
+    try {
+      writeConfigValue('home', 'browser.auth.username', username)
+      writeConfigValue('home', 'browser.auth.password', password)
+    } catch {}
+  }
+  return provider === 'qwen'
+    ? new QwenBrowser({
+        headless,
+        debug,
+        channel: config.browserChannel,
+        ...config.browser,
+        // Qwen-specific overrides (see config.qwen): no 15s DeepSeek
+        // throttle, a longer cold-start answer timeout.
+        minSendIntervalMs: config.qwen.minSendIntervalMs,
+        answerTimeoutMs: config.qwen.answerTimeoutMs,
+        model: config.qwen.model,
+        locale: currentLocale,
+        onAuthSave: persistAuth,
+      })
+    : new DeepSeekBrowser({
+        headless,
+        debug,
+        channel: config.browserChannel,
+        ...config.browser,
+        locale: currentLocale,
+        onAuthSave: persistAuth,
+      })
+}
+
+/**
  * Print the dialogue of the just-opened chat into the terminal. Called by
  * /resume, /resume-id and on startup when a previous session is restored, so
  * the operator sees the context instead of a bare "Chat opened.".
@@ -982,46 +1023,10 @@ async function main(): Promise<void> {
   // class choice, not a flag. The shared timings live in config.browser; only
   // the model is provider-specific. A provider switch takes effect on the
   // next launch (the operator is told to restart).
-  const provider = asProviderId(config.provider)
-  const browser: ChatProvider =
-    provider === 'qwen'
-      ? new QwenBrowser({
-          headless,
-          debug,
-          channel: config.browserChannel,
-          ...config.browser,
-          // Qwen-specific overrides (see config.qwen): no 15s DeepSeek
-          // throttle, a longer cold-start answer timeout.
-          minSendIntervalMs: config.qwen.minSendIntervalMs,
-          answerTimeoutMs: config.qwen.answerTimeoutMs,
-          model: config.qwen.model,
-          locale: currentLocale,
-          onAuthSave: (username, password) => {
-            config.browser.auth.username = username
-            config.browser.auth.password = password
-            try {
-              writeConfigValue('home', 'browser.auth.username', username)
-              writeConfigValue('home', 'browser.auth.password', password)
-            } catch {}
-          },
-        })
-      : new DeepSeekBrowser({
-          headless,
-          debug,
-          channel: config.browserChannel,
-          ...config.browser,
-          locale: currentLocale,
-          // Persist credentials the operator typed in the terminal so the next
-          // launch can re-login silently after a logout.
-          onAuthSave: (username, password) => {
-            config.browser.auth.username = username
-            config.browser.auth.password = password
-            try {
-              writeConfigValue('home', 'browser.auth.username', username)
-              writeConfigValue('home', 'browser.auth.password', password)
-            } catch {}
-          },
-        })
+  // `let`, not `const`: a live /provider switch disposes this instance and
+  // builds the other one IN PLACE (see the /provider block in the main loop),
+  // so the URL changes without restarting zames.
+  let browser: ChatProvider = createProviderBrowser(asProviderId(config.provider))
 
   const bootSpinner = mod.createSpinner(currentLocale)
   bootSpinner.thinking()
@@ -2390,64 +2395,134 @@ async function main(): Promise<void> {
           console.log(theme.system(t('provider.switched', { v: arg })))
           continue
         }
-        // CARRY-OVER: a chat id only exists on its own backend, so switching
-        // providers loses the conversation. Summarize the CURRENT chat (still
-        // on the OLD browser object) and persist a handoff for the target; on
-        // the next launch the new provider posts it as the first message.
-        if (editor) editor.lock(t('msg.input_locked'))
-        try {
-          const spin = editor || mod.createSpinner(currentLocale)
-          spin.thinking()
-          let summary = ''
-          try {
-            const answer = await browser.ask(
-              mod.commands.buildCompactPrompt(currentLocale),
-              {
-                agent: true,
-                timeout: providerAnswerTimeoutMs(),
-              },
-            )
-            const trimmed = String(answer || '').trim()
-            if (mod.commands.isUsableCompactSummary(trimmed)) summary = trimmed
-          } catch (e) {
-            if (debug)
-              console.error('handoff summary failed:', (e as Error).message)
+        // Is there anything worth carrying over? A FRESH/EMPTY chat has no
+        // context to summarize, so switching it is a pure URL/backend change:
+        // summarizing an empty chat used to post a useless "please compact"
+        // request into a brand-new chat (a real complaint). We only build a
+        // handoff when the chat actually has messages.
+        let chatHasMessages = false
+        if (browser.fetchChatMessages) {
+          const cid = await browser.getCurrentChatId().catch(() => null)
+          if (cid) {
+            const all = await browser
+              .fetchChatMessages(cid)
+              .catch(() => [])
+            chatHasMessages = mod.commands.trimRestoredMessages(all, 0).length > 0
           }
-          // Fall back to the LOCAL history when the model summary is unusable.
-          if (!summary && browser.fetchChatMessages) {
-            const cid = await browser.getCurrentChatId().catch(() => null)
-            const all = cid
-              ? await browser.fetchChatMessages(cid).catch(() => [])
-              : []
-            const msgs = mod.commands.trimRestoredMessages(all, 0)
-            if (msgs.length) {
-              summary = mod.commands.formatRestoredHistory(msgs, { limit: 40 })
-            }
-          }
-          spin.stop()
-          if (summary) {
-            saveProviderHandoff({
-              provider: arg,
-              workdir: currentWorkdir,
-              summary,
-              task: lastTaskText || undefined,
-              createdAt: new Date().toISOString(),
-            })
-            console.log(theme.system(t('provider.handoff_saved', { v: arg })))
-          } else {
-            console.log(theme.warn(t('provider.handoff_empty')))
-          }
-        } finally {
-          if (editor) editor.unlock()
         }
+
+        if (chatHasMessages) {
+          // CARRY-OVER: a chat id only exists on its own backend, so switching
+          // providers loses the conversation. Summarize the CURRENT chat (still
+          // on the OLD browser object) and persist a handoff for the target; it
+          // is posted as the first message once the new provider is live.
+          if (editor) editor.lock(t('msg.input_locked'))
+          try {
+            const spin = editor || mod.createSpinner(currentLocale)
+            spin.thinking()
+            let summary = ''
+            try {
+              const answer = await browser.ask(
+                mod.commands.buildCompactPrompt(currentLocale),
+                {
+                  agent: true,
+                  timeout: providerAnswerTimeoutMs(),
+                },
+              )
+              const trimmed = String(answer || '').trim()
+              if (mod.commands.isUsableCompactSummary(trimmed))
+                summary = trimmed
+            } catch (e) {
+              if (debug)
+                console.error('handoff summary failed:', (e as Error).message)
+            }
+            // Fall back to the LOCAL history when the model summary is unusable.
+            if (!summary && browser.fetchChatMessages) {
+              const cid = await browser.getCurrentChatId().catch(() => null)
+              const all = cid
+                ? await browser.fetchChatMessages(cid).catch(() => [])
+                : []
+              const msgs = mod.commands.trimRestoredMessages(all, 0)
+              if (msgs.length) {
+                summary = mod.commands.formatRestoredHistory(msgs, {
+                  limit: 40,
+                })
+              }
+            }
+            spin.stop()
+            if (summary) {
+              saveProviderHandoff({
+                provider: arg,
+                workdir: currentWorkdir,
+                summary,
+                task: lastTaskText || undefined,
+                createdAt: new Date().toISOString(),
+              })
+              console.log(theme.system(t('provider.handoff_saved', { v: arg })))
+            } else {
+              console.log(theme.warn(t('provider.handoff_empty')))
+            }
+          } finally {
+            if (editor) editor.unlock()
+          }
+        }
+
         // Tag the current session with the OLD provider before switching.
         if (currentChatId) saveLastChat(currentChatId, currentWorkdir)
+
+        // Persist the choice FIRST so a crash mid-switch still remembers it.
         config.provider = arg
         config.qwen.enabled = arg === 'qwen'
         try {
           writeConfigValue('home', 'provider', arg)
         } catch {}
-        console.log(theme.system(t('provider.switched', { v: arg })))
+
+        // LIVE SWITCH: dispose the old backend and open the new one in place,
+        // so the operator does not have to restart zames. The chat is NOT
+        // resumable across providers (different chat ids), so the new backend
+        // starts a FRESH chat and the handoff (if any) is posted with the next
+        // task.
+        if (editor) editor.lock(t('msg.input_locked'))
+        try {
+          console.log(theme.system(t('provider.switching', { v: arg })))
+          // Launch the NEW backend FIRST; only close the old one once it is up.
+          // If we closed the old browser before the new one launched and the
+          // launch failed, `browser` would point at a dead instance and every
+          // later command would break.
+          const nextBrowser = createProviderBrowser(arg)
+          await nextBrowser.launch()
+          await nextBrowser.waitForLogin()
+          const oldBrowser = browser
+          browser = nextBrowser
+          await oldBrowser.close().catch(() => {})
+          // The new backend has no chat yet.
+          currentChatId = await browser.getCurrentChatId().catch(() => null)
+          if (editor) {
+            editor.setProvider(providerLabel(arg))
+          }
+          try {
+            warnUiHealth(await browser.probeUiHealth())
+          } catch {}
+          console.log(theme.system(t('provider.switched', { v: arg })))
+        } catch (e) {
+          // The new backend did not come up: keep the OLD one active so the
+          // session keeps working, and roll the persisted choice back.
+          config.provider = from
+          config.qwen.enabled = from === 'qwen'
+          try {
+            writeConfigValue('home', 'provider', from)
+          } catch {}
+          console.error(
+            theme.warn(
+              t('provider.switch_failed', {
+                v: arg,
+                error: (e as Error).message,
+              }),
+            ),
+          )
+        } finally {
+          if (editor) editor.unlock()
+        }
         continue
       }
       console.error(theme.warn(t('provider.usage')))

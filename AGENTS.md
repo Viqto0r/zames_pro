@@ -55,6 +55,15 @@ Both implement the `ChatProvider` interface (`src/types.ts`); everything above
 the browser (agent loop, tools, parser, system-prompt) is provider-agnostic and
 only depends on `BrowserLike`.
 
+`/provider <id>` switches LIVE: it closes the current backend and builds +
+launches the other one IN PLACE (`createProviderBrowser()` in `index.ts`, the
+ONE factory used at startup too), so no restart is needed. The two providers
+use SEPARATE browser profiles (`~/.zames/profile` vs `~/.zames/qwen-profile`),
+so switching never signs the other one out. A chat id belongs to ONE backend,
+so the new provider opens a FRESH chat; if the old chat had messages they are
+summarized and posted as a handoff with the next task, while an EMPTY chat is
+switched silently (no useless "please compact" message).
+
 It runs in the project directory (`process.cwd()`), which is the sandbox
 root: tools cannot read/write above it.
 
@@ -1057,6 +1066,16 @@ the live one; the Singleton files are dropped in the copy) lets the smoke
 exercise the AGENT against a real signed-in session. Use it before a release
 when a cold login is blocked; the empty-profile mode remains the default.
 When you add a user-visible feature, add a self-smoke scenario for it.
+
+`npm run qwen-smoke` (scripts/qwen-smoke.mts) is the Qwen counterpart: a REAL
+isolated `QwenBrowser` against live `chat.qwen.ai`. It copies
+`~/.zames/qwen-profile` read-only into a throwaway `HOME`
+(`ZAMES_QWEN_SMOKE_HOME`), symlinks the Playwright cache and NEVER opens the
+live profile, so it can run alongside a live agent. Scenarios: login, newChat,
+ask:simple, ask:second-send (the "text entered but send button not pressed"
+regression), listModels, tokenUsage, toolCall. Flags: `--headed`,
+`--no-reuse-profile`, `ZAMES_QWEN_SMOKE_KEEP=1`. Same exit codes as self-smoke.
+When you touch QwenBrowser, run it before a commit.
 
 - Syntax/types: `npm run typecheck` (tsc --noEmit, includes src/, test/ and scripts/**/*.mts)
 - Changelog sync: `npm run changelog:sync` (writes the Unreleased section from

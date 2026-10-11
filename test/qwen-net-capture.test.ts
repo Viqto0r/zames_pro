@@ -6,6 +6,7 @@ import {
   isFinishedWithoutAnswer,
   isRateLimitText,
   isGuestLimitText,
+  isServerBusyText,
 } from '../src/qwen-net-capture.ts'
 
 // A real Qwen completions stream: a thinking_summary phase with NO answer
@@ -65,4 +66,15 @@ test('isGuestLimitText detects the guest daily limit (not a transient limit)', (
   assert.equal(isGuestLimitText(body), true)
   // A plain transient rate limit must NOT be mistaken for the guest limit.
   assert.equal(isGuestLimitText('{"error":"too many requests"}'), false)
+})
+
+// The server-busy notice is a SEPARATE retryable family from the rate limit:
+// the caller backs off for `serverBusyWaitMs` instead of `rateLimitWaitMs`.
+// QwenBrowser._onResponse must flag it (it was previously never imported, so a
+// busy server burned the whole attempt budget waiting out the deadline).
+test('isServerBusyText detects the busy / unavailable notices', () => {
+  assert.equal(isServerBusyText('{"error":"server is busy"}'), true)
+  assert.equal(isServerBusyText('Service unavailable'), true)
+  assert.equal(isServerBusyText('please try again later'), true)
+  assert.equal(isServerBusyText('a normal answer body'), false)
 })

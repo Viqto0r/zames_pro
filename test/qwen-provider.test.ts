@@ -65,6 +65,42 @@ test('QwenBrowser: getCurrentChatId ignores the guest pseudo-id', async () => {
   )
 })
 
+// The thinking-mode guard: once the desired mode is applied, a further send
+// must NOT reopen the `.qwen-thinking-selector` dropdown (that is slow and can
+// steal focus from the send button). Before the fix `_appliedThinking` was set
+// but never checked, so the dropdown was driven on every send.
+test('QwenBrowser: _applyThinkingMode is a no-op once applied', async () => {
+  let locatorCalls = 0
+  const page = {
+    locator() {
+      locatorCalls++
+      return {
+        first() {
+          return this
+        },
+        count: async () => 0,
+      }
+    },
+    waitForTimeout: async () => {},
+    keyboard: { press: async () => {} },
+  }
+  const b = new QwenBrowser({ deepThinking: false })
+  b.page = page as never
+  // Pretend the wanted mode was already applied to the page.
+  b._appliedThinking = 0 // deepThinking=false -> want 0
+  await b._applyThinkingMode()
+  assert.equal(
+    locatorCalls,
+    0,
+    'the mode dropdown must not be opened when the mode is already applied',
+  )
+  // A DIFFERENT desired mode must still drive the UI (the guard is keyed on
+  // the value, not a one-shot latch).
+  b.deepThinking = true
+  await b._applyThinkingMode()
+  assert.ok(locatorCalls > 0, 'a changed mode must be applied')
+})
+
 test('QwenBrowser: toggle state is cached synchronously', () => {
   const b = new QwenBrowser({ deepThinking: false, webSearch: true })
   assert.deepEqual(b.getToggleStatesSync(), {

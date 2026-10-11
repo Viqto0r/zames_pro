@@ -3,7 +3,7 @@
 //   1. add an entry here (id, label, chat URL prefix, extra config section);
 //   2. add the provider's `<name>-ui.ts` + `<name>-net-capture.ts` +
 //      `<name>-browser.ts` (implementing ChatProvider, see types.ts);
-//   3. register the class in `createBrowser()` in index.ts.
+//   3. register the class in `createProviderBrowser()` in index.ts.
 // Everything else (config enum, /provider validation, sessions tagging, the
 // /doctor row, the {provider} label in operator messages, /chat URL) reads
 // from HERE, so nothing else has to be touched.
