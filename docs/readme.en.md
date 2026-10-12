@@ -154,7 +154,7 @@ sign-in, zames:
    after a successful sign-in, remembers them for next time;
 4. otherwise falls back to a manual sign-in hint.
 
-To sign in by hand (for example, if DeepSeek shows a captcha), run with a
+To sign in by hand (for example, if the site shows a captcha), run with a
 visible window:
 
 ```bash
@@ -345,7 +345,8 @@ Codex CLI:
 - /rename <title> — set the current session title (shown in /sessions).
 - /copy — copy the last assistant answer to the OS clipboard.
 - /cost (alias /usage) — session stats: tasks, tool calls, duration, and the
-  context size in tokens (DeepSeek's `accumulated_token_usage`).
+  context size in tokens (DeepSeek's `accumulated_token_usage`; Qwen
+  reports `input_tokens`).
 - /export [file] — write the session transcript to a Markdown file
   (zames-export-<stamp>.md by default).
 - /doctor — diagnose node, git, config, browser, clipboard, MCP and the
@@ -392,8 +393,9 @@ tests`). /cron "<min> <hour> <dom> <month> <dow>" <task> — run on a schedule.
 The token context is also shown live: the status line above the input has the
 spinner/text on the left and the context on the right (e.g. `125k · 13%`,
 percent of a 1M context). It is COLORED by fill level: green below 50%,
-yellow 50-80%, red above 80%. It comes from DeepSeek's
-`accumulated_token_usage` and is hidden until the first answer delivers it.
+yellow 50-80%, red above 80%. It comes from the provider's own token
+counter (DeepSeek's `accumulated_token_usage`, Qwen's `input_tokens`) and is
+hidden until the first answer delivers it.
 
 ## Project context, skills and memory
 
@@ -432,7 +434,7 @@ Skills and custom commands show up in the «/» completion list and in `/help`.
 zames can use tools from [MCP](https://modelcontextprotocol.io) servers.
 The flagship example is @playwright/mcp: it gives the agent a real browser
 (navigate, click, snapshot, type, ...) on top of the one zames already uses
-for the DeepSeek chat.
+for the DeepSeek or Qwen chat.
 
 Drop a config file (same shape as Claude Code / Cursor):
 
