@@ -5,6 +5,11 @@
 // the model node now shows BOTH supported backends (chat.deepseek.com /
 // chat.qwen.ai) instead of only chat.deepseek.com.
 //
+// Layout matches mermaid LR: FORWARD edges (the request) run through the node
+// centerline left->right; BACK edges (the answers) are routed BELOW the boxes
+// with a short vertical stub on each side, so forward and back arrows are
+// clearly separated instead of overlapping.
+//
 // Run:  npm run render-how  (tsx scripts/render-how-it-works.mts)
 //
 // Isolation: chromium.launch() uses a THROWAWAY context, never
@@ -24,14 +29,16 @@ const TEXT = '#333333'
 const FONT = 'trebuchet ms, verdana, arial, sans-serif'
 
 const W = 1120
-const H = 150
 const NODE_W = 250
 const NODE_H = 70
-const CY = H / 2
 const PAD = 30
+const TOP = 34
+const CY = TOP + NODE_H / 2
+// The back edges run below the boxes; leave room for them + their labels.
+const BACK_Y = TOP + NODE_H + 46
+const H = BACK_Y + 30
+const GAP = 150
 
-// A left-to-right chain with the SAME three steps as the original diagram;
-// only the last node gained a second line (the two supported backends).
 interface Node {
   x: number
   w: number
@@ -41,12 +48,12 @@ interface Node {
 const nodes: Node[] = [
   { x: PAD, w: NODE_W, lines: ['terminal (you)'] },
   {
-    x: PAD + NODE_W + 150,
+    x: PAD + NODE_W + GAP,
     w: 260,
     lines: ['zames', 'parse tool-call · run tool'],
   },
   {
-    x: PAD + NODE_W + 150 + 260 + 150,
+    x: PAD + NODE_W + GAP + 260 + GAP,
     w: 260,
     lines: ['chat.deepseek.com', 'chat.qwen.ai'],
   },
@@ -56,7 +63,7 @@ const esc = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
 const nodeSvg = (n: Node): string => {
-  const y = CY - NODE_H / 2
+  const y = TOP
   const rx = 12
   const lh = 20
   const startY = CY - ((n.lines.length - 1) * lh) / 2 + 5
@@ -99,50 +106,75 @@ const nodeSvg = (n: Node): string => {
   )
 }
 
-// A horizontal edge from x1 to x2 at height y, with a centered label above it.
-const edge = (
-  x1: number,
-  x2: number,
-  y: number,
-  label: string,
-  dir: 'r' | 'l',
-): string => {
+const label = (x: number, y: number, text: string): string =>
+  '<text x="' +
+  x +
+  '" y="' +
+  y +
+  '" text-anchor="middle" font-family="' +
+  FONT +
+  '" font-size="12" fill="' +
+  TEXT +
+  '">' +
+  esc(text) +
+  '</text>'
+
+// A FORWARD edge: a straight horizontal arrow at the node centerline, going
+// left->right, with the label just above the line.
+const forward = (x1: number, x2: number, text: string): string => {
   const mid = (x1 + x2) / 2
-  const marker = dir === 'r' ? 'ar' : 'al'
   return (
     '<path d="M' +
     x1 +
     ' ' +
-    y +
+    CY +
     ' L' +
     x2 +
     ' ' +
-    y +
+    CY +
     '" fill="none" stroke="' +
     TEXT +
-    '" stroke-width="1.6" marker-end="url(#' +
-    marker +
-    ')"/>' +
-    '<text x="' +
-    mid +
-    '" y="' +
-    (y - 8) +
-    '" text-anchor="middle" font-family="' +
-    FONT +
-    '" font-size="12" fill="' +
+    '" stroke-width="1.6" marker-end="url(#ar)"/>' +
+    label(mid, CY - 9, text)
+  )
+}
+
+// A BACK edge: from the RIGHT box's bottom edge, DOWN to BACK_Y, LEFT, then UP
+// into the LEFT box's bottom edge, with the arrowhead pointing up-left into it.
+const back = (leftX: number, rightX: number, text: string): string => {
+  // leftX = right edge of the LEFT node; rightX = left edge of the RIGHT node.
+  const ly = TOP + NODE_H
+  const d =
+    'M' +
+    rightX +
+    ' ' +
+    ly +
+    ' L' +
+    rightX +
+    ' ' +
+    BACK_Y +
+    ' L' +
+    leftX +
+    ' ' +
+    BACK_Y +
+    ' L' +
+    leftX +
+    ' ' +
+    ly
+  const mid = (leftX + rightX) / 2
+  return (
+    '<path d="' +
+    d +
+    '" fill="none" stroke="' +
     TEXT +
-    '">' +
-    esc(label) +
-    '</text>'
+    '" stroke-width="1.6" marker-end="url(#au)"/>' +
+    label(mid, BACK_Y - 6, text)
   )
 }
 
 const a = nodes[0]
 const z = nodes[1]
 const m = nodes[2]
-
-const reqY = CY - 16
-const ansY = CY + 20
 
 const svg =
   '<svg xmlns="http://www.w3.org/2000/svg" width="' +
@@ -155,20 +187,24 @@ const svg =
   H +
   '">' +
   '<defs>' +
+  // right-pointing arrowhead
   '<marker id="ar" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L9,3 L0,6 z" fill="' +
   TEXT +
   '"/></marker>' +
-  '<marker id="al" markerWidth="10" markerHeight="10" refX="1" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M9,0 L0,3 L9,6 z" fill="' +
+  // up-pointing arrowhead (for the back edges arriving at a bottom edge)
+  '<marker id="au" markerWidth="10" markerHeight="10" refX="3" refY="2" orient="auto" markerUnits="strokeWidth"><path d="M0,6 L3,0 L6,6 z" fill="' +
   TEXT +
   '"/></marker>' +
   '</defs>' +
   '<rect width="100%" height="100%" fill="#ffffff"/>' +
-  // request edges (top, left -> right)
-  edge(a.x + a.w, z.x, reqY, 'task', 'r') +
-  edge(z.x + z.w, m.x, reqY, 'system prompt + task', 'r') +
-  // answer edges (bottom, right -> left)
-  edge(m.x, z.x + z.w, ansY, 'model answers (raw SSE)', 'l') +
-  edge(z.x, a.x + a.w, ansY, 'answer', 'l') +
+  // back edges first (drawn under the forward edges / nodes).
+  // back(leftEdgeRightX, rightEdgeLeftX, label): the arrow starts at the RIGHT
+  // box's bottom, runs down-left, and points up into the LEFT box's bottom.
+  back(z.x + z.w, m.x, 'model answers (raw SSE)') +
+  back(a.x + a.w, z.x, 'answer') +
+  // forward edges
+  forward(a.x + a.w, z.x, 'task') +
+  forward(z.x + z.w, m.x, 'system prompt + task') +
   nodes.map(nodeSvg).join('') +
   '</svg>'
 
