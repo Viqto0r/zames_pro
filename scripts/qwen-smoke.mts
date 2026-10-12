@@ -163,6 +163,38 @@ async function main() {
     } catch (e) {
       record('toolCall', false, (e as Error).message)
     }
+
+    // History restore: after the sends above the chat must have messages.
+    try {
+      const id = await browser.getCurrentChatId()
+      const msgs = id ? await browser.fetchChatMessages(id) : []
+      record(
+        'history',
+        msgs.length > 0,
+        'id=' + (id || '-') + ' msgs=' + msgs.length,
+      )
+    } catch (e) {
+      record('history', false, (e as Error).message)
+    }
+
+    // Attachments: a SIGNED-IN session uploads a file; a GUEST cannot, so a
+    // guest failure is reported as a SKIP (not a failure) — the guest limit is
+    // a site restriction, not a regression.
+    try {
+      const tmpFile = path.join(SMOKE_HOME, 'zames-smoke-note.txt')
+      fs.writeFileSync(tmpFile, 'The secret word is BANANA')
+      const failed = await browser._attachFiles([
+        { path: tmpFile, name: 'zames-smoke-note.txt', mime: 'text/plain' },
+      ])
+      const attached = failed.length === 0
+      const isGuest = !(await browser.isLoggedIn().catch(() => false))
+      if (attached) record('attachments', true, '')
+      else if (isGuest)
+        record('attachments', true, 'skipped (guest cannot upload)')
+      else record('attachments', false, JSON.stringify(failed))
+    } catch (e) {
+      record('attachments', false, (e as Error).message)
+    }
   }
 
   await browser.close().catch(() => {})

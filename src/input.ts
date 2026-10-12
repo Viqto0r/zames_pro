@@ -32,6 +32,7 @@ import {
   tokenStatusLevel,
   truncateToWidth,
   wrapToWidth,
+  splitPasteTail,
   CONTEXT_LIMIT,
   type PasteBlock,
   type SlashCommand,
@@ -57,6 +58,7 @@ export {
   tokenStatusLevel,
   formatTokenStatus,
   formatCompactTokens,
+  splitPasteTail,
   truncateToWidth,
   wrapToWidth,
   CONTEXT_LIMIT,
@@ -165,6 +167,12 @@ export class LineEditor {
   // head of a control sequence split across two reads. We hold it briefly and
   // fire onEscape only if no tail arrives.
   _escPending: boolean
+  // Tail of a control sequence split across two `data` chunks. Only the
+  // PASTE_START / PASTE_END markers need it: a chunk that ends on `ESC[2` etc.
+  // is stored here and re-joined with the next chunk, so a bracketed paste whose
+  // start marker was fragmented is still recognized (otherwise the paste bytes
+  // leaked into the buffer as literal text).
+  _ctrlTail: string
   _escTimer: ReturnType<typeof setTimeout> | null
   // History of sent messages (for the up/down arrows).
   history: string[]
@@ -292,6 +300,7 @@ export class LineEditor {
     this._resizeTimer = null
     this._escPending = false
     this._escTimer = null
+    this._ctrlTail = ''
     this._onResize = () => {
       // Debounce: a window drag fires a burst of SIGWINCH events. We wait a
       // short moment, then redraw the block at the NEW width.
@@ -1692,6 +1701,22 @@ export class LineEditor {
         this._escTimer = null
       }
       s = ESC + s
+    }
+
+    // Reattach a control-sequence tail held from the PREVIOUS chunk (a
+    // PASTE_START/PASTE_END marker split across reads). See _ctrlTail.
+    if (this._ctrlTail) {
+      s = this._ctrlTail + s
+      this._ctrlTail = ''
+    }
+
+    // A chunk may end in the MIDDLE of a PASTE marker (`ESC[2`, `ESC[20`, …).
+    // Hold that tail back so the next chunk completes it; otherwise the
+    // fragment is inserted as literal text and the paste is not bracketed.
+    const held = splitPasteTail(s)
+    if (held.tail) {
+      this._ctrlTail = held.tail
+      s = held.head
     }
 
     if (!this._inPaste && s === ESC && !this._searchMode) {

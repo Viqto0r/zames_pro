@@ -70,9 +70,18 @@ export class Transcript {
     }
     if (!this.enabled || !this.stream) return
     try {
-      this.stream.write(line)
+      // `write() === false` means the internal buffer is FULL (slow disk /
+      // network mount). Node keeps buffering in memory, so a long run of fast
+      // events can grow unboundedly; we COUNT the backpressured writes so
+      // close() can report them. We still write (dropping trace lines silently
+      // would be worse), but the counter makes the condition visible.
+      const ok = this.stream.write(line)
+      if (!ok) this.backpressure++
     } catch {}
   }
+
+  /** Number of writes that hit backpressure (write() === false). */
+  backpressure = 0
 
   // Flush the stream and resolve once the data reached the file. The callers
   // run on process.exit paths (one-shot --task, browser error, clean exit), and
@@ -89,5 +98,19 @@ export class Transcript {
       stream.on('error', () => resolve())
       stream.end(() => resolve())
     })
+  }
+
+  /**
+   * A one-line health note for the operator, or null when the stream stayed
+   * healthy. Callers print it on exit so a slow/broken transcript file (the
+   * events were buffered in memory instead of reaching disk) is not silent.
+   */
+  healthNote(): string | null {
+    if (this.backpressure === 0) return null
+    return (
+      'transcript: ' +
+      this.backpressure +
+      ' write(s) hit backpressure (slow disk?) — events may be delayed'
+    )
   }
 }

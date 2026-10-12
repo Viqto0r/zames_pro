@@ -513,7 +513,11 @@ function printHelp(): void {
       t('help.cmd.exit') +
       '\n'
   console.log(`
-${theme.bold('zames')} — ${t('app.tagline')}
+${theme.bold('zames')} — ${t('app.tagline', {
+    provider: browserProviderUrl()
+      .replace(/^https?:\/\//, '')
+      .split('/')[0],
+  })}
 
 ${theme.bold(t('help.options'))}
   --dir <path>       ${t('help.opt.dir')}
@@ -4050,6 +4054,10 @@ async function main(): Promise<void> {
   await mod.closeWeb().catch(() => {})
   if (mcpPool) await mcpPool.close().catch(() => {})
   await transcript.close()
+  // Surface a transcript that hit backpressure (events buffered in memory, not
+  // on disk) instead of leaving it silent.
+  const trNote = transcript.healthNote()
+  if (trNote) console.log(theme.warn(trNote))
   // One dim line so the operator can find the log and the session after
   // the run (previously the path was only available via /transcript).
   console.log(

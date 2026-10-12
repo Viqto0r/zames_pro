@@ -429,3 +429,34 @@ export function formatCompactTokens(tokens: number | null | undefined): string {
 
 // Re-exported for the editor's layout selftest (node src/input.js --selftest).
 export { NL, CR, ESC, PASTE_START, PASTE_END, safeJson }
+
+/**
+ * Split off a trailing PARTIAL PASTE marker so a control sequence fragmented
+ * across two terminal reads is reassembled by the caller instead of leaking
+ * into the buffer as literal text. A bracketed paste sends `ESC[200~` …
+ * `ESC[201~`; a read can end anywhere inside one of those markers.
+ *
+ * Returns `{ head, tail }` where `tail` is the held-back partial marker (or
+ * null when the string does not end inside a marker). Only tails that START
+ * with ESC and are a genuine PREFIX of PASTE_START / PASTE_END are held, so an
+ * ordinary trailing `[2` typed by hand is NOT swallowed.
+ */
+export function splitPasteTail(s: string): {
+  head: string
+  tail: string | null
+} {
+  const str = String(s ?? '')
+  if (!str) return { head: str, tail: null }
+  // The longest marker prefix to consider is one char short of the marker.
+  const markers = [PASTE_START, PASTE_END]
+  const maxHold = Math.max(...markers.map((m) => m.length)) - 1
+  const upto = Math.min(maxHold, str.length - 1)
+  for (let len = upto; len >= 1; len--) {
+    const tail = str.slice(str.length - len)
+    if (!tail.startsWith(ESC)) continue
+    if (markers.some((m) => m.length > len && m.startsWith(tail))) {
+      return { head: str.slice(0, str.length - len), tail }
+    }
+  }
+  return { head: str, tail: null }
+}

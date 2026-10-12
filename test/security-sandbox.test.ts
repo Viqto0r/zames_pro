@@ -136,3 +136,37 @@ test('GitDiff does not execute a $(...) path', async () => {
   assert.equal(fsSync.existsSync(path.join(dir, 'tmp', 'PWNED')), false)
   await rm(dir)
 })
+
+test('assertCommandInsideRoot blocks indirect chdir escape hatches', () => {
+  const root = path.join(os.tmpdir(), 'zames-sbx-root2')
+  // A fresh interpreter reads the target only at runtime — no static `cd` scan
+  // can prove it stays inside the root.
+  assert.throws(() => assertCommandInsideRoot(root, "sh -c 'cd /'"), /Sandbox/)
+  assert.throws(
+    () => assertCommandInsideRoot(root, 'bash -c "ls /"'),
+    /Sandbox/,
+  )
+  assert.throws(() => assertCommandInsideRoot(root, 'chroot / ls'), /Sandbox/)
+  assert.throws(
+    () =>
+      assertCommandInsideRoot(root, 'python -c "import os; os.chdir(\'/\')"'),
+    /Sandbox/,
+  )
+  assert.throws(
+    () =>
+      assertCommandInsideRoot(
+        root,
+        'node -e "process.chdir(' +
+          String.fromCharCode(39) +
+          '/' +
+          String.fromCharCode(39) +
+          ')"',
+      ),
+    /Sandbox/,
+  )
+  // Legitimate commands stay allowed.
+  assert.doesNotThrow(() => assertCommandInsideRoot(root, 'ls -la'))
+  assert.doesNotThrow(() => assertCommandInsideRoot(root, 'npm test'))
+  assert.doesNotThrow(() => assertCommandInsideRoot(root, 'node script.js'))
+  assert.doesNotThrow(() => assertCommandInsideRoot(root, 'python build.py'))
+})

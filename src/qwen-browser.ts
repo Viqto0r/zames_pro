@@ -24,6 +24,7 @@ import type { BrowserContext, Locator, Page } from 'playwright'
 import { translate, DEFAULT_LOCALE } from './i18n.js'
 import type { Locale } from './i18n.js'
 import { rewriteFailedAttachments } from './commands.js'
+import { awaitUploadPreview, readAttachBuffers } from './attach-flow.js'
 import { theme } from './theme.js'
 import type { ChatInfo, ChatMessage } from './types.js'
 import {
@@ -121,6 +122,18 @@ function escapeRegExp(s: string): string {
 const CHAT_RE = /chat\.qwen\.ai/i
 const ANSWER_URL_RE = /\/api\/v2\/chat\/completions/i
 const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
+
+// Cap the stored RAW SSE body. The truncated/no-answer detectors only read the
+// markers (`quasi_status`, `finish_reason`) and the SLICE shown in errors
+// (first/last 300 chars), so keeping a whole multi-MB stream in memory for the
+// rest of the turn is wasteful. The first 64 KB is plenty for every marker we
+// match; the tail (used in error messages) is kept by cutting the middle.
+const MAX_NET_BODY = 64 * 1024
+function capNetBody(body: string): string {
+  if (body.length <= MAX_NET_BODY) return body
+  const head = MAX_NET_BODY - 1024
+  return body.slice(0, head) + '\n...[truncated]...\n' + body.slice(-1024)
+}
 
 // Qwen's sign-in is on the SAME origin as the chat (`chat.qwen.ai/auth`), so a
 // page.evaluate can drive it. The DEFAULT flow is email -> a one-time code
@@ -531,7 +544,7 @@ export class QwenBrowser {
       // tomorrow).
       if (isGuestLimitText(body)) {
         this._netGuestLimit = true
-        this._netBody = body
+        this._netBody = capNetBody(body)
         this._netCaptureAt = Date.now()
       }
 
@@ -549,7 +562,7 @@ export class QwenBrowser {
         // sent it by hand. Bump the throttle so our next send waits.
         this._lastSentAt = Date.now()
       }
-      this._netBody = body
+      this._netBody = capNetBody(body)
       const cid = body.match(UUID_RE)
       if (cid) this._netChatId = cid[0]
       if (!extracted) {
@@ -1515,6 +1528,11 @@ export class QwenBrowser {
           if (e instanceof QwenGuestLimitError) {
             throw new Error(this._t('qwen.guest_limit'))
           }
+          if (e instanceof QwenAgeGateError) {
+            // Not retryable: a resend hits the SAME gate. Fail at once with a
+            // clear "sign in" message instead of burning the retry budget.
+            throw new Error(this._t('qwen.age_gate_block'))
+          }
           if (/rate limit|too frequent/i.test(msg)) {
             if (rateLimitRetries >= this.maxRateLimitRetries) break
             rateLimitRetries++
@@ -1612,28 +1630,13 @@ export class QwenBrowser {
   async _attachFiles(
     files: Array<{ path: string; name: string; mime: string }>,
   ): Promise<Array<{ path: string; name: string }>> {
-    const failed: Array<{ path: string; name: string }> = []
-    const bufPayload: Array<{
-      name: string
-      mimeType: string
-      buffer: Buffer
-    }> = []
-    for (const f of files) {
-      try {
-        const buffer = await fs.readFile(f.path)
-        bufPayload.push({ name: f.name, mimeType: f.mime, buffer })
-      } catch (e) {
-        failed.push({ path: f.path, name: f.name })
+    const { payload: bufPayload, failed } = await readAttachBuffers(
+      files,
+      (name, error) =>
         this._notice(
-          theme.warn(
-            this._t('qwen.attach_read_failed', {
-              name: f.name,
-              error: (e as Error).message,
-            }),
-          ),
-        )
-      }
-    }
+          theme.warn(this._t('qwen.attach_read_failed', { name, error })),
+        ),
+    )
     if (!bufPayload.length) return failed
 
     // Primary flow (verified live): click the "+" (`.mode-select-open`) to
@@ -1683,26 +1686,10 @@ export class QwenBrowser {
     return failed
   }
 
-  // Wait for the upload chip (the file name above the input) instead of a
-  // fixed sleep: files are attached BEFORE the text is typed, so the name
-  // cannot appear on the page for any other reason.
+  // Wait for the upload chip (the file name above the input). Delegates to the
+  // shared helper so both providers use the SAME preview policy.
   async _awaitUploadPreview(names: string[], timeoutMs: number): Promise<void> {
-    const clean = names.map((n) => String(n || '').trim()).filter(Boolean)
-    if (!clean.length) {
-      await this.page.waitForTimeout(timeoutMs)
-      return
-    }
-    const deadline = Date.now() + timeoutMs
-    while (Date.now() < deadline) {
-      for (const name of clean) {
-        const n = await this.page
-          .getByText(name, { exact: false })
-          .count()
-          .catch(() => 0)
-        if (n > 0) return
-      }
-      await this.page.waitForTimeout(150)
-    }
+    await awaitUploadPreview(this.page, names, timeoutMs)
   }
 
   async _setInputText(input: Locator, text: string): Promise<void> {
@@ -1876,7 +1863,7 @@ export class QwenBrowser {
         .count()
         .catch(() => 0)
       if (gate > 0) {
-        throw new Error(this._t('qwen.age_gate_block'))
+        throw new QwenAgeGateError('age-confirmation modal blocks the send')
       }
       // Throw so ask() retries the send instead of waiting out the full answer
       // timeout for a turn that never started.
@@ -1976,6 +1963,14 @@ class QwenGuestLimitError extends Error {
   constructor(detail: string) {
     super('guest limit: ' + detail)
     this.name = 'QwenGuestLimitError'
+  }
+}
+// The guest age-confirmation gate swallowed the send. NOT retryable: a resend
+// hits the same gate, so ask() fails at once instead of burning its retries.
+class QwenAgeGateError extends Error {
+  constructor(detail: string) {
+    super('age gate: ' + detail)
+    this.name = 'QwenAgeGateError'
   }
 }
 class QwenIncompleteError extends Error {

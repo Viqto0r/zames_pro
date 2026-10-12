@@ -69,3 +69,46 @@ test('expandPastes терпим к удалённому маркеру', () => {
   // The marker was deleted from the buffer — nothing to expand.
   assert.equal(expandPastes([rep], 'hello'), 'hello')
 })
+
+import { splitPasteTail } from '../src/input.ts'
+const ESC = String.fromCharCode(27)
+const PASTE_START = ESC + '[200~'
+const PASTE_END = ESC + '[201~'
+
+test('splitPasteTail holds a partial PASTE_START tail', () => {
+  const r = splitPasteTail('abc' + ESC + '[20')
+  assert.equal(r.tail, ESC + '[20')
+  assert.equal(r.head, 'abc')
+  // The held tail is a genuine prefix of a marker.
+  assert.ok(PASTE_START.startsWith(r.tail as string))
+})
+
+test('splitPasteTail holds a partial PASTE_END tail', () => {
+  const r = splitPasteTail('x' + ESC + '[2')
+  assert.equal(r.tail, ESC + '[2')
+  assert.equal(r.head, 'x')
+  assert.ok(
+    PASTE_END.startsWith(r.tail as string) ||
+      PASTE_START.startsWith(r.tail as string),
+  )
+})
+
+test('splitPasteTail keeps a complete marker intact (no tail)', () => {
+  const r = splitPasteTail('a' + PASTE_START)
+  assert.equal(r.tail, null)
+  assert.equal(r.head, 'a' + PASTE_START)
+})
+
+test('splitPasteTail does not swallow ordinary text', () => {
+  const r = splitPasteTail('hello world')
+  assert.equal(r.tail, null)
+  assert.equal(r.head, 'hello world')
+  // A trailing "[2" WITHOUT a leading ESC is plain text, not a marker prefix.
+  const r2 = splitPasteTail('value[2')
+  assert.equal(r2.tail, null)
+  assert.equal(r2.head, 'value[2')
+})
+
+test('splitPasteTail on an empty string', () => {
+  assert.deepEqual(splitPasteTail(''), { head: '', tail: null })
+})

@@ -11,6 +11,7 @@ import {
   isFinishedWithoutAnswer,
 } from './net-capture.js'
 import { rewriteFailedAttachments } from './commands.js'
+import { awaitUploadPreview, readAttachBuffers } from './attach-flow.js'
 import {
   parseHistoryMessages,
   extractChatMessages,
@@ -1844,24 +1845,13 @@ export class DeepSeekBrowser {
   async _attachFiles(
     files: Array<{ path: string; name: string; mime: string }>,
   ): Promise<Array<{ path: string; name: string }>> {
-    const failed: Array<{ path: string; name: string }> = []
-    const bufPayload = []
-    for (const f of files) {
-      try {
-        const buffer = await fs.readFile(f.path)
-        bufPayload.push({ name: f.name, mimeType: f.mime, buffer })
-      } catch (e) {
-        failed.push({ path: f.path, name: f.name })
+    const { payload: bufPayload, failed } = await readAttachBuffers(
+      files,
+      (name, error) =>
         this._notice(
-          theme.warn(
-            this._t('ds.attach_read_failed', {
-              name: f.name,
-              error: (e as Error).message,
-            }),
-          ),
-        )
-      }
-    }
+          theme.warn(this._t('ds.attach_read_failed', { name, error })),
+        ),
+    )
     if (!bufPayload.length) return failed
 
     // Preferred path: click the attach button and let the file chooser event
@@ -1912,29 +1902,11 @@ export class DeepSeekBrowser {
     return failed
   }
 
-  // Wait for the upload preview (the attached-file chip above the
-  // input) to appear, instead of a fixed 2.5s/2s sleep. The signal is the
-  // FILE NAME showing up on the page: we attach files BEFORE typing the text,
-  // so the name cannot appear there for any other reason. The old fixed value
-  // stays as the TIMEOUT CEILING, so a build where the name is not detected
-  // behaves exactly as before.
+  // Wait for the upload preview (the attached-file chip above the input) to
+  // appear, instead of a fixed sleep. Delegates to the shared helper so both
+  // providers use the SAME preview policy.
   async _awaitUploadPreview(names: string[], timeoutMs: number): Promise<void> {
-    const clean = names.map((n) => String(n || '').trim()).filter(Boolean)
-    if (!clean.length) {
-      await this.page.waitForTimeout(timeoutMs)
-      return
-    }
-    const deadline = Date.now() + timeoutMs
-    while (Date.now() < deadline) {
-      for (const name of clean) {
-        const n = await this.page
-          .getByText(name, { exact: false })
-          .count()
-          .catch(() => 0)
-        if (n > 0) return
-      }
-      await this.page.waitForTimeout(150)
-    }
+    await awaitUploadPreview(this.page, names, timeoutMs)
   }
 
   // Wait out a rate-limit pause, showing an animated countdown through

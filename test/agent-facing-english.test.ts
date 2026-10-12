@@ -16,6 +16,7 @@ const AGENT_FACING = [
   'src/web.ts',
   'src/system-prompt.ts',
   'src/mcp.ts',
+  'src/attach-flow.ts',
 ]
 
 const CYRILLIC = /[\u0400-\u04FF]/

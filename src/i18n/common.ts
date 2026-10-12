@@ -1,8 +1,8 @@
 // Common UI strings: app/common, status, tasks, messages, diff, context, undo, cd.
 export const commonMessages: Record<string, { ru: string; en: string }> = {
   'app.tagline': {
-    ru: 'агент поверх chat.deepseek.com / chat.qwen.ai через Playwright',
-    en: 'coding agent over chat.deepseek.com / chat.qwen.ai via Playwright',
+    ru: 'агент поверх {provider} через Playwright',
+    en: 'coding agent over {provider} via Playwright',
   },
   'common.yes': { ru: 'да', en: 'yes' },
   'common.no': { ru: 'нет', en: 'no' },

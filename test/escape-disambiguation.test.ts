@@ -60,3 +60,32 @@ test('a split arrow does not abort (Up)', async () => {
   await new Promise((r) => setTimeout(r, ESC_DISAMBIGUATE_MS + 20))
   assert.equal(aborted, 0)
 })
+
+const PASTE_START = ESC + '[200~'
+const PASTE_END = ESC + '[201~'
+
+test('a PASTE_START split across two chunks is still bracketed', () => {
+  const e = makeEditor()
+  // First chunk: text plus a PARTIAL start marker (ESC[20).
+  e._handle(Buffer.from('hi' + ESC + '[20'))
+  // The partial marker must NOT have leaked into the buffer.
+  assert.equal(e.buf, 'hi')
+  assert.equal(e._ctrlTail, ESC + '[20')
+  // Second chunk: the rest of the marker + the pasted body + the end marker.
+  const body =
+    'line1' +
+    String.fromCharCode(10) +
+    'line2' +
+    String.fromCharCode(10) +
+    'line3'
+  e._handle(Buffer.from('0~' + body + PASTE_END))
+  // The paste was recognized (no marker text leaked) and collapsed/kept aside.
+  assert.ok(
+    !e.buf.includes('[20'),
+    'the partial marker must not leak into the buffer',
+  )
+  assert.ok(
+    !e.buf.includes('[200~'),
+    'the start marker must not leak into the buffer',
+  )
+})
