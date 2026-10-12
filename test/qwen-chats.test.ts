@@ -116,3 +116,51 @@ test('parseQwenHistory role detection is defensive (is_user / numeric)', () => {
     ['user', 'user', 'assistant', 'assistant'],
   )
 })
+
+// The REAL Qwen history shape (verified live): a MAP under
+// data.chat.history.messages (not an array), unordered, with `timestamp` for
+// ordering and `content_list` for phase-split output. The old parser looked
+// for data.messages / data.chat.messages as an ARRAY and returned nothing.
+test('parseQwenHistory reads the map shape (data.chat.history.messages)', () => {
+  const msgs = parseQwenHistory({
+    data: {
+      chat: {
+        history: {
+          messages: {
+            m2: {
+              role: 'assistant',
+              content: 'world',
+              timestamp: 200,
+            },
+            m1: { role: 'user', content: 'hi', timestamp: 100 },
+          },
+        },
+      },
+    },
+  })
+  // Sorted by timestamp, not by object-key order.
+  assert.deepEqual(msgs, [
+    { role: 'user', text: 'hi' },
+    { role: 'assistant', text: 'world' },
+  ])
+})
+
+test('parseQwenHistory uses content_list when content is empty', () => {
+  const msgs = parseQwenHistory({
+    data: {
+      chat: {
+        history: {
+          messages: {
+            a: {
+              role: 'assistant',
+              content: '',
+              content_list: [{ content: 'part1' }, { content: ' part2' }],
+              timestamp: 1,
+            },
+          },
+        },
+      },
+    },
+  })
+  assert.deepEqual(msgs, [{ role: 'assistant', text: 'part1 part2' }])
+})

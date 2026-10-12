@@ -56,6 +56,13 @@ test('isFinishedWithoutAnswer: true for a finished turn with no answer', () => {
 test('isRateLimitText matches the server notice', () => {
   assert.equal(isRateLimitText('{"error":"too many requests"}'), true)
   assert.equal(isRateLimitText('all good'), false)
+  // `quota_limit` is Qwen's capacity error — transient, same back-off family.
+  assert.equal(
+    isRateLimitText(
+      '{"error":{"code":"quota_limit","details":"The service is currently experiencing high demand. Please try again later."}}',
+    ),
+    true,
+  )
 })
 
 // The real guest-limit body contains an apostrophe; the matcher keys on the

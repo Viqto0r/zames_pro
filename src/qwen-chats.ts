@@ -148,21 +148,33 @@ export function parseQwenChatList(json: unknown): ChatInfo[] {
 export function parseQwenHistory(json: unknown): ChatMessage[] {
   const root = json as { data?: unknown } | null
   const data = root && typeof root === 'object' ? root.data : null
-  let arr: unknown = null
+  // The REAL shape (verified live) is a MAP, not an array:
+  //   data.chat.history.messages = { <id>: { role, content, timestamp, ... } }
+  // An array is accepted too (older shape).
+  let arr: unknown[] | null = null
+  const asArr = (v: unknown): unknown[] | null =>
+    Array.isArray(v) ? v : v && typeof v === 'object' ? Object.values(v) : null
   if (Array.isArray(data)) arr = data
   else if (data && typeof data === 'object') {
     const d = data as Record<string, unknown>
-    if (Array.isArray(d.messages)) arr = d.messages
+    if (d.messages) arr = asArr(d.messages)
     else if (d.chat && typeof d.chat === 'object') {
       const chat = d.chat as Record<string, unknown>
-      if (Array.isArray(chat.messages)) arr = chat.messages
+      const hist =
+        chat.history && typeof chat.history === 'object'
+          ? (chat.history as Record<string, unknown>)
+          : null
+      if (hist && hist.messages) arr = asArr(hist.messages)
+      else if (chat.messages) arr = asArr(chat.messages)
     }
   }
-  if (!Array.isArray(arr)) return []
+  if (!arr) return []
+  // The map is UNORDERED; `timestamp` (seconds) restores the dialogue order.
+  const sorted = arr
+    .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
+    .sort((a, b) => (Number(a.timestamp) || 0) - (Number(b.timestamp) || 0))
   const out: ChatMessage[] = []
-  for (const raw of arr) {
-    if (!raw || typeof raw !== 'object') continue
-    const m = raw as Record<string, unknown>
+  for (const m of sorted) {
     // Role detection is DEFENSIVE: the field has been `role` (string,
     // case-insensitive), a numeric flag, or `is_user`. Anything that is not
     // clearly the user is treated as the assistant (the restored dialogue
@@ -185,6 +197,14 @@ export function parseQwenHistory(json: unknown): ChatMessage[] {
         }
       }
     }
+    // `content_list` (phase-split output) is used when `content` is empty.
+    if (!text && Array.isArray(m.content_list)) {
+      for (const part of m.content_list as Array<Record<string, unknown>>) {
+        if (part && typeof part.content === 'string') text += part.content
+      }
+    }
+    // `reasoning_content` is the THINK phase and must never leak into the
+    // restored dialogue as the answer.
     text = text.trim()
     if (text) out.push({ role, text })
   }
