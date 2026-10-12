@@ -469,11 +469,14 @@ agent.
 
 ### Recommended servers (verified)
 
-A few small, high-value servers tested end to end with zames:
+A few small, high-value servers tested end to end with zames (both the
+DeepSeek and Qwen backends):
 
 - **Context7** (`@upstash/context7-mcp`) — fetches CURRENT, version-specific
 documentation for a library before the agent writes code, instead of relying
 on a stale training snapshot. Tools: `resolve_library_id` then `query_docs`.
+Verified live on DeepSeek AND Qwen: the agent called both tools and got the
+current Zod API. This is the one to add first.
 
   ```json
   { "context7": { "command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"] } }
@@ -1035,12 +1038,14 @@ MCP-браузер и браузер агента подерутся за оди
 
 ### Рекомендованные серверы (проверены)
 
-Несколько небольших полезных серверов, протестированных вживую с zames:
+Несколько небольших полезных серверов, протестированных вживую с zames
+(на обоих бэкендах — DeepSeek и Qwen):
 
 - **Context7** (`@upstash/context7-mcp`) — подтягивает АКТУАЛЬНУЮ
 документацию библиотеки (для конкретной версии) до того, как агент пишет код,
 вместо устаревших знаний из обучения. Инструменты: `resolve_library_id`, затем
-`query_docs`.
+`query_docs`. Проверено вживую на DeepSeek И Qwen: агент вызвал оба инструмента
+и получил актуальный API Zod. Именно его стоит подключить первым.
 
   ```json
   { "context7": { "command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"] } }

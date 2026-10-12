@@ -467,11 +467,14 @@ agent.
 
 ### Recommended servers (verified)
 
-A few small, high-value servers tested end to end with zames:
+A few small, high-value servers tested end to end with zames (both the
+DeepSeek and Qwen backends):
 
 - **Context7** (`@upstash/context7-mcp`) — fetches CURRENT, version-specific
 documentation for a library before the agent writes code, instead of relying
 on a stale training snapshot. Tools: `resolve_library_id` then `query_docs`.
+Verified live on DeepSeek AND Qwen: the agent called both tools and got the
+current Zod API. This is the one to add first.
 
   ```json
   { "context7": { "command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"] } }
