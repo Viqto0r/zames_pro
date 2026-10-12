@@ -167,7 +167,7 @@ const back = (leftX: number, rightX: number, text: string): string => {
     d +
     '" fill="none" stroke="' +
     TEXT +
-    '" stroke-width="1.6" marker-end="url(#au)"/>' +
+    '" stroke-width="1.6" marker-end="url(#ar)"/>' +
     label(mid, BACK_Y - 6, text)
   )
 }
@@ -187,12 +187,13 @@ const svg =
   H +
   '">' +
   '<defs>' +
-  // right-pointing arrowhead
-  '<marker id="ar" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L9,3 L0,6 z" fill="' +
-  TEXT +
-  '"/></marker>' +
-  // up-pointing arrowhead (for the back edges arriving at a bottom edge)
-  '<marker id="au" markerWidth="10" markerHeight="10" refX="3" refY="2" orient="auto" markerUnits="strokeWidth"><path d="M0,6 L3,0 L6,6 z" fill="' +
+  // ONE right-pointing arrowhead, tip at local (10,5) so refX=10/refY=5 lands
+  // the tip exactly on the path end. `orient="auto"` rotates the marker to
+  // follow the path tangent, so the SAME marker works for a horizontal forward
+  // edge and for the vertical/up back edge. (Authoring the up arrow as an
+  // up-pointing triangle was the bug: orient=auto rotated it AGAIN, giving the
+  // crooked tip.)
+  '<marker id="ar" markerWidth="12" markerHeight="12" refX="10" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,5 L0,10 z" fill="' +
   TEXT +
   '"/></marker>' +
   '</defs>' +
