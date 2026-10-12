@@ -569,7 +569,13 @@ export class DeepSeekBrowser {
 
     this.page = this.context.pages()[0] || (await this.context.newPage())
     this._installNetHook()
-    await this.page.goto(CHAT_URL, { waitUntil: 'domcontentloaded' })
+    // A slow network / cold CDN can exceed Playwright's 30s goto timeout.
+    // That must NOT abort launch(): the page is usually already usable and
+    // waitForLogin() polls. Bailing out made a transient slowness a hard
+    // startup failure.
+    await this.page
+      .goto(CHAT_URL, { waitUntil: 'domcontentloaded' })
+      .catch(() => {})
   }
 
   _installNetHook(): void {

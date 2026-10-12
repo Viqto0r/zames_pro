@@ -92,6 +92,10 @@ export const doctorMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Агент повторяет один и тот же вызов инструмента — переключаю на другой подход.',
     en: 'The agent keeps repeating the same tool call — switching it to a different approach.',
   },
+  'msg.arg_error_loop': {
+    ru: 'Агент раз за разом вызывает инструмент без обязательного аргумента — прошу добавить его.',
+    en: 'The agent keeps calling a tool without a required argument — asking it to add the field.',
+  },
   'msg.suspicious_stop': {
     ru: 'агент, похоже, остановился, не распознав вызов инструмента. Ответ сохранён в транскрипте (событие suspicious_final). Можно попросить продолжить или переотправить задачу.',
     en: 'the agent seems to have stopped without recognizing a tool call. The response is saved in the transcript (suspicious_final event). You can ask it to continue or resend the task.',

@@ -426,6 +426,19 @@ export async function runAgentLoop({
   const MAX_REPEAT_CALLS = 4
   let repeatWarned = false
 
+  // Consecutive tool calls that fail with an ARGUMENT error (`Missing required
+  // argument`, `Invalid required argument`). Such a call has a DIFFERENT
+  // signature each turn (a long `content` changes), so the identical-signature
+  // detector above never fires and the model can burn many iterations on the
+  // same omission. Track the tool + the error text instead; after a few in a
+  // row, nudge with the exact missing field and stop re-running it.
+  let argErrSig = ''
+  let argErrCount = 0
+  const MAX_ARG_ERRORS = 3
+  // Set when the argument-error series hits the cap; appended to the message
+  // AFTER the tool results are formatted (they rebuild `message`).
+  let argErrNudge = ''
+
   let afterToolRetries = 0
   // toolsRanInTask: how many tools actually ran in THIS task. The protocol
   // guard uses it to tell "started, then slipped into chat mode" (a reasoning
@@ -1245,6 +1258,46 @@ ${diag}`
         })
         results.push({ tool: call.tool, result })
 
+        // Argument-error series: `Missing required argument`/`Invalid required
+        // argument` from the req() guard. The signature changes each turn when
+        // the model forgets one field but rewrites the rest, so the identical
+        // detector misses it. Count by tool + error text; at the cap, tell the
+        // model EXACTLY which field is missing instead of re-running the call.
+        const resStr = String(result)
+        const argErr = resStr.match(
+          /(?:Missing|Invalid) required argument[: ]+([A-Za-z0-9_]+)/,
+        )
+        if (argErr) {
+          const sig = call.tool + ':' + argErr[0]
+          if (sig === argErrSig) argErrCount++
+          else {
+            argErrSig = sig
+            argErrCount = 1
+          }
+          if (argErrCount >= MAX_ARG_ERRORS) {
+            argErrCount = 0
+            argErrSig = ''
+            safeWarning(translate(locale)('msg.arg_error_loop'))
+            // The message the model sees is REBUILT from `results` after the
+            // batch loop, so a nudged `message` here would be overwritten.
+            // Record the nudge and append it after the results are formatted.
+            argErrNudge =
+              'IMPORTANT: the tool `' +
+              call.tool +
+              '` failed with "' +
+              argErr[0] +
+              '". You keep calling it WITHOUT the required argument `' +
+              argErr[1] +
+              '`. Add `' +
+              argErr[1] +
+              '` to the arguments of the SAME call and retry — do NOT repeat ' +
+              'the identical invocation.'
+          }
+        } else {
+          argErrSig = ''
+          argErrCount = 0
+        }
+
         // The operator pressed Esc/Ctrl+C while the tool was running. The tool
         // itself has finished (we cannot kill an arbitrary child process from
         // here), but we must NOT feed its result back to the model and must NOT
@@ -1294,6 +1347,14 @@ ${diag}`
           return `Tool result for ${r.tool}:\n${truncateToolResult(resultStr, 8000)}`
         })
         .join('\n\n')
+    }
+
+    // Append the argument-error nudge (set inside the batch loop) now that
+    // `message` has been rebuilt from `results`. Cleared so it fires once per
+    // series, not on every later turn.
+    if (argErrNudge) {
+      message = message + '\n\n' + argErrNudge
+      argErrNudge = ''
     }
 
     // Auto-compact at the ONLY safe seam — after a tool result and before

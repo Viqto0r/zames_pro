@@ -66,11 +66,15 @@ export function createTools(
 
   const req = (v: unknown, name: string): string => {
     if (v === undefined || v === null) {
-      throw new Error(`Missing required argument: ${name}`)
+      throw new Error(
+        `Missing required argument: ${name}. Add "${name}" to the tool call arguments and retry.`,
+      )
     }
     const s = String(v)
     if (s === '' || s === 'undefined' || s === 'null') {
-      throw new Error(`Invalid required argument ${name}: ${JSON.stringify(v)}`)
+      throw new Error(
+        `Invalid required argument ${name}: ${JSON.stringify(v)}. Provide a non-empty value for "${name}" and retry.`,
+      )
     }
     return s
   }

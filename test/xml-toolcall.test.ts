@@ -137,3 +137,64 @@ test('гибридная форма с вложенными значениями
   assert.equal(call.args['path'], 'a.ts')
   assert.equal(call.args['new_string'], 'x')
 })
+
+// A real DeepSeek answer (E2E chess test) emitted the small argument as an
+// ATTRIBUTE of the invoke tag while the big `content` came as a <parameter>
+// child. Only `name` was read from the attrs, so `path` was silently dropped
+// and Write failed with 'Missing required argument: path' on every retry.
+test('аргумент-атрибут invoke не теряется рядом с parameter', () => {
+  const text =
+    '<|DSML|invoke name=' +
+    Q +
+    'Write' +
+    Q +
+    ' path=' +
+    Q +
+    'chess.html' +
+    Q +
+    '>' +
+    '<|DSML|parameter name=' +
+    Q +
+    'content' +
+    Q +
+    ' string=' +
+    Q +
+    'true' +
+    Q +
+    '>X</|DSML|parameter>' +
+    '</|DSML|invoke>'
+  const res = parseXmlToolCalls(text)
+  assert.ok(res, 'вызов должен распознаваться')
+  const call = Array.isArray(res) ? res[0] : res
+  assert.equal(call.tool, 'Write')
+  assert.equal(call.args['path'], 'chess.html')
+  assert.equal(call.args['content'], 'X')
+})
+
+test('parameter имеет приоритет над одноимённым атрибутом', () => {
+  const text =
+    '<invoke name=' +
+    Q +
+    'Write' +
+    Q +
+    ' path=' +
+    Q +
+    'attr.html' +
+    Q +
+    '>' +
+    '<parameter name=' +
+    Q +
+    'path' +
+    Q +
+    ' string=' +
+    Q +
+    'true' +
+    Q +
+    '>param.html</parameter>' +
+    '</invoke>'
+  const res = parseXmlToolCalls(text)
+  const call = Array.isArray(res)
+    ? res[0]
+    : (res as { args: Record<string, unknown> })
+  assert.equal(call.args['path'], 'param.html')
+})

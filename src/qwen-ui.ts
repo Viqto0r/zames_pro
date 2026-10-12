@@ -106,8 +106,15 @@ export const MODEL_TRIGGER_SELECTOR = '.wms-trigger'
 // A first-time visitor must confirm their birth year before chatting. The
 // dialog is an ant-modal; the Continue button is the black footer button.
 export const AGE_GATE_MODAL = '.age-confirmation-modal'
+// The Continue button inside the age gate (the black footer button).
 export const AGE_GATE_CONTINUE =
   '.age-confirmation-modal .qwen-chat-v2-btn-black'
+// The year dropdown TRIGGER inside the age gate. It must be clicked to open
+// the year menu; clicking the label alone does not select a year.
+export const AGE_GATE_YEAR_SELECT =
+  '.age-confirmation-year .qwen-chat-v2-dropdown-menu-select'
+// A year OPTION in the opened dropdown (the menu item text is the year).
+export const AGE_GATE_YEAR_OPTION = '.qwen-chat-v2-dropdown-menu-item'
 
 // The cookie banner's accept button (matched by its visible label).
 export const COOKIE_ACCEPT_RE = /^accept all cookies$/i

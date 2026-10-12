@@ -20,3 +20,7 @@ commit-msg.tmp
 # used to commit it on every task; keep it OUT of the repo so a self-update
 # never lands it in a release.
 BACKLOG.md
+
+# E2E check artifacts (generated games), not part of the package
+games/
+.playwright-mcp/

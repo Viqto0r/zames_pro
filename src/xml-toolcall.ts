@@ -24,6 +24,28 @@ function readAttr(attrs: string, name: string): string | null {
   return m ? m[2] : null
 }
 
+// Read EVERY key="value" pair from an <invoke ...> tag. The model sometimes
+// emits a tool argument as an ATTRIBUTE of the invoke tag itself (e.g.
+// `<invoke name="Write" path="chess.html">` with only the big `content` as a
+// <parameter> child). readAttr() kept only the tool name, so such an argument
+// was silently DROPPED and the tool failed with 'Missing required argument'.
+// Keys are returned in source order so the first occurrence wins.
+function readAllAttrs(attrs: string): ToolArgs {
+  const Q = String.fromCharCode(34)
+  const out: ToolArgs = {}
+  const re = new RegExp(
+    '([A-Za-z_][A-Za-z0-9_]*)[ ]*=[ ]*[' + Q + ']([^' + Q + ']*)[' + Q + ']',
+    'g',
+  )
+  let m: RegExpExecArray | null
+  while ((m = re.exec(attrs)) !== null) {
+    const key = m[1]
+    if (key === 'name') continue
+    if (!(key in out)) out[key] = unescapeXml(m[2])
+  }
+  return out
+}
+
 // The model sometimes produces a "hybrid" call: the tool name is an attribute
 // AND the arguments are inline JSON in the SAME opening tag, without any
 // <parameter> children. A real case from the transcript:
@@ -127,6 +149,14 @@ export function parseXmlToolCalls(text: string): ParsedToolCall {
     const body = closeMatch ? rest.slice(0, closeMatch.index) : rest
 
     const args = parseParameters(body)
+    // Arguments may ALSO arrive as attributes of the invoke tag itself
+    // (`<invoke name="Write" path="chess.html">`); merge them in, letting an
+    // explicit <parameter> of the same name win (it carries string=true and
+    // the exact value). This is what stops `path` from being silently lost.
+    const attrArgs = readAllAttrs(attrs)
+    for (const k of Object.keys(attrArgs)) {
+      if (!(k in args)) args[k] = attrArgs[k]
+    }
 
     // Hybrid form: the arguments are inline JSON in the SAME invoke tag
     // (e.g. `<|DSML|invoke name="GitAdd", "args" {"paths": "..."}>`), with no

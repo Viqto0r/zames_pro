@@ -76,6 +76,8 @@ import {
   chatHistoryUrl,
   AGE_GATE_MODAL,
   AGE_GATE_CONTINUE,
+  AGE_GATE_YEAR_SELECT,
+  AGE_GATE_YEAR_OPTION,
   COOKIE_ACCEPT_RE,
   ATTACH_SELECTORS,
   ATTACH_MENU_TRIGGER,
@@ -419,7 +421,14 @@ export class QwenBrowser {
 
     this.page = this.context.pages()[0] || (await this.context.newPage())
     this._installNetHook()
-    await this.page.goto(CHAT_URL, { waitUntil: 'domcontentloaded' })
+    // A slow network (or a cold CDN) can make the initial navigation exceed
+    // Playwright's 30s goto timeout. That must NOT abort launch(): the page is
+    // usually already usable, and every later step (_awaitInput, waitForLogin)
+    // polls. Bailing out here turned a transient slowness into a hard startup
+    // failure.
+    await this.page
+      .goto(CHAT_URL, { waitUntil: 'domcontentloaded' })
+      .catch(() => {})
     await this._dismissOverlays()
   }
 
@@ -443,6 +452,22 @@ export class QwenBrowser {
         .catch(() => {})
       const gate = this.page.locator(AGE_GATE_MODAL)
       if (await gate.count().catch(() => 0)) {
+        // The gate has a YEAR dropdown (default already set) plus Continue.
+        // A raw click on Continue can be a no-op until a year is committed,
+        // so open the dropdown and pick an option FIRST, then Continue — and
+        // finally verify the modal actually closed. Verified live: the year
+        // must be selected via the trigger (clicking the label does nothing).
+        await this.page
+          .locator(AGE_GATE_YEAR_SELECT)
+          .first()
+          .click({ timeout: 2000 })
+          .catch(() => {})
+        await this.page.waitForTimeout(400)
+        const opt = this.page.locator(AGE_GATE_YEAR_OPTION).first()
+        if (await opt.count().catch(() => 0)) {
+          await opt.click({ timeout: 2000 }).catch(() => {})
+          await this.page.waitForTimeout(300)
+        }
         await this.page
           .locator(AGE_GATE_CONTINUE)
           .first()
@@ -1784,6 +1809,11 @@ export class QwenBrowser {
     const preSendSignal = await this._chatSignal()
     let sent = false
     while (!sent && Date.now() < sendDeadline) {
+      // The age-confirmation gate can POP UP on the FIRST send (it is not
+      // present at page load). While it is on screen it swallows the click on
+      // the send button, so the message never goes out. Dismiss it BEFORE each
+      // send attempt; a no-op once it is gone.
+      await this._dismissOverlays()
       // (1) the send button, if present/enabled/visible. We remember whether a
       // click was actually issued: pressing Enter in the SAME round could send
       // the message a SECOND time if the click already worked but the input
@@ -1837,8 +1867,19 @@ export class QwenBrowser {
     this._lastSentAt = Date.now()
     if (!sent) {
       // The text is still in the input after the whole deadline: the message
-      // was NOT sent. Throw so ask() retries the send instead of waiting out
-      // the full answer timeout for a turn that never started.
+      // was NOT sent. A common cause is the age-confirmation gate that pops up
+      // for a GUEST and (verified live) does not always close programmatically
+      // — it swallows the click on the send button. Report that explicitly so
+      // the operator knows to sign in instead of seeing a generic error.
+      const gate = await this.page
+        .locator(AGE_GATE_MODAL)
+        .count()
+        .catch(() => 0)
+      if (gate > 0) {
+        throw new Error(this._t('qwen.age_gate_block'))
+      }
+      // Throw so ask() retries the send instead of waiting out the full answer
+      // timeout for a turn that never started.
       throw new Error(this._t('qwen.send_button_missing'))
     }
 

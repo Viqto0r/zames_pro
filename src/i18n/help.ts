@@ -103,6 +103,7 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
   'help.sec.git': { ru: 'Git', en: 'Git' },
   'help.sec.agent': { ru: 'Агент', en: 'Agent' },
   'help.sec.context': { ru: 'Контекст и настройки', en: 'Context & settings' },
+  'help.sec.provider': { ru: 'Провайдер чата', en: 'Chat provider' },
   'help.sec.files': { ru: 'Файлы и прочее', en: 'Files & misc' },
   'help.cmd.new': {
     ru: '/new, /clear             новый чат (сброс контекста)',

@@ -51,6 +51,14 @@ export const qwenMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Не удалось получить список моделей Qwen: {v}',
     en: 'Failed to fetch the Qwen model list: {v}',
   },
+  'qwen.model_deepseek_only': {
+    ru: '/model доступен только для провайдера Qwen. Сейчас активен DeepSeek (модель выбирается в веб-UI). Переключиться: /provider qwen',
+    en: '/model is only available for the Qwen provider. DeepSeek is active (its model is chosen in the web UI). Switch with: /provider qwen',
+  },
+  'qwen.age_gate_block': {
+    ru: '✖ Qwen показывает окно "Confirm your age" (гостевой режим) и не даёт отправить сообщение. Войдите в аккаунт Qwen (команда /provider login) — в гостевом режиме первое сообщение блокируется.',
+    en: '✖ Qwen shows the "Confirm your age" dialog (guest mode) and blocks the send. Sign in to Qwen (/provider login) — in guest mode the first message is blocked.',
+  },
   'provider.switched': {
     ru: 'Провайдер чата: {v}.',
     en: 'Chat provider: {v}.',

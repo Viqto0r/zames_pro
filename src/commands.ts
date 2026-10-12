@@ -1337,11 +1337,19 @@ export function buildSlashCommandHints(opts: {
   t: TranslateFn
   commands?: SlashCommandEntry[]
   dynamic?: SlashHint[]
+  /** The ACTIVE provider id. `/model` is Qwen-only, so it is hidden from the
+   *  «/» hints and /help while DeepSeek (which has no model selection) is
+   *  active. */
+  provider?: string
 }): SlashHint[] {
   const { devMode, t } = opts
   const table = opts.commands ?? SLASH_COMMANDS
+  // `/model` picks a QWEN model; DeepSeek has no such command. Hide it unless
+  // the Qwen provider is active (or the caller did not pass a provider).
+  const hideModel = opts.provider !== undefined && opts.provider !== 'qwen'
   const base: SlashHint[] = table
     .filter((c) => devMode || !isDevOnlyCommand(c.name))
+    .filter((c) => !(hideModel && c.name === '/model'))
     .map((c) => ({ name: c.name, description: t(c.key) }))
   const known = new Set(base.map((c) => c.name.toLowerCase()))
   for (const d of opts.dynamic ?? []) {

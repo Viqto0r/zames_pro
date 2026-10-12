@@ -593,6 +593,11 @@ ${theme.bold(t('help.sec.context'))}
   ${t('help.cmd.config')}
   ${t('help.cmd.lang')}
 
+${theme.bold(t('help.sec.provider'))}
+  ${t('help.cmd.provider')}${
+    config.provider === 'qwen' ? '\n  ' + t('help.cmd.model') : ''
+  }
+
 ${theme.bold(t('help.sec.files'))}
   ${t('help.cmd.transcript')}
   ${t('help.cmd.undo')}
@@ -736,6 +741,7 @@ function buildSlashCommands(): Array<{ name: string; description: string }> {
     devMode,
     t,
     dynamic: dynamicCommands,
+    provider: config.provider,
   })
 }
 
@@ -2539,7 +2545,10 @@ async function main(): Promise<void> {
     if (lower === '/model' || lower.startsWith('/model ')) {
       const arg = trimmed.slice('/model'.length).trim()
       if (config.provider !== 'qwen') {
-        console.log(theme.system(t('provider.usage')))
+        // `/model` is Qwen-only: it picks a model in Qwen's header dropdown.
+        // DeepSeek exposes no model selection from zames, so the command is
+        // hidden from the hints and only explains itself when typed by hand.
+        console.log(theme.system(t('qwen.model_deepseek_only')))
         continue
       }
       const qb = browser as unknown as {
