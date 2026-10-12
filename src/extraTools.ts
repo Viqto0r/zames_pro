@@ -17,7 +17,17 @@ const NL = String.fromCharCode(10)
 
 function decodeContent(content: unknown, contentBase64: unknown): string {
   if (typeof contentBase64 === 'string' && contentBase64.length) {
-    return Buffer.from(contentBase64, 'base64').toString('utf-8')
+    // Reject undecodable base64: Buffer.from(..., 'base64') silently drops
+    // invalid characters and returns garbage, which would patch with corrupt
+    // text and no error (same guard as tools.ts).
+    const compact = contentBase64.replace(/\s+/g, '')
+    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(compact)) {
+      throw new Error(
+        'base64 argument is not valid (expected only A-Za-z0-9+/=). ' +
+          'Re-send as plain text or as clean base64.',
+      )
+    }
+    return Buffer.from(compact, 'base64').toString('utf-8')
   }
   return String(content ?? '')
 }

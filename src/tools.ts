@@ -44,7 +44,18 @@ export function createTools(
   // subject to corruption.
   const decodeContent = (content: unknown, contentBase64: unknown): string => {
     if (typeof contentBase64 === 'string' && contentBase64.length) {
-      return Buffer.from(contentBase64, 'base64').toString('utf-8')
+      // Reject a base64 string that is not decodable: Buffer.from(..., 'base64')
+      // SILENTLY drops invalid characters and returns garbage (verified), which
+      // would write a corrupt file with no error. The alphabet check catches a
+      // truncated/garbled payload early with a clear message.
+      const compact = contentBase64.replace(/\s+/g, '')
+      if (!/^[A-Za-z0-9+/]*={0,2}$/.test(compact)) {
+        throw new Error(
+          'content_base64 is not valid base64 (expected only A-Za-z0-9+/=). ' +
+            'Re-send the content as plain `content` or as clean base64.',
+        )
+      }
+      return Buffer.from(compact, 'base64').toString('utf-8')
     }
     return String(content ?? '')
   }

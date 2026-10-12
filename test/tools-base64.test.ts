@@ -75,3 +75,40 @@ test('Edit: многострочный old_base64 находится (перев
   )
   await fs.rm(dir, { recursive: true, force: true })
 })
+
+// A corrupted/garbled base64 string used to be accepted SILENTLY:
+// Buffer.from(x, 'base64') drops invalid characters and returns garbage, so a
+// bad payload wrote a corrupt file with no error. It must be rejected.
+test('Write: invalid content_base64 is rejected, not silently corrupted', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-b64-'))
+  const tools = createTools(dir, {})
+  await assert.rejects(
+    async () =>
+      tool(tools, 'Write').fn({
+        path: 'a.txt',
+        content_base64: '!!!not base64!!!',
+      }),
+    /not valid base64/,
+  )
+  // The file must NOT have been created with garbage content.
+  await assert.rejects(async () =>
+    fs.readFile(path.join(dir, 'a.txt'), 'utf-8'),
+  )
+  await fs.rm(dir, { recursive: true, force: true })
+})
+
+test('Write: valid content_base64 with newlines is accepted', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-b64-'))
+  const tools = createTools(dir, {})
+  const NL = String.fromCharCode(10)
+  // Wrap the base64 in newlines (some channels do this); it must still decode.
+  const wrapped = b64('hello world')
+    .replace(/(.{4})/g, '$1' + NL)
+    .trim()
+  await tool(tools, 'Write').fn({ path: 'a.txt', content_base64: wrapped })
+  assert.equal(
+    await fs.readFile(path.join(dir, 'a.txt'), 'utf-8'),
+    'hello world',
+  )
+  await fs.rm(dir, { recursive: true, force: true })
+})
