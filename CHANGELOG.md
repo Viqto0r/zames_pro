@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.73.9] - 2026-10-12
+
 ### Fixed
 
 - **qwen:** raise the default send pause to 4s (rate limit is real)
