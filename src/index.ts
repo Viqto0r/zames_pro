@@ -13,6 +13,7 @@ import {
   asProviderId,
   providerChatUrlPrefix,
   providerLabel,
+  PROVIDER_IDS,
   type ProviderId,
 } from './providers.js'
 import {
@@ -161,6 +162,30 @@ const { getArg, hasFlag, getPositional } = createCliArgs(process.argv.slice(2))
 const COMPACT_FALLBACK_LIMIT = 40
 
 const config = loadConfig()
+
+// A `--provider <deepseek|qwen>` CLI flag selects the backend for THIS run,
+// mirroring the /provider command (which changes it live). Without this an
+// operator who typed `--provider qwen` got the DEFAULT backend — the flag was
+// silently treated as free-form task text and DeepSeek opened instead of Qwen.
+const providerArg = getArg('--provider', null)
+if (providerArg !== null) {
+  if (isProviderId(providerArg)) {
+    config.provider = providerArg
+    config.qwen.enabled = providerArg === 'qwen'
+  } else {
+    console.error(
+      theme.warn(
+        'Unknown --provider "' +
+          providerArg +
+          '" (expected: ' +
+          PROVIDER_IDS.join(' | ') +
+          '). Using ' +
+          config.provider +
+          '.',
+      ),
+    )
+  }
+}
 
 // Apply the configured answer width to the markdown renderer (0 = auto).
 setAnswerWidth(config.ui?.answerWidth ?? 0)
@@ -529,6 +554,7 @@ ${theme.bold(t('help.options'))}
   --max-iter <n>     ${t('help.opt.max_iter', { n: config.maxIterations })}
   --headless         ${t('help.opt.headless')}
   --headed           ${t('help.opt.headed')}
+  --provider <id>    ${t('help.opt.provider')}
   --plan             ${t('help.opt.plan')}
   --output-format <f> ${t('help.opt.output_format')}
   --debug            ${t('help.opt.debug')}

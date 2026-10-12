@@ -34,6 +34,7 @@ export const SKIP_VALUE_FLAGS = [
   '--max-iter',
   '--chat',
   '--output-format',
+  '--provider',
 ]
 
 export function createCliArgs(argv: string[]): CliArgs {

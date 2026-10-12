@@ -38,6 +38,10 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     ru: 'показать окно браузера (отладка/вход)',
     en: 'show the browser window (debug/sign-in)',
   },
+  'help.opt.provider': {
+    ru: 'выбрать провайдера чата (deepseek | qwen) на этот запуск',
+    en: 'select the chat provider (deepseek | qwen) for this run',
+  },
   'help.opt.debug': { ru: 'подробный лог', en: 'verbose log' },
   'help.opt.dev': {
     ru: 'режим разработки: авто-перечитывание модулей',

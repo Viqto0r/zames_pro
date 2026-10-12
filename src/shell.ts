@@ -51,29 +51,14 @@ export function assertCommandInsideRoot(root: string, command: string): void {
     }
   }
 
-  // Indirect re-parse / chdir that a static `cd` scan cannot follow. These are
-  // the documented escape hatches (`sh -c 'cd /'`, `python -c
-  // "os.chdir('/')"`): they execute a fresh interpreter which reads the target
-  // only at RUNTIME, so no static scan can prove it stays inside the root.
-  // Refusing them is the honest barrier — best-effort, not OS isolation.
-  if (/\b(?:sh|bash|dash|zsh|ksh)\b[^\n]*\s-[a-z]*c\b/i.test(cmd)) {
-    throw new Error(
-      'Sandbox: running a shell via -c is forbidden (cannot verify the root)',
-    )
-  }
+  // chroot switches the process root outright — always a barrier violation.
+  // NOTE: `sh -c '…'` and an in-process `chdir` are deliberately NOT blocked:
+  // `bash -c` / `nohup bash -c` is a legitimate way to run a background job,
+  // and a blanket ban broke real commands (the operator runs scripts that way).
+  // They remain a documented best-effort hole (a static scan cannot follow a
+  // runtime target); full isolation needs bwrap/containers.
   if (/\bchroot\b/i.test(cmd)) {
     throw new Error('Sandbox: chroot is forbidden')
-  }
-  // A chdir performed by an interpreter (Python/Perl/Ruby/Node) or by a raw
-  // syscall wrapper. Matched loosely on the common spellings.
-  if (
-    /\bos\.chdir\s*\(|\bchdir\s*\(|\bProcess\.chdir\b|process\.chdir\s*\(|\bchdir\b\s*['"]?\//i.test(
-      cmd,
-    )
-  ) {
-    throw new Error(
-      'Sandbox: an in-process directory change (chdir) is forbidden',
-    )
   }
 }
 

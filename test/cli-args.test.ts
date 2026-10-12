@@ -54,6 +54,7 @@ test('SKIP_VALUE_FLAGS lists the value flags the parser expects', () => {
     '--max-iter',
     '--chat',
     '--output-format',
+    '--provider',
   ])
 })
 
@@ -62,4 +63,16 @@ test('createCliArgs tolerates a non-array (defensive)', () => {
   assert.equal(a.getArg('--x'), null)
   assert.equal(a.hasFlag('--x'), false)
   assert.deepEqual(a.getPositional(), [])
+})
+
+test('--provider is a value flag: its value is not positional', () => {
+  const a = createCliArgs(['--provider', 'qwen', 'do', 'the', 'thing'])
+  assert.equal(a.getArg('--provider', null), 'qwen')
+  // The provider value must NOT leak into the task text.
+  assert.deepEqual(a.getPositional(), ['do', 'the', 'thing'])
+})
+
+test('--provider without a value falls back', () => {
+  const a = createCliArgs(['--provider'])
+  assert.equal(a.getArg('--provider', 'deepseek'), 'deepseek')
 })
