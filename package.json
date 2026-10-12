@@ -36,7 +36,6 @@
     "qwen-smoke": "tsx scripts/qwen-smoke.mts",
     "render-demo": "tsx scripts/render-demo.mts",
     "render-how": "tsx scripts/render-how-it-works.mts",
-    "render-how": "tsx scripts/render-how-it-works.mts",
     "build:readme": "tsx scripts/build-readme.mts",
     "postinstall": "node scripts/postinstall.mjs",
     "prepare": "husky"
