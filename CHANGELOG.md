@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.73.7] - 2026-10-12
+
+### Changed
+
+- docs(readme): fix the crooked back-edge arrowheads
+
 ## [2.73.6] - 2026-10-12
 
 ### Changed
