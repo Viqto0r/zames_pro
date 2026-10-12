@@ -467,6 +467,29 @@ Their tools show up in the agent as `server__tool` (e.g.
 A server that fails to connect is skipped with a warning and never breaks the
 agent.
 
+### Recommended servers (verified)
+
+A few small, high-value servers tested end to end with zames:
+
+- **Context7** (`@upstash/context7-mcp`) — fetches CURRENT, version-specific
+documentation for a library before the agent writes code, instead of relying
+on a stale training snapshot. Tools: `resolve_library_id` then `query_docs`.
+
+  ```json
+  { "context7": { "command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"] } }
+  ```
+
+- **Sequential Thinking** (`@modelcontextprotocol/server-sequential-thinking`)
+— one `sequentialthinking` tool that gives the model an explicit, revisable
+plan before it acts; useful for long multi-step tasks.
+
+- **Memory** (`@modelcontextprotocol/server-memory`) — a local knowledge graph
+(9 tools) for durable facts across chats. NOTE: zames already has `MEMORY.md`
++ `AGENTS.md`; add this only if you want a queryable graph.
+
+Keep the stack SMALL: every server loads its tool definitions into the model's
+context. Add one when you feel its absence, not before.
+
 ## Configuration
 
 Global config: `~/.zames/config.json`
@@ -1009,6 +1032,30 @@ MCP-браузер и браузер агента подерутся за оди
 `playwright__browser_navigate`) и перечисляются в `/mcp` и `/status`.
 Сервер, который не смог подключиться, пропускается с предупреждением и
 никогда не роняет агента.
+
+### Рекомендованные серверы (проверены)
+
+Несколько небольших полезных серверов, протестированных вживую с zames:
+
+- **Context7** (`@upstash/context7-mcp`) — подтягивает АКТУАЛЬНУЮ
+документацию библиотеки (для конкретной версии) до того, как агент пишет код,
+вместо устаревших знаний из обучения. Инструменты: `resolve_library_id`, затем
+`query_docs`.
+
+  ```json
+  { "context7": { "command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"] } }
+  ```
+
+- **Sequential Thinking** (`@modelcontextprotocol/server-sequential-thinking`)
+— один инструмент `sequentialthinking`, дающий модели явный пересматриваемый
+план перед действием; полезно для длинных многошаговых задач.
+
+- **Memory** (`@modelcontextprotocol/server-memory`) — локальный граф знаний
+(9 инструментов) для долговременных фактов между чатами. ВНИМАНИЕ: у zames уже
+есть `MEMORY.md` + `AGENTS.md`; подключайте, только если нужен граф с запросами.
+
+Держите набор МАЛЕНЬКИМ: каждый сервер грузит описания своих инструментов в
+контекст модели. Добавляйте, когда почувствовали нехватку, а не заранее.
 
 ## Конфигурация
 

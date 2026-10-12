@@ -465,6 +465,29 @@ Their tools show up in the agent as `server__tool` (e.g.
 A server that fails to connect is skipped with a warning and never breaks the
 agent.
 
+### Recommended servers (verified)
+
+A few small, high-value servers tested end to end with zames:
+
+- **Context7** (`@upstash/context7-mcp`) — fetches CURRENT, version-specific
+documentation for a library before the agent writes code, instead of relying
+on a stale training snapshot. Tools: `resolve_library_id` then `query_docs`.
+
+  ```json
+  { "context7": { "command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"] } }
+  ```
+
+- **Sequential Thinking** (`@modelcontextprotocol/server-sequential-thinking`)
+— one `sequentialthinking` tool that gives the model an explicit, revisable
+plan before it acts; useful for long multi-step tasks.
+
+- **Memory** (`@modelcontextprotocol/server-memory`) — a local knowledge graph
+(9 tools) for durable facts across chats. NOTE: zames already has `MEMORY.md`
++ `AGENTS.md`; add this only if you want a queryable graph.
+
+Keep the stack SMALL: every server loads its tool definitions into the model's
+context. Add one when you feel its absence, not before.
+
 ## Configuration
 
 Global config: `~/.zames/config.json`
