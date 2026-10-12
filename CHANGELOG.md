@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.73.11] - 2026-10-12
+
+### Fixed
+
+- drop the duplicate render-how script; sync package-lock version
+
 ## [2.73.10] - 2026-10-12
 
 ### Fixed
