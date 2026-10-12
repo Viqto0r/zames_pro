@@ -25,9 +25,11 @@ export const DEFAULTS: ZamesConfig = {
   qwen: {
     model: '',
     enabled: false,
-    // Qwen tolerates back-to-back sends (verified live: 4 sends at 0 ms gap,
-    // no rate limit), so the DeepSeek 15 s throttle is pure latency here.
-    minSendIntervalMs: 1000,
+    // Qwen DOES rate-limit a rapid burst: measured live, the 5th back-to-back
+    // send at 0 ms gap hit "too frequent" and needed a 5-min back-off. A 1 s
+    // gap was too small for a real editing session, so the default is now 4 s
+    // — enough to stay under the limit while keeping the agent responsive.
+    minSendIntervalMs: 4000,
     // The first send after a cold load can take minutes ("Model loading…" +
     // thinking); a GUEST turn measured up to ~9 min live on a cold profile, so
     // give it generous room. A signed-in session answers in seconds; this only
