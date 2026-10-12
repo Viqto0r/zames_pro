@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- bound qwen net body, share attach flow, count transcript backpressure, buffer split paste
+- lose fewer tool args, unstick the arg-error loop, harden launch
+
 ## [2.73.7] - 2026-10-12
 
 ### Changed
