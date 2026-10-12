@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **qwen:** raise the default send pause to 4s (rate limit is real)
+- **qwen:** read the real history shape (map) + handle quota_limit
+- **cli:** honor --provider <id>; stop blocking bash -c in the sandbox
+
 ## [2.73.8] - 2026-10-12
 
 ### Fixed
