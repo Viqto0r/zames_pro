@@ -205,7 +205,7 @@ When a change touches one concern, start in the module that owns it:
   `ConfigMenu.tsx` + `run-config-menu.tsx` (the Ink `/config` menu). `ui.tui`
   and `ui.alternateScreen` (full-screen mode) are config flags. More PURE halves
   (all unit-tested): `FullScreenApp.tsx` (the alternate-screen layout) +
-  `log-window.ts` (row-based log windowing), `progress.ts` (task bar),
+  `log-window.ts` (row-based log windowing),
   `login-pure.ts` + `LoginForm.tsx`/`TextPrompt.tsx`/`run-login.tsx` (in-TUI
   login / one-time code), `widgets.tsx` (Checkbox/Select/Panel/HintBar/
   CodeBlock), `SelectList.tsx`/`run-select.tsx` (list menus for `/model`,

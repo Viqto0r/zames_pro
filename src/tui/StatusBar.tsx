@@ -12,7 +12,6 @@ import { Box, Text, useAnimation, useWindowSize } from 'ink'
 import { translate, type Locale } from '../i18n.js'
 import { DOTS, stripEllipsis } from '../spinner.js'
 import { truncateToWidth } from '../input/layout.js'
-import { parseTaskProgress, renderProgressBar } from './progress.js'
 import type { TuiState } from './store.js'
 
 /** Elapsed seconds of the current animated phase ("0s", "45s", "2m 05s"). */
@@ -45,7 +44,7 @@ function badgeTextWidth(state: TuiState): number {
   if (state.provider) w += state.provider.length + 3
   if (state.queueLength > 0) w += 2 + String(state.queueLength).length
   if (state.codeBlocks.length > 0) w += 8
-  if (state.tasks) w += state.tasks.length + 7
+  if (state.tasks) w += state.tasks.length + 1
   if (state.thinkingEnabled) w += 3
   if (state.searchEnabled) w += 3
   if (state.contextText) {
@@ -91,11 +90,8 @@ function Badges({ state }: { state: TuiState }): React.ReactElement | null {
     )
   }
   if (state.tasks) {
-    const prog = parseTaskProgress(state.tasks)
-    const bar = renderProgressBar(prog, 5)
     parts.push(
       <Text key="t" color="#808896">
-        {bar ? bar + ' ' : ''}
         {state.tasks}{' '}
       </Text>,
     )
