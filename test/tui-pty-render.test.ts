@@ -27,6 +27,7 @@ function runProbe(
   keys: string[],
   delayMs = 250,
   copyLog?: string,
+  inline = false,
 ): Promise<string> {
   return new Promise((resolve) => {
     const child = spawn(
@@ -39,6 +40,7 @@ function runProbe(
           COLUMNS: String(COLS),
           LINES: String(ROWS),
           ...(copyLog ? { PROBE_COPY_LOG: copyLog } : {}),
+          ...(inline ? { PROBE_INLINE: '1' } : {}),
         },
       },
     )
@@ -122,4 +124,13 @@ run('pty: Ctrl+Y fires the code-copy callback', async () => {
     /* ignore */
   }
   assert.ok(hits.includes('copy'), 'Ctrl+Y must invoke onCopyCode')
+})
+
+run('pty: INLINE mode renders the input and accepts a newline', async () => {
+  // Inline mode does not use the alternate screen; the input box still grows
+  // with a multi-line buffer and the Ctrl+J newline must appear.
+  const out = await runProbe('', ['a', NL, 'b'], 350, undefined, true)
+  const term = screen(out)
+  assert.ok(term.findRow('> a') >= 0, 'inline: first line must be visible')
+  assert.ok(term.findRow('  b') >= 0, 'inline: second line must be on its own row')
 })

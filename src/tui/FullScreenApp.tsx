@@ -12,6 +12,7 @@
 import React, { useSyncExternalStore } from 'react'
 import { Box, Text, useWindowSize, useInput } from 'ink'
 import { LogList } from './LogView.js'
+import { windowByRows, totalRows } from './log-window.js'
 import { StatusBar } from './StatusBar.js'
 import { InputLine, type InputLineProps } from './InputLine.js'
 import type { TuiStore } from './store.js'
@@ -84,15 +85,15 @@ export function FullScreenApp({
   const panelRows = HEADER_ROWS + STATUS_ROWS + INPUT_BOX_ROWS + suggestRows
   const logHeight = Math.max(1, termRows - panelRows)
 
-  // Window the log: show the last `logHeight` entries shifted by `scroll`
-  // (0 = newest at the bottom). Each entry is roughly one row, which is a
-  // close enough window; a tall wrapped answer just shows a bit less.
+  // Window the log BY RENDERED ROW: a long wrapped answer can be taller than
+  // one entry, and an entry-count window either overflowed the panel or left
+  // it half empty. `scroll` is measured in ROWS here (0 = newest at the
+  // bottom).
   const all = state.log
-  const maxScroll = Math.max(0, all.length - logHeight)
+  const total = totalRows(all, cols)
+  const maxScroll = Math.max(0, total - logHeight)
   const scroll = Math.max(0, Math.min(state.scroll, maxScroll))
-  const end = all.length - scroll
-  const start = Math.max(0, end - logHeight)
-  const visible = all.slice(start, end)
+  const visible = windowByRows(all, logHeight, scroll, cols)
 
   // Scroll the log with PgUp/PgDn.
   useInput((_input, key) => {

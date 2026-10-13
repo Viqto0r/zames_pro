@@ -10,6 +10,7 @@ import fs from 'node:fs'
 import { render } from 'ink'
 import { TuiStore } from '../src/tui/store.js'
 import { FullScreenApp } from '../src/tui/FullScreenApp.js'
+import { TuiApp } from '../src/tui/TuiApp.js'
 import { initialEditState } from '../src/tui/edit.js'
 
 const store = new TuiStore()
@@ -31,26 +32,30 @@ store.pushLog('system', 'log line one')
 store.pushLog('system', 'log line two')
 
 const COPY_LOG = process.env.PROBE_COPY_LOG || ''
+const INLINE = process.env.PROBE_INLINE === '1'
+
+const inputProps = {
+  onSubmit: () => {},
+  onEscape: () => {},
+  onCtrlC: () => {},
+  onCopyCode: () => {
+    if (COPY_LOG) fs.appendFileSync(COPY_LOG, 'copy' + String.fromCharCode(10))
+  },
+  onAttach: () => null,
+  onClipboard: () => Promise.resolve(null),
+  onHistoryChange: () => {},
+  onClearScreen: () => {},
+  attachments: [],
+  onPastesChange: () => {},
+}
 
 render(
-  <FullScreenApp
-    store={store}
-    inputProps={{
-      onSubmit: () => {},
-      onEscape: () => {},
-      onCtrlC: () => {},
-      onCopyCode: () => {
-        if (COPY_LOG) fs.appendFileSync(COPY_LOG, 'copy' + String.fromCharCode(10))
-      },
-      onAttach: () => null,
-      onClipboard: () => Promise.resolve(null),
-      onHistoryChange: () => {},
-      onClearScreen: () => {},
-      attachments: [],
-      onPastesChange: () => {},
-    }}
-  />,
-  { exitOnCtrlC: false, patchConsole: false },
+  INLINE ? (
+    <TuiApp store={store} inputProps={inputProps} />
+  ) : (
+    <FullScreenApp store={store} inputProps={inputProps} />
+  ),
+  { exitOnCtrlC: false, patchConsole: false, alternateScreen: !INLINE },
 )
 
 // Keep the app alive until killed.

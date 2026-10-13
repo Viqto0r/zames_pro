@@ -13,6 +13,7 @@ import { Box } from 'ink'
 import { LogView } from './LogView.js'
 import { StatusBar } from './StatusBar.js'
 import { InputLine, type InputLineProps } from './InputLine.js'
+import { suggestRowCount } from '../input/suggest.js'
 import type { TuiStore } from './store.js'
 
 export type InputCallbacks = Omit<
@@ -39,6 +40,11 @@ export function TuiApp({
   // The watermark is fixed for the lifetime of this mount.
   const [watermark] = React.useState(initialPrintedCount)
   const entries = watermark > 0 ? state.log.slice(watermark) : state.log
+  // Cursor rows above the input box in the INLINE live area: divider + status
+  // + the suggestion popup (which renders above the box and would otherwise
+  // shift the caret down by its row count). Without the suggestRows term the
+  // caret drifted whenever the «/» list opened.
+  const suggestRows = suggestRowCount(state.edit.buf, state.commands)
   return (
     <Box flexDirection="column">
       <LogView entries={entries} />
@@ -50,6 +56,7 @@ export function TuiApp({
         locale={state.locale}
         commands={state.commands}
         locked={state.locked}
+        cursorTop={3 + suggestRows}
       />
     </Box>
   )
