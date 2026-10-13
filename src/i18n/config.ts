@@ -202,4 +202,12 @@ export const configMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Использование: /config lang <ru|en>',
     en: 'Usage: /config lang <ru|en>',
   },
+  'cfg.provider_restart': {
+    ru: '⚠ Провайдер изменится только после перезапуска (для смены на лету используйте /provider).',
+    en: '⚠ Provider changes only after a restart (use /provider to switch live).',
+  },
+  'cfg.restart_required': {
+    ru: 'Этот параметр применится после перезапуска.',
+    en: 'This setting takes effect after a restart.',
+  },
 }

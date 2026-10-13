@@ -283,8 +283,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/web [on|off] toggle Smart search (works while the agent is busy)',
   },
   'help.cmd.goal': {
-    ru: '/goal [текст|clear] задать долгоживущую цель сессии',
-    en: '/goal [text|clear] set a long-lived session goal',
+    ru: '/goal <условие> задать условие завершения; агент работает, пока оно не выполнено (снимается автоматически)',
+    en: '/goal <condition> set a completion condition; the agent works until it is met (auto-cleared)',
   },
   'help.cmd.plan': {
     ru: '/plan [on|off] режим плана: только чтение, без правок и команд',
@@ -366,6 +366,22 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
   'goal.cleared': {
     ru: '🎯 Цель сессии очищена.',
     en: '🎯 Session goal cleared.',
+  },
+  'goal.met': {
+    ru: '✅ Цель достигнута — цель снята автоматически. {reason}',
+    en: '✅ Goal met — goal cleared automatically. {reason}',
+  },
+  'goal.impossible': {
+    ru: '⛔ Цель недостижима — снята. {reason}',
+    en: '⛔ Goal judged impossible — cleared. {reason}',
+  },
+  'goal.progress': {
+    ru: '◷ Цель пока не достигнута: {reason}',
+    en: '◷ Goal not yet met: {reason}',
+  },
+  'goal.turn_budget': {
+    ru: '⏹️ Цель остановлена после {n} авто-ходов (лимит). Уточните условие или /goal clear.',
+    en: '⏹️ Goal stopped after {n} auto-turns (budget). Refine the condition or /goal clear.',
   },
   'toggle.thinking': { ru: 'Размышление', en: 'Deep thinking' },
   'toggle.search': { ru: 'Поиск в интернете', en: 'Smart search' },

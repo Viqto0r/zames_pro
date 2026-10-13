@@ -77,6 +77,8 @@ import { CheckpointStore, pickRecord as pickCheckpoint } from './checkpoint.js'
 import { selfReview, selfDiff, selfApply, selfList } from './self-review.js'
 import { type RestoredMessage } from './commands.js'
 import { performCompact } from './compact.js'
+import { clampGoalCondition } from './goal.js'
+import { applyBrowserLiveConfig, applyStoreLiveConfig } from './config-live.js'
 import {
   buildHandoffText,
   saveProviderHandoff,
@@ -209,10 +211,14 @@ const maxIterArg = getArg('--max-iter', null)
 // A non-numeric `--max-iter abc` yields NaN, which the loop treats as
 // "unlimited" (NaN > 0 is false). Fall back to the configured value instead
 // of silently disabling the cap.
+// The CLI value OVERRIDES the config for the whole run; when no flag is
+// given, the value is read from config LIVE so `/config set maxIterations`
+// takes effect on the next task.
 const maxIterParsed = maxIterArg !== null ? Number(maxIterArg) : NaN
-const maxIter = Number.isFinite(maxIterParsed)
-  ? maxIterParsed
-  : config.maxIterations
+const maxIterOverride = Number.isFinite(maxIterParsed) ? maxIterParsed : null
+function currentMaxIter(): number {
+  return maxIterOverride !== null ? maxIterOverride : config.maxIterations
+}
 
 const positional = getPositional()
 const task = getArg('--task', positional.join(' ').trim() || null)
@@ -971,7 +977,7 @@ function runTaskDeps(): RunTaskDeps {
     t,
     locale: currentLocale,
     debug,
-    maxIter,
+    maxIter: currentMaxIter(),
     config,
     runAgentLoop: mod.runAgentLoop,
     createSpinner: mod.createSpinner,
@@ -1858,6 +1864,58 @@ async function main(): Promise<void> {
         editor.refreshStatus()
       }
     }
+    // Browser TIMING knobs (timeouts, retries, the send throttle) are COPIED
+    // by the browser at construction, so push them onto the live instance.
+    // (deepThinking/webSearch are handled above because they also repaint the
+    // status icons.)
+    if (path.startsWith('browser.')) {
+      const b = browser as unknown as Record<string, unknown>
+      if (applyBrowserLiveConfig(path, value, b)) {
+        // minSendIntervalMs feeds the send countdown the UI renders.
+        if (editor) editor.refreshStatus()
+      }
+    }
+    // The undo/checkpoint stores also copy their config at construction.
+    applyStoreLiveConfig(path, value, {
+      undo: undo as unknown as Record<string, unknown>,
+      checkpoints: checkpoints as unknown as Record<string, unknown>,
+    })
+    // Qwen timing knobs feed the QwenBrowser constructor. Its LIVE fields use
+    // the SAME names, so push them there when the active backend is Qwen (a
+    // no-op on DeepSeek, which has no qwen-only knobs).
+    if (path === 'qwen.minSendIntervalMs' || path === 'qwen.answerTimeoutMs') {
+      const b = browser as unknown as Record<string, unknown>
+      if (config.provider === 'qwen') {
+        const field =
+          path === 'qwen.minSendIntervalMs'
+            ? 'minSendIntervalMs'
+            : 'answerTimeoutMs'
+        if (field in b) {
+          b[field] = value
+          if (editor) editor.refreshStatus()
+        }
+      }
+    }
+    // Switching the provider from /config cannot be applied live (it needs a
+    // new browser); tell the operator instead of silently doing nothing.
+    if (path === 'provider') {
+      const line = t('cfg.provider_restart')
+      if (editor) editor.printAbove(theme.warn(line))
+      else console.log(theme.warn(line))
+    }
+    // headless is fixed at launch (the browser is already open); a /config set
+    // only takes effect on the next run.
+    if (path === 'headless') {
+      const line = t('cfg.restart_required')
+      if (editor) editor.printAbove(theme.dim(line))
+      else console.log(theme.dim(line))
+    }
+    // transcript.enabled: the Transcript copies the flag at construction. A
+    // false -> true flip cannot open a NEW stream mid-run, but true -> false
+    // can (and should) stop writing immediately.
+    if (path === 'transcript.enabled' && value === false) {
+      transcript.enabled = false
+    }
   }
 
   // Apply `/thinking` / `/web` immediately: flip the browser's DESIRED state
@@ -1904,10 +1962,14 @@ async function main(): Promise<void> {
   // Handle a `/goal` command shared by the main loop and the live interception
   // (so a goal can be set even while the agent is busy — it only touches a
   // variable and a file, never the chat). Output goes above the input line
-  // when the editor is active, otherwise to stdout.
-  async function handleGoal(input: string): Promise<void> {
+  // when the editor is active, otherwise to stdout. Returns which subcommand
+  // ran so the main loop can START A TURN when a goal is freshly set (Claude
+  // Code parity: setting a goal begins working toward it immediately).
+  async function handleGoal(
+    input: string,
+  ): Promise<'set' | 'cleared' | 'shown' | null> {
     const g = mod.commands.parseGoalCommand(input)
-    if (!g) return
+    if (!g) return null
     const emit = (line: string): void => {
       if (editor) editor.printAbove(line)
       else console.log(line)
@@ -1916,16 +1978,19 @@ async function main(): Promise<void> {
       sessionGoal = null
       await saveGoal(currentWorkdir, null)
       emit(theme.system(t('goal.cleared')))
+      return 'cleared'
     } else if (g.sub === 'show') {
       emit(
         sessionGoal
           ? theme.system(t('goal.current', { goal: sessionGoal }))
           : theme.dim(t('goal.none')),
       )
+      return 'shown'
     } else {
-      sessionGoal = g.goal
-      await saveGoal(currentWorkdir, g.goal)
-      emit(theme.system(t('goal.set', { goal: g.goal })))
+      sessionGoal = clampGoalCondition(g.goal)
+      await saveGoal(currentWorkdir, sessionGoal)
+      emit(theme.system(t('goal.set', { goal: sessionGoal })))
+      return 'set'
     }
   }
 
@@ -2003,6 +2068,10 @@ async function main(): Promise<void> {
     let input: string | null
     let inputAttachments: Array<{ path: string; name: string; mime: string }> =
       []
+    // Set by `/goal <condition>` to fall through into a task turn with this
+    // text instead of returning to the prompt (Claude Code starts a turn the
+    // moment a goal is set). Reset every iteration because it is declared here.
+    let taskOverride: string | null = null
     try {
       if (editor) {
         editor.setPrompt(buildPrompt())
@@ -2225,7 +2294,7 @@ async function main(): Promise<void> {
             tools,
             task: focus,
             workdir: snapRoot,
-            maxIterations: maxIter,
+            maxIterations: currentMaxIter(),
             freshChat: false,
             sendSystemPrompt: false,
             transcript,
@@ -2730,8 +2799,19 @@ async function main(): Promise<void> {
     }
 
     if (lower === '/goal' || lower.startsWith('/goal ')) {
-      await handleGoal(trimmed)
-      continue
+      const sub = await handleGoal(trimmed)
+      // Claude Code parity: setting a goal STARTS a turn immediately, with the
+      // condition itself as the directive (no separate prompt needed). The
+      // completion loop in runTask() then keeps working until the evaluator
+      // reports MET/IMPOSSIBLE. We fall through to the regular task path with
+      // an override task text instead of returning to the prompt.
+      if (sub === 'set' && sessionGoal) {
+        taskOverride =
+          'Work toward this completion goal until it is satisfied. ' +
+          'Do not call respond with a final summary until the condition is met.'
+      } else {
+        continue
+      }
     }
 
     if (lower === '/loop' || lower.startsWith('/loop ')) {
@@ -3039,7 +3119,7 @@ async function main(): Promise<void> {
           tools: initTools,
           task: initTask,
           workdir: currentWorkdir,
-          maxIterations: maxIter,
+          maxIterations: currentMaxIter(),
           freshChat: freshChatNext,
           sendSystemPrompt: sendSystemPromptNext,
           transcript,
@@ -3155,7 +3235,7 @@ async function main(): Promise<void> {
           }),
         ),
       )
-      console.log(theme.system(t('status.max_iter', { v: maxIter })))
+      console.log(theme.system(t('status.max_iter', { v: currentMaxIter() })))
       console.log(
         theme.system(t('status.headless', { v: headless ? yes : no })),
       )
@@ -3882,13 +3962,17 @@ async function main(): Promise<void> {
       continue
     }
 
+    // A `/goal <condition>` turn is injected directly: skip the slash-command
+    // resolution (the text is NOT a command) and use the override as the task.
+    const isGoalOverride = taskOverride !== null
+
     // Custom command or skill invoked as a slash command? Expand it into a
     // task. Skills are instructions the agent follows; custom commands are
     // prompt templates with $ARGUMENTS / {{args}} placeholders.
     let expandedTask: string | null = null
     let missingArgs: string[] | null = null
     let skillAllowedTools: string[] | null = null
-    if (lower.startsWith('/')) {
+    if (lower.startsWith('/') && !isGoalOverride) {
       const name = trimmed.slice(1).split(/\s+/)[0]
       const rest = trimmed.slice(1 + name.length).trim()
       const res = await expandSlashTarget(currentWorkdir, name, rest)
@@ -3910,14 +3994,18 @@ async function main(): Promise<void> {
       continue
     }
 
-    if (lower.startsWith('/') && expandedTask === null) {
+    if (lower.startsWith('/') && expandedTask === null && !isGoalOverride) {
       console.error(theme.error(t('msg.unknown_cmd', { v: trimmed })))
       continue
     }
 
     // ---- Regular task (including in review mode) ----
 
-    const taskText = expandedTask !== null ? expandedTask : trimmed
+    const taskText = isGoalOverride
+      ? (taskOverride as string)
+      : expandedTask !== null
+        ? expandedTask
+        : trimmed
 
     // B5: inline any `@path` references into the task so the agent does not
     // spend a round-trip reading a file the operator already pointed at. Only
@@ -4055,6 +4143,19 @@ async function main(): Promise<void> {
           contextLimit: config.ui.contextLimit,
           getTokenUsage: () => browser.getLastTokenUsage(),
           goal: sessionGoal,
+          // Completion-goal mode (Claude Code parity): the goal is a CONDITION,
+          // judged by a fresh model after each turn; while NOT met the loop
+          // keeps working. goalQuery re-reads sessionGoal so a mid-run
+          // `/goal clear` stops the auto-continuation immediately.
+          goalIsCondition: true,
+          goalQuery: () => sessionGoal,
+          onGoalCleared: async () => {
+            // The evaluator ended the goal (MET or IMPOSSIBLE). Clear the
+            // persisted condition so it does not re-arm on the next task; the
+            // run-task loop already surfaced the verdict line to the operator.
+            sessionGoal = null
+            await saveGoal(currentWorkdir, null)
+          },
           todosQuery: () => todosSummary(),
           selfImprovement: devMode,
           onSubagent: makeSubagentRunner(),

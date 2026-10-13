@@ -375,9 +375,12 @@ Codex CLI:
 - /compact — ask the active backend to compress the current chat into a handover
   summary, then open a NEW chat, resend the system prompt and post the summary
   as the carried-over context. Use it when the context gets long.
-- /goal [text|clear] — set a long-lived session goal. It is prepended to every
-  task message, so the model keeps the big picture across many turns. Stored in
-  `<project>/.zames-goal` (git-ignored) and restored on the next launch.
+- /goal <condition> — set a **completion condition** (Claude Code parity). The
+  agent starts working toward it at once and keeps starting new turns until a
+  separate evaluator model judges the condition met. The goal clears itself
+  automatically when it is met (or judged impossible), or with `/goal clear`.
+  The condition is stored in `<project>/.zames-goal` (git-ignored) and restored
+  on the next launch. `/goal` with no argument shows the current state.
 - /loop <interval> <task> — repeat a task periodically (e.g. `/loop 10m run the
 tests`). /cron "<min> <hour> <dom> <month> <dow>" <task> — run on a schedule.
   /jobs [rm <id>|clear] lists and stops them. A fired job is put into the same
@@ -942,10 +945,13 @@ zames --task "..." --output-format jsonl \
 - /compact — попросить активный бэкенд сжать текущий чат в передаточное резюме,
   затем открыть НОВЫЙ чат, заново отправить системный промпт и положить резюме как
   перенесённый контекст. Используйте, когда контекст разрастается.
-- /goal [text|clear] — задать долгоживущую цель сессии. Она добавляется в
-  начало каждого сообщения задачи, поэтому модель держит общую картину через
-  много ходов. Хранится в `<project>/.zames-goal` (git-ignored) и
-  восстанавливается при следующем запуске.
+- /goal <условие> — задать **условие завершения** (как в Claude Code). Агент
+  сразу начинает работать над ним и продолжает запускать новые ходы, пока
+  отдельная модель-оценщик не признает условие выполненным. Цель снимается
+  автоматически при достижении (или если оценщик признал её недостижимой),
+  либо командой `/goal clear`. Условие хранится в `<project>/.zames-goal`
+  (git-ignored) и восстанавливается при следующем запуске. `/goal` без
+  аргумента показывает текущее состояние.
 - /loop <interval> <task> — повторять задачу периодически (например,
   `/loop 10m run the tests`). /cron "<min> <hour> <dom> <month> <dow>" <task> —
   запуск по расписанию. /jobs [rm <id>|clear] перечисляет и останавливает их.

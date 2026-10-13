@@ -8,6 +8,13 @@ import {
   isSlashCommand,
   formatDuration,
 } from './commands.js'
+import {
+  buildEvaluatorPrompt,
+  buildContinuationDirective,
+  parseGoalVerdict,
+  GOAL_MAX_TURNS,
+  type GoalVerdict,
+} from './goal.js'
 import { formatCompactTokens, pasteReplacement, expandPastes } from './input.js'
 import type {
   runAgentLoop,
@@ -50,6 +57,26 @@ export interface RunTaskOptions {
   getTokenUsage?: (() => number | null) | null
   /** Long-lived session goal, prepended to every task message. */
   goal?: string | null
+  /**
+   * Completion-goal mode (Claude Code parity): the goal is a CONDITION that
+   * must be satisfied, not just a standing note. After each task a fresh
+   * model judges the condition; while NOT met the loop starts another turn.
+   * When true, `goal` is treated as a completion condition and `onGoalCleared`
+   * is invoked once it is met/impossible. When false (default) `goal` keeps
+   * the old "prepend to every message" behavior with no evaluator.
+   */
+  goalIsCondition?: boolean
+  /** Called with the final verdict when a completion goal ends (met/impossible). */
+  onGoalCleared?: ((verdict: GoalVerdict) => void | Promise<void>) | null
+  /** Maximum auto-continue turns for a completion goal (default GOAL_MAX_TURNS). */
+  goalMaxTurns?: number
+  /**
+   * Reads the CURRENT goal at evaluation time. The operator can clear the goal
+   * mid-run (`/goal clear` is a live command), and the goal captured at task
+   * start would not see that; querying keeps the loop honest and lets a
+   * cleared goal stop the auto-continuation.
+   */
+  goalQuery?: (() => string | null) | null
   /** Task-list summary ("tasks: 2/5") for the non-TTY spinner badge. */
   todosQuery?: (() => string) | null
   /** Called with the final assistant message of each task (/copy source). */
@@ -334,6 +361,32 @@ export interface TaskResult {
   error?: string
 }
 
+// Run the completion-goal evaluator: one model call in the SAME chat that
+// judges the condition against the transcript. Returns null when the call
+// fails or the reply is unparsable (the caller then fails CLOSED and keeps
+// working — an unreadable verdict must never be mistaken for "met").
+// `agent: true` so it waits out the send throttle like any other agent turn.
+async function evaluateGoal(
+  browser: ChatProvider,
+  condition: string,
+  config: ZamesConfig,
+  transcript: {
+    log: (event: string, data?: Record<string, unknown>) => void
+  } | null,
+): Promise<GoalVerdict | null> {
+  try {
+    const raw = await browser.ask(buildEvaluatorPrompt(condition), {
+      agent: true,
+      timeout: providerAskDeadlineMs(config),
+    })
+    transcript?.log('goal_eval_raw', { response: raw.slice(0, 500) })
+    return parseGoalVerdict(raw)
+  } catch (e) {
+    transcript?.log('goal_eval_error', { error: (e as Error).message })
+    return null
+  }
+}
+
 export async function runTask(
   deps: RunTaskDeps,
   browser: ChatProvider,
@@ -357,10 +410,22 @@ export async function runTask(
     contextLimit = 1_000_000,
     getTokenUsage = null,
     goal = null,
+    goalIsCondition = false,
+    onGoalCleared = null,
+    goalMaxTurns = GOAL_MAX_TURNS,
+    goalQuery = null,
     todosQuery = null,
     selfImprovement = false,
     onSubagent = null,
   } = opts
+
+  // The ACTIVE goal for the duration of this run. It is mutable because a
+  // completion goal can be cleared mid-run (verdict MET/IMPOSSIBLE, or the
+  // operator runs `/goal clear` while the task is in flight). `goalQuery`
+  // re-reads the operator's current goal so a mid-run clear stops the loop.
+  let activeGoal: string | null = goal
+  const currentGoal = (): string | null =>
+    goalQuery ? goalQuery() : activeGoal
 
   // In TTY mode the UI is a LineEditor: it owns the input (queue, Esc,
   // Ctrl+C) and draws the status ABOVE the permanent input line. In non-TTY
@@ -407,6 +472,8 @@ export async function runTask(
     let failure: string | null = null
     // N31: the machine-readable reason for the last task's outcome.
     let outcomeKind: 'ok' | 'iteration_limit' | 'watchdog' | 'error' = 'ok'
+    // How many auto-continue turns a completion goal has already spent.
+    let goalTurns = 0
     let next: PendingMessage & {
       freshChat: boolean
       sendSystemPrompt: boolean
@@ -436,7 +503,7 @@ export async function runTask(
       const outcome = await runAgentLoop({
         browser,
         tools,
-        task: withGoal(goal, next.text),
+        task: withGoal(currentGoal(), next.text),
         workdir,
         maxIterations: maxIter,
         freshChat: next.freshChat,
@@ -539,6 +606,49 @@ export async function runTask(
       const summary = theme.taskSummary('· ' + summaryParts.join(' · '))
       if (editor) editor.printAbove(summary)
       else console.log(summary)
+
+      // Completion goal (Claude Code parity): after EVERY turn a fresh model
+      // judges the condition. NOT_MET starts another turn automatically instead
+      // of returning control to the operator; MET/IMPOSSIBLE ends the goal.
+      // The evaluation runs only when the operator queue is EMPTY, so a message
+      // typed mid-run is always delivered before the next auto-continue turn.
+      if (!browser._stopped && goalIsCondition && !queue.length) {
+        const cond = currentGoal()
+        if (cond) {
+          if (goalTurns >= goalMaxTurns) {
+            ui.warning(t('goal.turn_budget', { n: String(goalMaxTurns) }))
+            transcript?.log('goal_turn_budget', { turns: goalTurns })
+            break
+          }
+          const verdict = await evaluateGoal(browser, cond, config, transcript)
+          goalTurns++
+          if (verdict && verdict.status === 'met') {
+            ui.warning(t('goal.met', { reason: verdict.reason }))
+            transcript?.log('goal_met', { reason: verdict.reason })
+            activeGoal = null
+            if (onGoalCleared) await onGoalCleared(verdict)
+            break
+          }
+          if (verdict && verdict.status === 'impossible') {
+            ui.warning(t('goal.impossible', { reason: verdict.reason }))
+            transcript?.log('goal_impossible', { reason: verdict.reason })
+            activeGoal = null
+            if (onGoalCleared) await onGoalCleared(verdict)
+            break
+          }
+          // NOT_MET (or an unparsable verdict -> fail closed as "continue"):
+          // start another turn with the continuation directive as the task.
+          const reason = verdict?.reason ?? ''
+          if (reason) ui.warning(t('goal.progress', { reason }))
+          transcript?.log('goal_not_met', { reason, turn: goalTurns })
+          next = {
+            text: buildContinuationDirective(reason),
+            freshChat: false,
+            sendSystemPrompt: false,
+          }
+          continue
+        }
+      }
 
       // Aborted (Esc/Ctrl+C) - we don't start the next tasks from the queue and
       // clear it, so "stop" really stops everything.
