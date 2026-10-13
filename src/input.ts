@@ -1323,7 +1323,12 @@ export class LineEditor {
     // Attachments collected for this message (images/files). They are handed
     // to the browser layer to be attached to the chat.
     const attached = this.attachments.items.slice()
-    this.printAbove(theme.user('❯ ') + wrapToWidth(display, contentWidth()))
+    // A turn separator + a BAR-marked operator message (same look as the TUI).
+    this.printAbove(theme.turnRule('─'.repeat(contentWidth())))
+    this.printAbove(
+      theme.userBar('▌ ') +
+        theme.user(wrapToWidth(display, contentWidth() - 2)),
+    )
     this.pastes = []
     this.attachments.reset()
     if (this.onSubmit) this.onSubmit(text, attached)

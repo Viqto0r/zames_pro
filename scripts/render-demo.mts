@@ -21,7 +21,7 @@ const out = path.join(root, 'docs', 'demo.png')
 
 const C = {
   bg: '#23272e',
-  user: '#b4b8d0',
+  user: '#8fd4f0',
   prompt: '#c8b06a',
   dir: '#7fc4f0',
   assistant: '#cfc9b0',

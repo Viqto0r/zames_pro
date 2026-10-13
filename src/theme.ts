@@ -18,7 +18,13 @@ import { contentWidth } from './width.js'
 //   - error       — muted terracotta
 
 export const theme = {
-  user: chalk.hex('#b4b8d0'), // soft lavender-gray
+  // Operator messages — a clearly DISTINCT cyan so they never blend with the
+  // model's warm-sand answers or the neutral system text (operator request).
+  user: chalk.hex('#8fd4f0'), // operator text — bright cyan-blue
+  userBar: chalk.hex('#4a8fb5'), // the `▌` bar marking an operator turn
+  // A dim rule + label separating one conversation TURN from the next.
+  turnRule: chalk.hex('#3a3f4b'),
+  turnLabel: chalk.hex('#5b616e'),
   prompt: chalk.hex('#c8b06a').bold, // input prompt — warm gold, noticeable
   dir: chalk.hex('#7fc4f0'), // working directory name — noticeably blue
   assistant: chalk.hex('#cfc9b0'), // warm sand

@@ -264,7 +264,13 @@ export class TuiEditor {
   private handleSubmit(display: string, atts: Attachment[]): void {
     const text = expandPastes(this.store.getSnapshot().pastes, display)
     this.attachments.reset()
-    this.printAbove(theme.user('❯ ') + wrapToWidth(display, contentWidth()))
+    // A turn separator + a BAR-marked, clearly-colored operator message, so an
+    // operator turn never blends with the model's answer (operator request).
+    this.printAbove(theme.turnRule('─'.repeat(contentWidth())))
+    this.printAbove(
+      theme.userBar('▌ ') +
+        theme.user(wrapToWidth(display, contentWidth() - 2)),
+    )
     this.store.set({ pastes: [] })
     this.onSubmit?.(text, atts)
     if (this.busy) this.thinking()
