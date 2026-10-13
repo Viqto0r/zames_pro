@@ -53,6 +53,11 @@ export interface KeyContext {
   searchMode: boolean
   /** The buffer is empty (Ctrl+D exits only then). */
   bufferEmpty: boolean
+  /**
+   * True when the character just LEFT of the cursor is a backslash: Enter then
+   * inserts a newline (line continuation) and drops the backslash.
+   */
+  endsWithBackslash: boolean
 }
 
 /**
@@ -133,8 +138,10 @@ export function dispatchKey(
     }
   }
 
-  // ---- Alt / Meta combos (word movement) ----
+  // ---- Alt / Meta combos (word movement + Alt+Enter newline) ----
   if (key.meta) {
+    // Alt+Enter inserts a newline (send without submitting).
+    if (key.return) return { type: 'newline' }
     if (input === 'b') return { type: 'wordLeft' }
     if (input === 'f') return { type: 'wordRight' }
     if (key.backspace) return { type: 'deleteWordLeft' }
@@ -143,7 +150,14 @@ export function dispatchKey(
   }
 
   // ---- named keys ----
-  if (key.return) return { type: 'submit' }
+  // Enter inserts a NEWLINE (not submit) when Shift+Enter is pressed, when a
+  // trailing backslash precedes the cursor (line continuation), or via
+  // Alt+Enter / Ctrl+J above. A PLAIN Enter submits.
+  if (key.return) {
+    if (key.shift) return { type: 'newline' }
+    if (ctx.endsWithBackslash) return { type: 'newline' }
+    return { type: 'submit' }
+  }
   if (key.tab) return { type: 'complete' }
   if (key.backspace) return { type: 'backspace' }
   if (key.delete) return { type: 'delete' }

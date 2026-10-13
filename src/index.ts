@@ -1536,6 +1536,7 @@ async function main(): Promise<void> {
       title: 'zames',
       version: pkgVersion || '',
       workdir: currentWorkdir,
+      mouseScroll: config.ui.mouseScroll,
     })
     // Restore the input history from the previous runs and persist every new
     // entry, so Ctrl+R / arrows can recall older messages after a restart.

@@ -357,7 +357,13 @@ export function InputLine(props: InputLineProps): React.ReactElement {
       const action = dispatchKey(
         input,
         key,
-        { searchMode: s.searchMode, bufferEmpty: s.buf.length === 0 },
+        {
+          searchMode: s.searchMode,
+          bufferEmpty: s.buf.length === 0,
+          // A trailing backslash before the cursor = line continuation: Enter
+          // then inserts a newline (and drops the backslash).
+          endsWithBackslash: Array.from(s.buf)[s.cursor - 1] === '\\',
+        },
         { atTop, atBottom },
       )
       runAction(action)

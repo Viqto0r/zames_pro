@@ -64,7 +64,15 @@ export function FullScreenApp({
   // row = 3). The log viewport gets the remaining rows.
   const HEADER_ROWS = 2
   const STATUS_ROWS = 1
-  const INPUT_BOX_ROWS = 3
+  // The input box grows with MULTI-LINE input: 2 borders + one row per visual
+  // line of the buffer. A fixed 3 was wrong: a 2-line input overflowed the
+  // panel and clipped the box top (the cursor "drifted" and the first line
+  // vanished). Compute the real line count from the buffer.
+  const inputLineCount = Math.max(
+    1,
+    state.edit.buf.split(String.fromCharCode(10)).length,
+  )
+  const INPUT_BOX_ROWS = 2 + inputLineCount
   // The suggestion popup renders BELOW the input; reserve its rows so opening
   // it does not push the panel / shift the whole layout.
   const suggestRows = suggestRowCount(state.edit.buf, state.commands)
@@ -97,7 +105,7 @@ export function FullScreenApp({
   useMouseWheel((delta) => {
     const next = scroll + delta * 3
     store.set({ scroll: Math.max(0, Math.min(maxScroll, next)) })
-  })
+  }, state.mouseScroll)
 
   return (
     <Box flexDirection="column" height={termRows}>

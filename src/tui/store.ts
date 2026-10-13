@@ -99,6 +99,8 @@ export interface TuiState {
   tasks: string
   /** Provider badge ("Qwen"/"DeepSeek"), empty hides it. */
   provider: string
+  /** In-app mouse-wheel scrolling (needs terminal mouse reporting). */
+  mouseScroll: boolean
   /** Deep-thinking toggle on. */
   thinkingEnabled: boolean
   /** Web-search toggle on. */
@@ -135,6 +137,7 @@ function initialState(): TuiState {
     queueLength: 0,
     tasks: '',
     provider: '',
+    mouseScroll: false,
     thinkingEnabled: false,
     searchEnabled: false,
     statusLine: '',

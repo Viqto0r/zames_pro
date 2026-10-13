@@ -61,7 +61,12 @@ export interface UiEditor {
   setPrompt(str: string): void
   setProvider(text: string): void
   /** Header info for full-screen mode (title/version/workdir). */
-  setHeader?(info: { title?: string; version?: string; workdir?: string }): void
+  setHeader?(info: {
+    title?: string
+    version?: string
+    workdir?: string
+    mouseScroll?: boolean
+  }): void
   setStatusLine(text: string): void
   setContextStatus(tokens: number | null | undefined): void
   setContextLimit(limit: number): void

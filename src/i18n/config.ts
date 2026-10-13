@@ -41,6 +41,10 @@ export const configMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Полноэкранный режим TUI (альтернативный экран)',
     en: 'Full-screen TUI mode (alternate screen)',
   },
+  'cfg.f.ui_mouseScroll': {
+    ru: 'Прокрутка лога колесом мыши (отключает выделение текста мышью)',
+    en: 'Mouse-wheel log scrolling (disables text selection with the mouse)',
+  },
   'cfg.f.maxIterations': {
     ru: 'Лимит итераций на задачу',
     en: 'Max agent loop iterations per task',

@@ -109,6 +109,13 @@ export const DEFAULTS: ZamesConfig = {
     // (PgUp/PgDn scroll the in-app log instead). Set to false for the inline
     // layout, which keeps the scrollback but is subject to reflow artifacts.
     alternateScreen: true,
+    // In-app MOUSE-WHEEL scrolling of the log. OFF by default because enabling
+    // it turns on terminal mouse REPORTING, which STEALS drag-selection: the
+    // operator can no longer select text with the mouse (reported). With this
+    // off, drag-select works normally and the wheel is ignored by the app; set
+    // it to true to scroll the log with the wheel (then use Shift+drag to
+    // select text — a terminal convention).
+    mouseScroll: false,
   },
 
   // Off by default: a full tsc/eslint run after every edit is slow; opt in.
@@ -232,6 +239,18 @@ export const CONFIG_SCHEMA: ConfigField[] = [
     path: 'ui.alternateScreen',
     type: 'boolean',
     labelKey: 'cfg.f.ui_alternateScreen',
+    groupKey: 'cfg.group.ui',
+  },
+  {
+    path: 'ui.mouseScroll',
+    type: 'boolean',
+    labelKey: 'cfg.f.ui_mouseScroll',
+    groupKey: 'cfg.group.ui',
+  },
+  {
+    path: 'ui.mouseScroll',
+    type: 'boolean',
+    labelKey: 'cfg.f.ui_mouseScroll',
     groupKey: 'cfg.group.ui',
   },
   {

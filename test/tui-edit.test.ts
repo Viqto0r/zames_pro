@@ -210,7 +210,7 @@ test('dispatchKey: печатаемый символ -> insert', () => {
   const a = dispatchKey(
     'a',
     key({}),
-    { searchMode: false, bufferEmpty: false },
+    { searchMode: false, bufferEmpty: false, endsWithBackslash: false },
     { atTop: true, atBottom: true },
   )
   assert.deepEqual(a, { type: 'insert', text: 'a' })
@@ -221,7 +221,7 @@ test('dispatchKey: Ctrl+W -> deleteWordLeft, Ctrl+K -> killToEnd', () => {
     dispatchKey(
       'w',
       key({ ctrl: true }),
-      { searchMode: false, bufferEmpty: false },
+      { searchMode: false, bufferEmpty: false, endsWithBackslash: false },
       { atTop: true, atBottom: true },
     )?.type,
     'deleteWordLeft',
@@ -230,7 +230,7 @@ test('dispatchKey: Ctrl+W -> deleteWordLeft, Ctrl+K -> killToEnd', () => {
     dispatchKey(
       'k',
       key({ ctrl: true }),
-      { searchMode: false, bufferEmpty: false },
+      { searchMode: false, bufferEmpty: false, endsWithBackslash: false },
       { atTop: true, atBottom: true },
     )?.type,
     'killToEnd',
@@ -242,7 +242,7 @@ test('dispatchKey: Enter -> submit, Tab -> complete', () => {
     dispatchKey(
       '',
       key({ return: true }),
-      { searchMode: false, bufferEmpty: false },
+      { searchMode: false, bufferEmpty: false, endsWithBackslash: false },
       { atTop: true, atBottom: true },
     )?.type,
     'submit',
@@ -251,7 +251,7 @@ test('dispatchKey: Enter -> submit, Tab -> complete', () => {
     dispatchKey(
       '',
       key({ tab: true }),
-      { searchMode: false, bufferEmpty: false },
+      { searchMode: false, bufferEmpty: false, endsWithBackslash: false },
       { atTop: true, atBottom: true },
     )?.type,
     'complete',
@@ -263,7 +263,7 @@ test('dispatchKey: Up на верхнем крае -> historyPrev, внутри 
     dispatchKey(
       '',
       key({ upArrow: true }),
-      { searchMode: false, bufferEmpty: false },
+      { searchMode: false, bufferEmpty: false, endsWithBackslash: false },
       { atTop: true, atBottom: false },
     )?.type,
     'historyPrev',
@@ -272,7 +272,7 @@ test('dispatchKey: Up на верхнем крае -> historyPrev, внутри 
     dispatchKey(
       '',
       key({ upArrow: true }),
-      { searchMode: false, bufferEmpty: false },
+      { searchMode: false, bufferEmpty: false, endsWithBackslash: false },
       { atTop: false, atBottom: false },
     )?.type,
     'up',
@@ -284,7 +284,7 @@ test('dispatchKey: Ctrl+D при пустом буфере -> ctrlD, иначе 
     dispatchKey(
       'd',
       key({ ctrl: true }),
-      { searchMode: false, bufferEmpty: true },
+      { searchMode: false, bufferEmpty: true, endsWithBackslash: false },
       { atTop: true, atBottom: true },
     )?.type,
     'ctrlD',
@@ -293,7 +293,7 @@ test('dispatchKey: Ctrl+D при пустом буфере -> ctrlD, иначе 
     dispatchKey(
       'd',
       key({ ctrl: true }),
-      { searchMode: false, bufferEmpty: false },
+      { searchMode: false, bufferEmpty: false, endsWithBackslash: false },
       { atTop: true, atBottom: true },
     )?.type,
     'delete',
@@ -304,7 +304,7 @@ test('dispatchKey: в режиме поиска буквы -> searchInput', () =
   const a = dispatchKey(
     'q',
     key({}),
-    { searchMode: true, bufferEmpty: false },
+    { searchMode: true, bufferEmpty: false, endsWithBackslash: false },
     { atTop: true, atBottom: true },
   )
   assert.deepEqual(a, { type: 'searchInput', text: 'q' })
@@ -315,7 +315,7 @@ test('dispatchKey: Alt+B/Alt+F -> wordLeft/wordRight', () => {
     dispatchKey(
       'b',
       key({ meta: true }),
-      { searchMode: false, bufferEmpty: false },
+      { searchMode: false, bufferEmpty: false, endsWithBackslash: false },
       { atTop: true, atBottom: true },
     )?.type,
     'wordLeft',
@@ -324,7 +324,7 @@ test('dispatchKey: Alt+B/Alt+F -> wordLeft/wordRight', () => {
     dispatchKey(
       'f',
       key({ meta: true }),
-      { searchMode: false, bufferEmpty: false },
+      { searchMode: false, bufferEmpty: false, endsWithBackslash: false },
       { atTop: true, atBottom: true },
     )?.type,
     'wordRight',
@@ -332,7 +332,11 @@ test('dispatchKey: Alt+B/Alt+F -> wordLeft/wordRight', () => {
 })
 
 test('dispatchKey: полный набор Ctrl-биндингов', () => {
-  const ctx = { searchMode: false, bufferEmpty: false }
+  const ctx = {
+    searchMode: false,
+    bufferEmpty: false,
+    endsWithBackslash: false,
+  }
   const edges = { atTop: true, atBottom: true }
   const c = (ch: string): string | undefined =>
     dispatchKey(ch, key({ ctrl: true }), ctx, edges)?.type
@@ -354,7 +358,11 @@ test('dispatchKey: полный набор Ctrl-биндингов', () => {
 })
 
 test('dispatchKey: named-ключи и края истории', () => {
-  const ctx = { searchMode: false, bufferEmpty: false }
+  const ctx = {
+    searchMode: false,
+    bufferEmpty: false,
+    endsWithBackslash: false,
+  }
   assert.equal(
     dispatchKey('', key({ leftArrow: true }), ctx, {
       atTop: true,
@@ -413,7 +421,7 @@ test('dispatchKey: named-ключи и края истории', () => {
 })
 
 test('dispatchKey: режим поиска — все ветки', () => {
-  const ctx = { searchMode: true, bufferEmpty: false }
+  const ctx = { searchMode: true, bufferEmpty: false, endsWithBackslash: false }
   const edges = { atTop: true, atBottom: true }
   assert.equal(
     dispatchKey('r', key({ ctrl: true }), ctx, edges)?.type,
@@ -443,7 +451,11 @@ test('dispatchKey: режим поиска — все ветки', () => {
 })
 
 test('dispatchKey: Alt+Backspace/Delete -> слово-удаление, пустой -> null', () => {
-  const ctx = { searchMode: false, bufferEmpty: false }
+  const ctx = {
+    searchMode: false,
+    bufferEmpty: false,
+    endsWithBackslash: false,
+  }
   const edges = { atTop: true, atBottom: true }
   assert.equal(
     dispatchKey('', key({ meta: true, backspace: true }), ctx, edges)?.type,
@@ -455,4 +467,43 @@ test('dispatchKey: Alt+Backspace/Delete -> слово-удаление, пуст
   )
   assert.equal(dispatchKey('z', key({ meta: true }), ctx, edges), null)
   assert.equal(dispatchKey('', key({}), ctx, edges), null)
+})
+
+test('dispatchKey: Enter — submit, но Shift+Enter и «\»+Enter = перенос', () => {
+  const base = {
+    searchMode: false,
+    bufferEmpty: false,
+    endsWithBackslash: false,
+  }
+  const edges = { atTop: true, atBottom: true }
+  // Plain Enter -> submit.
+  assert.equal(
+    dispatchKey('', key({ return: true }), base, edges)?.type,
+    'submit',
+  )
+  // Shift+Enter -> newline.
+  assert.equal(
+    dispatchKey('', key({ return: true, shift: true }), base, edges)?.type,
+    'newline',
+  )
+  // Trailing backslash + Enter -> newline.
+  assert.equal(
+    dispatchKey(
+      '',
+      key({ return: true }),
+      { ...base, endsWithBackslash: true },
+      edges,
+    )?.type,
+    'newline',
+  )
+  // Alt+Enter -> newline.
+  assert.equal(
+    dispatchKey('', key({ return: true, meta: true }), base, edges)?.type,
+    'newline',
+  )
+  // Ctrl+J -> newline.
+  assert.equal(
+    dispatchKey('j', key({ ctrl: true }), base, edges)?.type,
+    'newline',
+  )
 })

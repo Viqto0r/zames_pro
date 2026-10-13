@@ -321,11 +321,15 @@ export class TuiEditor {
     title?: string
     version?: string
     workdir?: string
+    mouseScroll?: boolean
   }): void {
     this.store.set({
       ...(info.title !== undefined ? { title: info.title } : {}),
       ...(info.version !== undefined ? { version: info.version } : {}),
       ...(info.workdir !== undefined ? { workdir: info.workdir } : {}),
+      ...(info.mouseScroll !== undefined
+        ? { mouseScroll: info.mouseScroll }
+        : {}),
     })
   }
 

@@ -34,10 +34,16 @@ export function parseWheel(chunk: string): number {
  * where delta > 0 means "scroll up / back". Enables SGR mouse reporting while
  * mounted and disables it on unmount.
  */
-export function useMouseWheel(onWheel: (delta: number) => void): void {
+export function useMouseWheel(
+  onWheel: (delta: number) => void,
+  enabled = true,
+): void {
   const { stdin, isRawModeSupported } = useStdin()
   useEffect(() => {
-    if (!isRawModeSupported) return
+    // `enabled` gates terminal mouse REPORTING: while it is on, the terminal
+    // sends mouse events to us (so the wheel can scroll the log) but DRAG
+    // SELECTION stops working. Off by default (see config ui.mouseScroll).
+    if (!enabled || !isRawModeSupported) return
     const ESC = String.fromCharCode(27)
     // Enable button-event tracking + SGR extended coordinates.
     process.stdout.write(ESC + '[?1000h' + ESC + '[?1006h')
@@ -53,5 +59,5 @@ export function useMouseWheel(onWheel: (delta: number) => void): void {
       // Disable mouse reporting on unmount so a copied selection works again.
       process.stdout.write(ESC + '[?1006l' + ESC + '[?1000l')
     }
-  }, [stdin, isRawModeSupported, onWheel])
+  }, [stdin, isRawModeSupported, onWheel, enabled])
 }

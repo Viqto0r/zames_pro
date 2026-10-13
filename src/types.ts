@@ -189,6 +189,13 @@ export interface UiConfig {
    * mode like vim/htop). Off by default so the scrollback stays available.
    */
   alternateScreen: boolean
+  /**
+   * In-app mouse-wheel scrolling of the log. Off by default because it enables
+   * terminal mouse reporting, which STEALS drag-selection (the operator can no
+   * longer select text with the mouse). Set true to scroll the log with the
+   * wheel; then use Shift+drag to select text.
+   */
+  mouseScroll: boolean
 }
 
 export interface ZamesConfig {
