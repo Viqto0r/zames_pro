@@ -2,7 +2,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { summarizeToolCall } from '../src/tool-summary.js'
+import { summarizeToolCall, looksLikeToolError } from '../src/tool-summary.js'
 
 test('summarizeToolCall: Read/Write/Edit -> путь', () => {
   assert.deepEqual(summarizeToolCall('Read', { path: 'a/b.ts' }), {
@@ -93,4 +93,12 @@ test('summarizeToolCall: Task/TodoWrite/respond', () => {
 test('summarizeToolCall: null-ish аргументы не роняют', () => {
   // @ts-expect-error runtime guard: a caller may pass null
   assert.equal(summarizeToolCall('Read', null).detail, '')
+})
+
+test('looksLikeToolError: flags Error/exit-code bodies, passes normal ones', () => {
+  assert.equal(looksLikeToolError('Error: file not found'), true)
+  assert.equal(looksLikeToolError('Missing required argument: path'), true)
+  assert.equal(looksLikeToolError('command failed with exit code 1'), true)
+  assert.equal(looksLikeToolError('read 120 lines'), false)
+  assert.equal(looksLikeToolError(''), false)
 })

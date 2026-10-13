@@ -74,3 +74,22 @@ export function summarizeToolCall(
     }
   }
 }
+
+/**
+ * A cheap heuristic for the STATUS ICON next to a tool result: a result that
+ * clearly reports a failure gets ✖, a normal one ✔. The agent loop returns a
+ * failed tool as a string beginning with "Error"/"Missing required argument"
+ * (see src/tools.ts), so matching those prefixes is reliable enough — a false
+ * "✔" on an unusual error body is harmless (the text is still shown).
+ */
+export function looksLikeToolError(result: string): boolean {
+  const head = String(result ?? '').trim().slice(0, 60).toLowerCase()
+  if (!head) return false
+  return (
+    head.startsWith('error') ||
+    head.startsWith('missing required argument') ||
+    head.startsWith('failed') ||
+    head.includes('command failed') ||
+    head.includes('exit code')
+  )
+}

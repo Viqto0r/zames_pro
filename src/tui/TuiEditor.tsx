@@ -32,7 +32,7 @@ import {
 import { contentWidth } from '../width.js'
 import { theme } from '../theme.js'
 import { renderMarkdown } from '../markdown.js'
-import { summarizeToolCall } from '../tool-summary.js'
+import { summarizeToolCall, looksLikeToolError } from '../tool-summary.js'
 import { extractCodeBlocks } from '../code-blocks.js'
 import { randomThinkingPhrase, stripEllipsis } from '../spinner.js'
 
@@ -517,7 +517,12 @@ export class TuiEditor {
       text.split('\n').join(' ↵ '),
       contentWidth(),
     )
-    this.printAbove(theme.toolResult('   → ' + preview))
+    // A simple outcome icon: a tool result that is clearly an error gets ✖, a
+    // normal one ✔. The result already flows here (a mutating tool's failure
+    // is reported as an Error string by the loop), so this is cheap and makes
+    // a failed call visible at a glance.
+    const icon = looksLikeToolError(text) ? '   ✖ ' : '   ✔ '
+    this.printAbove(theme.toolResult(icon + preview))
   }
 
   assistant(msg: string): void {
