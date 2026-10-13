@@ -47,6 +47,10 @@ export interface UiEditor {
   onContextQuery: (() => number | null) | null
   onToggleQuery:
     (() => { deepThinking: boolean; webSearch: boolean } | null) | null
+  /** Copy text to the OS clipboard (returns the tool used + ok). */
+  onCopyText?: ((text: string) => { ok: boolean; via: string }) | null
+  /** Copy the focused (or last) code block from the last answer. */
+  copyCode?: (index?: number) => boolean
 
   // ---- lifecycle ----
   start(): boolean

@@ -49,6 +49,7 @@ export type EditorAction =
   | { type: 'ctrlD' }
   | { type: 'clearScreen' }
   | { type: 'clipboard' }
+  | { type: 'copyCode' }
 
 export interface KeyContext {
   /** Reverse-search (Ctrl+R) mode is active. */
@@ -137,6 +138,8 @@ export function dispatchKey(
         return { type: 'suggestPrev' }
       case 'v':
         return { type: 'clipboard' }
+      case 'y':
+        return { type: 'copyCode' }
       case 'j':
         return { type: 'newline' }
       default:

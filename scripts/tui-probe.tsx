@@ -6,6 +6,7 @@
 // NOT shipped: a dev probe only (lives in scripts/, not in `files`).
 
 import React from 'react'
+import fs from 'node:fs'
 import { render } from 'ink'
 import { TuiStore } from '../src/tui/store.js'
 import { FullScreenApp } from '../src/tui/FullScreenApp.js'
@@ -20,11 +21,16 @@ store.set({
   locale: 'en',
   commands: [],
   edit: { ...initialEditState(), buf: process.argv[2] ?? '' },
+  // A copyable code block, so a pty run can press Ctrl+Y and assert the copy
+  // callback fired (the raw block, not the highlighted render).
+  codeBlocks: [{ lang: 'ts', text: 'const a = 1', index: 1 }],
 })
 
 // A few log rows so the viewport is not empty.
 store.pushLog('system', 'log line one')
 store.pushLog('system', 'log line two')
+
+const COPY_LOG = process.env.PROBE_COPY_LOG || ''
 
 render(
   <FullScreenApp
@@ -33,6 +39,9 @@ render(
       onSubmit: () => {},
       onEscape: () => {},
       onCtrlC: () => {},
+      onCopyCode: () => {
+        if (COPY_LOG) fs.appendFileSync(COPY_LOG, 'copy' + String.fromCharCode(10))
+      },
       onAttach: () => null,
       onClipboard: () => Promise.resolve(null),
       onHistoryChange: () => {},

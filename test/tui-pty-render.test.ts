@@ -12,6 +12,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
+import fs from 'node:fs'
 import path from 'node:path'
 import { Term } from './vt100.mjs'
 
@@ -21,12 +22,25 @@ const COLS = 80
 const enabled = process.env.ZAMES_PTY_TESTS === '1'
 const hasScript = spawnSync('sh', ['-c', 'command -v script']).status === 0
 
-function runProbe(buf: string, keys: string[], delayMs = 250): Promise<string> {
+function runProbe(
+  buf: string,
+  keys: string[],
+  delayMs = 250,
+  copyLog?: string,
+): Promise<string> {
   return new Promise((resolve) => {
     const child = spawn(
       'script',
       ['-qec', 'npx tsx scripts/tui-probe.tsx ' + JSON.stringify(buf), '/dev/null'],
-      { cwd: path.resolve('.'), env: { ...process.env, COLUMNS: String(COLS), LINES: String(ROWS) } },
+      {
+        cwd: path.resolve('.'),
+        env: {
+          ...process.env,
+          COLUMNS: String(COLS),
+          LINES: String(ROWS),
+          ...(copyLog ? { PROBE_COPY_LOG: copyLog } : {}),
+        },
+      },
     )
     let out = ''
     child.stdout.on('data', (d) => {
@@ -89,4 +103,23 @@ run('pty: Ctrl+J (LF) inserts newlines and the box grows per line', async () => 
   assert.ok(term.findRow('> a') >= 0, 'line a must be visible')
   assert.ok(term.findRow('  b') >= 0, 'line b must be on its own row')
   assert.ok(term.findRow('  c') >= 0, 'line c must be on its own row')
+})
+
+run('pty: Ctrl+Y fires the code-copy callback', async () => {
+  const copyLog = path.join(process.cwd(), 'tmp', 'probe-copy.log')
+  try {
+    fs.unlinkSync(copyLog)
+  } catch {
+    /* ignore */
+  }
+  // Ctrl+Y = 0x19.
+  const out = await runProbe('', ['\u0019'], 400, copyLog)
+  void out
+  let hits = ''
+  try {
+    hits = fs.readFileSync(copyLog, 'utf-8')
+  } catch {
+    /* ignore */
+  }
+  assert.ok(hits.includes('copy'), 'Ctrl+Y must invoke onCopyCode')
 })

@@ -43,6 +43,7 @@ function badgeTextWidth(state: TuiState): number {
   if (state.statusLine) w += state.statusLine.length + 1
   if (state.provider) w += state.provider.length + 3
   if (state.queueLength > 0) w += 2 + String(state.queueLength).length
+  if (state.codeBlocks.length > 0) w += 8
   if (state.tasks) w += state.tasks.length + 1
   if (state.thinkingEnabled) w += 3
   if (state.searchEnabled) w += 3
@@ -75,6 +76,16 @@ function Badges({ state }: { state: TuiState }): React.ReactElement | null {
     parts.push(
       <Text key="q" color="#c9a86a">
         {'⧗' + state.queueLength}{' '}
+      </Text>,
+    )
+  }
+  if (state.codeBlocks.length > 0) {
+    // A hint that the last answer has copyable code: Ctrl+Y copies the last
+    // block (or the focused one), like a copy button in a GUI chat.
+    const idx = state.codeFocus >= 0 ? state.codeFocus + 1 : state.codeBlocks.length
+    parts.push(
+      <Text key="code" color="#7fc4f0">
+        {'⌘ ' + idx + '/' + state.codeBlocks.length + ' '}
       </Text>,
     )
   }

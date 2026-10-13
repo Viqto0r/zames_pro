@@ -33,6 +33,7 @@ import { contentWidth } from '../width.js'
 import { theme } from '../theme.js'
 import { renderMarkdown } from '../markdown.js'
 import { summarizeToolCall } from '../tool-summary.js'
+import { extractCodeBlocks } from '../code-blocks.js'
 import { randomThinkingPhrase, stripEllipsis } from '../spinner.js'
 
 /** The editor options, matching the LineEditor constructor. */
@@ -62,6 +63,9 @@ export class TuiEditor {
   onContextQuery: (() => number | null) | null = null
   onToggleQuery:
     (() => { deepThinking: boolean; webSearch: boolean } | null) | null = null
+  /** Copy text to the OS clipboard. Wired to writeClipboardText in index.ts;
+   *  returns { ok, via } so the editor can report the outcome. */
+  onCopyText: ((text: string) => { ok: boolean; via: string }) | null = null
 
   busy = false
   locked = false
@@ -119,6 +123,7 @@ export class TuiEditor {
       onSubmit: (text, atts) => this.handleSubmit(text, atts),
       onEscape: () => this.onEscape?.(),
       onCtrlC: () => this.onCtrlC?.(),
+      onCopyCode: () => this.copyCode(),
       onAttach: (raw) => this.onAttach?.(raw) ?? null,
       onClipboard: () => this.onClipboard?.() ?? Promise.resolve(null),
       onHistoryChange: (h) => {
@@ -523,6 +528,46 @@ export class TuiEditor {
     )
     this.printAbove(rendered)
     this.printAbove('\n')
+    // Remember the answer's code blocks so the operator can copy one by hotkey
+    // (a terminal has no copy buttons). Extraction is on the RAW markdown —
+    // the rendered text is full of ANSI and must never be copied.
+    const blocks = extractCodeBlocks(msg)
+    this.store.set({ codeBlocks: blocks, codeFocus: -1 })
+    if (blocks.length) this.refreshBadges()
+  }
+
+  /** Copy the focused code block (or the LAST when none is focused). */
+  copyCode(index?: number): boolean {
+    const snap = this.store.getSnapshot()
+    const blocks = snap.codeBlocks
+    if (!blocks.length) {
+      this.printAbove(theme.dim(translate(this.locale)('copy.no_code')))
+      return false
+    }
+    const pick =
+      typeof index === 'number'
+        ? blocks.find((b) => b.index === index) ?? null
+        : snap.codeFocus >= 0
+          ? blocks[snap.codeFocus] ?? null
+          : blocks[blocks.length - 1]
+    if (!pick) {
+      this.printAbove(
+        theme.warn(translate(this.locale)('copy.bad_index', { n: String(index) })),
+      )
+      return false
+    }
+    const res = this.onCopyText?.(pick.text) ?? { ok: false, via: 'none' }
+    const label = 'code #' + pick.index + (pick.lang ? ' (' + pick.lang + ')' : '')
+    if (res.ok) {
+      this.printAbove(
+        theme.assistant(translate(this.locale)('copy.done', { tool: res.via }) + ' — ' + label),
+      )
+    } else {
+      this.printAbove(
+        theme.warn(translate(this.locale)('copy.failed', { tool: res.via }) + ' — ' + label),
+      )
+    }
+    return res.ok
   }
 
   warning(msg: string): void {

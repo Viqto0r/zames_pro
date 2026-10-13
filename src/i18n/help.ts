@@ -197,6 +197,10 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     ru: '/copy скопировать последний ответ в буфер обмена',
     en: '/copy copy the last answer to the clipboard',
   },
+  'help.cmd.copy_code': {
+    ru: '/copy-code [номер] копировать блок кода из последнего ответа (Ctrl+Y)',
+    en: '/copy-code [n] copy a code block from the last answer (Ctrl+Y)',
+  },
   'help.cmd.cost': { ru: '/cost статистика сессии', en: '/cost session stats' },
   'help.cmd.export': {
     ru: '/export [file] выгрузить сессию в Markdown',
