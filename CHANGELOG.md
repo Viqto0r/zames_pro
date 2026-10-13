@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.74.0] - 2026-10-13
+
+### Added
+
+- **tui:** interactive /chats and /sessions list menus
+- **tui:** task progress bar and tool-result outcome icons (TUI-12)
+- **tui:** in-TUI login and one-time-code forms (TUI-10)
+- **tui:** copy code blocks (Ctrl+Y / /copy-code) and a CodeBlock widget
+- **tui:** Ink-based terminal UI with full-screen mode, rich menus and mouse scrolling
+- **goal:** completion-condition semantics with evaluator; make /config live
+
+### Fixed
+
+- **tui:** the mouse wheel now scrolls the DIALOG (not the input history)
+- **tui:** window the full-screen log by rendered ROW, not by entry
+- **tui:** split-safe wheel parser, empty-log hint, selection-aware suggest window
+- **tui:** real visual-row input box height, Ctrl+J, and wheel-vs-history
+- **tui:** multi-line input, growing input box, optional mouse scroll
+
+### Changed
+
+- **tui:** drop the task progress bar — keep just the "tasks: n/m" text
+- **tui:** distinct color and a divider for operator messages
+
 ## [2.73.11] - 2026-10-12
 
 ### Fixed
