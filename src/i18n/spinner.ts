@@ -24,6 +24,12 @@ export const spinnerMessages: Record<string, { ru: string; en: string }> = {
     en: '(Ctrl+N/Ctrl+P to page, Tab to insert)',
   },
   'editor.answer': { ru: '● Ответ', en: '● Answer' },
+  // Shown in the full-screen log viewport before the first turn, so a fresh
+  // chat is not a blank screen with no hint of what to do.
+  'editor.empty_hint': {
+    ru: 'Напишите задачу и нажмите Enter. /help — команды, Ctrl+J — новая строка.',
+    en: 'Type a task and press Enter. /help for commands, Ctrl+J for a new line.',
+  },
   // Reverse search (Ctrl+R) status line. The query may be empty.
   'editor.search_prompt': {
     ru: '(обратный поиск) `{q}` — Ctrl+R дальше, Enter принять, Esc отмена',

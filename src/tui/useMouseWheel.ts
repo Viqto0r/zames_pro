@@ -40,6 +40,21 @@ export function parseWheel(chunk: string): number {
 }
 
 /**
+ * The part of an SGR mouse sequence at the END of `chunk` that is still
+ * INCOMPLETE (no `M`/`m` terminator yet), or '' when the chunk ends cleanly.
+ * A terminal may split one sequence across two `data` events; scanning each
+ * chunk alone dropped the wheel notch (the hook keeps this tail and prepends
+ * it to the next chunk).
+ */
+export function incompleteTail(chunk: string): string {
+  const start = chunk.lastIndexOf('\u001b[<')
+  if (start === -1) return ''
+  // Complete if an `M`/`m` follows the introducer before the chunk ends.
+  if (/[Mm]/.test(chunk.slice(start + 3))) return ''
+  return chunk.slice(start)
+}
+
+/**
  * Subscribe to wheel events on the given terminal and call `onWheel(delta)`
  * where delta > 0 means "scroll up / back". Enables SGR mouse reporting while
  * mounted and disables it on unmount.
@@ -68,10 +83,15 @@ export function useMouseWheel(
     }
     // Enable button-event tracking + SGR extended coordinates.
     process.stdout.write(ESC + '[?1000h' + ESC + '[?1006h')
+    // A sequence may be split across two chunks; carry the incomplete tail.
+    let carry = ''
     const onData = (data: Buffer | string): void => {
-      const s = typeof data === 'string' ? data : data.toString('utf-8')
-      if (!s.includes('\u001b[<')) return
-      const delta = parseWheel(s)
+      const s = (typeof data === 'string' ? data : data.toString('utf-8'))
+      const buf = carry + s
+      carry = incompleteTail(buf)
+      const scan = carry ? buf.slice(0, buf.length - carry.length) : buf
+      if (!scan.includes('\u001b[<')) return
+      const delta = parseWheel(scan)
       if (delta !== 0) onWheel(delta)
     }
     stdin.on('data', onData)

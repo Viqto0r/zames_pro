@@ -16,6 +16,7 @@ import { StatusBar } from './StatusBar.js'
 import { InputLine, type InputLineProps } from './InputLine.js'
 import type { TuiStore } from './store.js'
 import { contentWidth } from '../width.js'
+import { translate } from '../i18n.js'
 import { suggestRowCount } from '../input/suggest.js'
 import { inputBoxRows } from '../input/layout.js'
 import { useMouseWheel } from './useMouseWheel.js'
@@ -120,7 +121,13 @@ export function FullScreenApp({
         overflow="hidden"
         justifyContent="flex-end"
       >
-        <LogList entries={visible} />
+        {all.length === 0 ? (
+          <Text color="#5b616e">
+            {translate(state.locale)('editor.empty_hint')}
+          </Text>
+        ) : (
+          <LogList entries={visible} />
+        )}
       </Box>
       <StatusBar state={state} divider={false} />
       <InputLine

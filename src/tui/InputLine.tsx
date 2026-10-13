@@ -16,6 +16,7 @@ import {
   layoutInput,
   visLen,
   charWidth,
+  SUGGEST_PAGE,
   type SlashCommand,
 } from '../input/layout.js'
 import {
@@ -121,8 +122,12 @@ export function InputLine(props: InputLineProps): React.ReactElement {
   const cols = columns || 80
   const { setCursorPosition } = useCursor()
 
-  const [suggestOffset] = useState(0)
   const [suggestSelected, setSuggestSelected] = useState(-1)
+  // The visible page of the suggestion list follows the SELECTION: with more
+  // matches than one page, Ctrl+N could move the selection past the page and
+  // the highlight vanished (the operator "lost" the selected command). Derive
+  // the offset from the selection instead of keeping a separate state.
+  const suggestOffset = suggestSelected < 0 ? 0 : suggestSelected - (suggestSelected % SUGGEST_PAGE)
 
   // The editor state lives in the STORE (props.store), read via
   // useSyncExternalStore. This is what makes the typed line survive an Ink
