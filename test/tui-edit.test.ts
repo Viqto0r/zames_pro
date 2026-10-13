@@ -501,9 +501,19 @@ test('dispatchKey: Enter — submit, но Shift+Enter и «\»+Enter = пере�
     dispatchKey('', key({ return: true, meta: true }), base, edges)?.type,
     'newline',
   )
-  // Ctrl+J -> newline.
+  // Ctrl+J -> newline. The REAL byte for Ctrl+J is LF (0x0A): Ink reports
+  // input='\n' with key.ctrl FALSE (it maps LF to name='enter', which the
+  // public Key type hides). The old test used input='j'+ctrl=true — a shape
+  // Ink never delivers — so the binding was "green" while Ctrl+J did nothing.
+  assert.equal(dispatchKey('\n', key({}), base, edges)?.type, 'newline')
+  // The legacy shape (ctrl+'j') must ALSO still map to newline.
   assert.equal(
     dispatchKey('j', key({ ctrl: true }), base, edges)?.type,
+    'newline',
+  )
+  // Ctrl+Enter (kitty protocol) -> newline, NOT submit.
+  assert.equal(
+    dispatchKey('\r', key({ return: true, ctrl: true }), base, edges)?.type,
     'newline',
   )
 })

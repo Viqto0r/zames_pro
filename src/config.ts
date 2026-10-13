@@ -248,12 +248,6 @@ export const CONFIG_SCHEMA: ConfigField[] = [
     groupKey: 'cfg.group.ui',
   },
   {
-    path: 'ui.mouseScroll',
-    type: 'boolean',
-    labelKey: 'cfg.f.ui_mouseScroll',
-    groupKey: 'cfg.group.ui',
-  },
-  {
     path: 'headless',
     type: 'boolean',
     labelKey: 'cfg.f.headless',

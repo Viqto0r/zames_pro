@@ -9,6 +9,16 @@
 //
 // The SGR encoding is `ESC [ < Cb ; Cx ; Cy M` where Cb 64 = wheel up and
 // 65 = wheel down (plus modifier bits). We only need Cb.
+//
+// ALTERNATE-SCROLL: while the app is in the ALTERNATE SCREEN (full-screen
+// mode), terminals turn the mouse wheel into ARROW KEYS by default (DECSET
+// 1007, "alternate scroll mode"). Ink parses those arrows as normal Up/Down,
+// and the input editor at a buffer edge maps them to HISTORY — so the wheel
+// "scrolled the input history" instead of the log, even with mouseScroll off.
+// We therefore DISABLE 1007 for the whole app lifetime (on and off), so the
+// wheel never becomes arrow keys. With mouseScroll ON the raw SGR events still
+// arrive (1000/1006 are enabled) and scroll the log; with it OFF the wheel is
+// simply inert and drag-select keeps working.
 
 import { useEffect } from 'react'
 import { useStdin } from 'ink'
@@ -40,11 +50,22 @@ export function useMouseWheel(
 ): void {
   const { stdin, isRawModeSupported } = useStdin()
   useEffect(() => {
+    if (!isRawModeSupported) return
+    const ESC = String.fromCharCode(27)
+    // ALWAYS disable alternate-scroll (DECSET 1007) so the terminal does not
+    // turn the mouse wheel into arrow keys (see the file header). This is what
+    // stopped the wheel from scrolling the INPUT HISTORY with mouseScroll off.
+    process.stdout.write(ESC + '[?1007l')
     // `enabled` gates terminal mouse REPORTING: while it is on, the terminal
     // sends mouse events to us (so the wheel can scroll the log) but DRAG
     // SELECTION stops working. Off by default (see config ui.mouseScroll).
-    if (!enabled || !isRawModeSupported) return
-    const ESC = String.fromCharCode(27)
+    if (!enabled) {
+      return () => {
+        // Re-arm the terminal default we touched, so a shell after exit behaves
+        // as before (terminals usually default 1007 on in the alt screen).
+        process.stdout.write(ESC + '[?1007h')
+      }
+    }
     // Enable button-event tracking + SGR extended coordinates.
     process.stdout.write(ESC + '[?1000h' + ESC + '[?1006h')
     const onData = (data: Buffer | string): void => {
@@ -58,6 +79,7 @@ export function useMouseWheel(
       stdin.removeListener('data', onData)
       // Disable mouse reporting on unmount so a copied selection works again.
       process.stdout.write(ESC + '[?1006l' + ESC + '[?1000l')
+      process.stdout.write(ESC + '[?1007h')
     }
   }, [stdin, isRawModeSupported, onWheel, enabled])
 }

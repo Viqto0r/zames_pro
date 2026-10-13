@@ -17,6 +17,7 @@ import { InputLine, type InputLineProps } from './InputLine.js'
 import type { TuiStore } from './store.js'
 import { contentWidth } from '../width.js'
 import { suggestRowCount } from '../input/suggest.js'
+import { inputBoxRows } from '../input/layout.js'
 import { useMouseWheel } from './useMouseWheel.js'
 
 export type FullInputCallbacks = Omit<
@@ -60,21 +61,24 @@ export function FullScreenApp({
   const { rows } = useWindowSize()
   const termRows = rows || 24
 
-  // Fixed panel height: header (2) + status (1) + input box (2 borders + 1
-  // row = 3). The log viewport gets the remaining rows.
+  // Fixed panel height: header (2) + status (1) + the input box (2 borders +
+  // its VISUAL rows) + the suggestion popup rows. The log viewport gets the
+  // rest.
   const HEADER_ROWS = 2
   const STATUS_ROWS = 1
-  // The input box grows with MULTI-LINE input: 2 borders + one row per visual
-  // line of the buffer. A fixed 3 was wrong: a 2-line input overflowed the
-  // panel and clipped the box top (the cursor "drifted" and the first line
-  // vanished). Compute the real line count from the buffer.
-  const inputLineCount = Math.max(
-    1,
-    state.edit.buf.split(String.fromCharCode(10)).length,
+  const cols = Math.max(1, useWindowSize().columns || 80)
+  // The box height comes from the SAME layoutInput() the box renders with, so
+  // the reserved rows and the drawn rows can never disagree (a logical-line
+  // count missed the word-wrap of a long line and the second line overprinted
+  // the first).
+  const INPUT_BOX_ROWS = inputBoxRows(
+    state.prompt,
+    state.edit.buf,
+    state.edit.cursor,
+    cols,
   )
-  const INPUT_BOX_ROWS = 2 + inputLineCount
-  // The suggestion popup renders BELOW the input; reserve its rows so opening
-  // it does not push the panel / shift the whole layout.
+  // The suggestion popup renders ABOVE the input box; reserve its rows so
+  // opening the list does not push the panel / shift the whole layout.
   const suggestRows = suggestRowCount(state.edit.buf, state.commands)
   const panelRows = HEADER_ROWS + STATUS_ROWS + INPUT_BOX_ROWS + suggestRows
   const logHeight = Math.max(1, termRows - panelRows)

@@ -11,6 +11,8 @@
 
 import type { Key } from 'ink'
 
+const LF = String.fromCharCode(10)
+
 /** The semantic action a keypress maps to. `null` = ignore. */
 export type EditorAction =
   | { type: 'submit' }
@@ -89,6 +91,10 @@ export function dispatchKey(
 
   // ---- control combos ----
   if (key.ctrl) {
+    // Ctrl+Enter (kitty protocol only) inserts a newline. Ink reports it as
+    // return=true + ctrl=true, so it must be checked BEFORE the plain-return
+    // branch below (which would otherwise SUBMIT).
+    if (key.return) return { type: 'newline' }
     // Ctrl + a NAMED key (arrows, Delete, Backspace) arrives with an EMPTY
     // `input` and the named flag set. These are the word-movement bindings:
     // Ctrl+Left/Right move by word, Ctrl+Delete/Backspace delete a word.
@@ -148,6 +154,14 @@ export function dispatchKey(
     if (key.delete) return { type: 'deleteWordRight' }
     return null
   }
+
+  // ---- LF as a bare newline (Ctrl+J) ----
+  // Ctrl+J sends LF (0x0A). Ink maps LF to `name='enter'` — which the public
+  // `Key` type does NOT expose — and leaves `key.ctrl` FALSE, so the ctrl
+  // branch above never fires. Without this guard LF fell through every branch
+  // (`input >= ' '` is false for 0x0A) and Ctrl+J did NOTHING. Treat a lone
+  // LF as a newline; a plain Enter (CR) still submits below.
+  if (input === LF) return { type: 'newline' }
 
   // ---- named keys ----
   // Enter inserts a NEWLINE (not submit) when Shift+Enter is pressed, when a
