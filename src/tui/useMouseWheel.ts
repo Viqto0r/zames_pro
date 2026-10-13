@@ -14,11 +14,16 @@
 // mode), terminals turn the mouse wheel into ARROW KEYS by default (DECSET
 // 1007, "alternate scroll mode"). Ink parses those arrows as normal Up/Down,
 // and the input editor at a buffer edge maps them to HISTORY — so the wheel
-// "scrolled the input history" instead of the log, even with mouseScroll off.
-// We therefore DISABLE 1007 for the whole app lifetime (on and off), so the
-// wheel never becomes arrow keys. With mouseScroll ON the raw SGR events still
-// arrive (1000/1006 are enabled) and scroll the log; with it OFF the wheel is
-// simply inert and drag-select keeps working.
+// scrolled the INPUT HISTORY instead of the log (the operator's bug).
+//
+// ORDER MATTERS and reporting is ALWAYS ON: some terminals only apply `1007l`
+// while mouse reporting is enabled, so sending `1007l` alone (the previous
+// behavior when ui.mouseScroll was off) was a no-op there and the wheel kept
+// arriving as arrows. We now enable 1000/1006 unconditionally and disable 1007
+// right after. Consequence: drag-select needs SHIFT (the standard TUI
+// convention — Shift+drag bypasses the app), which is the trade-off for a
+// working wheel. `enabled` only decides whether the wheel SCROLLS the log;
+// the events are consumed either way so they never reach the editor.
 
 import { useEffect } from 'react'
 import { useStdin } from 'ink'
@@ -54,10 +59,28 @@ export function incompleteTail(chunk: string): string {
   return chunk.slice(start)
 }
 
+const ESC = String.fromCharCode(27)
+
+/**
+ * The terminal-mode sequences the hook writes. Exported PURE so a test can pin
+ * the exact bytes AND their order (reporting FIRST, then 1007 off — some
+ * terminals ignore `1007l` when mouse reporting is off, which is what made the
+ * wheel keep scrolling the input history).
+ */
+export function mouseModeSequences(): { on: string; off: string } {
+  const on =
+    // 1000 = button-event tracking, 1006 = SGR extended coords, 1007 = off.
+    ESC + '[?1000h' + ESC + '[?1006h' + ESC + '[?1007l'
+  const off =
+    ESC + '[?1006l' + ESC + '[?1000l' + ESC + '[?1007h'
+  return { on, off }
+}
+
 /**
  * Subscribe to wheel events on the given terminal and call `onWheel(delta)`
  * where delta > 0 means "scroll up / back". Enables SGR mouse reporting while
- * mounted and disables it on unmount.
+ * mounted and disables alternate-scroll so the wheel is never turned into
+ * arrow keys.
  */
 export function useMouseWheel(
   onWheel: (delta: number) => void,
@@ -66,40 +89,27 @@ export function useMouseWheel(
   const { stdin, isRawModeSupported } = useStdin()
   useEffect(() => {
     if (!isRawModeSupported) return
-    const ESC = String.fromCharCode(27)
-    // ALWAYS disable alternate-scroll (DECSET 1007) so the terminal does not
-    // turn the mouse wheel into arrow keys (see the file header). This is what
-    // stopped the wheel from scrolling the INPUT HISTORY with mouseScroll off.
-    process.stdout.write(ESC + '[?1007l')
-    // `enabled` gates terminal mouse REPORTING: while it is on, the terminal
-    // sends mouse events to us (so the wheel can scroll the log) but DRAG
-    // SELECTION stops working. Off by default (see config ui.mouseScroll).
-    if (!enabled) {
-      return () => {
-        // Re-arm the terminal default we touched, so a shell after exit behaves
-        // as before (terminals usually default 1007 on in the alt screen).
-        process.stdout.write(ESC + '[?1007h')
-      }
-    }
-    // Enable button-event tracking + SGR extended coordinates.
-    process.stdout.write(ESC + '[?1000h' + ESC + '[?1006h')
+    const seq = mouseModeSequences()
+    process.stdout.write(seq.on)
     // A sequence may be split across two chunks; carry the incomplete tail.
     let carry = ''
     const onData = (data: Buffer | string): void => {
-      const s = (typeof data === 'string' ? data : data.toString('utf-8'))
+      const s = typeof data === 'string' ? data : data.toString('utf-8')
       const buf = carry + s
       carry = incompleteTail(buf)
       const scan = carry ? buf.slice(0, buf.length - carry.length) : buf
       if (!scan.includes('\u001b[<')) return
+      // `enabled` decides whether the wheel SCROLLS; the event is consumed
+      // either way, so it never falls through to the editor as an arrow.
+      if (!enabled) return
       const delta = parseWheel(scan)
       if (delta !== 0) onWheel(delta)
     }
     stdin.on('data', onData)
     return () => {
       stdin.removeListener('data', onData)
-      // Disable mouse reporting on unmount so a copied selection works again.
-      process.stdout.write(ESC + '[?1006l' + ESC + '[?1000l')
-      process.stdout.write(ESC + '[?1007h')
+      // Disable mouse reporting on unmount so normal selection works again.
+      process.stdout.write(seq.off)
     }
   }, [stdin, isRawModeSupported, onWheel, enabled])
 }

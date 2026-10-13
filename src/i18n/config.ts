@@ -42,8 +42,8 @@ export const configMessages: Record<string, { ru: string; en: string }> = {
     en: 'Full-screen TUI mode (alternate screen)',
   },
   'cfg.f.ui_mouseScroll': {
-    ru: 'Прокрутка лога колесом мыши (отключает выделение текста мышью)',
-    en: 'Mouse-wheel log scrolling (disables text selection with the mouse)',
+    ru: 'Прокрутка лога колесом мыши (выделение текста — Shift+протяжка)',
+    en: 'Mouse-wheel log scrolling (select text with Shift+drag)',
   },
   'cfg.f.maxIterations': {
     ru: 'Лимит итераций на задачу',

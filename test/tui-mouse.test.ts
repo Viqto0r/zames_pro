@@ -4,7 +4,11 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseWheel, incompleteTail } from '../src/tui/useMouseWheel.ts'
+import {
+  parseWheel,
+  incompleteTail,
+  mouseModeSequences,
+} from '../src/tui/useMouseWheel.ts'
 
 const ESC = String.fromCharCode(27)
 
@@ -52,4 +56,20 @@ test('incompleteTail: a split sequence is returned to carry', () => {
 test('incompleteTail: a trailing incomplete sequence after a complete one', () => {
   const buf = sgr(64) + ESC + '[<65;1'
   assert.equal(incompleteTail(buf), ESC + '[<65;1')
+})
+
+test('mouseModeSequences: reporting BEFORE alternate-scroll off', () => {
+  const { on, off } = mouseModeSequences()
+  // 1000h + 1006h must precede 1007l: some terminals only apply 1007 while
+  // mouse reporting is on, and sending 1007l alone left the wheel as arrows.
+  const i1000 = on.indexOf(ESC + '[?1000h')
+  const i1006 = on.indexOf(ESC + '[?1006h')
+  const i1007 = on.indexOf(ESC + '[?1007l')
+  assert.ok(i1000 >= 0 && i1006 >= 0 && i1007 >= 0)
+  assert.ok(i1000 < i1007, '1000h must come before 1007l')
+  assert.ok(i1006 < i1007, '1006h must come before 1007l')
+  // Unmount restores the terminal (reporting off, alternate-scroll back on).
+  assert.ok(off.includes(ESC + '[?1006l'))
+  assert.ok(off.includes(ESC + '[?1000l'))
+  assert.ok(off.includes(ESC + '[?1007h'))
 })
