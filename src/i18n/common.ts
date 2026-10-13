@@ -83,6 +83,10 @@ export const commonMessages: Record<string, { ru: string; en: string }> = {
   },
   'msg.chat_opened': { ru: 'Чат открыт.', en: 'Chat opened.' },
   'msg.version': { ru: 'Версия: {v}', en: 'Version: {v}' },
+  'msg.banner_hint': {
+    ru: 'задачу — Enter  ·  команды — /help  ·  выход — /exit',
+    en: 'task — Enter  ·  commands — /help  ·  exit — /exit',
+  },
   'msg.interactive': {
     ru: 'Интерактивный режим. Введите задачу. Команды — /help. Выход — /exit.',
     en: 'Interactive mode. Enter a task. Commands — /help. Exit — /exit.',
@@ -115,6 +119,9 @@ export const commonMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Разрешить выполнение?',
     en: 'Allow this call?',
   },
+  'perm.title': { ru: 'Подтверждение', en: 'Confirmation' },
+  'confirm.yes': { ru: 'Да', en: 'Yes' },
+  'confirm.no': { ru: 'Нет', en: 'No' },
   'perm.ask_sub': {
     ru: '⚠ Субагент запрашивает подтверждение: {tool} ({reason})',
     en: '⚠ Subagent approval required: {tool} ({reason})',

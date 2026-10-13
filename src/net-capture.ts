@@ -187,6 +187,23 @@ export function isFinishedWithoutAnswer(body: string): boolean {
   return true
 }
 
+/**
+ * True when the SSE body shows a turn that ENDED (`quasi_status: FINISHED`)
+ * AND carried a non-empty RESPONSE fragment — i.e. the server is done and the
+ * answer is COMPLETE. This is the network-authoritative "the turn is over"
+ * signal: the finish loop can trust it to stop waiting even when the DOM
+ * heuristics (`isNew`/`_isGenerating`) are confused (a resumed chat, a stale
+ * Stop button, a DOM that never caught up). Without it the loop waited out
+ * the whole askDeadlineMs while showing a spinner — the "generation is running
+ * but nothing happens" hang.
+ */
+export function isFinishedWithAnswer(body: string): boolean {
+  const b = String(body || '')
+  if (!b) return false
+  if (!FINISHED_STATUS_RE.test(b)) return false
+  return RESPONSE_CONTENT_RE.test(b)
+}
+
 // The CONTEXT size (in tokens) DeepSeek reports for the current answer.
 //
 // chat.deepseek.com does not expose prompt_tokens/completion_tokens the way

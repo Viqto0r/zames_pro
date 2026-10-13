@@ -15,10 +15,11 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "allowJs": false,
+    "jsx": "react-jsx",
     "types": ["node"],
     "noEmit": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.mts"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "test/**/*.tsx", "scripts/**/*.mts"],
   "exclude": ["node_modules", "dist", "tmp"]
 }

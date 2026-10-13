@@ -39,6 +39,16 @@ const FLOORS = {
   // C3: the pure /config subcommand dispatcher — silent routing regressions
   // (a wrong subcommand branch) are invisible without tests.
   'config-command.ts': 85,
+  // The Ink TUI's PURE halves: the editor state transitions (tui/edit.ts) and
+  // the key dispatcher (tui/keys.ts). A silent regression there breaks the
+  // operator's editing without any UI test catching it. NOTE: the gate keys on
+  // the BASENAME (its regex has no slash), so these are 'edit.ts' / 'keys.ts' /
+  // 'store.ts' — unique in the tree today.
+  'edit.ts': 85,
+  'keys.ts': 85,
+  'store.ts': 85,
+  'banner.ts': 85,
+  'tool-summary.ts': 85,
   // N12: web.ts holds the SSRF guard and the DuckDuckGo/HTML parsers — a
   // regression there is silent. Floors sit below the current values.
   'web.ts': 40,

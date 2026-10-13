@@ -33,6 +33,14 @@ export const configMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Ширина контента в колонках: ответы, ввод, инструменты (0 — авто, до 100)',
     en: 'Content width in columns: answers, input, tools (0 = auto, capped at 100)',
   },
+  'cfg.f.ui_tui': {
+    ru: 'Современный TUI (Ink/React) для ввода и статуса',
+    en: 'Modern TUI (Ink/React) for input and status',
+  },
+  'cfg.f.ui_alternateScreen': {
+    ru: 'Полноэкранный режим TUI (альтернативный экран)',
+    en: 'Full-screen TUI mode (alternate screen)',
+  },
   'cfg.f.maxIterations': {
     ru: 'Лимит итераций на задачу',
     en: 'Max agent loop iterations per task',

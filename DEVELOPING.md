@@ -45,6 +45,43 @@ The single source of truth for the list is `DEV_ONLY_COMMANDS` /
 `isDevOnlyCommand()` in `src/commands.ts` (pure, tested). Add a new
 self-development command there; the help filter and the dispatch guard follow.
 
+## The terminal UI (Ink TUI)
+
+The operator-facing input area is a React/Ink app under `src/tui/` (`ui.tui`,
+default on). `index.ts` and `run-task.ts` never import Ink components: they
+talk to the `UiEditor` interface (`src/tui/types.ts`) that BOTH the new
+`TuiEditor` and the legacy `LineEditor` implement, so the rendering engine can
+be swapped (`ui.tui: false` restores the old editor).
+
+How the two worlds meet: the agent calls the UI imperatively (`printAbove`,
+`toolCall`, `busy`, ...), while Ink renders from React state. `TuiStore`
+(`src/tui/store.ts`) is an external store the Ink tree subscribes to with
+`useSyncExternalStore`; the adapter mutates it and React re-renders. Adding a
+new status element = add a field to `TuiState`, write it from `TuiEditor`, read
+it in a component.
+
+When editing the TUI:
+
+- Keep the PURE halves pure: `edit.ts` (buffer/cursor/history/search/paste
+  transitions) and `keys.ts` (Ink `(input, key)` -> action). They are unit-tested
+  in `test/tui-edit.test.ts` WITHOUT a terminal — add a case there for any new
+  binding.
+- Reuse the existing PURE helpers, do not duplicate: `src/input/layout.ts`
+  (visual rows, widths, paste markers, token status) and `src/input/suggest.ts`
+  (fuzzy `/` completion).
+- Ink's `useInput` normalizes escape sequences (ctrl/meta/shift/arrows/…); the
+  raw CSI parsing the old editor needed is NOT required. For exotic sequences
+  (Ctrl+Backspace, Alt+Delete) check whether Ink delivers them; if not, handle
+  them in `InputLine`'s `useInput`, not in `keys.ts`.
+- `src/tui/*.tsx` compiles via `tsc`'s `react-jsx` transform (`jsx: react-jsx`
+  in `tsconfig.json`), so `npm run build` emits `.js` for them. `tsconfig.json`
+  and `tsconfig.build.json` include `src/**/*.tsx`.
+- Ink 8 requires Node >= 22 (the `engines` field was bumped accordingly).
+- Verify visually: run `npm run dev` (HEADED) or the pty smoke pattern — a
+  `script -qec "npx tsx <script>" /dev/null` wrapper gives a real TTY, and
+  writing keys one at a time to the child's stdin drives `useInput` (a whole
+  chunk is treated as a PASTE).
+
 ## BACKLOG.md
 
 `BACKLOG.md` is the agent's own improvement-notes file. It is gitignored and

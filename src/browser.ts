@@ -9,6 +9,7 @@ import {
   extractTokenUsage,
   dumpNetBody,
   isFinishedWithoutAnswer,
+  isFinishedWithAnswer,
 } from './net-capture.js'
 import { rewriteFailedAttachments } from './commands.js'
 import { awaitUploadPreview, readAttachBuffers } from './attach-flow.js'
@@ -2369,6 +2370,9 @@ export class DeepSeekBrowser {
     const deadline = Date.now() + timeout
     let last = ''
     let stable = 0
+    // Ticks since the SSE body reported FINISHED-with-answer while the DOM
+    // heuristics kept the loop waiting (see the safety net below).
+    let netFinishedTicks = 0
     while (Date.now() < deadline) {
       if (this._abort || this._askCancelled) {
         return last || '(прервано пользователем)'
@@ -2462,6 +2466,34 @@ export class DeepSeekBrowser {
       // the text is stable, accept it (even when it repeats the previous one).
       const sameAsBefore =
         !!cur && !isNew && normText(cur) === normText(beforeText)
+      // NETWORK-AUTHORITATIVE SAFETY NET. The DOM heuristics above
+      // (`isNew`/`sameAsBefore`/`_isGenerating`) can all be wrong at once on a
+      // resumed chat: the DOM may still show the PREVIOUS answer, the Stop
+      // button may linger, and `beforeText` may equal the fresh answer. The
+      // finish loop then waits out the whole askDeadlineMs while the spinner
+      // runs — the operator sees "generation is running but nothing happens"
+      // (reported from the live agent). The SSE body is the ground truth: if it
+      // says FINISHED **with** a RESPONSE fragment, the turn is over and the
+      // captured answer is complete. Return it after a short grace period so a
+      // genuinely still-streaming answer is never cut (the capture keeps
+      // growing until FINISHED).
+      const netFinishedWithAnswer =
+        !!this._netCapture &&
+        this._netCaptureAt >= this._lastSentAt &&
+        isFinishedWithAnswer(this._netBody)
+      if (netFinishedWithAnswer) {
+        netFinishedTicks++
+        // Two ticks (~2 x stabilityDelayMs) is enough for the final DOM/capture
+        // settle without risking a truncated answer.
+        if (netFinishedTicks >= 2) {
+          this._askDebug(
+            'RETURN net-finished curLen=' + this._netCapture.length,
+          )
+          return this._cleanAnswer(this._netCapture) || cur
+        }
+      } else {
+        netFinishedTicks = 0
+      }
       if (isNew && cur === last) {
         stable++
         // `stabilityChecks` / `stabilityDelayMs` are the real knobs here.

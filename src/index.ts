@@ -34,6 +34,8 @@ import { runAgentLoop } from './agent-loop.js'
 import { createSubagentRunner } from './subagent.js'
 import { createSpinner } from './spinner.js'
 import { LineEditor } from './input.js'
+import { TuiEditor } from './tui/TuiEditor.js'
+import type { UiEditor } from './tui/types.js'
 import { promptOnce } from './prompt.js'
 import {
   parseImagePaste,
@@ -62,6 +64,7 @@ import {
   type ConfigField,
 } from './config.js'
 import { runConfigMenu } from './config-menu.js'
+import { runConfigMenuInk } from './tui/run-config-menu.js'
 import { formatConfigList } from './config-commands.js'
 import { handleConfigCommand as runConfigCommand } from './config-command.js'
 import {
@@ -94,6 +97,8 @@ import {
 } from './scheduler.js'
 import { createCliArgs } from './cli-args.js'
 import { renderMarkdown, setAnswerWidth } from './markdown.js'
+import { contentWidth } from './width.js'
+import { renderStartupBanner } from './banner.js'
 import { runStatusLineCommand } from './statusline.js'
 import { parseBacklogNote } from './backlog.js'
 import {
@@ -1019,8 +1024,25 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
-  console.log(theme.system(t('msg.working_dir', { v: currentWorkdir })))
-  console.log(theme.system(t('msg.version', { v: pkgVersion || '?' })))
+  // A styled startup banner in an interactive terminal; a plain two-line
+  // header when the output is piped (scripts/CI parse it).
+  if (process.stdout.isTTY && !jsonMode && config.ui.tui) {
+    console.log(
+      renderStartupBanner(
+        {
+          title: 'zames',
+          version: pkgVersion || '?',
+          workdir: currentWorkdir,
+          provider: providerLabel(config.provider),
+          hint: t('msg.banner_hint'),
+        },
+        contentWidth(),
+      ),
+    )
+  } else {
+    console.log(theme.system(t('msg.working_dir', { v: currentWorkdir })))
+    console.log(theme.system(t('msg.version', { v: pkgVersion || '?' })))
+  }
 
   const transcript = new Transcript({
     dir: config.transcript.dir,
@@ -1465,7 +1487,7 @@ async function main(): Promise<void> {
   // status above the input line and prints the agent's answers ABOVE it, so
   // the typed text is never overwritten by output. In non-TTY (pipe) —
   // the old promptOnce.
-  let editor: LineEditor | null = null
+  let editor: UiEditor | null = null
   // N37 statusLine hook timer (cleared on exit).
   let statusLineTimer: ReturnType<typeof setInterval> | null = null
   let waiter: ((v: PendingMessage | null) => void) | null = null
@@ -1493,19 +1515,34 @@ async function main(): Promise<void> {
   await refreshDynamicCommands(currentWorkdir)
 
   if (process.stdin.isTTY && process.stdout.isTTY) {
-    const ed = new LineEditor({
-      prompt: buildPrompt(),
-      commands: buildSlashCommands(),
-      locale: currentLocale,
-    })
+    const ed: UiEditor = config.ui.tui
+      ? new TuiEditor({
+          prompt: buildPrompt(),
+          commands: buildSlashCommands(),
+          locale: currentLocale,
+          alternateScreen: config.ui.alternateScreen,
+        })
+      : new LineEditor({
+          prompt: buildPrompt(),
+          commands: buildSlashCommands(),
+          locale: currentLocale,
+        })
     editor = ed
     ed.setTmpDir(TMP_DIR)
     // Provider badge: show which backend is answering ([Qwen]/[DeepSeek]).
     ed.setProvider(providerLabel(config.provider))
+    // Header for full-screen mode (title / version / working directory).
+    ed.setHeader?.({
+      title: 'zames',
+      version: pkgVersion || '',
+      workdir: currentWorkdir,
+    })
     // Restore the input history from the previous runs and persist every new
     // entry, so Ctrl+R / arrows can recall older messages after a restart.
     ed.history = loadHistory()
-    ed._histIndex = ed.history.length
+    // The legacy LineEditor keeps its own browse index; the TUI seeds it from
+    // the history itself.
+    if (ed instanceof LineEditor) ed._histIndex = ed.history.length
     ed.onHistoryChange = (h) => saveHistory(h)
     // The token context right-aligned on the status line (above the input).
     // The editor pulls the number on every render, so it follows the live
@@ -1768,7 +1805,19 @@ async function main(): Promise<void> {
         }
       }
     }
-    ed.start()
+    try {
+      ed.start()
+    } catch (e) {
+      // A TUI mount failure must not kill the agent. We surface it and let the
+      // operator retry with `ui.tui: false` if it persists; the imperative
+      // callbacks stay bound to the same editor object, so no state is lost.
+      console.error(
+        theme.warn(
+          'UI start failed (set ui.tui=false to use the legacy editor): ' +
+            String(e),
+        ),
+      )
+    }
 
     // All command output (console.log/error) must go ABOVE the input line,
     // otherwise it overwrites the text being typed. While the editor is
@@ -2026,18 +2075,25 @@ async function main(): Promise<void> {
       return
     }
     // The menu draws directly to stdout and reads keys itself. So that its
-    // output doesn't overlap the LineEditor's permanent input line, we "pause"
+    // output doesn't overlap the editor's permanent input line, we "pause"
     // the editor for the duration of the menu and restore it afterwards.
     if (editor) editor.pause()
+    const menuOpts = {
+      fields: CONFIG_SCHEMA,
+      t,
+      get: (path: string) => getByPath(config, path),
+      getDefault: (path: string) => getByPath(DEFAULTS, path),
+      set: (field: ConfigField, raw: string) => configSetRaw(field, raw),
+      reset: (field: ConfigField) => configResetField(field),
+    }
     try {
-      await runConfigMenu({
-        fields: CONFIG_SCHEMA,
-        t,
-        get: (path) => getByPath(config, path),
-        getDefault: (path) => getByPath(DEFAULTS, path),
-        set: (field, raw) => configSetRaw(field, raw),
-        reset: (field) => configResetField(field),
-      })
+      // Prefer the Ink menu (nicer, resize-aware) when the TUI is enabled;
+      // fall back to the legacy hand-rolled menu otherwise.
+      if (config.ui.tui) {
+        await runConfigMenuInk(menuOpts)
+      } else {
+        await runConfigMenu(menuOpts)
+      }
     } catch (e) {
       console.error(theme.error(String((e as Error).message || e)))
     } finally {
@@ -2658,10 +2714,40 @@ async function main(): Promise<void> {
         const models = qb.listModels ? await qb.listModels() : []
         if (!models.length) {
           console.log(theme.system(t('qwen.model_list', { v: '(none)' })))
-        } else {
-          const lines = models.map((m) => `  ${m.id}  —  ${m.name}`).join(NL)
-          console.log(theme.system(t('qwen.model_list', { v: lines })))
+          continue
         }
+        // In the TUI, open a proper SELECT LIST instead of dumping text.
+        if (editor && 'isTui' in editor && config.ui.tui) {
+          if (editor.pause) editor.pause()
+          let picked: string | null
+          try {
+            const { selectListInk } = await import('./tui/run-select.js')
+            picked = await selectListInk({
+              title: t('qwen.model_pick_title'),
+              initial: config.qwen.model || models[0].id,
+              items: models.map((m) => ({
+                value: m.id,
+                label: m.name || m.id,
+                detail: m.id === config.qwen.model ? '← текущая' : m.id,
+              })),
+            })
+          } catch {
+            picked = null
+          } finally {
+            if (editor.resume) editor.resume()
+          }
+          if (picked) {
+            config.qwen.model = picked
+            if (typeof qb.model === 'string') qb.model = picked
+            try {
+              writeConfigValue('home', 'qwen.model', picked)
+            } catch {}
+            console.log(theme.system(t('qwen.model_set', { v: picked })))
+          }
+          continue
+        }
+        const lines = models.map((m) => `  ${m.id}  —  ${m.name}`).join(NL)
+        console.log(theme.system(t('qwen.model_list', { v: lines })))
         continue
       }
       config.qwen.model = arg

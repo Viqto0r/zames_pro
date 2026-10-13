@@ -1,4 +1,5 @@
 import { theme, divider } from './theme.js'
+import { summarizeToolCall } from './tool-summary.js'
 import { renderMarkdown } from './markdown.js'
 import { contentWidth } from './width.js'
 import {
@@ -1031,6 +1032,11 @@ export class LineEditor {
     this._render()
   }
 
+  // No-op success/failure hooks, kept so LineEditor satisfies the shared
+  // UiEditor interface (the TUI and the spinner expose the same surface).
+  succeed(): void {}
+  fail(): void {}
+
   _stopDots() {
     if (this._dotTimer) {
       clearInterval(this._dotTimer)
@@ -1179,8 +1185,19 @@ export class LineEditor {
     // wider than the terminal and some terminals then showed a horizontal
     // scrollbar. Keep one column free (autowrap safety), same as the status.
     const maxW = contentWidth()
-    const preview = truncateToWidth(full, maxW)
-    this.printAbove(theme.tool('🔧 ' + name) + ' ' + theme.dim(preview))
+    const summary = summarizeToolCall(
+      name,
+      (typeof args === 'object' && args !== null ? args : {}) as Record<
+        string,
+        unknown
+      >,
+    )
+    const detail = summary.detail
+      ? truncateToWidth(summary.detail, Math.max(10, maxW - name.length - 6))
+      : truncateToWidth(full, maxW)
+    this.printAbove(
+      theme.tool('🔧 ' + name) + (detail ? theme.dim('(' + detail + ')') : ''),
+    )
     // A tool may run for a long time (Bash, npm test, MCP). Without an active
     // animation the operator sees a frozen screen and cannot tell work is in
     // progress. Start the animated status AFTER printAbove (which stops the

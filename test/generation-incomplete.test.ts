@@ -89,7 +89,7 @@ test('DeepSeekBrowser honors maxIncompleteRetries/incompleteWaitMs', () => {
 // detector does not see it, extractAnswer() returns '', and the old finish
 // loop waited out the whole timeout — the operator saw the agent hang on
 // "Stopped" with a Continue button.
-import { isFinishedWithoutAnswer } from '../src/net-capture.ts'
+import { isFinishedWithoutAnswer, isFinishedWithAnswer } from "../src/net-capture.ts"
 
 const FINISHED_THINK_ONLY = [
   'data: {"v":{"response":{"status":"WIP","thinking_enabled":true,"fragments":[{"type":"THINK","content":"Let me think..."}]}}}',
@@ -110,6 +110,20 @@ test('a FINISHED turn with only reasoning has no answer', () => {
 
 test('a FINISHED turn with a RESPONSE fragment is a real answer', () => {
   assert.equal(isFinishedWithoutAnswer(FINISHED_WITH_RESPONSE), false)
+  // And it is the network-authoritative "turn is over with an answer" signal
+  // the finish loop trusts to stop waiting (the live "generating but nothing
+  // happens" hang).
+  assert.equal(isFinishedWithAnswer(FINISHED_WITH_RESPONSE), true)
+  // A FINISHED turn with NO response is NOT that signal.
+  assert.equal(isFinishedWithAnswer(FINISHED_THINK_ONLY), false)
+  // An INCOMPLETE turn is not finished at all.
+  assert.equal(
+    isFinishedWithAnswer(
+      'data: {"p":"response","o":"BATCH","v":[{"p":"quasi_status","v":"INCOMPLETE"}]}',
+    ),
+    false,
+  )
+  assert.equal(isFinishedWithAnswer(''), false)
 })
 
 test('an unfinished (INCOMPLETE) body is not "finished without answer"', () => {

@@ -60,6 +60,19 @@ export function suggestWindow(
 }
 
 /**
+ * How many terminal ROWS the suggestion popup occupies for the current buffer
+ * (0 when no list). Full-screen mode uses this to RESERVE space above the
+ * input panel so opening the list does not shift the layout (the operator saw
+ * the whole screen jump when `/chats` or `/resume` hints appeared).
+ */
+export function suggestRowCount(buf: string, commands: SlashCommand[]): number {
+  const sugg = matchSlashCommands(buf, commands)
+  if (!sugg.length) return 0
+  const { moreCount } = suggestWindow(sugg, 0)
+  return Math.min(sugg.length, SUGGEST_PAGE) + (moreCount > 0 ? 1 : 0)
+}
+
+/**
  * Tab completion. With an explicit selection, insert that command. With a
  * single match, insert it whole. Otherwise complete up to the longest common
  * prefix of the matches. Returns the new buffer, or null when nothing should

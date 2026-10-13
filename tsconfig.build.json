@@ -8,6 +8,6 @@
     "declaration": false,
     "allowImportingTsExtensions": false
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
   "exclude": ["node_modules", "dist", "tmp", "test"]
 }

@@ -189,6 +189,21 @@ When a change touches one concern, start in the module that owns it:
   halves live in `src/input/layout.ts` (visual rows / cursor / paste markers /
   token formatting) and `src/input/suggest.ts` (slash-command match / paging /
   completion), both unit-tested without driving the real terminal.
+- `src/tui/` — the **Ink/React TUI** (the modern input UI). `ui.tui` (default
+  true) selects it; the legacy `LineEditor` stays as a fallback and for non-TTY.
+  `TuiEditor.tsx` is the drop-in adapter implementing the SAME surface as
+  `LineEditor` (`printAbove`, `lock`, `busy`, `toolCall`, ... — see
+  `src/tui/types.ts`'s `UiEditor`), so `index.ts`/`run-task.ts` are unchanged and
+  talk to either engine through that interface. The bridge is `store.ts`
+  (`TuiStore`, an external store React subscribes to via `useSyncExternalStore`:
+  the imperative agent calls mutate it, Ink re-renders). PURE halves: `edit.ts`
+  (buffer/cursor/history/search/paste transitions) and `keys.ts` (Ink `(input,
+  key)` -> editor action), both unit-tested (test/tui-edit.test.ts). Components:
+  `TuiApp.tsx` (root + store subscription), `LogView.tsx` (`<Static>` scrollback),
+  `StatusBar.tsx` (animated spinner + badges), `InputLine.tsx` (multiline editor
+  with a real cursor via `useCursor`, bracketed paste via `usePaste`),
+  `ConfigMenu.tsx` + `run-config-menu.tsx` (the Ink `/config` menu). `ui.tui`
+  and `ui.alternateScreen` (full-screen mode) are config flags.
 - `src/context.ts` — AGENTS.md / MEMORY.md / skills / custom commands loading.
   `loadProjectContext(workdir, touchPaths?)` also pulls NESTED AGENTS.md/MEMORY.md
   from the directories a task touches (B6, path-scoped rules) into a separate

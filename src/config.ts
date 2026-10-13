@@ -98,6 +98,17 @@ export const DEFAULTS: ZamesConfig = {
     // N37 statusLine hook. Off by default; edit config.json to set a command.
     statusLineCommand: '',
     statusLineIntervalMs: 10_000,
+    // Use the Ink/React TUI for the input area (the rich editor). Set to false
+    // to fall back to the legacy hand-rolled LineEditor.
+    tui: true,
+    // Render the TUI in the terminal's alternate screen buffer (FULL-SCREEN
+    // mode, like Codex / Claude Code / opencode). This is the default because
+    // it is the only mode where a resize cannot leave ghost/duplicate lines:
+    // the whole screen belongs to the app and the terminal never reflows our
+    // output. The trade-off is that the terminal SCROLLBACK is not available
+    // (PgUp/PgDn scroll the in-app log instead). Set to false for the inline
+    // layout, which keeps the scrollback but is subject to reflow artifacts.
+    alternateScreen: true,
   },
 
   // Off by default: a full tsc/eslint run after every edit is slow; opt in.
@@ -209,6 +220,18 @@ export const CONFIG_SCHEMA: ConfigField[] = [
     min: 0,
     max: 1000,
     labelKey: 'cfg.f.ui_answerWidth',
+    groupKey: 'cfg.group.ui',
+  },
+  {
+    path: 'ui.tui',
+    type: 'boolean',
+    labelKey: 'cfg.f.ui_tui',
+    groupKey: 'cfg.group.ui',
+  },
+  {
+    path: 'ui.alternateScreen',
+    type: 'boolean',
+    labelKey: 'cfg.f.ui_alternateScreen',
     groupKey: 'cfg.group.ui',
   },
   {

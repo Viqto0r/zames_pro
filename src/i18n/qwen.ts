@@ -47,6 +47,10 @@ export const qwenMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Доступные модели Qwen:\n{v}',
     en: 'Available Qwen models:\n{v}',
   },
+  'qwen.model_pick_title': {
+    ru: 'Выбор модели Qwen',
+    en: 'Select a Qwen model',
+  },
   'qwen.model_error': {
     ru: 'Не удалось получить список моделей Qwen: {v}',
     en: 'Failed to fetch the Qwen model list: {v}',

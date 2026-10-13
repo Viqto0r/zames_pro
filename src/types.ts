@@ -179,6 +179,16 @@ export interface UiConfig {
   statusLineCommand: string
   /** How often (ms) the statusLine command is re-run. Default 10000. */
   statusLineIntervalMs: number
+  /**
+   * Use the Ink/React TUI for the input area. When false the legacy
+   * hand-rolled LineEditor is used instead. Default true.
+   */
+  tui: boolean
+  /**
+   * Render the TUI in the terminal's alternate screen buffer (full-screen
+   * mode like vim/htop). Off by default so the scrollback stays available.
+   */
+  alternateScreen: boolean
 }
 
 export interface ZamesConfig {

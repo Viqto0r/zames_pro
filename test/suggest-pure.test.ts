@@ -5,6 +5,7 @@ import {
   completeSlashCommand,
   matchSlashCommands,
   suggestWindow,
+  suggestRowCount,
 } from '../src/input/suggest.ts'
 
 const cmds = (...names: string[]): SlashCommand[] =>

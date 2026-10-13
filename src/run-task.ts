@@ -1,7 +1,7 @@
 import { theme } from './theme.js'
 import type { ChatProvider, ToolDef } from './types.js'
 import type { Transcript } from './transcript.js'
-import type { LineEditor } from './input.js'
+import type { UiEditor } from './tui/types.js'
 import {
   withGoal,
   mergeMessages,
@@ -45,7 +45,7 @@ export interface RunTaskOptions {
   freshChat: boolean
   sendSystemPrompt: boolean
   queue?: PendingMessage[]
-  ui?: LineEditor | null
+  ui?: UiEditor | null
   onChatReady?: (chatId: string | null) => void
   /** Called at the between-tools seam when the context is nearly full. */
   onAutoCompact?: (() => Promise<string | null>) | null
@@ -113,10 +113,28 @@ export interface RunTaskDeps {
 // confirmation prompt and the input line fight for the same keys. A non-TTY run
 // has no way to answer, so it DENIES (never silently allows a guarded call).
 export async function askOperatorConfirm(
-  editor: LineEditor | null,
+  editor: UiEditor | null,
   question: string,
+  t?: TranslateFn,
 ): Promise<boolean> {
   if (!(process.stdin.isTTY && process.stdout.isTTY)) return false
+  // Prefer the Ink modal when the TUI owns the terminal: it keeps the layout
+  // and does not pause/restart the whole editor.
+  if (editor && 'isTui' in editor && (editor as { isTui?: boolean }).isTui) {
+    if (editor.pause) editor.pause()
+    try {
+      const { askConfirmInk } = await import('./tui/run-confirm.js')
+      const tr = t ?? ((k: string) => k)
+      return await askConfirmInk({
+        title: tr('perm.title'),
+        message: question,
+        yesLabel: tr('confirm.yes'),
+        noLabel: tr('confirm.no'),
+      })
+    } finally {
+      if (editor.resume) editor.resume()
+    }
+  }
   if (editor) editor.pause()
   try {
     const a = await promptOnce(question + ' [y/N] ')
@@ -533,7 +551,11 @@ export async function runTask(
           // C1: a rule with action "ask". Show the reason and wait for the
           // operator. In non-TTY this denies.
           ui.warning(t('perm.ask', { tool: info.tool, reason: info.reason }))
-          const ok = await askOperatorConfirm(editor || null, t('perm.confirm'))
+          const ok = await askOperatorConfirm(
+            editor || null,
+            t('perm.confirm'),
+            t,
+          )
           ui.warning(ok ? t('perm.allowed') : t('perm.denied'))
           transcript?.log('permission_ask', {
             tool: info.tool,
