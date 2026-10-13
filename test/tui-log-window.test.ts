@@ -4,11 +4,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import {
-  entryRows,
-  windowByRows,
-  totalRows,
-} from '../src/tui/log-window.ts'
+import { entryRows, windowByRows, totalRows } from '../src/tui/log-window.ts'
 import type { LogEntry } from '../src/tui/store.ts'
 
 function e(id: number, text: string): LogEntry {

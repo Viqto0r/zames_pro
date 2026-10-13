@@ -2291,8 +2291,14 @@ async function main(): Promise<void> {
         title: t('sessions.pick_title'),
         items: sessions.map((s, i) => ({
           value: s.id,
-          label: String(i + 1).padStart(2, ' ') + '. ' + (s.title || s.id.slice(0, 8)),
-          detail: s.id.slice(0, 8) + '…' + (s.workdir ? ' [' + dirLabel(s.workdir) + ']' : ''),
+          label:
+            String(i + 1).padStart(2, ' ') +
+            '. ' +
+            (s.title || s.id.slice(0, 8)),
+          detail:
+            s.id.slice(0, 8) +
+            '…' +
+            (s.workdir ? ' [' + dirLabel(s.workdir) + ']' : ''),
         })),
       })
     } catch {
@@ -2970,8 +2976,7 @@ async function main(): Promise<void> {
       } else {
         // In the TUI, open a SELECT LIST and resume the chosen session
         // directly (same behavior as /chats), instead of only listing ids.
-        const canPick =
-          editor && 'isTui' in editor && config.ui.tui && !filter
+        const canPick = editor && 'isTui' in editor && config.ui.tui && !filter
         if (canPick && editor) {
           const opened = await pickSessionInteractively(all)
           if (opened) continue
@@ -3662,11 +3667,18 @@ async function main(): Promise<void> {
         console.log(theme.warn(t('copy.bad_index', { n: arg })))
         continue
       }
-      if (editor && 'copyCode' in editor && typeof editor.copyCode === 'function') {
+      if (
+        editor &&
+        'copyCode' in editor &&
+        typeof editor.copyCode === 'function'
+      ) {
         editor.copyCode(n)
         continue
       }
-      const pick = n !== undefined ? blocks.find((b) => b.index === n) : blocks[blocks.length - 1]
+      const pick =
+        n !== undefined
+          ? blocks.find((b) => b.index === n)
+          : blocks[blocks.length - 1]
       if (!pick) {
         console.log(theme.warn(t('copy.bad_index', { n: String(n) })))
         continue

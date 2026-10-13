@@ -10,7 +10,19 @@ const NL = String.fromCharCode(10)
 const F = '```'
 
 test('extractCodeBlocks: a single fenced block with a language', () => {
-  const md = 'text' + NL + F + 'ts' + NL + 'const a = 1' + NL + 'const b = 2' + NL + F + NL + 'after'
+  const md =
+    'text' +
+    NL +
+    F +
+    'ts' +
+    NL +
+    'const a = 1' +
+    NL +
+    'const b = 2' +
+    NL +
+    F +
+    NL +
+    'after'
   const b = extractCodeBlocks(md)
   assert.equal(b.length, 1)
   assert.equal(b[0].lang, 'ts')

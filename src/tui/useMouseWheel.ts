@@ -71,8 +71,7 @@ export function mouseModeSequences(): { on: string; off: string } {
   const on =
     // 1000 = button-event tracking, 1006 = SGR extended coords, 1007 = off.
     ESC + '[?1000h' + ESC + '[?1006h' + ESC + '[?1007l'
-  const off =
-    ESC + '[?1006l' + ESC + '[?1000l' + ESC + '[?1007h'
+  const off = ESC + '[?1006l' + ESC + '[?1000l' + ESC + '[?1007h'
   return { on, off }
 }
 

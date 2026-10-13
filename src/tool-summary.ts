@@ -83,7 +83,10 @@ export function summarizeToolCall(
  * "✔" on an unusual error body is harmless (the text is still shown).
  */
 export function looksLikeToolError(result: string): boolean {
-  const head = String(result ?? '').trim().slice(0, 60).toLowerCase()
+  const head = String(result ?? '')
+    .trim()
+    .slice(0, 60)
+    .toLowerCase()
   if (!head) return false
   return (
     head.startsWith('error') ||

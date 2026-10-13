@@ -20,8 +20,7 @@ export interface CodeBlock {
  * (the answer was truncated) — a half block is still copyable.
  */
 export function extractCodeBlocks(md: string): CodeBlock[] {
-  const lines = String(md ?? '')
-    .split(String.fromCharCode(10))
+  const lines = String(md ?? '').split(String.fromCharCode(10))
   const out: CodeBlock[] = []
   let i = 0
   let n = 0

@@ -32,7 +32,11 @@ function runProbe(
   return new Promise((resolve) => {
     const child = spawn(
       'script',
-      ['-qec', 'npx tsx scripts/tui-probe.tsx ' + JSON.stringify(buf), '/dev/null'],
+      [
+        '-qec',
+        'npx tsx scripts/tui-probe.tsx ' + JSON.stringify(buf),
+        '/dev/null',
+      ],
       {
         cwd: path.resolve('.'),
         env: {
@@ -77,35 +81,46 @@ function screen(out: string): Term {
 
 const run = enabled && hasScript ? test : test.skip
 
-run('pty: a long single line renders ONE box row count = visual rows', async () => {
-  const long = 'x'.repeat(200)
-  const out = await runProbe(long, [])
-  const term = screen(out)
-  // Find the rounded border rows of the input box.
-  const top = term.findRow('╭')
-  const bottom = term.findRow('╰')
-  assert.ok(top >= 0 && bottom > top, 'the input box borders must be on screen')
-  // 2 borders + >= 3 wrapped text rows (200 chars at inner width 76).
-  assert.ok(
-    bottom - top + 1 >= 5,
-    'the box must GROW for a wrapped line (got ' + (bottom - top + 1) + ' rows)',
-  )
-})
+run(
+  'pty: a long single line renders ONE box row count = visual rows',
+  async () => {
+    const long = 'x'.repeat(200)
+    const out = await runProbe(long, [])
+    const term = screen(out)
+    // Find the rounded border rows of the input box.
+    const top = term.findRow('╭')
+    const bottom = term.findRow('╰')
+    assert.ok(
+      top >= 0 && bottom > top,
+      'the input box borders must be on screen',
+    )
+    // 2 borders + >= 3 wrapped text rows (200 chars at inner width 76).
+    assert.ok(
+      bottom - top + 1 >= 5,
+      'the box must GROW for a wrapped line (got ' +
+        (bottom - top + 1) +
+        ' rows)',
+    )
+  },
+)
 
-run('pty: Ctrl+J (LF) inserts newlines and the box grows per line', async () => {
-  const keys = ['a', NL, 'b', NL, 'c']
-  const out = await runProbe('', keys)
-  const term = screen(out)
-  const top = term.findRow('╭')
-  const bottom = term.findRow('╰')
-  assert.ok(top >= 0 && bottom > top)
-  // 2 borders + 3 typed lines.
-  assert.equal(bottom - top + 1, 5)
-  // Each line is on its OWN row (the old bug printed line 2 over line 1).
-  assert.ok(term.findRow('> a') >= 0, 'line a must be visible')
-  assert.ok(term.findRow('  b') >= 0, 'line b must be on its own row')
-  assert.ok(term.findRow('  c') >= 0, 'line c must be on its own row')
-})
+run(
+  'pty: Ctrl+J (LF) inserts newlines and the box grows per line',
+  async () => {
+    const keys = ['a', NL, 'b', NL, 'c']
+    const out = await runProbe('', keys)
+    const term = screen(out)
+    const top = term.findRow('╭')
+    const bottom = term.findRow('╰')
+    assert.ok(top >= 0 && bottom > top)
+    // 2 borders + 3 typed lines.
+    assert.equal(bottom - top + 1, 5)
+    // Each line is on its OWN row (the old bug printed line 2 over line 1).
+    assert.ok(term.findRow('> a') >= 0, 'line a must be visible')
+    assert.ok(term.findRow('  b') >= 0, 'line b must be on its own row')
+    assert.ok(term.findRow('  c') >= 0, 'line c must be on its own row')
+  },
+)
 
 run('pty: Ctrl+Y fires the code-copy callback', async () => {
   const copyLog = path.join(process.cwd(), 'tmp', 'probe-copy.log')
@@ -132,5 +147,8 @@ run('pty: INLINE mode renders the input and accepts a newline', async () => {
   const out = await runProbe('', ['a', NL, 'b'], 350, undefined, true)
   const term = screen(out)
   assert.ok(term.findRow('> a') >= 0, 'inline: first line must be visible')
-  assert.ok(term.findRow('  b') >= 0, 'inline: second line must be on its own row')
+  assert.ok(
+    term.findRow('  b') >= 0,
+    'inline: second line must be on its own row',
+  )
 })

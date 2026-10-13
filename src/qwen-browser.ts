@@ -209,7 +209,10 @@ export class QwenBrowser {
   locale: Locale
   onAuthSave: ((username: string, password: string) => void) | null
   onLoginPrompt:
-    | ((info: { savedUsername: string; step: 'email' | 'code' }) => Promise<string | null>)
+    | ((info: {
+        savedUsername: string
+        step: 'email' | 'code'
+      }) => Promise<string | null>)
     | null
   // Watchdog budget the agent loop reads (same contract as DeepSeekBrowser).
   maxAfterToolRetries: number

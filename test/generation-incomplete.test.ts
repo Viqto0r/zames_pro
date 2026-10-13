@@ -89,7 +89,10 @@ test('DeepSeekBrowser honors maxIncompleteRetries/incompleteWaitMs', () => {
 // detector does not see it, extractAnswer() returns '', and the old finish
 // loop waited out the whole timeout — the operator saw the agent hang on
 // "Stopped" with a Continue button.
-import { isFinishedWithoutAnswer, isFinishedWithAnswer } from "../src/net-capture.ts"
+import {
+  isFinishedWithoutAnswer,
+  isFinishedWithAnswer,
+} from '../src/net-capture.ts'
 
 const FINISHED_THINK_ONLY = [
   'data: {"v":{"response":{"status":"WIP","thinking_enabled":true,"fragments":[{"type":"THINK","content":"Let me think..."}]}}}',
