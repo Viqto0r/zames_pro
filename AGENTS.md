@@ -203,7 +203,15 @@ When a change touches one concern, start in the module that owns it:
   `StatusBar.tsx` (animated spinner + badges), `InputLine.tsx` (multiline editor
   with a real cursor via `useCursor`, bracketed paste via `usePaste`),
   `ConfigMenu.tsx` + `run-config-menu.tsx` (the Ink `/config` menu). `ui.tui`
-  and `ui.alternateScreen` (full-screen mode) are config flags.
+  and `ui.alternateScreen` (full-screen mode) are config flags. More PURE halves
+  (all unit-tested): `FullScreenApp.tsx` (the alternate-screen layout) +
+  `log-window.ts` (row-based log windowing), `progress.ts` (task bar),
+  `login-pure.ts` + `LoginForm.tsx`/`TextPrompt.tsx`/`run-login.tsx` (in-TUI
+  login / one-time code), `widgets.tsx` (Checkbox/Select/Panel/HintBar/
+  CodeBlock), `SelectList.tsx`/`run-select.tsx` (list menus for `/model`,
+  `/chats`, `/sessions`), `ConfirmDialog.tsx`/`run-confirm.tsx` (permission
+  ask), `useMouseWheel.ts` (SGR wheel + DECSET 1007 off). `src/code-blocks.ts`
+  extracts fenced blocks from an answer for Ctrl+Y / `/copy-code`.
 - `src/context.ts` — AGENTS.md / MEMORY.md / skills / custom commands loading.
   `loadProjectContext(workdir, touchPaths?)` also pulls NESTED AGENTS.md/MEMORY.md
   from the directories a task touches (B6, path-scoped rules) into a separate
