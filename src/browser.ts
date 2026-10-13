@@ -177,6 +177,18 @@ export interface DeepSeekBrowserOptions {
   /** Called after a successful interactive login, with the credentials used. */
   onAuthSave?: (username: string, password: string) => void
   /**
+   * Interactive login prompt, injected by the caller so the TUI can render an
+   * Ink form instead of readline (which would PAUSE the whole TUI). Returns
+   * the credentials, or null when the operator cancelled. When absent the
+   * browser falls back to its own readline prompt.
+   */
+  onLoginPrompt?: (info: {
+    savedUsername: string
+    hasSavedPassword: boolean
+  }) => Promise<{ username: string; password: string } | null>
+  /** Prompt for the DeepSeek email one-time code (MFA), TUI-friendly. */
+  onMfaPrompt?: () => Promise<string | null>
+  /**
    * Explicit User-Agent. When omitted, the browser derives one from the real
    * engine version and strips the "Headless" marker (DeepSeek's CDN 403s a
    * "HeadlessChrome/..." UA).
@@ -238,6 +250,14 @@ export class DeepSeekBrowser {
   // Called after a successful interactive login so index.ts can persist the
   // credentials into the user config (the browser does not write config).
   onAuthSave: ((username: string, password: string) => void) | null
+  // TUI-injected interactive prompts; null falls back to readline/askPassword.
+  onLoginPrompt:
+    | ((info: { savedUsername: string; hasSavedPassword: boolean }) => Promise<{
+        username: string
+        password: string
+      } | null>)
+    | null
+  onMfaPrompt: (() => Promise<string | null>) | null
   _lastSentAt: number
   // Timestamp of the last Continue click. Clicks send a `chat/continue`
   // request and used to bypass `_waitForSendSlot()` entirely — a run that
@@ -356,6 +376,8 @@ export class DeepSeekBrowser {
     auth,
     locale,
     onAuthSave,
+    onLoginPrompt,
+    onMfaPrompt,
     userAgent,
   }: DeepSeekBrowserOptions = {}) {
     this.headless = headless
@@ -384,6 +406,8 @@ export class DeepSeekBrowser {
     }
     this.locale = locale || DEFAULT_LOCALE
     this.onAuthSave = onAuthSave || null
+    this.onLoginPrompt = onLoginPrompt || null
+    this.onMfaPrompt = onMfaPrompt || null
     this._lastSentAt = 0
     this._lastContinueAt = 0
     this._abort = false
@@ -808,31 +832,45 @@ export class DeepSeekBrowser {
 
     console.log('\n' + theme.warn(this._t('auth.need_login')))
 
-    // Username via a normal readline question (echoed).
     let user = this.auth.username
-    if (!user) {
-      const readline = await import('readline')
-      const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-        terminal: true,
+    let password = this.auth.password
+
+    if (this.onLoginPrompt) {
+      // TUI path: ONE Ink form for username + masked password (a readline
+      // question would pause the whole TUI and fight Ink for stdin).
+      const res = await this.onLoginPrompt({
+        savedUsername: this.auth.username,
+        hasSavedPassword: !!this.auth.password,
       })
-      user = (
-        await new Promise<string>((resolve) =>
-          rl.question(this._t('auth.prompt_login'), (a) => resolve(a)),
-        )
-      ).trim()
-      rl.close()
+      if (!res) return false
+      user = res.username.trim()
+      password = res.password
+    } else {
+      // Username via a normal readline question (echoed).
+      if (!user) {
+        const readline = await import('readline')
+        const rl = readline.createInterface({
+          input: process.stdin,
+          output: process.stdout,
+          terminal: true,
+        })
+        user = (
+          await new Promise<string>((resolve) =>
+            rl.question(this._t('auth.prompt_login'), (a) => resolve(a)),
+          )
+        ).trim()
+        rl.close()
+      }
+
+      // Password via raw keystroke reading, echoed as `*` (readline would echo
+      // it in clear or swallow the prompt — see askPassword).
+      const passPromptKey = hasSaved
+        ? 'auth.prompt_password_saved'
+        : 'auth.prompt_password'
+      const pass = await askPassword(this._t(passPromptKey))
+      if (pass) password = pass
     }
 
-    // Password via raw keystroke reading, echoed as `*` (readline would echo
-    // it in clear or swallow the prompt — see askPassword).
-    const passPromptKey = hasSaved
-      ? 'auth.prompt_password_saved'
-      : 'auth.prompt_password'
-    const pass = await askPassword(this._t(passPromptKey))
-
-    const password = pass || this.auth.password
     if (!user || !password) return false
 
     console.log(theme.system(this._t('auth.auto_login')))
@@ -1050,19 +1088,25 @@ export class DeepSeekBrowser {
     )
 
     const readline = await import('readline')
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-      terminal: true,
-    })
-    const code = (
-      await new Promise<string>((resolve) =>
-        rl.question(this._t('auth.mfa_prompt'), (a) => resolve(a)),
+    let code: string
+    if (this.onMfaPrompt) {
+      // TUI path: the Ink form reads the code without pausing the whole UI.
+      code = ((await this.onMfaPrompt()) ?? '').trim().replace(/\s+/g, '')
+    } else {
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+        terminal: true,
+      })
+      code = (
+        await new Promise<string>((resolve) =>
+          rl.question(this._t('auth.mfa_prompt'), (a) => resolve(a)),
+        )
       )
-    )
-      .trim()
-      .replace(/\s+/g, '')
-    rl.close()
+        .trim()
+        .replace(/\s+/g, '')
+      rl.close()
+    }
     if (!code) return false
 
     await this._setInputText(codeInput, code)

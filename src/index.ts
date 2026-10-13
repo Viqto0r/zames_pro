@@ -1489,6 +1489,10 @@ async function main(): Promise<void> {
   // the typed text is never overwritten by output. In non-TTY (pipe) —
   // the old promptOnce.
   let editor: UiEditor | null = null
+  // Re-wire the browser login callbacks after the editor exists / a provider
+  // swap. Assigned where the editor is built (see the login wiring below);
+  // a no-op until then so /provider before setup is harmless.
+  let wireLoginCallbacks: (b: unknown) => void = () => {}
   // N37 statusLine hook timer (cleared on exit).
   let statusLineTimer: ReturnType<typeof setInterval> | null = null
   let waiter: ((v: PendingMessage | null) => void) | null = null
@@ -1561,6 +1565,82 @@ async function main(): Promise<void> {
     // Toggle icons (🧠 deep thinking, 🌐 web search) before the context
     // counter. The editor pulls the live state on every render.
     ed.onToggleQuery = () => browser.getToggleStatesSync()
+    // Interactive login goes through the Ink form when the TUI owns the
+    // terminal: the browser's readline/askPassword would PAUSE the whole TUI
+    // and fight Ink for stdin. A NAMED function so /provider can re-wire the
+    // freshly created browser (the factory runs before `editor` exists, so the
+    // callbacks cannot be passed there without a forward reference).
+    wireLoginCallbacks = (b: unknown): void => {
+      // The DeepSeek and Qwen browsers expose DIFFERENT login callback shapes
+      // (DeepSeek: login+password / MFA; Qwen: email -> one-time code), so the
+      // wiring is branched on the provider rather than forced through one
+      // shape.
+      const bb = b as {
+        onLoginPrompt?: (info: {
+          savedUsername: string
+          hasSavedPassword?: boolean
+          step?: 'email' | 'code'
+        }) => Promise<{ username: string; password: string } | null | string>
+        onMfaPrompt?: () => Promise<string | null>
+      }
+      if (config.provider === 'qwen') {
+        bb.onLoginPrompt = async (info) => {
+          if (!config.ui.tui || !(ed instanceof TuiEditor)) return null
+          ed.pause()
+          try {
+            const { runTextPrompt } = await import('./tui/run-login.js')
+            const isCode = info.step === 'code'
+            return await runTextPrompt({
+              t,
+              label: isCode
+                ? t('qwen.login_code_prompt')
+                : t('qwen.login_email_prompt', {
+                    def: info.savedUsername
+                      ? ' [' + info.savedUsername + ']'
+                      : '',
+                  }),
+              secret: isCode,
+            })
+          } finally {
+            ed.resume()
+          }
+        }
+      } else {
+        bb.onLoginPrompt = async (info) => {
+          if (!config.ui.tui || !(ed instanceof TuiEditor)) return null
+          ed.pause()
+          try {
+            const { runLoginForm } = await import('./tui/run-login.js')
+            return await runLoginForm({
+              t,
+              initialUsername: config.browser.auth.username,
+              initialPassword: config.browser.auth.password,
+              note:
+                info.hasSavedPassword || info.savedUsername
+                  ? t('auth.form.note_saved')
+                  : undefined,
+            })
+          } finally {
+            ed.resume()
+          }
+        }
+      }
+      bb.onMfaPrompt = async () => {
+        if (!config.ui.tui || !(ed instanceof TuiEditor)) return null
+        ed.pause()
+        try {
+          const { runTextPrompt } = await import('./tui/run-login.js')
+          return await runTextPrompt({
+            t,
+            label: t('auth.mfa_prompt'),
+            secret: true,
+          })
+        } finally {
+          ed.resume()
+        }
+      }
+    }
+    wireLoginCallbacks(browser)
     // N37 statusLine hook: run the configured command on its own timer (never
     // per-render — a spawn would block typing) and show its first stdout line
     // in the status line. Off when ui.statusLineCommand is empty.
@@ -2666,6 +2746,9 @@ async function main(): Promise<void> {
           // launch failed, `browser` would point at a dead instance and every
           // later command would break.
           const nextBrowser = createProviderBrowser(arg)
+          // Wire the Ink login BEFORE waitForLogin(), or the new backend would
+          // fall back to readline and pause the TUI for its sign-in.
+          wireLoginCallbacks(nextBrowser)
           await nextBrowser.launch()
           await nextBrowser.waitForLogin()
           const oldBrowser = browser

@@ -170,6 +170,15 @@ export interface QwenBrowserOptions {
   auth?: { username?: string; password?: string; saveSession?: boolean }
   locale?: Locale
   onAuthSave?: (username: string, password: string) => void
+  /**
+   * TUI-injected prompts. Qwen signs in with email -> one-time CODE (no
+   * password), so both steps go through `onTextPrompt` when the TUI owns the
+   * terminal (readline would pause it). Null falls back to readline.
+   */
+  onLoginPrompt?: (info: {
+    savedUsername: string
+    step: 'email' | 'code'
+  }) => Promise<string | null>
   userAgent?: string
 }
 
@@ -199,6 +208,9 @@ export class QwenBrowser {
   auth: { username: string; password: string; saveSession: boolean }
   locale: Locale
   onAuthSave: ((username: string, password: string) => void) | null
+  onLoginPrompt:
+    | ((info: { savedUsername: string; step: 'email' | 'code' }) => Promise<string | null>)
+    | null
   // Watchdog budget the agent loop reads (same contract as DeepSeekBrowser).
   maxAfterToolRetries: number
   askDeadlineMs: number
@@ -265,6 +277,7 @@ export class QwenBrowser {
     auth,
     locale,
     onAuthSave,
+    onLoginPrompt,
     userAgent,
   }: QwenBrowserOptions = {}) {
     this.headless = headless
@@ -293,6 +306,7 @@ export class QwenBrowser {
     }
     this.locale = locale || DEFAULT_LOCALE
     this.onAuthSave = onAuthSave || null
+    this.onLoginPrompt = onLoginPrompt || null
     this.maxAfterToolRetries = 6
     this.askDeadlineMs = answerTimeoutMs + 60000
     this._lastSentAt = 0
@@ -720,38 +734,60 @@ export class QwenBrowser {
   // This is the DEFAULT Qwen flow (no password needed).
   async _promptAndLogin(): Promise<boolean> {
     await this._openLoginPage()
-    const readline = await import('readline')
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    })
-    const email = await new Promise<string>((resolve) =>
-      rl.question(
-        this._t('qwen.login_email_prompt', {
-          def: this.auth.username ? ' [' + this.auth.username + ']' : '',
-        }),
-        resolve,
-      ),
-    )
-    rl.close()
-    const addr = email.trim() || this.auth.username
-    if (!addr) {
-      this._notice(this._t('qwen.login_failed'))
-      return false
+    let addr: string
+    let code: string
+    if (this.onLoginPrompt) {
+      // TUI path: the Ink prompt reads the email/code without pausing Ink.
+      const email = await this.onLoginPrompt({
+        savedUsername: this.auth.username,
+        step: 'email',
+      })
+      addr = (email ?? '').trim() || this.auth.username
+      if (!addr) {
+        this._notice(this._t('qwen.login_failed'))
+        return false
+      }
+      const codeAns = await this.onLoginPrompt({
+        savedUsername: addr,
+        step: 'code',
+      })
+      code = (codeAns ?? '').trim()
+    } else {
+      const readline = await import('readline')
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      })
+      const email = await new Promise<string>((resolve) =>
+        rl.question(
+          this._t('qwen.login_email_prompt', {
+            def: this.auth.username ? ' [' + this.auth.username + ']' : '',
+          }),
+          resolve,
+        ),
+      )
+      rl.close()
+      addr = email.trim() || this.auth.username
+      if (!addr) {
+        this._notice(this._t('qwen.login_failed'))
+        return false
+      }
+      const rlCode = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      })
+      code = (
+        await new Promise<string>((resolve) =>
+          rlCode.question(this._t('qwen.login_code_prompt'), resolve),
+        )
+      ).trim()
+      rlCode.close()
     }
     let ok: boolean
     try {
       await this._fillEmailAndContinue(addr)
       await this.page.waitForTimeout(1500)
-      const rlCode = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-      })
-      const code = await new Promise<string>((resolve) =>
-        rlCode.question(this._t('qwen.login_code_prompt'), resolve),
-      )
-      rlCode.close()
-      await this._submitCode(code.trim())
+      await this._submitCode(code)
       ok = await this._waitLoggedIn(30000)
     } catch (e) {
       if (this.debug) console.error('qwen login failed:', (e as Error).message)

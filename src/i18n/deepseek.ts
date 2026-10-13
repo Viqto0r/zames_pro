@@ -105,6 +105,20 @@ export const deepseekMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Логин DeepSeek (телефон/email): ',
     en: 'DeepSeek login (phone/email): ',
   },
+  // Ink login form (TUI). Kept separate from auth.prompt_* (the readline
+  // prompts) so the TUI can be translated without touching the fallback.
+  'auth.form.title': { ru: 'Вход в DeepSeek', en: 'DeepSeek sign-in' },
+  'auth.form.login': { ru: 'Логин', en: 'Login' },
+  'auth.form.password': { ru: 'Пароль', en: 'Password' },
+  'auth.form.need_user': { ru: 'Введите логин.', en: 'Enter the login.' },
+  'auth.form.need_pass': { ru: 'Введите пароль.', en: 'Enter the password.' },
+  'auth.form.hint_field': { ru: 'поле', en: 'field' },
+  'auth.form.hint_submit': { ru: 'войти', en: 'sign in' },
+  'auth.form.hint_cancel': { ru: 'отмена', en: 'cancel' },
+  'auth.form.note_saved': {
+    ru: 'Enter — использовать сохранённые логин и пароль.',
+    en: 'Enter — use the saved login and password.',
+  },
   'auth.prompt_password': {
     ru: 'Пароль DeepSeek: ',
     en: 'DeepSeek password: ',
