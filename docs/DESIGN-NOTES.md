@@ -370,3 +370,66 @@ that carry it: all 3 are now detected. Covered by test/deepseek-ui.test.ts.
 The AUDIT method is the takeaway: for EVERY protocol detector, count how many
 real bodies contain the marker vs how many the detector actually matches. A
 non-zero gap is a silent hang. This caught both fixes.
+
+## Ink TUI (src/tui/): decisions worth keeping
+
+The operator-facing UI is an Ink/React tree; `index.ts`/`run-task.ts` reach it
+ONLY through the `UiEditor` interface (`src/tui/types.ts`), and the state bridge
+is `TuiStore` (an external store read via `useSyncExternalStore`). Two layout
+modes share the widgets: full-screen (`FullScreenApp`, `ui.alternateScreen`)
+and inline (`TuiApp` + `<Static>`).
+
+### The input box height MUST come from layoutInput, not from newline count
+
+`inputBoxRows(prompt, buf, cursor, cols)` (src/input/layout.ts) = 2 border rows
++ `layoutInput(...).rows.length` VISUAL rows. Using
+`buf.split('
+').length` under-counted a WORD-WRAPPED long line, so the second
+line printed over the first and the caret drifted. FullScreenApp reserves
+`logHeight` from this number and InputLine renders from the SAME layout call, so
+they cannot disagree. Any new row above the input must update `cursorTop` in the
+same change.
+
+### Multi-line keys: LF is NOT `key.return`
+
+Ink maps CR (``) to `key.return` but LF (`
+`, which is Ctrl+J) to
+`name='enter'` — and `key.ctrl` stays FALSE, and the public `Key` type does not
+expose `name`. A Ctrl+J binding that matched `input='j' && key.ctrl` therefore
+never fired (the old test used exactly that impossible shape). `dispatchKey`
+now treats a lone LF as a newline. `Shift+Enter` needs the kitty protocol (Ink
+sends `CSI ? u` and the terminal answers); `Alt+Enter` is `ESC CR`; a trailing
+`\` + Enter is handled via `KeyContext.endsWithBackslash`.
+
+### The mouse wheel used to scroll the INPUT HISTORY
+
+In the alternate screen most terminals convert the wheel into Up/Down arrow
+keys (DECSET 1007, "alternate scroll mode"), and the editor maps those to
+history at a buffer edge. `useMouseWheel` now DISABLES 1007 for the app
+lifetime, so the wheel never becomes arrows: with `ui.mouseScroll` on the raw
+SGR events scroll the log, and with it off the wheel is inert and drag-select
+keeps working. A sequence split across two stdin chunks is carried via
+`incompleteTail()`.
+
+### The log viewport windows by RENDERED ROW
+
+`src/tui/log-window.ts` (`entryRows`/`windowByRows`/`totalRows`) estimates each
+entry's height at the terminal width (ANSI stripped, wide chars = 2) so a long
+wrapped answer cannot overflow the panel and a single oversized entry is kept
+(its tail shown) rather than dropped. `store.scroll` is measured in ROWS.
+
+### Login stays inside the TUI
+
+`browser.ts` / `qwen-browser.ts` call an optional `onLoginPrompt` (and DeepSeek
+`onMfaPrompt`) instead of readline, which would pause Ink and fight it for
+stdin. `LoginForm.tsx` (username + masked password) and `TextPrompt.tsx` (one
+line, optional mask) render in the Ink app; `login-pure.ts` holds the tested
+masking + validation. `index.ts` wires the callbacks to the LIVE browser after
+the editor exists and re-wires them on `/provider` BEFORE `waitForLogin()`.
+
+### Copying a code block has no button
+
+A terminal has no pointer, so Ctrl+Y / `/copy-code` copy a fenced block from the
+last answer. `extractCodeBlocks()` (src/code-blocks.ts, pure/tested) recovers
+the RAW text — never the ANSI-highlighted render, which would paste escape
+codes. `widgets.tsx` has a `CodeBlock` for menus and a future structured log.
