@@ -109,6 +109,10 @@ export const selfReviewMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Последние чаты DeepSeek:',
     en: 'Recent DeepSeek chats:',
   },
+  'chats.pick_title': {
+    ru: 'Выберите чат (↑/↓, Enter — открыть, Esc — отмена)',
+    en: 'Pick a chat (↑/↓, Enter to open, Esc to cancel)',
+  },
   'chats.use_resume': {
     ru: '\nИспользуй /resume <n> для продолжения.\n',
     en: '\nUse /resume <n> to continue.\n',
@@ -186,6 +190,10 @@ export const selfReviewMessages: Record<string, { ru: string; en: string }> = {
   'sessions.restore_hint': {
     ru: 'Восстановить: /resume-id <id>  (полный id) или /resume <n> после /chats.',
     en: 'Restore: /resume-id <id> (full id) or /resume <n> after /chats.',
+  },
+  'sessions.pick_title': {
+    ru: 'Выберите сессию (↑/↓, Enter — открыть, Esc — отмена)',
+    en: 'Pick a session (↑/↓, Enter to open, Esc to cancel)',
   },
   'sessions.resume_id_usage': {
     ru: 'Использование: /resume-id <chat id>',

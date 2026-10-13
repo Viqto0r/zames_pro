@@ -2208,6 +2208,105 @@ async function main(): Promise<void> {
     })
   }
 
+  // Open a chat by its ChatInfo and print the restored dialogue. Shared by
+  // /resume and the interactive /chats list, so both paths behave identically
+  // (todos reloaded, prompt-resend decision, transcript event).
+  const openResumedChat = async (pick: {
+    id: string
+    title: string
+  }): Promise<void> => {
+    if (editor) editor.lock(t('msg.input_locked'))
+    try {
+      await browser.openChat(pick.id)
+      currentChatId = pick.id
+      freshChatNext = false
+      sendSystemPromptNext = promptOnResume()
+      saveLastChat(pick.id, currentWorkdir, pick.title)
+      transcript.log('resume_chat', { id: pick.id, title: pick.title })
+      if (editor) editor.clearScreen()
+      console.log(theme.system(t('chats.opening', { v: pick.title })))
+      console.log(
+        theme.assistant(t('msg.chat_opened')) +
+          theme.system(
+            sendSystemPromptNext
+              ? String.fromCharCode(10) + t('chats.prompt_will_resend')
+              : String.fromCharCode(10) + t('chats.prompt_no_resend'),
+          ),
+      )
+      loadSessionTodos(pick.id)
+      await printRestoredHistory(browser, editor, pick.id)
+    } catch (e) {
+      console.error(
+        theme.error(t('msg.open_chat_error', { v: '' })),
+        (e as Error).message,
+      )
+    } finally {
+      if (editor) editor.unlock()
+    }
+  }
+
+  // Show the recent chats in an Ink SelectList and open the chosen one.
+  // Returns true when the operator picked a chat (the caller then skips the
+  // text listing). Only called when the TUI owns the terminal.
+  const pickChatInteractively = async (
+    chats: Array<{ id: string; title: string }>,
+  ): Promise<boolean> => {
+    if (!editor) return false
+    editor.pause()
+    let picked: string | null = null
+    try {
+      const { selectListInk } = await import('./tui/run-select.js')
+      picked = await selectListInk({
+        title: t('chats.pick_title'),
+        items: chats.map((c, i) => ({
+          value: c.id,
+          label: String(i + 1).padStart(2, ' ') + '. ' + c.title,
+          detail: c.id.slice(0, 8) + '…',
+        })),
+      })
+    } catch {
+      picked = null
+    } finally {
+      editor.resume()
+    }
+    if (!picked) return false
+    const pick = chats.find((c) => c.id === picked)
+    if (!pick) return false
+    await openResumedChat(pick)
+    return true
+  }
+
+  // Show the saved SESSIONS in an Ink SelectList and resume the chosen one.
+  // Sessions carry the full chat id (unlike the /chats sidebar), so this is
+  // the safe resume path; it reuses openResumedChat for identical behavior.
+  const pickSessionInteractively = async (
+    sessions: Array<{ id: string; title?: string; workdir?: string }>,
+  ): Promise<boolean> => {
+    if (!editor) return false
+    editor.pause()
+    let picked: string | null = null
+    try {
+      const { selectListInk } = await import('./tui/run-select.js')
+      picked = await selectListInk({
+        title: t('sessions.pick_title'),
+        items: sessions.map((s, i) => ({
+          value: s.id,
+          label: String(i + 1).padStart(2, ' ') + '. ' + (s.title || s.id.slice(0, 8)),
+          detail: s.id.slice(0, 8) + '…' + (s.workdir ? ' [' + dirLabel(s.workdir) + ']' : ''),
+        })),
+      })
+    } catch {
+      picked = null
+    } finally {
+      editor.resume()
+    }
+    if (!picked) return false
+    const pick = sessions.find((s) => s.id === picked)
+    if (!pick) return false
+    await openResumedChat({ id: pick.id, title: pick.title || '' })
+    return true
+  }
+
   while (running) {
     let input: string | null
     let inputAttachments: Array<{ path: string; name: string; mime: string }> =
@@ -2545,6 +2644,15 @@ async function main(): Promise<void> {
         if (!shown.length) {
           console.log(theme.system(t('chats.none_hint')))
         } else {
+          // In the TUI, open a real SELECT LIST (like /model) instead of
+          // dumping text: pick a chat and it opens directly. The text path
+          // below stays for non-TTY / the legacy editor.
+          const canPick =
+            editor && 'isTui' in editor && config.ui.tui && !filter
+          if (canPick && editor) {
+            const openChat = await pickChatInteractively(shown)
+            if (openChat) continue
+          }
           console.log(theme.system(t('chats.recent')))
           // The number is the index in the FULL list, so `/resume <n>` keeps
           // pointing at the same chat even when a filter narrows the view.
@@ -2588,36 +2696,7 @@ async function main(): Promise<void> {
         )
         continue
       }
-
-      if (editor) editor.lock(t('msg.input_locked'))
-      try {
-        await browser.openChat(pick.id)
-        currentChatId = pick.id
-        freshChatNext = false
-        sendSystemPromptNext = promptOnResume()
-        saveLastChat(pick.id, currentWorkdir, pick.title)
-        transcript.log('resume_chat', { id: pick.id, title: pick.title })
-        // Resume on a clean screen so the restored dialogue is readable.
-        if (editor) editor.clearScreen()
-        console.log(theme.system(t('chats.opening', { v: pick.title })))
-        console.log(
-          theme.assistant(t('msg.chat_opened')) +
-            theme.system(
-              sendSystemPromptNext
-                ? String.fromCharCode(10) + t('chats.prompt_will_resend')
-                : String.fromCharCode(10) + t('chats.prompt_no_resend'),
-            ),
-        )
-        loadSessionTodos(pick.id)
-        await printRestoredHistory(browser, editor, pick.id)
-      } catch (e) {
-        console.error(
-          theme.error(t('msg.open_chat_error', { v: '' })),
-          (e as Error).message,
-        )
-      } finally {
-        if (editor) editor.unlock()
-      }
+      await openResumedChat(pick)
       continue
     }
 
@@ -2889,6 +2968,14 @@ async function main(): Promise<void> {
       if (!all.length) {
         console.log(theme.system(t('sessions.none')))
       } else {
+        // In the TUI, open a SELECT LIST and resume the chosen session
+        // directly (same behavior as /chats), instead of only listing ids.
+        const canPick =
+          editor && 'isTui' in editor && config.ui.tui && !filter
+        if (canPick && editor) {
+          const opened = await pickSessionInteractively(all)
+          if (opened) continue
+        }
         all.forEach((s, i) => {
           const n = String(i + 1).padStart(2, ' ')
           const mark = s.id === currentChatId ? theme.user(' *') : ''
