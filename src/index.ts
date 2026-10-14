@@ -1507,16 +1507,20 @@ async function main(): Promise<void> {
   }
 
   const buildPrompt = () => {
-    let tail
     if (reviewMode) {
-      tail =
+      // Review mode is rare and MEANINGFUL, so it stays in the prompt.
+      return (
+        theme.prompt('❯ ') +
+        theme.dim('(') +
         theme.warn(t('prompt.review')) +
         theme.dim(':') +
-        theme.dir(reviewMode.snapName)
-    } else {
-      tail = theme.dir(dirLabel(currentWorkdir))
+        theme.dir(reviewMode.snapName) +
+        theme.dim(') ')
+      )
     }
-    return theme.prompt('❯ ') + tail + theme.dim(' › ')
+    // No working-directory tail: it ate input width and is already in the
+    // header / /pwd. A bare prompt keeps room for the task text.
+    return theme.prompt('❯ ') + theme.dim('› ')
   }
 
   await refreshDynamicCommands(currentWorkdir)
@@ -2333,15 +2337,18 @@ async function main(): Promise<void> {
         inputAttachments = msg?.attachments || []
       } else {
         let tail
+        // The non-TTY fallback prompt mirrors buildPrompt(): bare, no dir.
         if (reviewMode) {
           tail =
+            theme.dim('(') +
             theme.warn(t('prompt.review')) +
             theme.dim(':') +
-            theme.dir(reviewMode.snapName)
+            theme.dir(reviewMode.snapName) +
+            theme.dim(') ')
         } else {
-          tail = theme.dir(dirLabel(currentWorkdir))
+          tail = theme.dim('› ')
         }
-        input = await promptOnce(theme.prompt('❯ ') + tail + theme.dim(' › '))
+        input = await promptOnce(theme.prompt('❯ ') + tail)
       }
     } catch {
       break

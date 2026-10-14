@@ -348,7 +348,7 @@ run('pty: a key hint sits UNDER the input box (full-screen)', async () => {
   const hintRow = term.findRow('Shift+drag')
   assert.ok(hintRow > bottom, 'the hint must be under the input box')
   // Both typed lines are INSIDE the box (the panel did not overflow).
-  const aRow = term.findRow('zames_pro › a')
+  const aRow = term.findRow('❯ › a')
   const bRow = term.findRow('b')
   assert.ok(aRow > top && aRow < bottom, 'line a must be inside the box')
   assert.ok(bRow > top && bRow < bottom, 'line b must be inside the box')

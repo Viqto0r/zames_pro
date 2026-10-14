@@ -28,7 +28,7 @@ store.set({
   title: 'zames_pro',
   version: '2.34.0',
   workdir: '/workspaces/zames/zames_pro',
-  prompt: '➔ zames_pro › ',
+  prompt: '❯ › ',
   locale: process.env.PROBE_LOCALE === 'ru' ? 'ru' : 'en',
   commands,
   edit: { ...initialEditState(), buf: process.argv[2] ?? '' },
