@@ -142,7 +142,7 @@ function initialState(): TuiState {
     queueLength: 0,
     tasks: '',
     provider: '',
-    mouseScroll: false,
+    mouseScroll: true,
     thinkingEnabled: false,
     searchEnabled: false,
     statusLine: '',

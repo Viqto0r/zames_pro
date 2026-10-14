@@ -428,18 +428,25 @@ lifetime, so the wheel never becomes arrows.
 The two useful behaviors are MUTUALLY EXCLUSIVE, so the hook has exactly two
 modes and `mouseModeSequences(enabled)` returns a single sequence per mode:
 
-- **SELECT** (`ui.mouseScroll=false`, the DEFAULT): mouse reporting stays OFF,
-  so the terminal owns the mouse — drag-select works natively and the wheel is
-  inert. The 1007l primer is applied once at mount (with reporting briefly on,
-  since some terminals ignore 1007l otherwise) and reporting is then turned
-  back off; the listener is not bound, so nothing consumes the selection.
-- **SCROLL** (`ui.mouseScroll=true`): reporting is ON, the raw SGR events
-  scroll the log, and drag-select needs Shift (the standard TUI convention).
+- **SCROLL** (`ui.mouseScroll=true`, the DEFAULT): reporting is ON, the raw SGR
+  events scroll the log, and drag-select needs Shift (the standard TUI
+  convention: Claude Code / Codex / opencode do the same). This is the default
+  because the operator wants the wheel to scroll the DIALOG, and the wheel must
+  NEVER touch the input history (history is arrow keys only). `1007l` is sent
+  so the terminal never turns the wheel into arrows.
+- **SELECT** (`ui.mouseScroll=false`): mouse reporting stays OFF, so the
+  terminal owns the mouse — drag-select works natively and the wheel is inert.
+  The 1007l primer is applied once at mount (with reporting briefly on, since
+  some terminals ignore 1007l otherwise) and reporting is then turned back off;
+  the listener is not bound, so nothing consumes the selection.
 
 Earlier the hook enabled reporting UNCONDITIONALLY and only gated the scroll,
-so native selection was lost even with the option off — that was the operator's
-"selection broke" bug. A sequence split across two stdin chunks is still
-carried via `incompleteTail()`.
+so native selection was lost even with the option off. A SECOND regression was
+the effect depending on `onWheel` (an inline arrow): it re-ran on every render
+and each cleanup wrote `1007h` (alternate-scroll ON => wheel becomes an arrow
+=> input HISTORY). The effect now depends only on the mode + stdin and reads
+the callback from a ref, so the mode bytes are written exactly once. A sequence
+split across two stdin chunks is still carried via `incompleteTail()`.
 
 ### The log viewport windows by RENDERED ROW
 
