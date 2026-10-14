@@ -11,7 +11,7 @@ import React from 'react'
 import { Box, Text, useAnimation, useWindowSize } from 'ink'
 import { translate, type Locale } from '../i18n.js'
 import { DOTS, stripEllipsis } from '../spinner.js'
-import { truncateToWidth } from '../input/layout.js'
+import { truncateToWidth, visLen } from '../input/layout.js'
 import type { TuiState } from './store.js'
 
 /** Elapsed seconds of the current animated phase ("0s", "45s", "2m 05s"). */
@@ -36,21 +36,34 @@ function stateLabel(state: TuiState, locale: Locale): string {
 }
 
 /** Visible width of the badge row (used to reserve space for the left
- *  status). An emoji is counted as 2 columns; the rest as 1. Approximation is
- *  fine — the goal is only to avoid clipping the badges. */
-function badgeTextWidth(state: TuiState): number {
+ *  status). Measured with the shared `visLen` so wide chars (CJK/emoji) count
+ *  as 2 and the emoji's text-presentation selector (\uFE0E) as 0 — a plain
+ *  `.length` counted an emoji as 1 and a CJK badge was clipped on a narrow
+ *  terminal (BACKLOG T0.7). Exported so the width arithmetic is unit-tested
+ *  without rendering. */
+export function badgeTextWidth(state: TuiState): number {
   let w = 0
-  if (state.statusLine) w += state.statusLine.length + 1
-  if (state.provider) w += state.provider.length + 3
-  if (state.queueLength > 0) w += 2 + String(state.queueLength).length
-  if (state.codeBlocks.length > 0) w += 8
-  if (state.tasks) w += state.tasks.length + 1
-  if (state.thinkingEnabled) w += 3
-  if (state.searchEnabled) w += 3
+  if (state.statusLine) w += visLen(state.statusLine) + 1
+  if (state.provider) w += visLen('[' + state.provider + '] ')
+  if (state.queueLength > 0) w += visLen('⧗' + state.queueLength + ' ')
+  if (state.codeBlocks.length > 0) {
+    const idx =
+      state.codeFocus >= 0 ? state.codeFocus + 1 : state.codeBlocks.length
+    w += visLen('⌘ ' + idx + '/' + state.codeBlocks.length + ' ')
+  }
+  if (state.tasks) w += visLen(state.tasks) + 1
+  const toggles: string[] = []
+  if (state.thinkingEnabled) toggles.push('🧠\uFE0E')
+  if (state.searchEnabled) toggles.push('🌐\uFE0E')
+  if (toggles.length) w += visLen(toggles.join(' ') + ' ')
   if (state.contextText) {
     const marker =
-      state.contextLevel === 'high' ? 2 : state.contextLevel === 'warn' ? 2 : 0
-    w += state.contextText.length + marker
+      state.contextLevel === 'high'
+        ? '⛔ '
+        : state.contextLevel === 'warn'
+          ? '▲ '
+          : ''
+    w += visLen(marker + state.contextText)
   }
   return w
 }
@@ -82,7 +95,8 @@ function Badges({ state }: { state: TuiState }): React.ReactElement | null {
   if (state.codeBlocks.length > 0) {
     // A hint that the last answer has copyable code: Ctrl+Y copies the last
     // block (or the focused one), like a copy button in a GUI chat.
-    const idx = state.codeFocus >= 0 ? state.codeFocus + 1 : state.codeBlocks.length
+    const idx =
+      state.codeFocus >= 0 ? state.codeFocus + 1 : state.codeBlocks.length
     parts.push(
       <Text key="code" color="#7fc4f0">
         {'⌘ ' + idx + '/' + state.codeBlocks.length + ' '}

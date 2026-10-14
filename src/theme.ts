@@ -1,6 +1,16 @@
 import chalk from 'chalk'
 import { contentWidth } from './width.js'
 
+// Respect NO_COLOR (https://no-color.org): when the operator sets it (any
+// non-empty value) drop ALL SGR codes so the output can be piped into a file
+// or a log viewer without escape noise. chalk 5 only auto-detects TTY/CI, it
+// does NOT read NO_COLOR, so the level is set explicitly here — the one place
+// the palette is built, so every consumer (theme, spinner, Ink Text colors
+// that go through chalk) is covered. chalk.level is the documented override.
+if (process.env.NO_COLOR) {
+  chalk.level = 0
+}
+
 // A calm palette for a dark terminal.
 // Muted, slightly "faded" tones without high saturation
 // (in the spirit of Tokyo Night / Nord). The goal is comfortable reading of
