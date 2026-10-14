@@ -37,7 +37,8 @@ export function parseCsiU(raw: string): EditorAction | null {
   const alt = (mod & 2) !== 0
   if (cp === 13 && (ctrl || alt)) return { type: 'newline' }
   if (cp === 3) {
-    return ctrl || alt ? { type: 'deleteWordRight' } : { type: 'delete' }
+    // Ctrl/Alt+Delete deletes the word on the LEFT (see dispatchKey).
+    return ctrl || alt ? { type: 'deleteWordLeft' } : { type: 'delete' }
   }
   if (cp === 127) {
     return ctrl || alt ? { type: 'deleteWordLeft' } : { type: 'backspace' }
@@ -135,7 +136,10 @@ export function dispatchKey(
     // return null` used to swallow them silently (Ctrl+arrows did nothing).
     if (key.leftArrow) return { type: 'wordLeft' }
     if (key.rightArrow) return { type: 'wordRight' }
-    if (key.delete) return { type: 'deleteWordRight' }
+    // Ctrl+Delete deletes the word BEFORE the cursor (the operator's binding:
+    // "Ctrl+Del must delete the word before the cursor"). Ctrl+Backspace does
+    // the same. Plain Delete still deletes one char to the RIGHT.
+    if (key.delete) return { type: 'deleteWordLeft' }
     if (key.backspace) return { type: 'deleteWordLeft' }
     if (key.home) return { type: 'home' }
     if (key.end) return { type: 'end' }

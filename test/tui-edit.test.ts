@@ -534,3 +534,34 @@ test('deleteWordRight: at end of line falls back to deleting the word LEFT', () 
   const beforeNl = { ...initialEditState(), buf: 'foo bar' + NLc, cursor: 7 }
   assert.equal(deleteWordRight(beforeNl).buf, 'foo ' + NLc)
 })
+
+test('dispatchKey: Ctrl+Delete deletes the word on the LEFT', () => {
+  // The operator's binding: Ctrl+Del removes the word BEFORE the cursor
+  // (like Ctrl+Backspace). Plain Delete still removes one char to the right.
+  const ctx = {
+    searchMode: false,
+    bufferEmpty: false,
+    endsWithBackslash: false,
+  }
+  const edges = { atTop: true, atBottom: true }
+  assert.equal(
+    dispatchKey('', key({ ctrl: true, delete: true }), ctx, edges)?.type,
+    'deleteWordLeft',
+  )
+  assert.equal(
+    dispatchKey('', key({ delete: true }), ctx, edges)?.type,
+    'delete',
+  )
+  // Alt+Delete keeps the classic word-RIGHT behavior.
+  assert.equal(
+    dispatchKey('', key({ meta: true, delete: true }), ctx, edges)?.type,
+    'deleteWordRight',
+  )
+})
+
+test('parseCsiU: kitty Ctrl+Delete deletes the word on the LEFT', () => {
+  const ESC = String.fromCharCode(27)
+  assert.equal(parseCsiU(ESC + '[3;5u')?.type, 'deleteWordLeft')
+  // Plain kitty Delete still deletes one char.
+  assert.equal(parseCsiU(ESC + '[3u')?.type, 'delete')
+})
