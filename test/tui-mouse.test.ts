@@ -91,3 +91,12 @@ test('mouseModeSequences(SELECT): reporting OFF in the steady state', () => {
   assert.ok(off.includes(ESC + '[?1000l'))
 })
 
+test('parseWheel: SHIFT+wheel still scrolls (modifier is ignored)', () => {
+  // Shift+wheel = Cb 68/69. The button mask drops the modifier bits, so
+  // Shift+wheel scrolls the log just like a plain wheel — which is what lets
+  // the operator select with Shift AND still scroll without releasing.
+  assert.equal(parseWheel(sgr(68)), 1)
+  assert.equal(parseWheel(sgr(69)), -1)
+  // A burst of Shift+wheel then plain wheel accumulates in order.
+  assert.equal(parseWheel(sgr(68) + sgr(68) + sgr(64)), 3)
+})
