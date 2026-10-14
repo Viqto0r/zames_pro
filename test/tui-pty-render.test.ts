@@ -28,21 +28,24 @@ function runProbe(
   delayMs = 250,
   copyLog?: string,
   inline = false,
+  probe = 'tui-probe',
+  cols = COLS,
+  rows = ROWS,
 ): Promise<string> {
   return new Promise((resolve) => {
     const child = spawn(
       'script',
       [
         '-qec',
-        'npx tsx scripts/tui-probe.tsx ' + JSON.stringify(buf),
+        'npx tsx scripts/' + probe + '.tsx ' + JSON.stringify(buf),
         '/dev/null',
       ],
       {
         cwd: path.resolve('.'),
         env: {
           ...process.env,
-          COLUMNS: String(COLS),
-          LINES: String(ROWS),
+          COLUMNS: String(cols),
+          LINES: String(rows),
           ...(copyLog ? { PROBE_COPY_LOG: copyLog } : {}),
           ...(inline ? { PROBE_INLINE: '1' } : {}),
         },
@@ -150,5 +153,58 @@ run('pty: INLINE mode renders the input and accepts a newline', async () => {
   assert.ok(
     term.findRow('  b') >= 0,
     'inline: second line must be on its own row',
+  )
+})
+
+run(
+  'pty: a LONG workdir at a narrow terminal does not clip the input box',
+  async () => {
+    // The live bug: the header title row WRAPPED because the workdir was not
+    // truncated, the fixed-height column overflowed and the first input row
+    // was pushed off the top (the operator saw line 2 overprint line 1).
+    // tui-repro uses the real prompt, a long workdir and command list.
+    const out = await runProbe(
+      '',
+      ['a', NL, 'b', NL, 'c'],
+      250,
+      undefined,
+      false,
+      'tui-repro',
+      40,
+      15,
+    )
+    const term = screen(out)
+    const top = term.findRow('╭')
+    const bottom = term.findRow('╰')
+    assert.ok(top >= 0 && bottom > top, 'the input box must be on screen')
+    // 2 borders + 3 typed lines, all THREE visible (nothing scrolled off).
+    assert.equal(bottom - top + 1, 5)
+    assert.ok(term.findRow('a') >= 0, 'line a must be visible')
+    assert.ok(term.findRow('b') >= 0, 'line b must be visible')
+    assert.ok(term.findRow('c') >= 0, 'line c must be visible')
+  },
+)
+
+run('pty: a large bracketed paste reaches onSubmit EXPANDED', async () => {
+  // The operator pasted 25 lines and the agent got only '[Pasted lines#25]'.
+  // tui-pastetest sends a real bracketed paste to tui-submit (which logs what
+  // onSubmit received) and prints the log: the marker must NOT be there.
+  const out = await new Promise<string>((resolve) => {
+    const child = spawn('npx', ['tsx', 'scripts/tui-pastetest.mts'], {
+      cwd: path.resolve('.'),
+      env: { ...process.env, COLUMNS: '80', LINES: '24' },
+    })
+    let o = ''
+    child.stdout.on('data', (d) => (o += d.toString('utf-8')))
+    child.stderr.on('data', (d) => (o += d.toString('utf-8')))
+    child.on('close', () => resolve(o))
+  })
+  assert.ok(
+    out.includes('SUBMIT="l1\\nl2\\nl3\\nl4\\nl5"'),
+    'onSubmit must receive the FULL pasted text, got: ' + out.trim(),
+  )
+  assert.ok(
+    !out.includes('SUBMIT="[Pasted lines#5]"'),
+    'the literal [Pasted lines#N] marker must never reach the agent',
   )
 })

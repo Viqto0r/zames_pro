@@ -246,6 +246,14 @@ the first line. Current logic:
   (`expandPastes`). Pastes of 1–2 lines are inserted as-is. The same logic is
   mirrored in `watchInput()` (src/index.ts, the non-TTY fallback).
 
+  In the INK TUI the marker must exist ONLY in the rendered line:
+  `TuiEditor.handleSubmit` expands it via
+  `expandPastes(this.store.getSnapshot().pastes, ...)`, the same list
+  `InputLine.onPastesChange` writes into the store. `InputLine.doSubmit` must
+  call `onSubmit()` BEFORE it clears the list: clearing first made
+  `expandPastes` a no-op and the agent received the literal `[Pasted lines#N]`
+  instead of the pasted text (the operator's bug).
+
 ### Resize: erase ONLY the block, never the whole viewport
 
 A terminal resize (SIGWINCH) re-flows the lines above the editor block, so the
@@ -389,6 +397,15 @@ line printed over the first and the caret drifted. FullScreenApp reserves
 `logHeight` from this number and InputLine renders from the SAME layout call, so
 they cannot disagree. Any new row above the input must update `cursorTop` in the
 same change.
+
+A SECOND clipping source sat in the HEADER: the title row was assembled from
+`left.length`/`dir.length` (code points, not columns) and the workdir was never
+truncated, so a long path (or a narrow terminal) WRAPPED the row to a second
+line. The panel height is `height={termRows}` (fixed), so the extra row pushed
+the whole column down and clipped the TOP input row — the operator saw the
+second input line overprint the first. The header now measures with `visLen`
+and truncates the directory (`truncateToWidth`) so it is ALWAYS exactly
+`HEADER_ROWS` (2).
 
 ### Multi-line keys: LF is NOT `key.return`
 
