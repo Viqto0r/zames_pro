@@ -34,6 +34,7 @@
     "test:watch": "tsx --test --watch test/*.test.ts",
     "self-smoke": "tsx scripts/self-smoke.mts",
     "qwen-smoke": "tsx scripts/qwen-smoke.mts",
+    "qwen-models-smoke": "tsx scripts/qwen-models-smoke.mts",
     "render-demo": "tsx scripts/render-demo.mts",
     "render-how": "tsx scripts/render-how-it-works.mts",
     "build:readme": "tsx scripts/build-readme.mts",
