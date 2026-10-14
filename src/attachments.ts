@@ -153,7 +153,12 @@ export class AttachmentStore {
   fileCount = 0
 
   reset(): void {
-    this.items = []
+    // Empty IN PLACE: the Ink tree captures `this.items` by reference at mount
+    // (InputLine's `attachments` prop). Reassigning to a new array left the
+    // tree holding the OLD one, so after the first submit every new attachment
+    // was appended to an array the UI no longer read — `onSubmit` got `[]` and
+    // the pasted image/file was silently dropped.
+    this.items.length = 0
     this.imageCount = 0
     this.fileCount = 0
   }

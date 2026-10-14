@@ -104,3 +104,13 @@ test('looksLikeFileName отличает имя файла от текста', (
   assert.equal(looksLikeFileName('hello world'), false)
   assert.equal(looksLikeFileName('line1' + NL + 'line2.txt'), false)
 })
+
+test('reset keeps the items array identity', () => {
+  const s = new AttachmentStore()
+  const ref = s.items
+  s.add({ path: '/tmp/a.png', name: 'a.png', mime: 'image/png', size: 1 })
+  s.reset()
+  assert.equal(s.items, ref)
+  s.add({ path: '/tmp/b.png', name: 'b.png', mime: 'image/png', size: 1 })
+  assert.equal(ref.length, 1)
+})
