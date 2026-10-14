@@ -273,3 +273,34 @@ run('pty: the mouse mode is written ONCE, not per render', async () => {
     'the mouse mode must be written once, got:' + out,
   )
 })
+
+run('pty: the caret lands correctly in a CJK buffer (wide chars)', async () => {
+  // The cursor column was computed by re-measuring the row text up to
+  // `cursorCol` CODE POINTS, which double-counted wide chars: with a CJK
+  // buffer the caret jumped to the line end. `cursorCol` is already a column
+  // count, so the terminal column is just 2 + cursorCol.
+  const buf = '中文テスト日本語テキスト'
+  const out = await new Promise<string>((resolve) => {
+    const child = spawn(
+      'npx',
+      [
+        'tsx',
+        'scripts/tui-input-driver.mts',
+        '--cols=80',
+        '--rows=20',
+        '--buf=' + buf,
+        '--cursor=6',
+      ],
+      { cwd: path.resolve('.') },
+    )
+    let o = ''
+    child.stdout.on('data', (d) => (o += d.toString('utf-8')))
+    child.stderr.on('data', (d) => (o += d.toString('utf-8')))
+    child.on('close', () => resolve(o))
+  })
+  // prompt visLen = 10, cursor after 6 wide chars = 12 cols, border = 2.
+  assert.ok(
+    out.includes('CURSOR row=18 col=24'),
+    'the CJK caret must be at column 24, got:' + out,
+  )
+})

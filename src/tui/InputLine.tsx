@@ -22,8 +22,6 @@ import type { Key } from 'ink'
 import { translate, type Locale } from '../i18n.js'
 import {
   layoutInput,
-  visLen,
-  charWidth,
   SUGGEST_PAGE,
   type SlashCommand,
 } from '../input/layout.js'
@@ -443,13 +441,15 @@ export function InputLine(props: InputLineProps): React.ReactElement {
   //   row 2            = input box TOP border
   //   rows 3..         = input rows
   const cursorRow = lay.cursorRow
-  const rowText = lay.rows[cursorRow]?.text ?? ''
   const cursorX =
     // The input rows sit inside the rounded box, indented by 1 column for the
-    // left border and 1 for the box's inner padding.
-    2 +
-    visLen(lay.rows[cursorRow]?.prefix ?? '') +
-    colWidth(rowText, lay.cursorCol - visLen(lay.rows[cursorRow]?.prefix ?? ''))
+    // left border and 1 for the box's inner padding. `layoutInput().cursorCol`
+    // is ALREADY a column count that includes the prompt prefix (wide chars
+    // counted as 2), so the terminal column is just 2 + cursorCol. The old
+    // code re-measured `rowText` up to `cursorCol` code points, which
+    // DOUBLE-counted wide chars: a CJK buffer put the caret at the line end
+    // instead of under the cursor.
+    2 + lay.cursorCol
   setCursorPosition({ x: cursorX, y: (props.cursorTop ?? 3) + cursorRow })
 
   const { shown, moreCount } = suggestWindow(suggestions, suggestOffset)
@@ -491,14 +491,4 @@ export function InputLine(props: InputLineProps): React.ReactElement {
       </Box>
     </Box>
   )
-}
-
-/** Visible width of the first `col` code points of `text` (wide chars = 2). */
-function colWidth(text: string, col: number): number {
-  const chars = Array.from(text)
-  let w = 0
-  for (let i = 0; i < col && i < chars.length; i++) {
-    w += charWidth(chars[i].codePointAt(0) as number)
-  }
-  return Math.max(0, w)
 }
