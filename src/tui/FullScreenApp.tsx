@@ -121,13 +121,21 @@ export function FullScreenApp({
   // input line OWNS Home/End while its buffer is non-empty (they move the
   // caret), so the jump only applies to an EMPTY buffer — which is exactly
   // when the operator is navigating the log to select a large block.
+  //
+  // `useInput` binds the callback ONCE, so a `scroll` captured in the closure
+  // goes STALE after the first scroll (PgUp/PgDn/Home/End then compute from an
+  // old offset and jump wrong). Read the live value from the store instead.
   useInput((_input, key) => {
     const step = Math.max(1, Math.floor(logHeight / 2))
+    const cur = store.getSnapshot().scroll
     if (key.pageUp) {
-      store.set({ scroll: Math.min(maxScroll, scroll + step) })
+      store.set({ scroll: Math.min(maxScroll, cur + step) })
     } else if (key.pageDown) {
-      store.set({ scroll: Math.max(0, scroll - step) })
+      store.set({ scroll: Math.max(0, cur - step) })
     } else if (state.edit.buf.length === 0 && (key.home || key.end)) {
+      // Both the bare and the Ctrl-modified forms land here (Ink sets
+      // key.end / key.home for either), so Ctrl+End / Ctrl+Home are a
+      // reliable fallback on terminals that swallow the bare keys.
       store.set({ scroll: key.home ? maxScroll : 0 })
     }
   })
@@ -136,7 +144,8 @@ export function FullScreenApp({
   // useMouseWheel reads the raw SGR sequences (see the hook). One wheel notch
   // scrolls ~3 rows, like most terminals.
   useMouseWheel((delta) => {
-    const next = scroll + delta * 3
+    const cur = store.getSnapshot().scroll
+    const next = cur + delta * 3
     store.set({ scroll: Math.max(0, Math.min(maxScroll, next)) })
   }, state.mouseScroll)
 
