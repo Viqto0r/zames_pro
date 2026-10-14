@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **tui:** Ctrl+Delete works (kitty CSI-u) and deletes left at end of line
+- **tui:** the mouse wheel no longer scrolls the input history (for good)
 - **attachments:** keep the items array identity across reset()
 - **tui:** the config menu now redraws on change and fits the terminal
 - **tui:** reserve the real number of rows for a wrapping suggest popup
