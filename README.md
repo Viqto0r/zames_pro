@@ -267,9 +267,6 @@ selected without leaving the terminal:
   or the transcript file (`/transcript` shows the path) — the terminal's own
   drag-select cannot reach past one screen.
 
-A dim one-line hint with these keys is shown permanently UNDER the input box
-(full-screen mode); it shrinks the log by one row but never moves the caret.
-
 Set `NO_COLOR=1` to disable colors (a calm default palette is used otherwise).
 
 ### Images and files
@@ -849,10 +846,6 @@ zames
 - Чтобы скопировать БОЛЬШОЙ кусок, используйте `/export` (пишет всю сессию в
   Markdown) или файл транскрипта (`/transcript` покажет путь) — собственным
   выделением терминала за пределы одного экрана не выделить.
-
-Тусклая однострочная подсказка с этими клавишами постоянно показывается ПОД
-строкой ввода (в полноэкранном режиме); она сокращает лог на строку, но курсор
-никогда не сдвигает.
 
 Установите `NO_COLOR=1`, чтобы отключить цвета (иначе используется спокойная
 палитра по умолчанию).

@@ -265,9 +265,6 @@ selected without leaving the terminal:
   or the transcript file (`/transcript` shows the path) — the terminal's own
   drag-select cannot reach past one screen.
 
-A dim one-line hint with these keys is shown permanently UNDER the input box
-(full-screen mode); it shrinks the log by one row but never moves the caret.
-
 Set `NO_COLOR=1` to disable colors (a calm default palette is used otherwise).
 
 ### Images and files
