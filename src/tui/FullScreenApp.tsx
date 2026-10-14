@@ -104,7 +104,13 @@ export function FullScreenApp({
   // The suggestion popup renders ABOVE the input box; reserve its rows so
   // opening the list does not push the panel / shift the whole layout.
   const suggestRows = suggestRowCount(state.edit.buf, state.commands, cols)
-  const panelRows = HEADER_ROWS + STATUS_ROWS + INPUT_BOX_ROWS + suggestRows
+  // A one-line hint UNDER the input box (selection / scroll keys). It is part
+  // of the fixed panel height, so the log viewport shrinks by one row instead
+  // of the panel overflowing; `cursorTop` (measured from the top) is NOT
+  // affected, so the caret cannot move.
+  const HINT_ROWS = 1
+  const panelRows =
+    HEADER_ROWS + STATUS_ROWS + INPUT_BOX_ROWS + suggestRows + HINT_ROWS
   const logHeight = Math.max(1, termRows - panelRows)
 
   // Window the log BY RENDERED ROW: a long wrapped answer can be taller than
@@ -177,6 +183,12 @@ export function FullScreenApp({
         commands={state.commands}
         locked={state.locked}
       />
+      {/* A dim, single-line key hint UNDER the box. It is part of the fixed
+          panel (see HINT_ROWS above), so it shrinks the log by one row and
+          never shifts the caret. Truncated so it cannot wrap. */}
+      <Text color="#5b616e" wrap="truncate">
+        {' ' + translate(state.locale)('editor.keys_hint')}
+      </Text>
     </Box>
   )
 }

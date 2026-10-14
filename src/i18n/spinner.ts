@@ -30,6 +30,11 @@ export const spinnerMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Напишите задачу и нажмите Enter. /help — команды, Ctrl+J — новая строка.',
     en: 'Type a task and press Enter. /help for commands, Ctrl+J for a new line.',
   },
+  // One-line key hint UNDER the input box (full-screen mode).
+  'editor.keys_hint': {
+    ru: 'выделение — Shift+протяжка · колесо — скролл · PgUp/PgDn листают · Home/End — в начало/конец',
+    en: 'select — Shift+drag · wheel — scroll · PgUp/PgDn scroll · Home/End top/bottom',
+  },
   // Reverse search (Ctrl+R) status line. The query may be empty.
   'editor.search_prompt': {
     ru: '(обратный поиск) `{q}` — Ctrl+R дальше, Enter принять, Esc отмена',

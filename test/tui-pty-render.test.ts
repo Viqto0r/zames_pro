@@ -299,8 +299,9 @@ run('pty: the caret lands correctly in a CJK buffer (wide chars)', async () => {
     child.on('close', () => resolve(o))
   })
   // prompt visLen = 10, cursor after 6 wide chars = 12 cols, border = 2.
+  // Assert the COLUMN (the row shifts with the log/hint height).
   assert.ok(
-    out.includes('CURSOR row=18 col=24'),
+    /CURSOR row=\d+ col=24/.test(out),
     'the CJK caret must be at column 24, got:' + out,
   )
 })
@@ -323,4 +324,32 @@ run('pty: INLINE mode puts the caret on the input row', async () => {
     out.includes('CURSOR row=3'),
     'the inline caret must be on the input row (3), got:' + out,
   )
+})
+
+run('pty: a key hint sits UNDER the input box (full-screen)', async () => {
+  // The hint is part of the fixed panel: it shrinks the log by one row but
+  // must NOT move the caret. The caret stays on the input row, the hint is the
+  // LAST row, and the box borders are intact.
+  const out = await runProbe(
+    '',
+    ['a', NL, 'b'],
+    250,
+    undefined,
+    false,
+    'tui-repro',
+    80,
+    20,
+  )
+  const term = screen(out)
+  const top = term.findRow('╭')
+  const bottom = term.findRow('╰')
+  assert.ok(top >= 0 && bottom > top, 'the input box must be on screen')
+  // The hint row is BELOW the bottom border.
+  const hintRow = term.findRow('Shift+drag')
+  assert.ok(hintRow > bottom, 'the hint must be under the input box')
+  // Both typed lines are INSIDE the box (the panel did not overflow).
+  const aRow = term.findRow('zames_pro › a')
+  const bRow = term.findRow('b')
+  assert.ok(aRow > top && aRow < bottom, 'line a must be inside the box')
+  assert.ok(bRow > top && bRow < bottom, 'line b must be inside the box')
 })

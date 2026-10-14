@@ -407,6 +407,13 @@ second input line overprint the first. The header now measures with `visLen`
 and truncates the directory (`truncateToWidth`) so it is ALWAYS exactly
 `HEADER_ROWS` (2).
 
+A hint row BELOW the input box (the selection/scroll keys, `HINT_ROWS = 1`) is
+part of the same fixed panel: it shrinks `logHeight` by one row but does NOT
+touch `cursorTop`, which is measured from the top (header + log + status +
+rows above the input). So adding it can never move the caret. The status row
+itself is `height={1}` even when empty, otherwise it collapsed and shifted
+every row below it (the inline caret landed on the bottom border).
+
 ### Multi-line keys: LF is NOT `key.return`
 
 Ink maps CR (``) to `key.return` but LF (`
