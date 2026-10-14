@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **attachments:** keep the items array identity across reset()
+- **tui:** the config menu now redraws on change and fits the terminal
+- **tui:** reserve the real number of rows for a wrapping suggest popup
+- **tui:** exact badge width (T0.7) and honor NO_COLOR (T0.11)
+- **tui:** deliver the FULL pasted text to the agent, not the [Pasted lines#N] marker
+- **tui:** separate SELECT/SCROLL mouse modes and stop the header wrapping the panel
+
 ## [2.74.0] - 2026-10-13
 
 ### Added
