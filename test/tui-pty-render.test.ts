@@ -304,3 +304,23 @@ run('pty: the caret lands correctly in a CJK buffer (wide chars)', async () => {
     'the CJK caret must be at column 24, got:' + out,
   )
 })
+
+run('pty: INLINE mode puts the caret on the input row', async () => {
+  // The inline `cursorTop` was hardcoded to 3, but the StatusBar row collapses
+  // when empty, so the real offset was 2 and the caret landed on the bottom
+  // BORDER. The status row now always keeps its height and the caret is on the
+  // input row.
+  const out = await new Promise<string>((resolve) => {
+    const child = spawn('npx', ['tsx', 'scripts/inline-status-driver.mts'], {
+      cwd: path.resolve('.'),
+    })
+    let o = ''
+    child.stdout.on('data', (d) => (o += d.toString('utf-8')))
+    child.stderr.on('data', (d) => (o += d.toString('utf-8')))
+    child.on('close', () => resolve(o))
+  })
+  assert.ok(
+    out.includes('CURSOR row=3'),
+    'the inline caret must be on the input row (3), got:' + out,
+  )
+})

@@ -238,8 +238,8 @@ export function StatusBar({
     <Box flexDirection="column">
       {/* A thin divider separates the scrollback log from the live panel. */}
       {divider ? <Text color="#3a3f4b">{'─'.repeat(cols)}</Text> : null}
-      <Box flexDirection="row" width={Math.max(1, cols - 2)}>
-        <Text color="#a1723f">{leftOut}</Text>
+      <Box flexDirection="row" width={Math.max(1, cols - 2)} height={1}>
+        <Text color="#a1723f">{leftOut || ' '}</Text>
         <Box flexGrow={1} />
         <Badges
           state={state}
