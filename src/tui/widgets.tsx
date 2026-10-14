@@ -88,11 +88,19 @@ export function Panel({
           {subtitle ? <Text color={UI.dim}>{subtitle}</Text> : null}
         </Box>
       ) : null}
-      {title ? <Text color="#3a3f4b">{'─'.repeat(40)}</Text> : null}
+      {title ? (
+        <Text color="#3a3f4b">{'─'.repeat(panelInnerCols(width))}</Text>
+      ) : null}
       {children}
       {footer ? footer : null}
     </Box>
   )
+}
+
+/** Inner width (minus border + paddingX) the panel divider should span. */
+function panelInnerCols(width?: number): number {
+  const cols = width || process.stdout.columns || 80
+  return Math.max(1, cols - 6)
 }
 
 /** A single hint chip: `↑/↓ select`. */

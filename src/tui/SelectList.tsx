@@ -31,13 +31,17 @@ export function SelectList({
   onSelect,
 }: SelectListOptions): React.ReactElement {
   const { exit } = useApp()
-  const { rows } = useWindowSize()
+  const { rows, columns } = useWindowSize()
   const start = Math.max(
     0,
     items.findIndex((it) => it.value === initial),
   )
   const [cursor, setCursor] = useState(start)
   const maxRows = Math.max(3, (rows || 24) - 7)
+  // The divider must fit the box: the border (2) + paddingX (2) leave
+  // `cols - 6` usable columns. A hardcoded 40-char rule WRAPPED to a second
+  // row on a narrow terminal and left a ragged edge on a wide one.
+  const innerCols = Math.max(1, (columns || 80) - 6)
 
   const win = useMemo(() => {
     let top = Math.max(0, cursor - maxRows + 1)
@@ -83,7 +87,7 @@ export function SelectList({
         </Text>
         <Text color={UI.dim}>{items.length}</Text>
       </Box>
-      <Text color="#3a3f4b">{'─'.repeat(40)}</Text>
+      <Text color="#3a3f4b">{'─'.repeat(innerCols)}</Text>
       {items.slice(win.top, win.end).map((it, i) => {
         const idx = win.top + i
         const sel = idx === cursor

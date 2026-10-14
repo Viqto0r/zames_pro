@@ -279,20 +279,30 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
   })
 
   // Windowed list: show a slice around the cursor. The window is measured in
-  // RENDERED ROWS, not items: each new group adds a header row, and reserving
-  // only one row per item let the block grow taller than the terminal (the
-  // top border/title scrolled off the alternate screen — the menu looked
-  // "cut off at the top"). The chrome is the 6 fixed rows (2 borders, title,
-  // 2 dividers, hint bar) plus up to 2 rows for the status area (edit prompt /
-  // filter / message).
+  // RENDERED ROWS, not items: each new group adds a header row, AND a label
+  // long enough to wrap takes more than one row. Counting one row per item
+  // let the block grow taller than the terminal and the top border/title
+  // scrolled off ("cut off at the top") on a narrow terminal.
   const termRows = rows || 24
   const maxRows = Math.max(3, termRows - 8)
+  const innerCols = Math.max(1, (columns || 80) - 4)
   const shown = useMemo(() => {
     const groupStart = (i: number): boolean =>
       i === 0 || visible[i].groupKey !== visible[i - 1].groupKey
+    // Rendered height of one item: 1 base row + wrapped extra rows. The label
+    // plus the value cell plus the path hint is approximated by the raw label
+    // length; over-estimating is safe (it only shortens the window).
+    const itemRows = (i: number): number => {
+      const f = visible[i]
+      const label = f.labelKey ? t(f.labelKey) : f.path
+      return Math.max(1, Math.ceil((label.length + 12) / innerCols))
+    }
     const rowsIn = (a: number, b: number): number => {
-      let r = b - a
-      for (let i = a; i < b; i++) if (groupStart(i)) r++
+      let r = 0
+      for (let i = a; i < b; i++) {
+        if (groupStart(i)) r++
+        r += itemRows(i)
+      }
       return r
     }
     if (!visible.length) return { start: 0, end: 0 }
@@ -303,7 +313,7 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
     while (end < visible.length && rowsIn(start, end + 1) <= maxRows) end++
     while (start > 0 && rowsIn(start - 1, end) <= maxRows) start--
     return { start, end }
-  }, [cursor, visible, maxRows])
+  }, [cursor, visible, maxRows, innerCols, t])
 
   const usable = Math.max(1, (columns || 80) - 1)
   void visCols
