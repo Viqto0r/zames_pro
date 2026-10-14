@@ -208,3 +208,47 @@ run('pty: a large bracketed paste reaches onSubmit EXPANDED', async () => {
     'the literal [Pasted lines#N] marker must never reach the agent',
   )
 })
+
+run(
+  'pty: the config menu redraws a changed value and fits the screen',
+  async () => {
+    // Two live bugs in /config: (1) toggling/cycling changed the config but the
+    // row kept the OLD value (React had no state to react to), (2) the windowed
+    // list ignored group-header rows, so the block overflowed and the title
+    // scrolled off. The probe mounts the REAL menu with the REAL schema.
+    const out = await new Promise<string>((resolve) => {
+      const child = spawn(
+        'npx',
+        [
+          'tsx',
+          'scripts/tui-config-driver.mts',
+          '--cols=90',
+          '--rows=30',
+          '--keys=RIGHT',
+        ],
+        { cwd: path.resolve('.'), env: { ...process.env } },
+      )
+      let o = ''
+      child.stdout.on('data', (d) => (o += d.toString('utf-8')))
+      child.stderr.on('data', (d) => (o += d.toString('utf-8')))
+      child.on('close', () => resolve(o))
+    })
+    const screenPart = out.split('===LOG===')[0]
+    const logPart = out.split('===LOG===')[1] || ''
+    // The mutation reached the config...
+    assert.ok(
+      logPart.includes('SET ui.locale="en"'),
+      'the menu must apply the change, got: ' + logPart.trim(),
+    )
+    // ...AND the row now SHOWS the new value (the stale-render bug).
+    assert.ok(
+      screenPart.includes('‹ en ›'),
+      'the row must re-render with the new value, got:' + screenPart,
+    )
+    // The title (top border) is on screen — the block does not overflow.
+    assert.ok(
+      screenPart.includes('Настройки'),
+      'the menu title must stay on screen, got:' + screenPart,
+    )
+  },
+)
