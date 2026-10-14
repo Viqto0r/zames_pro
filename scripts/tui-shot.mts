@@ -38,6 +38,10 @@ const keys = arg('keys', '')
     // Escape key instead of the modified Enter.
     if (s === 'ALTENTER') return ESC + CR
     if (s === 'SHIFTENTER') return ESC + '[13;2u'
+    if (s === 'UP') return ESC + '[A'
+    if (s === 'DOWN') return ESC + '[B'
+    if (s === 'RIGHT') return ESC + '[C'
+    if (s === 'LEFT') return ESC + '[D'
     return s
   })
 const cols = Number(arg('cols', '80'))

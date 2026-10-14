@@ -67,6 +67,12 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
   const [editBuf, setEditBuf] = useState('')
   const [pendingReset, setPendingReset] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  // `get`/`set` mutate the LIVE config object in place, so React has no state
+  // change to react to and the row kept the OLD value on screen after a
+  // toggle/cycle (the operator saw «ru» while the config already held «en»).
+  // Bump this counter after every mutation to force a re-render.
+  const [version, setVersion] = useState(0)
+  const bump = (): void => setVersion((v) => v + 1)
 
   const visible = useMemo(() => {
     const q = filterQuery.trim().toLowerCase()
@@ -100,6 +106,7 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
     }
     try {
       set(f, raw)
+      bump()
       setMessage(
         t('cfg.menu.saved', {
           v: f.path,
@@ -116,6 +123,7 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
     if (!f) return
     if (f.type === 'boolean') {
       set(f, get(f.path) === true ? 'false' : 'true')
+      bump()
       setMessage(null)
       return
     }
@@ -135,6 +143,7 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
     const base = idx < 0 ? 0 : idx
     const next = f.values[(base + dir + f.values.length) % f.values.length]
     set(f, next)
+    bump()
     setMessage(null)
   }
 
@@ -145,6 +154,7 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
     if (f.type === 'enum') cycleEnum(f, dir)
     else if (f.type === 'boolean') {
       set(f, get(f.path) === true ? 'false' : 'true')
+      bump()
       setMessage(null)
     }
   }
@@ -257,6 +267,7 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
       if (!f) return
       if (pendingReset === f.path) {
         reset(f)
+        bump()
         setMessage(t('cfg.reset', { v: f.path }))
         setPendingReset(null)
       } else {
@@ -267,29 +278,39 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
     }
   })
 
-  // Windowed list: show a slice around the cursor, accounting for group headers.
+  // Windowed list: show a slice around the cursor. The window is measured in
+  // RENDERED ROWS, not items: each new group adds a header row, and reserving
+  // only one row per item let the block grow taller than the terminal (the
+  // top border/title scrolled off the alternate screen — the menu looked
+  // "cut off at the top"). The chrome is the 6 fixed rows (2 borders, title,
+  // 2 dividers, hint bar) plus up to 2 rows for the status area (edit prompt /
+  // filter / message).
   const termRows = rows || 24
-  const maxItemRows = Math.max(3, termRows - 6)
+  const maxRows = Math.max(3, termRows - 8)
   const shown = useMemo(() => {
-    // Walk back from the cursor until the window would overflow.
-    let start = Math.min(cursor, Math.max(0, visible.length - 1))
     const groupStart = (i: number): boolean =>
       i === 0 || visible[i].groupKey !== visible[i - 1].groupKey
-    const rowsFor = (from: number): number => {
-      let r = 0
-      for (let i = from; i <= cursor; i++) {
-        if (i === from || groupStart(i)) r++
-        r++
-      }
+    const rowsIn = (a: number, b: number): number => {
+      let r = b - a
+      for (let i = a; i < b; i++) if (groupStart(i)) r++
       return r
     }
-    while (start > 0 && rowsFor(start - 1) <= maxItemRows) start--
-    return { start, end: Math.min(visible.length, start + maxItemRows) }
-  }, [cursor, visible, maxItemRows])
+    if (!visible.length) return { start: 0, end: 0 }
+    let start = cursor
+    let end = cursor + 1
+    // Fill downward first, then upward, so the cursor stays visible and the
+    // window uses the whole budget.
+    while (end < visible.length && rowsIn(start, end + 1) <= maxRows) end++
+    while (start > 0 && rowsIn(start - 1, end) <= maxRows) start--
+    return { start, end }
+  }, [cursor, visible, maxRows])
 
   const usable = Math.max(1, (columns || 80) - 1)
   void visCols
   void usable
+  // Referenced so the value-cell recompute below depends on the mutation
+  // counter (a pure `get()` call has no reactive dependency of its own).
+  void version
 
   const items: React.ReactElement[] = []
   let lastGroup = ''
