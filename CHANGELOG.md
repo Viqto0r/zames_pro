@@ -9,7 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **tui:** drop the working directory from the prompt
 - **tui:** persistent key hint under the input box
+
+### Fixed
+
+- **tui:** Ctrl+Delete deletes the word BEFORE the cursor
 
 ## [2.75.0] - 2026-10-14
 
