@@ -19,7 +19,7 @@ import type { TuiStore } from './store.js'
 import { contentWidth } from '../width.js'
 import { translate } from '../i18n.js'
 import { suggestRowCount } from '../input/suggest.js'
-import { inputBoxRows } from '../input/layout.js'
+import { inputBoxRows, truncateToWidth, visLen } from '../input/layout.js'
 import { useMouseWheel } from './useMouseWheel.js'
 
 export type FullInputCallbacks = Omit<
@@ -35,16 +35,38 @@ function Header({ store }: { store: TuiStore }): React.ReactElement {
     .filter(Boolean)
     .join(' ')
   const left = '❯ ' + state.title + (state.version ? ' v' + state.version : '')
-  const dir = state.workdir ? '  ' + state.workdir : ''
-  const gap = Math.max(1, cols - left.length - dir.length - right.length - 2)
+  const rawDir = state.workdir ? '  ' + state.workdir : ''
+  // The header MUST stay exactly ONE text row: FullScreenApp reserves
+  // HEADER_ROWS = 2 (title + divider) and the whole panel height is computed
+  // from it. A long working directory used to WRAP the title row at a narrow
+  // terminal (or a deep path), adding a third row the layout did not know
+  // about — Ink then overflowed the fixed `height={termRows}` column and the
+  // TOP input row was clipped (the operator saw the second line overprint the
+  // first). Truncate the directory (then the title) so the row always fits.
+  const gap = Math.max(
+    1,
+    cols - visLen(left) - visLen(rawDir) - visLen(right) - 2,
+  )
+  let dir = rawDir
+  const budget = cols - visLen(left) - visLen(right) - 2
+  if (visLen(dir) > budget) dir = budget > 0 ? truncateToWidth(dir, budget) : ''
+  // If even title + provider exceed the width, drop the directory entirely.
+  const finalDir = gap >= 1 ? dir : ''
   return (
     <Box flexDirection="column">
       <Box>
         <Text color="#c8b06a" bold>
           {left}
         </Text>
-        <Text color="#7fc4f0">{dir}</Text>
-        <Text>{' '.repeat(gap)}</Text>
+        <Text color="#7fc4f0">{finalDir}</Text>
+        <Text>
+          {' '.repeat(
+            Math.max(
+              1,
+              cols - visLen(left) - visLen(finalDir) - visLen(right) - 2,
+            ),
+          )}
+        </Text>
         {right ? <Text color="#6fd0b0">{right}</Text> : null}
       </Box>
       <Text color="#3a3f4b">{'─'.repeat(cols)}</Text>

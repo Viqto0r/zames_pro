@@ -129,7 +129,8 @@ export function InputLine(props: InputLineProps): React.ReactElement {
   // matches than one page, Ctrl+N could move the selection past the page and
   // the highlight vanished (the operator "lost" the selected command). Derive
   // the offset from the selection instead of keeping a separate state.
-  const suggestOffset = suggestSelected < 0 ? 0 : suggestSelected - (suggestSelected % SUGGEST_PAGE)
+  const suggestOffset =
+    suggestSelected < 0 ? 0 : suggestSelected - (suggestSelected % SUGGEST_PAGE)
 
   // The editor state lives in the STORE (props.store), read via
   // useSyncExternalStore. This is what makes the typed line survive an Ink
@@ -187,9 +188,13 @@ export function InputLine(props: InputLineProps): React.ReactElement {
     const withHist = recordHistory(s, s.buf)
     const next = afterSubmit(withHist)
     setSt(next)
-    props.onPastesChange(next.pastes)
     props.onHistoryChange(withHist.history)
+    // onSubmit MUST run BEFORE the paste list is cleared: the Ink adapter
+    // (TuiEditor.handleSubmit) expands `[Pasted lines#N]` markers by reading
+    // the store's paste list, so clearing it first sent the literal marker to
+    // the agent instead of the pasted text.
     props.onSubmit(s.buf, props.attachments.slice())
+    props.onPastesChange(next.pastes)
   }, [props])
 
   const handlePaste = useCallback(
