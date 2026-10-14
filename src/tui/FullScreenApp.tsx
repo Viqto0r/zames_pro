@@ -103,7 +103,7 @@ export function FullScreenApp({
   )
   // The suggestion popup renders ABOVE the input box; reserve its rows so
   // opening the list does not push the panel / shift the whole layout.
-  const suggestRows = suggestRowCount(state.edit.buf, state.commands)
+  const suggestRows = suggestRowCount(state.edit.buf, state.commands, cols)
   const panelRows = HEADER_ROWS + STATUS_ROWS + INPUT_BOX_ROWS + suggestRows
   const logHeight = Math.max(1, termRows - panelRows)
 

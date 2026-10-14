@@ -4,7 +4,12 @@
 // commands to show, the visible window, and the Tab completion. Split out
 // (C3) so the fuzzy match can be unit-tested without driving the editor.
 
-import { SUGGEST_PAGE, isSubsequence, type SlashCommand } from './layout.js'
+import {
+  SUGGEST_PAGE,
+  isSubsequence,
+  visLen,
+  type SlashCommand,
+} from './layout.js'
 
 /**
  * The commands matching the current buffer. Shown only when the line starts
@@ -64,12 +69,30 @@ export function suggestWindow(
  * (0 when no list). Full-screen mode uses this to RESERVE space above the
  * input panel so opening the list does not shift the layout (the operator saw
  * the whole screen jump when `/chats` or `/resume` hints appeared).
+ *
+ * With `cols > 0` a row whose label+description is WIDER than the terminal is
+ * counted as the multiple rows it actually wraps to; counting one row per
+ * command under-reserved the panel and the caret drifted on a narrow terminal
+ * (the command list carries descriptions up to ~60 chars).
  */
-export function suggestRowCount(buf: string, commands: SlashCommand[]): number {
+export function suggestRowCount(
+  buf: string,
+  commands: SlashCommand[],
+  cols = 0,
+): number {
   const sugg = matchSlashCommands(buf, commands)
   if (!sugg.length) return 0
-  const { moreCount } = suggestWindow(sugg, 0)
-  return Math.min(sugg.length, SUGGEST_PAGE) + (moreCount > 0 ? 1 : 0)
+  const { shown, moreCount } = suggestWindow(sugg, 0)
+  const width = Math.max(1, cols)
+  let rows = 0
+  for (const c of shown) {
+    const label = c.hint ? c.name + ' ' + c.hint : c.name
+    // 3 = ' ▸ ' prefix, 2 = the gap before the description.
+    const textWidth = 3 + visLen(label) + 2 + visLen(c.description)
+    rows += cols > 0 ? Math.max(1, Math.ceil(textWidth / width)) : 1
+  }
+  if (moreCount > 0) rows += 1
+  return rows
 }
 
 /**

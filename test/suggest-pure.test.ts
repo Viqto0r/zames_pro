@@ -76,3 +76,17 @@ test('completeSlashCommand: multiple matches complete the common prefix', () => 
 test('completeSlashCommand: no matches -> null', () => {
   assert.equal(completeSlashCommand('/x', [], -1), null)
 })
+
+test('suggestRowCount: wraps a wide row on a narrow terminal', () => {
+  // 3 (prefix) + label + 2 (gap) + description; with a 40-col terminal a long
+  // description wraps to 2 rows, which the panel must reserve.
+  const wide: SlashCommand[] = [
+    { name: '/history', description: 'x'.repeat(50) },
+  ]
+  assert.equal(suggestRowCount('/h', wide, 40), 2)
+  assert.equal(suggestRowCount('/h', wide, 200), 1)
+})
+
+test('suggestRowCount: no cols keeps one row per command (legacy)', () => {
+  assert.equal(suggestRowCount('/', many(3)), 3)
+})

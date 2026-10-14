@@ -9,7 +9,7 @@
 // input stays pinned at the bottom while answers scroll up into scrollback.
 
 import React, { useSyncExternalStore } from 'react'
-import { Box } from 'ink'
+import { Box, useWindowSize } from 'ink'
 import { LogView } from './LogView.js'
 import { StatusBar } from './StatusBar.js'
 import { InputLine, type InputLineProps } from './InputLine.js'
@@ -44,7 +44,8 @@ export function TuiApp({
   // + the suggestion popup (which renders above the box and would otherwise
   // shift the caret down by its row count). Without the suggestRows term the
   // caret drifted whenever the «/» list opened.
-  const suggestRows = suggestRowCount(state.edit.buf, state.commands)
+  const cols = useWindowSize().columns || 80
+  const suggestRows = suggestRowCount(state.edit.buf, state.commands, cols)
   return (
     <Box flexDirection="column">
       <LogView entries={entries} />

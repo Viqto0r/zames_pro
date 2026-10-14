@@ -18,6 +18,11 @@ const commands = [
   { name: '/new', description: 'new chat' },
   { name: '/resume', description: 'open a chat' },
   { name: '/config', description: 'settings' },
+  {
+    name: '/self-review',
+    description:
+      'snapshot src/ and review the current working tree for bugs and risks',
+  },
 ]
 store.set({
   title: 'zames_pro',
