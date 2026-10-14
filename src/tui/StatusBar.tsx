@@ -68,43 +68,66 @@ export function badgeTextWidth(state: TuiState): number {
   return w
 }
 
-/** The badge row: statusLine, provider, queue, tasks, toggles, context. */
-function Badges({ state }: { state: TuiState }): React.ReactElement | null {
-  const parts: React.ReactElement[] = []
+/** The badge row: statusLine, provider, queue, tasks, toggles, context.
+ *  `maxWidth` caps the row so it never wraps to a second line; when the badges
+ *  do not fit, the lowest-priority ones (statusLine, then provider) are
+ *  dropped first so the context counter — the most useful — survives. */
+function Badges({
+  state,
+  budget = Infinity,
+}: {
+  state: TuiState
+  budget?: number
+}): React.ReactElement | null {
+  // Each badge is (node, visible width); lowest-priority first so the context
+  // counter (last) survives when the row is tight.
+  const all: Array<{ key: string; w: number; node: React.ReactElement }> = []
+  const add = (key: string, w: number, node: React.ReactElement): void => {
+    all.push({ key, w, node })
+  }
   if (state.statusLine) {
-    parts.push(
+    add(
+      'sl',
+      visLen(state.statusLine) + 1,
       <Text key="sl" color="#808896">
         {state.statusLine}{' '}
       </Text>,
     )
   }
   if (state.provider) {
-    parts.push(
+    add(
+      'prov',
+      visLen('[' + state.provider + '] '),
       <Text key="prov" color="#808896">
         {'[' + state.provider + '] '}
       </Text>,
     )
   }
   if (state.queueLength > 0) {
-    parts.push(
+    add(
+      'q',
+      visLen('⧗' + state.queueLength + ' '),
       <Text key="q" color="#c9a86a">
         {'⧗' + state.queueLength}{' '}
       </Text>,
     )
   }
   if (state.codeBlocks.length > 0) {
-    // A hint that the last answer has copyable code: Ctrl+Y copies the last
-    // block (or the focused one), like a copy button in a GUI chat.
     const idx =
       state.codeFocus >= 0 ? state.codeFocus + 1 : state.codeBlocks.length
-    parts.push(
+    const label = '⌘ ' + idx + '/' + state.codeBlocks.length + ' '
+    add(
+      'code',
+      visLen(label),
       <Text key="code" color="#7fc4f0">
-        {'⌘ ' + idx + '/' + state.codeBlocks.length + ' '}
+        {label}
       </Text>,
     )
   }
   if (state.tasks) {
-    parts.push(
+    add(
+      't',
+      visLen(state.tasks) + 1,
       <Text key="t" color="#808896">
         {state.tasks}{' '}
       </Text>,
@@ -114,9 +137,12 @@ function Badges({ state }: { state: TuiState }): React.ReactElement | null {
   if (state.thinkingEnabled) toggles.push('🧠\uFE0E')
   if (state.searchEnabled) toggles.push('🌐\uFE0E')
   if (toggles.length) {
-    parts.push(
+    const label = toggles.join(' ') + ' '
+    add(
+      'tg',
+      visLen(label),
       <Text key="tg" color="#6fd0b0">
-        {toggles.join(' ') + ' '}
+        {label}
       </Text>,
     )
   }
@@ -133,14 +159,25 @@ function Badges({ state }: { state: TuiState }): React.ReactElement | null {
         : state.contextLevel === 'warn'
           ? '▲ '
           : ''
-    parts.push(
+    const label = marker + state.contextText
+    add(
+      'ctx',
+      visLen(label),
       <Text key="ctx" color={color}>
-        {marker + state.contextText}
+        {label}
       </Text>,
     )
   }
-  if (!parts.length) return null
-  return <Box>{parts}</Box>
+  if (!all.length) return null
+  // Drop badges from the FRONT (statusLine, provider, ... least important)
+  // until the row fits the budget. Keep at least the last (context).
+  let total = all.reduce((n, b) => n + b.w, 0)
+  let start = 0
+  while (total > budget && start < all.length - 1) {
+    total -= all[start].w
+    start++
+  }
+  return <>{all.slice(start).map((b) => b.node)}</>
 }
 
 export function StatusBar({
@@ -188,24 +225,26 @@ export function StatusBar({
   const leftText = scrollNote || prefix + left
   const showLeft = !!leftText
 
-  // Keep the badge row visible: the left status truncates to whatever space is
-  // left after the badges, instead of pushing them off the right edge (they
-  // used to be clipped: "[DeepSee⧗1 задачи: 3/...").
+  // Keep the row on ONE line. The left status gets at most a third of the
+  // width (it is the least important); the badges take the rest and DROP whole
+  // badges until they fit (the context counter survives longest). Estimating
+  // the badge width for the left budget was circular and let the row overshoot
+  // to a second line on a narrow terminal.
   const cols = useWindowSize().columns || 80
-  const badgeWidth = badgeTextWidth(state)
-  const maxLeft = Math.max(0, cols - badgeWidth - 2)
-  const leftOut = showLeft ? truncateToWidth(leftText, maxLeft) : ''
+  const leftBudget = Math.max(0, Math.min(Math.floor(cols / 3), cols - 14))
+  const leftOut = showLeft ? truncateToWidth(leftText, leftBudget) : ''
 
   return (
     <Box flexDirection="column">
-      {/* A thin divider separates the scrollback log from the live panel, so
-          the operator can see where the fixed bottom area begins. */}
+      {/* A thin divider separates the scrollback log from the live panel. */}
       {divider ? <Text color="#3a3f4b">{'─'.repeat(cols)}</Text> : null}
-      <Box justifyContent="space-between">
-        <Box>
-          {leftOut ? <Text color="#a1723f">{leftOut}</Text> : <Text> </Text>}
-        </Box>
-        <Badges state={state} />
+      <Box flexDirection="row" width={Math.max(1, cols - 2)}>
+        <Text color="#a1723f">{leftOut}</Text>
+        <Box flexGrow={1} />
+        <Badges
+          state={state}
+          budget={Math.max(0, cols - 2 - visLen(leftOut))}
+        />
       </Box>
     </Box>
   )
