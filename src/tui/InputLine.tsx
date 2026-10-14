@@ -8,8 +8,16 @@
 // calling the operator callbacks (submit / abort / attach), and painting the
 // visual rows via the shared layoutInput.
 
-import React, { useCallback, useMemo, useRef, useState } from 'react'
-import { Box, Text, useInput, usePaste, useCursor, useWindowSize } from 'ink'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Box,
+  Text,
+  useInput,
+  usePaste,
+  useCursor,
+  useWindowSize,
+  useStdin,
+} from 'ink'
 import type { Key } from 'ink'
 import { translate, type Locale } from '../i18n.js'
 import {
@@ -49,7 +57,7 @@ import {
   afterSubmit,
   type EditState,
 } from './edit.js'
-import { dispatchKey } from './keys.js'
+import { dispatchKey, parseCsiU } from './keys.js'
 import { useSyncExternalStore } from 'react'
 import type { TuiStore } from './store.js'
 import {
@@ -359,6 +367,12 @@ export function InputLine(props: InputLineProps): React.ReactElement {
     ],
   )
 
+  // The raw-stdin CSI-u handler is bound ONCE (its effect depends only on
+  // stdin), so it reads the latest `runAction` through a ref — otherwise the
+  // effect would re-bind on every render and could miss keystrokes.
+  const runActionRef = useRef(runAction)
+  runActionRef.current = runAction
+
   useInput(
     (input: string, key: Key) => {
       const s = stRef.current
@@ -391,6 +405,36 @@ export function InputLine(props: InputLineProps): React.ReactElement {
   usePaste((text: string) => {
     void handlePaste(text)
   })
+
+  // RAW STDIN fallback for the KITTY CSI-u forms Ink DROPS. Ink hides the raw
+  // `sequence` for these (it yields `input=''`), so the modified
+  // Delete/Backspace bindings never fired (the operator's "Ctrl+Delete does
+  // nothing"). The legacy LineEditor parsed the bytes itself; we read the same
+  // raw stream here. Sequences split across reads are carried over.
+  const { stdin: rawStdin, isRawModeSupported } = useStdin()
+  useEffect(() => {
+    if (!isRawModeSupported) return
+    let carry = ''
+    const onRaw = (data: Buffer | string): void => {
+      const s = typeof data === 'string' ? data : data.toString('utf-8')
+      const buf = carry + s
+      // Hold a trailing INCOMPLETE CSI-u sequence for the next read.
+      const m = /\u001b\[[0-9;:]*$/.exec(buf)
+      carry = m ? m[0] : ''
+      const scan = carry ? buf.slice(0, buf.length - carry.length) : buf
+      // Find every complete CSI-u sequence and dispatch it.
+      const re = /\u001b\[[0-9;:]*u/g
+      let hit: RegExpExecArray | null
+      while ((hit = re.exec(scan)) !== null) {
+        const action = parseCsiU(hit[0])
+        if (action) runActionRef.current(action)
+      }
+    }
+    rawStdin.on('data', onRaw)
+    return () => {
+      rawStdin.removeListener('data', onRaw)
+    }
+  }, [rawStdin, isRawModeSupported])
 
   // Position the real terminal cursor on the input cell. `y` is the row within
   // the live Ink output BELOW the log. Panel layout (top to bottom):

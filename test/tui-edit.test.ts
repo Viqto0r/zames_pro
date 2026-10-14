@@ -35,7 +35,7 @@ import {
   afterSubmit,
   type EditState,
 } from '../src/tui/edit.js'
-import { dispatchKey } from '../src/tui/keys.js'
+import { dispatchKey, parseCsiU } from '../src/tui/keys.js'
 import type { Key } from 'ink'
 
 function key(partial: Partial<Key>): Key {
@@ -516,4 +516,21 @@ test('dispatchKey: Enter — submit, но Shift+Enter и «\»+Enter = пере�
     dispatchKey('\r', key({ return: true, ctrl: true }), base, edges)?.type,
     'newline',
   )
+})
+
+test('deleteWordRight: at end of line falls back to deleting the word LEFT', () => {
+  // The operator's terminal (VSCode) sends the standard xterm Ctrl+Delete
+  // (ESC[3;5~) which maps to deleteWordRight. With the cursor at the END of
+  // the line there was nothing to the right, so the key did NOTHING and the
+  // operator read it as "Ctrl+Delete does not delete the word before the
+  // cursor". At the end of a line it now deletes the word on the LEFT.
+  const atEnd = { ...initialEditState(), buf: 'foo bar baz', cursor: 11 }
+  assert.equal(deleteWordRight(atEnd).buf, 'foo bar ')
+  // Mid-line it still deletes the word on the RIGHT (standard behaviour).
+  const mid = { ...initialEditState(), buf: 'foo bar baz', cursor: 4 }
+  assert.equal(deleteWordRight(mid).buf, 'foo  baz')
+  // Only whitespace to the newline: also delete left, do not eat the newline.
+  const NLc = String.fromCharCode(10)
+  const beforeNl = { ...initialEditState(), buf: 'foo bar' + NLc, cursor: 7 }
+  assert.equal(deleteWordRight(beforeNl).buf, 'foo ' + NLc)
 })

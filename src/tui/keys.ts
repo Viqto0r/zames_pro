@@ -13,6 +13,38 @@ import type { Key } from 'ink'
 
 const LF = String.fromCharCode(10)
 
+/**
+ * Ctrl/Alt + named keys under the KITTY keyboard protocol (CSI-u). Ink's
+ * `parseKeypress` recognizes the MODIFIED ARROW forms but returns `name=''`
+ * for the modified Delete/Backspace codepoints (CSI 3;5u, 127;5u, ...), so
+ * `useInput` yields an empty input/name and the binding never fires — the
+ * operator's "Ctrl+Delete does nothing". The legacy LineEditor parsed these
+ * bytes itself; the TUI reads them from raw stdin (Ink hides `sequence`) and
+ * maps the known ones to the SAME actions so both editors behave alike.
+ *
+ * Returns null when the string is not one of these sequences. Pure + exported
+ * for tests.
+ */
+export function parseCsiU(raw: string): EditorAction | null {
+  // CSI codepoint ; modifier [: eventType] u — e.g. ESC[3;5u (Ctrl+Delete),
+  // ESC[127;5u (Ctrl+Backspace), ESC[3u (plain Delete),
+  // ESC[127u (plain Backspace), ESC[13;5u (Ctrl+Enter).
+  const m = /^\u001b\[(\d+)(?:;(\d+))?(?::\d+)?u$/.exec(raw)
+  if (!m) return null
+  const cp = Number(m[1])
+  const mod = m[2] ? Number(m[2]) - 1 : 0
+  const ctrl = (mod & 4) !== 0
+  const alt = (mod & 2) !== 0
+  if (cp === 13 && (ctrl || alt)) return { type: 'newline' }
+  if (cp === 3) {
+    return ctrl || alt ? { type: 'deleteWordRight' } : { type: 'delete' }
+  }
+  if (cp === 127) {
+    return ctrl || alt ? { type: 'deleteWordLeft' } : { type: 'backspace' }
+  }
+  return null
+}
+
 /** The semantic action a keypress maps to. `null` = ignore. */
 export type EditorAction =
   | { type: 'submit' }

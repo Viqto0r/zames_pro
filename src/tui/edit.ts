@@ -122,9 +122,31 @@ export function deleteWordLeft(s: EditState): EditState {
   return { ...s, buf: chars.join(''), cursor: i }
 }
 
-/** Delete the word on the RIGHT of the cursor (Ctrl+Delete / Alt+Delete). */
+/**
+ * Delete the word on the RIGHT of the cursor (Ctrl+Delete / Alt+Delete).
+ *
+ * FALLBACK: at the END of the line there is no word to the right, so the key
+ * did NOTHING and the operator (whose terminal sends the standard xterm
+ * Ctrl+Delete) read it as "Ctrl+Delete does not delete the word before the
+ * cursor". Deleting the word on the LEFT there matches what other terminal
+ * editors do and what the operator expects, while keeping the standard
+ * right-delete when the cursor is mid-line.
+ */
 export function deleteWordRight(s: EditState): EditState {
   const chars = charsOf(s)
+  // Nothing to the right (end of buffer or only whitespace to the newline):
+  // delete the word on the LEFT instead of doing nothing.
+  let probe = s.cursor
+  while (
+    probe < chars.length &&
+    chars[probe] !== NL &&
+    /\s/.test(chars[probe])
+  ) {
+    probe++
+  }
+  if (probe >= chars.length || chars[probe] === NL) {
+    return deleteWordLeft(s)
+  }
   let i = s.cursor
   while (i < chars.length && /\s/.test(chars[i])) i++
   while (i < chars.length && !/\s/.test(chars[i])) i++

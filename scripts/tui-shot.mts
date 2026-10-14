@@ -42,6 +42,16 @@ const keys = arg('keys', '')
     if (s === 'DOWN') return ESC + '[B'
     if (s === 'RIGHT') return ESC + '[C'
     if (s === 'LEFT') return ESC + '[D'
+    // Editing keys, so the word-delete bindings can be exercised on a real pty.
+    if (s === 'CTDL') return ESC + '[3;5~' // Ctrl+Delete (xterm)
+    if (s === 'CTDLU') return ESC + '[3;5u' // Ctrl+Delete (kitty CSI-u)
+    if (s === 'CTRLBS') return ESC + String.fromCharCode(127) // Ctrl+Backspace
+    if (s === 'CTB08') return String.fromCharCode(8) // Ctrl+Backspace (0x08)
+    if (s === 'DEL') return ESC + '[3~' // Delete
+    if (s === 'CTRLW') return String.fromCharCode(23)
+    if (s === 'CTRLU') return String.fromCharCode(21)
+    if (s === 'CTRLK') return String.fromCharCode(11)
+    if (s === 'SPACE') return ' '
     return s
   })
 const cols = Number(arg('cols', '80'))
