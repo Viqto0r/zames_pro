@@ -7,8 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **tui:** show a one-time hint about mouse selection
+- **tui:** Home/End jump to the top/bottom of the dialog
+- **tui:** mouse wheel scrolls the dialog by default
+
 ### Fixed
 
+- **tui:** the status row keeps its height (inline caret on the input row)
+- **tui:** the status bar never wraps to a second line
+- **tui:** the caret lands correctly in a CJK buffer
+- **tui:** responsive dividers and wrapping-aware menu window
+- **tui:** log scroll reads the LIVE offset (no stale closure)
 - **tui:** Ctrl+Delete works (kitty CSI-u) and deletes left at end of line
 - **tui:** the mouse wheel no longer scrolls the input history (for good)
 - **attachments:** keep the items array identity across reset()
