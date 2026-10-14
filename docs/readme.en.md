@@ -253,6 +253,18 @@ The prompt is a small line editor with persistent history:
   Claude Code's bash mode). The same sandbox guard as the `Bash` tool applies,
   so a direct command cannot leave the project either.
 
+Full-screen mode adds dialog navigation, so a long answer can be read and
+selected without leaving the terminal:
+
+- mouse wheel — scroll the dialog (never the input history; history is arrow
+  keys only). Selecting text needs `Shift`+drag, the standard TUI convention.
+- `PgUp` / `PgDn` — scroll the dialog half a screen.
+- `Home` / `End` — jump to the very top / bottom of the dialog (only while the
+  input line is empty; with text typed they move the caret as usual).
+- To copy a LARGE block, use `/export` (writes the whole session as Markdown)
+  or the transcript file (`/transcript` shows the path) — the terminal's own
+  drag-select cannot reach past one screen.
+
 Set `NO_COLOR=1` to disable colors (a calm default palette is used otherwise).
 
 ### Images and files

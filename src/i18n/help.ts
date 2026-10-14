@@ -97,6 +97,14 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Esc, Ctrl+C              прервать текущую генерацию',
     en: 'Esc, Ctrl+C               abort current generation',
   },
+  'help.key.scroll': {
+    ru: 'PgUp / PgDn              листать диалог (Home/End — в начало/конец) [full-screen]',
+    en: 'PgUp / PgDn               scroll the dialog (Home/End — top/bottom) [full-screen]',
+  },
+  'help.key.wheel': {
+    ru: 'колесо мыши               скролл диалога; выделение — Shift+протяжка',
+    en: 'mouse wheel               scroll the dialog; select text with Shift+drag',
+  },
   'help.key.bang': {
     ru: '!команда                  выполнить shell-команду напрямую (мимо модели)',
     en: '!command                  run a shell command directly (bypass the model)',

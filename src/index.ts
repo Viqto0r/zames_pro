@@ -589,6 +589,8 @@ ${theme.bold(t('help.while_working'))}
   ${t('help.key.attach')}
   ${t('help.key.esc')}
   ${t('help.key.bang')}
+  ${t('help.key.scroll')}
+  ${t('help.key.wheel')}
 
 ${theme.bold(t('help.commands'))}
 

@@ -255,6 +255,18 @@ The prompt is a small line editor with persistent history:
   Claude Code's bash mode). The same sandbox guard as the `Bash` tool applies,
   so a direct command cannot leave the project either.
 
+Full-screen mode adds dialog navigation, so a long answer can be read and
+selected without leaving the terminal:
+
+- mouse wheel — scroll the dialog (never the input history; history is arrow
+  keys only). Selecting text needs `Shift`+drag, the standard TUI convention.
+- `PgUp` / `PgDn` — scroll the dialog half a screen.
+- `Home` / `End` — jump to the very top / bottom of the dialog (only while the
+  input line is empty; with text typed they move the caret as usual).
+- To copy a LARGE block, use `/export` (writes the whole session as Markdown)
+  or the transcript file (`/transcript` shows the path) — the terminal's own
+  drag-select cannot reach past one screen.
+
 Set `NO_COLOR=1` to disable colors (a calm default palette is used otherwise).
 
 ### Images and files
@@ -822,6 +834,18 @@ zames
 - `!команда` — выполнить shell-команду напрямую, минуя модель (как bash-режим
   Claude Code). Действует та же песочница, что и для инструмента `Bash`, так
   что прямая команда тоже не может выйти за пределы проекта.
+
+В полноэкранном режиме добавляется навигация по диалогу, чтобы длинный ответ
+можно было прочитать и выделить не покидая терминал:
+
+- колесо мыши — скролл диалога (историю ввода колесо НЕ листает; история —
+  только стрелки). Выделение текста — `Shift`+протяжка, стандарт TUI.
+- `PgUp` / `PgDn` — листать диалог на пол-экрана.
+- `Home` / `End` — прыжок в самый верх / низ диалога (только когда строка ввода
+  пуста; при набранном тексте они двигают курсор, как обычно).
+- Чтобы скопировать БОЛЬШОЙ кусок, используйте `/export` (пишет всю сессию в
+  Markdown) или файл транскрипта (`/transcript` покажет путь) — собственным
+  выделением терминала за пределы одного экрана не выделить.
 
 Установите `NO_COLOR=1`, чтобы отключить цвета (иначе используется спокойная
 палитра по умолчанию).

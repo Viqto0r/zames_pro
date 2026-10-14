@@ -117,13 +117,18 @@ export function FullScreenApp({
   const scroll = Math.max(0, Math.min(state.scroll, maxScroll))
   const visible = windowByRows(all, logHeight, scroll, cols)
 
-  // Scroll the log with PgUp/PgDn.
+  // Scroll the log with PgUp/PgDn; Home/End jump to the very top/bottom. The
+  // input line OWNS Home/End while its buffer is non-empty (they move the
+  // caret), so the jump only applies to an EMPTY buffer — which is exactly
+  // when the operator is navigating the log to select a large block.
   useInput((_input, key) => {
     const step = Math.max(1, Math.floor(logHeight / 2))
     if (key.pageUp) {
       store.set({ scroll: Math.min(maxScroll, scroll + step) })
     } else if (key.pageDown) {
       store.set({ scroll: Math.max(0, scroll - step) })
+    } else if (state.edit.buf.length === 0 && (key.home || key.end)) {
+      store.set({ scroll: key.home ? maxScroll : 0 })
     }
   })
 
