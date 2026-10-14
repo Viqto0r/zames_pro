@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **tui:** persistent key hint under the input box
+
 ## [2.75.0] - 2026-10-14
 
 ### Added
