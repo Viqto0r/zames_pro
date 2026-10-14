@@ -1897,6 +1897,13 @@ async function main(): Promise<void> {
     }
     try {
       ed.start()
+      // One-time hint so the operator knows how selection works: with wheel
+      // scrolling on (the default) the terminal no longer selects natively, so
+      // a drag needs Shift. Printed ONCE, above the input, in full-screen TUI
+      // only (the legacy editor keeps native selection).
+      if (config.ui.tui && config.ui.alternateScreen) {
+        ed.printAbove(theme.dim(t('msg.mouse_hint')))
+      }
     } catch (e) {
       // A TUI mount failure must not kill the agent. We surface it and let the
       // operator retry with `ui.tui: false` if it persists; the imperative

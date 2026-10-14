@@ -67,6 +67,10 @@ export const commonMessages: Record<string, { ru: string; en: string }> = {
     en: 'Working directory: {v}',
   },
   'msg.transcript': { ru: 'Транскрипт: {v}', en: 'Transcript: {v}' },
+  'msg.mouse_hint': {
+    ru: 'Мышь: колесо листает диалог (история — только стрелки), выделение текста — Shift+протяжка; PgUp/PgDn листают, Home/End — в начало/конец.',
+    en: 'Mouse: the wheel scrolls the dialog (history is arrow keys only), select text with Shift+drag; PgUp/PgDn scroll, Home/End jump to top/bottom.',
+  },
   'msg.new_chat': { ru: 'Создаю новый чат...', en: 'Creating a new chat...' },
   'msg.new_chat_ok': { ru: 'Новый чат.', en: 'New chat.' },
   'msg.resuming': {
