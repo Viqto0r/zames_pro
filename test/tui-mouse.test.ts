@@ -90,3 +90,4 @@ test('mouseModeSequences(SELECT): reporting OFF in the steady state', () => {
   assert.ok(off.includes(ESC + '[?1006l'))
   assert.ok(off.includes(ESC + '[?1000l'))
 })
+

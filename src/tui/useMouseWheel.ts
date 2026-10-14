@@ -7,7 +7,7 @@
 //   2. listen to the RAW stdin bytes ourselves (Ink's own listener ignores
 //      them, so there is no conflict).
 //
-// The SGR encoding is `BSC [ < Cb ; Cx ; Cy M` where Cb 64 = wheel up and
+// The SGR encoding is `ESC [ < Cb ; Cx ; Cy M` where Cb 64 = wheel up and
 // 65 = wheel down (plus modifier bits). We only need Cb.
 //
 // ALTERNATE-SCROLL: while the app is in the ALTERNATE SCREEN (full-screen
@@ -17,23 +17,29 @@
 // scrolled the INPUT HISTORY instead of the log (the operator's bug).
 //
 // Two clear, MUTUALLY EXCLUSIVE modes (a terminal cannot do both at once):
-//   - SELECT (default, ui.mouseScroll=false): mouse reporting OFF. The
-//     terminal owns the mouse, so drag-select works natively and the wheel is
-//     inert (no arrows, no history jump). This is the default because
-//     selection is a baseline expectation in a Terminal UI.
-//   - SCROLL (ui.mouseScroll=true): mouse reporting ON, so the wheel arrives as
-//     SCR events and scrolls the log; drag-select then needs SHIFT (the
-//     standard Tui convention). Only one of the two can be active, and the
-//     code enforces that with a SINGLE effect that both sets the sequence
-//     and binds the listener -- no "half-enabled" state where reporting is
-//     on but the wheel does nothing.
+//   - SELECT (ui.mouseScroll=false): mouse reporting stays OFF, so the
+//     terminal owns the mouse -- drag-select works natively and the wheel is
+//     inert (no arrows, no history jump).
+//   - SCROLL (ui.mouseScroll=true): mouse reporting ON, so the wheel arrives
+//     as SGR events and scrolls the log; drag-select then needs SHIFT.
+//
+// THE CRITICAL DETAIL (this bug kept coming back): the mode sequences must be
+// written ONCE per mode change, NEVER per render. An earlier version listed
+// `onWheel` in the effect deps, but callers pass an inline arrow, so the
+// effect re-ran on EVERY render (the status spinner re-renders constantly) --
+// each cleanup wrote `1007h` (alternate-scroll ON) before the next setup wrote
+// `1007l`. A wheel notch that landed in that window became an ARROW and
+// scrolled the input history: the intermittent "either scroll or selection"
+// behaviour. The effect therefore depends ONLY on the mode + stdin, and the
+// callback is read from a ref (set in its own effect) so a new closure never tears
+// the terminal mode down.
 //
 // ORDER MATTERS: some terminals only apply `1007l` while mouse reporting is
 // enabled, so we enable 1000/1006 FIRST, then disable 1007. In SELECT mode we
-// actually want reporting off, so we send the on/off pair ONCE at mount
-// (the 1007l then "sticks") and then leave reporting off.
+// actually want reporting off, so we send the on/off pair ONCE (the 1007l then
+// "sticks") and then leave reporting off.
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useStdin } from 'ink'
 
 /** True when a chunk contains an SGR mouse wheel event; returns the delta. */
@@ -72,7 +78,7 @@ const ESC = String.fromCharCode(27)
 /**
  * The terminal-mode sequences the hook writes for a given mode. Exported PURE
  * so a test can pin the exact bytes AND their order:
- *   - SELECT (enabled=false): NO `1000h/1006h` in the STEADY state, `om`
+ *   - SELECT (enabled=false): NO `1000h/1006h` in the STEADY state, `on`
  *     only applies `1007l` (the one-time prime), and `off` guarantees the
  *     reporting bits are clear on unmount;
  *   - SCROLL (enabled=true): `1000h 1006h 1007l` in the STEADY state.
@@ -109,19 +115,32 @@ export function mouseModeSequences(enabled: boolean): {
  * Subscribe to wheel events on the given terminal and call `onWheel(delta)`
  * where delta > 0 means "scroll up / back".
  *
- * Two mutually exclusive modes (a terminal cannot have native
- * selection AND app-consumed wheel at the same time):
+ * Two mutually exclusive modes:
  *   - `enabled=false` (SELECT): mouse reporting stays OFF, native drag-select
  *     works, the wheel is inert. The listener is still bound so an accidental
  *     SGR byte from a previous mode never leaks into the editor as an arrow.
  *   - `enabled=true` (SCROLL): reporting is on, the wheel scrolls the log
  *     (via `onWheel`), drag-select needs Shift.
+ *
+ * The terminal mode is written ONCE per `enabled` change. The wheel listener
+ * is bound once and reads the latest `onWheel` from a ref, so an inline
+ * callback (a new identity every render) does NOT re-run the effect -- a
+ * re-run would momentarily re-enable alternate-scroll and let a wheel notch
+ * scroll the input history.
  */
 export function useMouseWheel(
   onWheel: (delta: number) => void,
   enabled = false,
 ): void {
   const { stdin, isRawModeSupported } = useStdin()
+
+  // The latest callback, without making the mode effect depend on its
+  // identity (callers pass an inline arrow).
+  const onWheelRef = useRef(onWheel)
+  useEffect(() => {
+    onWheelRef.current = onWheel
+  }, [onWheel])
+
   useEffect(() => {
     if (!isRawModeSupported) return
     const seq = mouseModeSequences(enabled)
@@ -139,7 +158,7 @@ export function useMouseWheel(
       // place, but a stale SGR byte from a previous mode is swallowed here).
       if (!enabled) return
       const delta = parseWheel(scan)
-      if (delta !== 0) onWheel(delta)
+      if (delta !== 0) onWheelRef.current(delta)
     }
     stdin.on('data', onData)
     return () => {
@@ -147,5 +166,7 @@ export function useMouseWheel(
       // Disable mouse reporting on unmount so normal selection works again.
       process.stdout.write(seq.off)
     }
-  }, [stdin, isRawModeSupported, onWheel, enabled])
+    // `onWheel` is deliberately NOT a dependency: it is read via the ref so an
+    // inline callback does not tear the terminal mode down on every render.
+  }, [stdin, isRawModeSupported, enabled])
 }

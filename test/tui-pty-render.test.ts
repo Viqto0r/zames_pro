@@ -252,3 +252,24 @@ run(
     )
   },
 )
+
+run('pty: the mouse mode is written ONCE, not per render', async () => {
+  // The wheel-vs-history bug kept coming back: useMouseWheel listed `onWheel`
+  // (an inline arrow) in its effect deps, so the effect re-ran on EVERY render
+  // and each cleanup wrote 1007h (alternate-scroll ON => wheel becomes an
+  // ARROW => input history). This pins that the mode bytes are written once
+  // even while the store ticks (the badge timer does this in the live app).
+  const out = await new Promise<string>((resolve) => {
+    const child = spawn('npx', ['tsx', 'scripts/mouse-churn.mts'], {
+      cwd: path.resolve('.'),
+    })
+    let o = ''
+    child.stdout.on('data', (d) => (o += d.toString('utf-8')))
+    child.stderr.on('data', (d) => (o += d.toString('utf-8')))
+    child.on('close', () => resolve(o))
+  })
+  assert.ok(
+    out.includes('MOUSE_CHURN_OK'),
+    'the mouse mode must be written once, got:' + out,
+  )
+})
