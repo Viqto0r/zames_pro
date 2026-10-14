@@ -405,11 +405,24 @@ sends `CSI ? u` and the terminal answers); `Alt+Enter` is `ESC CR`; a trailing
 
 In the alternate screen most terminals convert the wheel into Up/Down arrow
 keys (DECSET 1007, "alternate scroll mode"), and the editor maps those to
-history at a buffer edge. `useMouseWheel` now DISABLES 1007 for the app
-lifetime, so the wheel never becomes arrows: with `ui.mouseScroll` on the raw
-SGR events scroll the log, and with it off the wheel is inert and drag-select
-keeps working. A sequence split across two stdin chunks is carried via
-`incompleteTail()`.
+history at a buffer edge. `useMouseWheel` therefore DISABLES 1007 for the app
+lifetime, so the wheel never becomes arrows.
+
+The two useful behaviors are MUTUALLY EXCLUSIVE, so the hook has exactly two
+modes and `mouseModeSequences(enabled)` returns a single sequence per mode:
+
+- **SELECT** (`ui.mouseScroll=false`, the DEFAULT): mouse reporting stays OFF,
+  so the terminal owns the mouse — drag-select works natively and the wheel is
+  inert. The 1007l primer is applied once at mount (with reporting briefly on,
+  since some terminals ignore 1007l otherwise) and reporting is then turned
+  back off; the listener is not bound, so nothing consumes the selection.
+- **SCROLL** (`ui.mouseScroll=true`): reporting is ON, the raw SGR events
+  scroll the log, and drag-select needs Shift (the standard TUI convention).
+
+Earlier the hook enabled reporting UNCONDITIONALLY and only gated the scroll,
+so native selection was lost even with the option off — that was the operator's
+"selection broke" bug. A sequence split across two stdin chunks is still
+carried via `incompleteTail()`.
 
 ### The log viewport windows by RENDERED ROW
 

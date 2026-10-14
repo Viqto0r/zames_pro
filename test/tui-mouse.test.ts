@@ -58,8 +58,8 @@ test('incompleteTail: a trailing incomplete sequence after a complete one', () =
   assert.equal(incompleteTail(buf), ESC + '[<65;1')
 })
 
-test('mouseModeSequences: reporting BEFORE alternate-scroll off', () => {
-  const { on, off } = mouseModeSequences()
+test('mouseModeSequences(SCROLL): reporting BEFORE alternate-scroll off', () => {
+  const { on, off } = mouseModeSequences(true)
   // 1000h + 1006h must precede 1007l: some terminals only apply 1007 while
   // mouse reporting is on, and sending 1007l alone left the wheel as arrows.
   const i1000 = on.indexOf(ESC + '[?1000h')
@@ -72,4 +72,21 @@ test('mouseModeSequences: reporting BEFORE alternate-scroll off', () => {
   assert.ok(off.includes(ESC + '[?1006l'))
   assert.ok(off.includes(ESC + '[?1000l'))
   assert.ok(off.includes(ESC + '[?1007h'))
+})
+
+test('mouseModeSequences(SELECT): reporting OFF in the steady state', () => {
+  const { on, off } = mouseModeSequences(false)
+  // The steady SELECT state must NOT leave reporting enabled: native
+  // drag-select only works when 1000/1006 are off. The one-time primer still
+  // applies 1007l, so the reported wheel stays inert (no arrows -> no history).
+  assert.ok(on.includes(ESC + '[?1007l'))
+  assert.ok(
+    on.endsWith(ESC + '[?1006l' + ESC + '[?1000l'),
+    'reporting must be turned back off after the 1007 primer',
+  )
+  assert.ok(
+    !on.slice(-(ESC + '[?1006l' + ESC + '[?1000l').length).includes('h'),
+  )
+  assert.ok(off.includes(ESC + '[?1006l'))
+  assert.ok(off.includes(ESC + '[?1000l'))
 })

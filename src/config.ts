@@ -109,15 +109,13 @@ export const DEFAULTS: ZamesConfig = {
     // (PgUp/PgDn scroll the in-app log instead). Set to false for the inline
     // layout, which keeps the scrollback but is subject to reflow artifacts.
     alternateScreen: true,
-    // In-app MOUSE-WHEEL scrolling of the log. ON by default: the operator
-    // wants the wheel to scroll the DIALOG. That needs terminal mouse
-    // REPORTING (1000/1006), which in turn means drag-select needs Shift (a
-    // terminal convention: Shift+drag bypasses the app). With this OFF the
-    // app does not enable reporting, and in the alternate screen most
-    // terminals then turn the wheel into Up/Down ARROW keys (DECSET 1007),
-    // which the editor maps to HISTORY — the exact bug reported. So ON is the
-    // only setting where the wheel behaves.
-    mouseScroll: true,
+    // In-app MOUSE-WHEEL scrolling of the log. OFF by default: the terminal can
+    // either give us the wheel (mouse REPORTING on, drag-select then needs
+    // Shift) or leave the mouse to itself (reporting off, native drag-select
+    // works and the wheel is inert). Selection is a baseline expectation, so
+    // SELECT is the default. With mouseScroll=true the wheel scrolls the log
+    // and the operator selects with Shift (the usual TUI convention).
+    mouseScroll: false,
   },
 
   // Off by default: a full tsc/eslint run after every edit is slow; opt in.
