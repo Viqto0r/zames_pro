@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.75.3] - 2026-10-15
+
+### Fixed
+
+- **markdown:** always apply the theme in rendered answers; rename logo-small.jpg to logo.jpg
+
 ## [2.75.2] - 2026-10-15
 
 ### Changed
