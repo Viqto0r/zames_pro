@@ -598,7 +598,6 @@ ${theme.bold(t('help.sec.session'))}
   ${t('help.cmd.new')}
   ${t('help.cmd.sessions')}
   ${t('help.cmd.chats')}
-  ${t('help.cmd.resume')}
   ${t('help.cmd.resume_id')}
   ${t('help.cmd.last')}
   ${t('help.cmd.retry')}
@@ -1247,7 +1246,10 @@ async function main(): Promise<void> {
   // the prompt/tools changed).
   const promptOnResume = (): boolean =>
     resendPrompt || config.browser.resendPromptOnResume === true
-  let lastChats: ChatInfo[] = []
+  // Assigned by the /chats handler before it is read; no initial value needed
+  // (the empty-array default was flagged as a useless assignment once the
+  // /resume <n> handler that read it was removed).
+  let lastChats: ChatInfo[]
   let currentChatId: string | null = null
   // The last task the operator sent (used by /retry). Plain text only.
   let lastTaskText = ''
@@ -2688,32 +2690,6 @@ async function main(): Promise<void> {
       } finally {
         if (editor) editor.unlock()
       }
-      continue
-    }
-
-    if (lower === '/resume' || lower.startsWith('/resume ')) {
-      const arg = trimmed.slice(7).trim()
-      if (!arg) {
-        console.error(theme.error(t('chats.resume_usage')))
-        continue
-      }
-      const n = Number(arg)
-      if (!Number.isFinite(n) || n < 1) {
-        console.error(theme.error(t('chats.need_number')))
-        continue
-      }
-      if (!lastChats.length) {
-        console.error(theme.error(t('chats.run_chats_first')))
-        continue
-      }
-      const pick = lastChats[n - 1]
-      if (!pick) {
-        console.error(
-          theme.error(t('chats.no_n', { n, total: lastChats.length })),
-        )
-        continue
-      }
-      await openResumedChat(pick)
       continue
     }
 

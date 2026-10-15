@@ -14,6 +14,7 @@
 // menu) — implemented as unmount/remount so the foreign program owns the
 // terminal cleanly.
 
+import fs from 'node:fs'
 import React from 'react'
 import { render, type Instance } from 'ink'
 import { TuiStore, type LogKind, type SendState } from './store.js'
@@ -176,6 +177,28 @@ export class TuiEditor {
       alternateScreen: this.alternateScreen,
     })
     this.rendered = true
+    // DEV DIAGNOSTIC: dump every raw stdin chunk to a file so a terminal's
+    // key encoding (e.g. Ctrl+Delete = ESC d in VSCode) can be captured from
+    // the LIVE agent, not guessed. Off unless ZAMES_TUI_KEY_DEBUG names a
+    // file.
+    const keyDbg = process.env.ZAMES_TUI_KEY_DEBUG
+    if (keyDbg) {
+      process.stdin.on('data', (d: Buffer) => {
+        try {
+          fs.appendFileSync(
+            keyDbg,
+            new Date().toISOString() +
+              ' ' +
+              d.toString('hex') +
+              ' ' +
+              JSON.stringify(d.toString('utf-8')) +
+              String.fromCharCode(10),
+          )
+        } catch {
+          /* ignore */
+        }
+      })
+    }
     this.installResizeHandler()
     // Entries shown so far are now on screen; a later remount must not reprint
     // them.
@@ -551,25 +574,36 @@ export class TuiEditor {
     }
     const pick =
       typeof index === 'number'
-        ? blocks.find((b) => b.index === index) ?? null
+        ? (blocks.find((b) => b.index === index) ?? null)
         : snap.codeFocus >= 0
-          ? blocks[snap.codeFocus] ?? null
+          ? (blocks[snap.codeFocus] ?? null)
           : blocks[blocks.length - 1]
     if (!pick) {
       this.printAbove(
-        theme.warn(translate(this.locale)('copy.bad_index', { n: String(index) })),
+        theme.warn(
+          translate(this.locale)('copy.bad_index', { n: String(index) }),
+        ),
       )
       return false
     }
     const res = this.onCopyText?.(pick.text) ?? { ok: false, via: 'none' }
-    const label = 'code #' + pick.index + (pick.lang ? ' (' + pick.lang + ')' : '')
+    const label =
+      'code #' + pick.index + (pick.lang ? ' (' + pick.lang + ')' : '')
     if (res.ok) {
       this.printAbove(
-        theme.assistant(translate(this.locale)('copy.done', { tool: res.via }) + ' — ' + label),
+        theme.assistant(
+          translate(this.locale)('copy.done', { tool: res.via }) +
+            ' — ' +
+            label,
+        ),
       )
     } else {
       this.printAbove(
-        theme.warn(translate(this.locale)('copy.failed', { tool: res.via }) + ' — ' + label),
+        theme.warn(
+          translate(this.locale)('copy.failed', { tool: res.via }) +
+            ' — ' +
+            label,
+        ),
       )
     }
     return res.ok

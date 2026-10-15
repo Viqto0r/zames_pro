@@ -1263,7 +1263,6 @@ export const SLASH_COMMANDS: SlashCommandEntry[] = [
   { name: '/clear', key: 'help.cmd.new' },
   { name: '/sessions', key: 'help.cmd.sessions' },
   { name: '/chats', key: 'help.cmd.chats' },
-  { name: '/resume', key: 'help.cmd.resume' },
   { name: '/resume-id', key: 'help.cmd.resume_id' },
   { name: '/last', key: 'help.cmd.last' },
   { name: '/retry', key: 'help.cmd.retry' },

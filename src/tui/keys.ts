@@ -193,7 +193,10 @@ export function dispatchKey(
     // The operator expects it to delete the word BEFORE the cursor.
     if (input === 'd') return { type: 'deleteWordLeft' }
     if (key.backspace) return { type: 'deleteWordLeft' }
-    if (key.delete) return { type: 'deleteWordRight' }
+    // Alt/Ctrl+Delete also deletes the word BEFORE the cursor (the operator's
+    // binding, consistent with ESC d): some terminals encode Ctrl+Delete as
+    // meta+Delete rather than ESC d.
+    if (key.delete) return { type: 'deleteWordLeft' }
     return null
   }
 

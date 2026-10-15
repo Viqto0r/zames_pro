@@ -463,7 +463,7 @@ test('dispatchKey: Alt+Backspace/Delete -> слово-удаление, пуст
   )
   assert.equal(
     dispatchKey('', key({ meta: true, delete: true }), ctx, edges)?.type,
-    'deleteWordRight',
+    'deleteWordLeft',
   )
   assert.equal(dispatchKey('z', key({ meta: true }), ctx, edges), null)
   assert.equal(dispatchKey('', key({}), ctx, edges), null)
@@ -552,10 +552,10 @@ test('dispatchKey: Ctrl+Delete deletes the word on the LEFT', () => {
     dispatchKey('', key({ delete: true }), ctx, edges)?.type,
     'delete',
   )
-  // Alt+Delete keeps the classic word-RIGHT behavior.
+  // Alt+Delete also deletes the word on the LEFT.
   assert.equal(
     dispatchKey('', key({ meta: true, delete: true }), ctx, edges)?.type,
-    'deleteWordRight',
+    'deleteWordLeft',
   )
 })
 
