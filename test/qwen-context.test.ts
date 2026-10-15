@@ -1,9 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import {
-  qwenContextWindow,
-  normalizeModelId,
-} from '../src/qwen-ui.ts'
+import { qwenContextWindow, normalizeModelId } from '../src/qwen-ui.ts'
 import { formatTokenStatus, tokenStatusLevel } from '../src/input/layout.ts'
 
 // Qwen's context window is PER-MODEL, and the number is the denominator of
@@ -66,7 +63,10 @@ test('qwenContextWindow: an unknown id must NOT guess a window', () => {
 test('a 258K model fills up far sooner than a 1M one (same token count)', () => {
   // 230k tokens: nearly full on Qwen3-Max, comfortable on a 1M build.
   const tokens = 230_000
-  assert.equal(tokenStatusLevel(tokens, qwenContextWindow('qwen3-max')!), 'high')
+  assert.equal(
+    tokenStatusLevel(tokens, qwenContextWindow('qwen3-max')!),
+    'high',
+  )
   assert.equal(
     tokenStatusLevel(tokens, qwenContextWindow('qwen3.7-max')!),
     'ok',
