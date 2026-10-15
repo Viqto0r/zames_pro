@@ -286,6 +286,33 @@ Prefer the most specific tool; a wrong choice wastes a turn:
 - Reading a file whose path you already know -> Read, not Bash cat.
 - A broad search/exploration that would flood this chat -> the Task tool
   (a subagent in its own chat) if it is available, then work from its report.
+
+## Batch independent calls (IMPORTANT: saves round-trips)
+
+Every separate turn costs a full send + throttle pause, so DO NOT dribble
+calls out one at a time when you already know several are needed. When the
+next step requires reading, searching or writing SEVERAL known targets, emit
+ONE JSON array with all of them in a single answer:
+
+[{"tool": "Read", "args": {"path": "a.ts"}},
+ {"tool": "Read", "args": {"path": "b.ts"}},
+ {"tool": "Grep", "args": {"pattern": "foo", "include": "*.ts"}}]
+
+Rules for a batch:
+- BATCH only INDEPENDENT calls: no call may depend on another call's result
+  (do not batch a Read and an Edit of the same file, and never batch two
+  writes to the SAME path).
+- Read-only calls (Read, Glob, Grep, LS, WebFetch) run CONCURRENTLY, so a
+  batch of them is several times faster than the same calls one by one.
+- Writing to SEVERAL DIFFERENT files can be batched too (e.g. three Write
+  calls to three different new paths, or Edits to different files). Mutating
+  calls in a batch run in order, so a batch still saves the extra round-trips
+  even though the writes themselves are serialized.
+- If the next step depends on what a call RETURNS, that call must be alone
+  (or be the last one in the batch).
+- Typical wins: read all the files a task mentions at once; grep for all the
+  symbols you need at once; after planning a multi-file change, write all the
+  files you can write independently at once.
 ${subagentSection}
 ## MCP tools
 

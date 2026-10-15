@@ -33,6 +33,12 @@ export interface CheckpointRecord {
   workdir: string
   /** Optional label ('pre-rewind' for the automatic backup). */
   label?: string
+  /**
+   * Git fingerprint (HEAD + `git status --porcelain`) of the tree at snapshot
+   * time. Used to skip a redundant checkpoint when the tracked state has not
+   * changed since the previous one. Absent for a non-git directory.
+   */
+  fingerprint?: string
 }
 
 export interface CheckpointResult {
@@ -105,6 +111,24 @@ function runTar(
   })
 }
 
+// Git fingerprint of a working tree: HEAD plus the porcelain status. Two
+// snapshots with the same fingerprint hold the same TRACKED state, so a
+// second checkpoint would be a duplicate. Returns null for a non-git dir (or
+// when git is unavailable) — then the caller always snapshots (no debounce).
+function workdirFingerprint(workdir: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    execFile(
+      'git',
+      ['-C', workdir, 'status', '--porcelain=v1', '--branch'],
+      { timeout: 10_000, maxBuffer: 1024 * 1024, windowsHide: true },
+      (err, stdout) => {
+        if (err) return resolve(null)
+        resolve(String(stdout || '').trim() || 'clean')
+      },
+    )
+  })
+}
+
 async function copyTree(from: string, to: string): Promise<void> {
   await fs.mkdir(to, { recursive: true })
   const entries = await fs.readdir(from, { withFileTypes: true })
@@ -161,9 +185,37 @@ export class CheckpointStore {
   async create(
     workdir: string,
     label?: string,
+    /** When false, always create a new archive (skip the fingerprint dedupe). */
+    allowDedupe = true,
   ): Promise<CheckpointRecord | null> {
     if (!this.enabled) return null
     await this._ensure()
+
+    // Debounce: a checkpoint is taken before EVERY task, and consecutive
+    // tasks in one queue often start with an IDENTICAL tracked state (the
+    // previous task made no commit and no tracked edit that survived).
+    // Re-taring the whole tree then only burns time. If the last record for
+    // this workdir carries the SAME git fingerprint, reuse it instead of
+    // snapshotting again. Non-git dirs get a null fingerprint and are always
+    // snapshotted (we cannot cheaply prove the tree is unchanged).
+    const fingerprint = allowDedupe ? await workdirFingerprint(workdir) : null
+    if (fingerprint) {
+      const history = await this._readIndex()
+      const last = [...history]
+        .reverse()
+        .find((r) => r.workdir === workdir && r.fingerprint)
+      if (
+        last &&
+        last.fingerprint === fingerprint &&
+        (await fs
+          .access(last.file)
+          .then(() => true)
+          .catch(() => false))
+      ) {
+        return last
+      }
+    }
+
     const stamp = Date.now()
     // Two checkpoints in the SAME millisecond would share `${stamp}.tgz` and
     // the second would overwrite the first (losing a snapshot). Add a random
@@ -178,6 +230,7 @@ export class CheckpointStore {
 
     const record: CheckpointRecord = { stamp, file, workdir }
     if (label) record.label = label
+    if (fingerprint) record.fingerprint = fingerprint
 
     const history = await this._readIndex()
     history.push(record)
@@ -217,7 +270,7 @@ export class CheckpointStore {
     if (!exists) return { ok: false, reason: 'archive_missing' }
 
     // Backup the CURRENT tree before touching it.
-    const backup = await this.create(record.workdir, 'pre-rewind')
+    const backup = await this.create(record.workdir, 'pre-rewind', false)
 
     // Extract to a temp dir FIRST; only a successful extract may touch workdir
     // (otherwise a bad archive would wipe the tree).

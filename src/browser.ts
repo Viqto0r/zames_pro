@@ -2263,8 +2263,13 @@ export class DeepSeekBrowser {
       }
       // Reasoning-mode pause during the THINK phase: click Continue so the
       // generation resumes (the button appears before any RESPONSE text, so
-      // the start-wait would otherwise spin until the deadline).
-      if (this.autoContinue && (await this._clickContinueIfVisible())) {
+      // the start-wait would otherwise spin until the deadline). Probing
+      // PROACTIVELY is meaningful only with the reasoning toggle ON.
+      if (
+        this.autoContinue &&
+        this.deepThinking &&
+        (await this._clickContinueIfVisible())
+      ) {
         this._askDebug('CLICKED Continue (start-loop)')
       }
       const cur = await this._readLastAnswerTextCleanDom().catch(() => '')
@@ -2307,8 +2312,13 @@ export class DeepSeekBrowser {
       const notGenerating = !(await this._isGenerating())
       const differs = !!cur && normText(cur) !== normText(beforeText)
       // Do NOT accept a "settled" answer while Continue is on screen — that
-      // is a paused generation, not a finished one.
-      const paused = this.autoContinue && (await this._continueButtonVisible())
+      // is a paused generation, not a finished one. The paused check only
+      // applies with the reasoning toggle ON (the THINK-phase pause); without
+      // it a stable answer is a genuinely finished one.
+      const paused =
+        this.autoContinue &&
+        this.deepThinking &&
+        (await this._continueButtonVisible())
       if (differs && cur === lastStartCur && notGenerating && !paused) {
         settledTicks++
         if (settledTicks >= 2) {
@@ -2483,8 +2493,17 @@ export class DeepSeekBrowser {
       }
       // Reasoning-mode pause: DeepSeek caps the THINK phase and shows a
       // Continue button; the model does not resume by itself. Click it so the
-      // answer keeps flowing instead of waiting for the operator.
-      if (this.autoContinue && (await this._clickContinueIfVisible())) {
+      // answer keeps flowing instead of waiting for the operator. Only probe
+      // PROACTIVELY when the reasoning (Deep thinking) toggle is ON: the
+      // THINK-phase pause does not occur without it, so an idle probe on every
+      // tick is a wasted evaluate. The truncated / finished-without-answer
+      // branches above stay unconditional — those are server faults, not a
+      // reasoning pause, and occur with the toggle off too.
+      if (
+        this.autoContinue &&
+        this.deepThinking &&
+        (await this._clickContinueIfVisible())
+      ) {
         this._askDebug('CLICKED Continue (finish-loop)')
         continue
       }
@@ -2548,8 +2567,13 @@ export class DeepSeekBrowser {
           // A PAUSED generation also looks "stable" (the text stops changing
           // while Continue is on screen), so the old check returned the
           // partial answer here — the "agent stopped with a Continue button"
-          // symptom. Click Continue and keep waiting instead.
-          if (this.autoContinue && (await this._continueButtonVisible())) {
+          // symptom. Click Continue and keep waiting instead. Only relevant
+          // with the reasoning toggle ON (the THINK-phase pause).
+          if (
+            this.autoContinue &&
+            this.deepThinking &&
+            (await this._continueButtonVisible())
+          ) {
             if (await this._clickContinueIfVisible()) {
               this._askDebug('CLICKED Continue (before early return)')
             }
@@ -2599,7 +2623,9 @@ export class DeepSeekBrowser {
     if (last && (normText(last) !== normText(beforeText) || this._netCapture)) {
       // If Continue is STILL on screen, the turn is paused, not finished:
       // click once more and report what we have rather than silently stopping.
-      if (this.autoContinue) await this._clickContinueIfVisible()
+      // Only with the reasoning toggle ON (the THINK-phase pause).
+      if (this.autoContinue && this.deepThinking)
+        await this._clickContinueIfVisible()
       this._askDebug('RETURN last len=' + last.length)
       return last
     }

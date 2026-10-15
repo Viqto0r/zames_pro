@@ -369,6 +369,16 @@ export async function runAgentLoop({
   let malformedRetries = 0
   const MAX_MALFORMED_RETRIES = 3
 
+  // Tool-result caps for the message fed back to the model. A single result
+  // gets a generous cap; in a BATCH each item is capped and the ASSEMBLED
+  // message is capped again, so a big batch cannot exceed what the chat input
+  // accepts (a failed paste loses the whole turn). The caps are explicit:
+  // truncateToolResult() appends `[...truncated N chars]` so the model knows
+  // it is looking at a partial output.
+  const TOOL_RESULT_LIMIT = 24_000
+  const BATCH_ITEM_LIMIT = 16_000
+  const BATCH_TOTAL_LIMIT = 120_000
+
   let stallRetries = 0
   const MAX_STALL_RETRIES = 5
 
@@ -994,6 +1004,14 @@ export async function runAgentLoop({
     // and no call matches an `ask` permission rule (a concurrent operator
     // prompt would race). Anything else keeps the strict sequential loop, so
     // mutating side effects never reorder.
+    //
+    // MUTATING tools (Write/Edit/MultiEdit) are deliberately NOT here even
+    // though writes to different files are logically independent: (a)
+    // UndoStore.backup() does a read-modify-write of ONE shared index file, so
+    // two concurrent backups race and lose a record; (b) PostToolUse hooks and
+    // diagnostics must run in a defined order. A batch of mutating calls still
+    // costs only ONE round-trip (the sequential loop below runs them all for
+    // the same answer), so nothing is lost by keeping them sequential.
     const PARALLEL_SAFE = new Set(['Read', 'Glob', 'Grep', 'LS', 'WebFetch'])
     const readOnlyBatch =
       callsToRun.length > 1 &&
@@ -1338,15 +1356,23 @@ ${diag}`
       const r = results[0]
       const resultStr =
         typeof r.result === 'string' ? r.result : JSON.stringify(r.result)
-      message = `Tool result for ${r.tool}:\n${truncateToolResult(resultStr, 12_000)}`
+      message = `Tool result for ${r.tool}:\n${truncateToolResult(resultStr, TOOL_RESULT_LIMIT)}`
     } else {
       message = results
         .map((r) => {
           const resultStr =
             typeof r.result === 'string' ? r.result : JSON.stringify(r.result)
-          return `Tool result for ${r.tool}:\n${truncateToolResult(resultStr, 8000)}`
+          return `Tool result for ${r.tool}:\n${truncateToolResult(resultStr, BATCH_ITEM_LIMIT)}`
         })
         .join('\n\n')
+      // A large batch (e.g. 8 Reads) could still add up past what the chat
+      // input accepts; a too-long message fails to paste (ds.input_partial) and
+      // the whole turn is lost. Cap the ASSEMBLED message as a safety net,
+      // keeping the per-item truncation markers (the model still sees WHAT was
+      // dropped, just a bit more of it).
+      if (message.length > BATCH_TOTAL_LIMIT) {
+        message = truncateToolResult(message, BATCH_TOTAL_LIMIT)
+      }
     }
 
     // Append the argument-error nudge (set inside the batch loop) now that
