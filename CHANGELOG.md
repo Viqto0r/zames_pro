@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.75.1] - 2026-10-15
+
 ### Added
 
 - remove /resume; Ctrl+Delete always deletes the word BEFORE the cursor
@@ -15,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- stop advertising the removed /resume and make the i18n guard real
 - **tui:** Ctrl+Delete works in VSCode (it sends ESC d)
 - **tui:** Ctrl+Delete deletes the word BEFORE the cursor
 
