@@ -41,6 +41,35 @@ test('renderMarkdown: a table is rendered without throwing', () => {
   assert.ok(out.includes('1'))
 })
 
+test('renderMarkdown: keeps ANSI styling (headings/bold) when NO_COLOR is unset', () => {
+  // markdansi used to infer color support from `process.stdout.isTTY`, so a
+  // piped answer lost the whole theme. The renderer must always emit SGR now;
+  // NO_COLOR is the only opt-out.
+  const saved = process.env.NO_COLOR
+  delete process.env.NO_COLOR
+  try {
+    const out = renderMarkdown('# Title\n\n**bold**')
+    assert.ok(/\x1b\[/.test(out), 'SGR styling must be present')
+    assert.ok(stripAnsi(out).includes('Title'))
+  } finally {
+    if (saved === undefined) delete process.env.NO_COLOR
+    else process.env.NO_COLOR = saved
+  }
+})
+
+test('renderMarkdown: NO_COLOR disables ANSI entirely', () => {
+  const saved = process.env.NO_COLOR
+  process.env.NO_COLOR = '1'
+  try {
+    const out = renderMarkdown('# Title\n\n**bold**')
+    assert.ok(!/\x1b\[/.test(out), 'no SGR codes when NO_COLOR is set')
+    assert.ok(out.includes('Title'))
+  } finally {
+    if (saved === undefined) delete process.env.NO_COLOR
+    else process.env.NO_COLOR = saved
+  }
+})
+
 test('setAnswerWidth: does not break rendering', () => {
   setAnswerWidth(40)
   const out = stripAnsi(renderMarkdown('hello width'))

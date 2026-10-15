@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/logo-small.jpg" alt="zames logo" width="430">
+  <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/logo.jpg" alt="zames logo" width="430">
 </p>
 
 <h1 align="center">zames_pro</h1>

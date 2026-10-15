@@ -12,7 +12,7 @@
     "README.md",
     "CHANGELOG.md",
     "LICENSE",
-    "logo-small.jpg"
+    "logo.jpg"
   ],
   "scripts": {
     "start": "node ./dist/index.js",
