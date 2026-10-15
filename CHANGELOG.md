@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.75.5] - 2026-10-15
+
+### Fixed
+
+- **i18n:** clearer TUI key hints; localize the scrolled status; add sched-smoke
+
 ## [2.75.4] - 2026-10-15
 
 ### Added
