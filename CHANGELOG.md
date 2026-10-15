@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.75.4] - 2026-10-15
+
+### Added
+
+- **qwen:** per-model context window for the status bar and auto-compact
+
+### Changed
+
+- **test:** format qwen-context test with prettier
+
 ## [2.75.3] - 2026-10-15
 
 ### Fixed
