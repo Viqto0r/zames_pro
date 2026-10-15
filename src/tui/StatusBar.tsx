@@ -221,7 +221,11 @@ export function StatusBar({
   // separate row below the input — that pushed the panel up and made the input
   // jump). It replaces the spinner text while scrolled, so it never adds a row.
   const scrollNote =
-    state.scroll > 0 ? `↑ прокручено на ${state.scroll} стр. · PgDn/End` : ''
+    state.scroll > 0
+      ? translate(state.locale)('status.scrolled', {
+          n: String(state.scroll),
+        })
+      : ''
   const leftText = scrollNote || prefix + left
   const showLeft = !!leftText
 

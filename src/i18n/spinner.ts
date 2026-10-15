@@ -18,10 +18,15 @@ export const spinnerMessages: Record<string, { ru: string; en: string }> = {
   // flight. 'paused'/'settled' have no label (see LineEditor._stateLabel).
   'state.generating': { ru: '▶ генерация', en: '▶ generating' },
   'state.settled': { ru: '✓ готово', en: '✓ done' },
+  // Shown in the status line while the full-screen log is scrolled up.
+  'status.scrolled': {
+    ru: '↑ прокручено на {n} стр. · PgDn/End',
+    en: '↑ scrolled {n} lines · PgDn/End',
+  },
   'editor.more': { ru: '…ещё {n}', en: '…{n} more' },
   'editor.page_hint': {
-    ru: '(Ctrl+N/Ctrl+P — листать, Tab — вставить)',
-    en: '(Ctrl+N/Ctrl+P to page, Tab to insert)',
+    ru: '(Ctrl+N/Ctrl+P — вверх/вниз, Tab — вставить)',
+    en: '(Ctrl+N/Ctrl+P — up/down, Tab — insert)',
   },
   'editor.answer': { ru: '● Ответ', en: '● Answer' },
   // Shown in the full-screen log viewport before the first turn, so a fresh
@@ -32,8 +37,8 @@ export const spinnerMessages: Record<string, { ru: string; en: string }> = {
   },
   // One-line key hint UNDER the input box (full-screen mode).
   'editor.keys_hint': {
-    ru: 'выделение — Shift+протяжка · колесо — скролл · PgUp/PgDn листают · Home/End — в начало/конец',
-    en: 'select — Shift+drag · wheel — scroll · PgUp/PgDn scroll · Home/End top/bottom',
+    ru: 'выделение — Shift+клик · колесо — скролл · PgUp/PgDn — вверх/вниз · Home/End — в начало/конец',
+    en: 'select — Shift+click · wheel — scroll · PgUp/PgDn — up/down · Home/End — top/bottom',
   },
   // Reverse search (Ctrl+R) status line. The query may be empty.
   'editor.search_prompt': {

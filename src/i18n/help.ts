@@ -78,8 +78,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: 'Ctrl+← / Ctrl+→           move by words',
   },
   'help.key.slash': {
-    ru: '/ + Tab                  подсказка и автодополнение slash-команд (Ctrl+N/P — листать)',
-    en: '/ + Tab                   slash-command hints and completion (Ctrl+N/P to page)',
+    ru: '/ + Tab                  подсказка и автодополнение slash-команд (Ctrl+N/P — вверх/вниз)',
+    en: '/ + Tab                   slash-command hints and completion (Ctrl+N/P — up/down)',
   },
   'help.key.newline': {
     ru: 'Ctrl+J / Ctrl+Enter      новая строка (Shift+Enter в терминалах с поддержкой)',
@@ -98,12 +98,12 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: 'Esc, Ctrl+C               abort current generation',
   },
   'help.key.scroll': {
-    ru: 'PgUp / PgDn              листать диалог (Home/End — в начало/конец) [full-screen]',
-    en: 'PgUp / PgDn               scroll the dialog (Home/End — top/bottom) [full-screen]',
+    ru: 'PgUp / PgDn              вверх/вниз по диалогу (Home/End — в начало/конец) [full-screen]',
+    en: 'PgUp / PgDn               up/down the dialog (Home/End — top/bottom) [full-screen]',
   },
   'help.key.wheel': {
-    ru: 'колесо мыши               скролл диалога; выделение — Shift+протяжка',
-    en: 'mouse wheel               scroll the dialog; select text with Shift+drag',
+    ru: 'колесо мыши               скролл диалога; выделение — Shift+клик',
+    en: 'mouse wheel               scroll the dialog; select text with Shift+click',
   },
   'help.key.bang': {
     ru: '!команда                  выполнить shell-команду напрямую (мимо модели)',
