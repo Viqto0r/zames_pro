@@ -260,14 +260,6 @@ export const commonMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Нет блока кода #{n}.',
     en: 'No code block #{n}.',
   },
-  'copy.code_hint': {
-    ru: 'блок кода {n}/{m} · Ctrl+Y — копировать',
-    en: 'code block {n}/{m} · Ctrl+Y to copy',
-  },
-  'copy_code.usage': {
-    ru: 'Использование: /copy-code [номер] — копировать блок кода последнего ответа (по умолчанию последний). /copy-code list — список.',
-    en: 'Usage: /copy-code [n] — copy a code block from the last answer (default: the last). /copy-code list — list them.',
-  },
   'copy_code.list': {
     ru: 'Блоки кода последнего ответа:',
     en: 'Code blocks in the last answer:',

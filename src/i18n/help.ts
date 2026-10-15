@@ -133,10 +133,6 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     ru: '/chats [фильтр]          список последних чатов DeepSeek',
     en: '/chats [filter]          recent DeepSeek chats',
   },
-  'help.cmd.resume': {
-    ru: '/resume <n>              открыть чат №n из /chats',
-    en: '/resume <n>              open chat #n from /chats',
-  },
   'help.cmd.last': {
     ru: '/last                    открыть последний чат этого каталога',
     en: '/last                    open the last chat of this directory',

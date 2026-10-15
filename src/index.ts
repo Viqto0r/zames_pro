@@ -260,14 +260,14 @@ if (jsonMode) {
 // ---------- session persistence ----------
 // We store sessions (DeepSeek chats) in ~/.zames/.sessions so they survive
 // a restart and are available for explicit restore (--resume-last,
-// --chat <id>, /resume <n>). They are NOT brought up automatically on launch.
+// --chat <id>, /resume-id <id>). They are NOT brought up automatically on launch.
 // Previously there was a single last-chat.json file that got lost when the
 // project changed and gave no list of sessions to restore.
 function saveLastChat(id: string | null, workdir = '', title = ''): void {
   if (!id) return
   // Tag the session with the ACTIVE provider: a chat id is only meaningful to
   // the backend that created it, so a later resume must open it in the same
-  // one (or refuse). Without this a /provider switch made /resume try to open a
+  // one (or refuse). Without this a /provider switch made a resume try to open a
   // qwen id in DeepSeek (and vice versa).
   saveSession({ id, workdir, title, provider: config.provider })
 }
@@ -1327,7 +1327,7 @@ async function main(): Promise<void> {
     })
   }
 
-  // Re-inject a persisted checklist after /resume or the startup restore.
+  // Re-inject a persisted checklist after /resume-id or the startup restore.
   // The list is REPLACED (not merged): a resumed chat with no saved checklist
   // must clear the previous chat's tasks, otherwise the status line keeps
   // showing them for a chat that never had them.
@@ -2219,7 +2219,7 @@ async function main(): Promise<void> {
   }
 
   // Open a chat by its ChatInfo and print the restored dialogue. Shared by
-  // /resume and the interactive /chats list, so both paths behave identically
+  // /resume-id and the interactive /chats list, so both paths behave identically
   // (todos reloaded, prompt-resend decision, transcript event).
   const openResumedChat = async (pick: {
     id: string
@@ -2673,8 +2673,8 @@ async function main(): Promise<void> {
             if (openChat) continue
           }
           console.log(theme.system(t('chats.recent')))
-          // The number is the index in the FULL list, so `/resume <n>` keeps
-          // pointing at the same chat even when a filter narrows the view.
+          // The number is the index in the FULL list (a filter only narrows
+          // the VIEW), and the full id in brackets is what /resume-id takes.
           for (const c of shown) {
             const idx = lastChats.indexOf(c)
             const n = String(idx + 1).padStart(2, ' ')

@@ -6,7 +6,6 @@ export const configMessages: Record<string, { ru: string; en: string }> = {
   'cfg.group.checkpoint': { ru: 'Чекпойнты', en: 'Checkpoints' },
   'cfg.group.transcript': { ru: 'Транскрипт', en: 'Transcript' },
   'cfg.group.browser': { ru: 'Браузер / DeepSeek', en: 'Browser / DeepSeek' },
-  'cfg.group.qwen': { ru: 'Qwen', en: 'Qwen' },
   'cfg.f.provider': { ru: 'Провайдер чата', en: 'Chat provider' },
   'cfg.f.qwen_model': {
     ru: 'Модель Qwen (id)',

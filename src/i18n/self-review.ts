@@ -114,8 +114,8 @@ export const selfReviewMessages: Record<string, { ru: string; en: string }> = {
     en: 'Pick a chat (↑/↓, Enter to open, Esc to cancel)',
   },
   'chats.use_resume': {
-    ru: '\nИспользуй /resume <n> для продолжения.\n',
-    en: '\nUse /resume <n> to continue.\n',
+    ru: '\nДля продолжения используй /resume-id <id> (полный id в скобках).\n',
+    en: '\nTo continue use /resume-id <id> (the full id in brackets).\n',
   },
   'chats.none_hint': {
     ru: 'Чатов не найдено. Возможно, сайдбар свёрнут или селекторы устарели.',
@@ -128,22 +128,6 @@ export const selfReviewMessages: Record<string, { ru: string; en: string }> = {
   'chats.prompt_no_resend': {
     ru: ' Системный промпт НЕ пересылается (он уже в начале чата). Включить: /config set browser.resendPromptOnResume true.\n',
     en: ' The system prompt is NOT resent (it is already at the start of the chat). Enable: /config set browser.resendPromptOnResume true.\n',
-  },
-  'chats.resume_usage': {
-    ru: 'Использование: /resume <n>  (или /chats для списка)',
-    en: 'Usage: /resume <n>  (or /chats for the list)',
-  },
-  'chats.need_number': {
-    ru: 'Нужен номер из /chats.',
-    en: 'A number from /chats is required.',
-  },
-  'chats.run_chats_first': {
-    ru: 'Сначала выполни /chats.',
-    en: 'Run /chats first.',
-  },
-  'chats.no_n': {
-    ru: 'Нет чата №{n}. Всего: {total}.',
-    en: 'No chat #{n}. Total: {total}.',
   },
   'chats.opening': { ru: 'Открываю: {v}', en: 'Opening: {v}' },
   'chats.prompt_will_resend': {

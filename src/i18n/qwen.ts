@@ -15,10 +15,6 @@ export const qwenMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Код из письма Qwen: ',
     en: 'Qwen email code: ',
   },
-  'qwen.login_pass_prompt': {
-    ru: 'Пароль Qwen: ',
-    en: 'Qwen password: ',
-  },
   'qwen.login_ok': {
     ru: 'Qwen: вход выполнен.',
     en: 'Qwen: signed in.',
