@@ -92,3 +92,18 @@ test('headless по умолчанию включён', async () => {
   const { DEFAULTS } = await freshConfig()
   assert.equal(DEFAULTS.headless, true)
 })
+
+test('qwen.contextLimit есть в схеме и не совпадает с ui.contextLimit', async () => {
+  const { getConfigField, validateConfigValue, DEFAULTS } = await freshConfig()
+  const f = getConfigField('qwen.contextLimit')
+  assert.ok(f, 'qwen.contextLimit must be in CONFIG_SCHEMA')
+  assert.equal(f!.type, 'number')
+  assert.equal(validateConfigValue(f!, '258048'), 258_048)
+  assert.throws(() => validateConfigValue(f!, 'abc'))
+  // The Qwen default is the common Qwen3-Max window, NOT DeepSeek's 1M: the
+  // value is the denominator of the auto-compact threshold, so sharing one
+  // number would delay compaction on a 258K model.
+  assert.equal(DEFAULTS.qwen.contextLimit, 258_048)
+  assert.equal(DEFAULTS.ui.contextLimit, 1_000_000)
+  assert.notEqual(DEFAULTS.qwen.contextLimit, DEFAULTS.ui.contextLimit)
+})

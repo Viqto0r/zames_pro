@@ -11,6 +11,10 @@ export const configMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Модель Qwen (id)',
     en: 'Qwen model (id)',
   },
+  'cfg.f.qwen_contextLimit': {
+    ru: 'Qwen: размер контекста, токены (258K у Qwen3-Max, 1M у 3.7/3.8/Coder)',
+    en: 'Qwen: context window, tokens (258K on Qwen3-Max, 1M on 3.7/3.8/Coder)',
+  },
   'cfg.f.qwen_minSendIntervalMs': {
     ru: 'Qwen: пауза между отправками (мс)',
     en: 'Qwen: pause between sends (ms)',

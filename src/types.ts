@@ -142,6 +142,14 @@ export interface QwenConfig {
   /** Open the Qwen provider (mirrors the top-level `provider` switch). */
   enabled: boolean
   /**
+   * The Qwen context window (tokens) used for the status-bar fill percentage
+   * and the auto-compact threshold. Qwen windows are PER-MODEL (258K for
+   * Qwen3-Max, 1M for the 3.7/3.8-Max and Coder builds), so this is separate
+   * from `ui.contextLimit` (DeepSeek's 1M). `/model` sets it automatically
+   * from the picked model; set it by hand to override.
+   */
+  contextLimit: number
+  /**
    * Minimum pause between agent sends (ms). Qwen does NOT rate-limit the way
    * DeepSeek does — a live experiment (4 back-to-back sends, 0 ms gap) hit no
    * limit — so the 15 s DeepSeek default is unnecessary latency here. A small

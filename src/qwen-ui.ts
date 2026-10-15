@@ -101,6 +101,49 @@ export const NEW_CHAT_SELECTOR = '.new-chat, button[aria-label="New Chat" i]'
 // unless a per-session override is set.
 export const MODEL_TRIGGER_SELECTOR = '.wms-trigger'
 
+// ---------- context windows ----------
+
+// Qwen's per-model context window (tokens). The window is a property of the
+// MODEL, not the site: Qwen3-Max is 258K while the 3.7/3.8-Max and Coder
+// builds are 1M. zames uses the number ONLY as the denominator for the
+// status-bar fill percentage and the auto-compact threshold, so a wrong value
+// either fires compaction far too late (window overstated) or too early.
+//
+// Matching is done on a NORMALIZED id: lowercased, non-alphanumerics dropped,
+// so `qwen3-max`, `Qwen3-Max` and `qwen3_max` all hit the same row. The list is
+// ordered MOST SPECIFIC first: a `qwen3-coder-plus` id must not stop at a
+// generic `qwen3` rule. Values verified against the public model cards
+// (contextwindows.dev / haimaker.ai) in October 2026.
+const CONTEXT_WINDOWS: Array<[RegExp, number]> = [
+  // The 1M builds MUST be checked before the 258K `qwen3-max` family, or
+  // `qwen3.7-max` would match the shorter `max` rule first.
+  [/qwen3\.?7.?max/, 1_000_000],
+  [/qwen3\.?8.?max/, 1_000_000],
+  [/qwen3coder/, 1_000_000],
+  [/qwenlong/, 10_000_000],
+  [/qwen3max/, 258_048],
+  // Generic fallback: the OTHER qwen3 builds (Plus/Turbo/Flash) advertised 1M
+  // on their model cards, so an unknown qwen3 id gets 1M rather than the min.
+  [/qwen3/, 1_000_000],
+]
+
+/** Lowercase and drop every non-alphanumeric so `qwen3.7-max` -> `qwen37max`. */
+export function normalizeModelId(model: string | undefined): string {
+  return String(model || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+}
+
+/** The context window (tokens) for a Qwen model id, or null when unknown. */
+export function qwenContextWindow(model: string | undefined): number | null {
+  const id = normalizeModelId(model)
+  if (!id) return null
+  for (const [re, window] of CONTEXT_WINDOWS) {
+    if (re.test(id)) return window
+  }
+  return null
+}
+
 // ---------- age gate / cookies ----------
 
 // A first-time visitor must confirm their birth year before chatting. The

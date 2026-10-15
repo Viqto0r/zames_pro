@@ -96,6 +96,7 @@ import {
   parseCron,
 } from './scheduler.js'
 import { createCliArgs } from './cli-args.js'
+import { qwenContextWindow } from './qwen-ui.js'
 import { renderMarkdown, setAnswerWidth } from './markdown.js'
 import { extractCodeBlocks } from './code-blocks.js'
 import { contentWidth } from './width.js'
@@ -835,6 +836,42 @@ function browserProviderUrl(): string {
 }
 
 /**
+ * The context window (tokens) for the ACTIVE provider. The two backends
+ * advertise different windows and Qwen's is PER-MODEL, so a single global
+ * number would either overstate Qwen's (258K models) or understate the 1M
+ * builds — and the number is the denominator of the auto-compact threshold,
+ * so an error directly delays (or prematurely fires) compaction.
+ *
+ * `config.qwen.contextLimit` / `ui.contextLimit` are the operator-tunable
+ * values; `/model` rewrites the Qwen one from the picked model id.
+ */
+function effectiveContextLimit(): number {
+  if (config.provider === 'qwen') {
+    return config.qwen.contextLimit > 0
+      ? config.qwen.contextLimit
+      : config.ui.contextLimit
+  }
+  return config.ui.contextLimit
+}
+
+/**
+ * Re-derive `qwen.contextLimit` from a picked model id and persist it. Called
+ * by `/model` on an explicit pick (never on startup), so a manual
+ * `/config set qwen.contextLimit` survives until the operator switches model
+ * again. An UNKNOWN model id leaves the limit alone: guessing would either
+ * fire auto-compact too early or too late. The live editor is repainted by
+ * the caller (it owns the `editor` reference); this only touches config.
+ */
+function applyModelContextLimit(model: string): void {
+  const window = qwenContextWindow(model)
+  if (window === null) return
+  config.qwen.contextLimit = window
+  try {
+    writeConfigValue('home', 'qwen.contextLimit', String(window))
+  } catch {}
+}
+
+/**
  * Build the browser for a provider. Called at startup AND on a live
  * `/provider` switch, so both paths construct the class the same way. The
  * two backends differ in every layer (selectors, SSE format, chat-id scheme),
@@ -938,8 +975,9 @@ async function printRestoredHistory(
     out(theme.dim(t('chats.history_tokens', { v: String(restoredTokens) })))
     // Warn when the restored chat is near the context limit, and suggest
     // /compact. The threshold mirrors the auto-compact one so the operator
-    // sees the same signal whether or not auto-compact is enabled.
-    const limit = config.ui.contextLimit
+    // sees the same signal whether or not auto-compact is enabled. The limit
+    // is the ACTIVE provider's window (Qwen's is per-model).
+    const limit = effectiveContextLimit()
     if (limit > 0) {
       const pct = (restoredTokens / limit) * 100
       if (pct >= 80) {
@@ -1568,8 +1606,10 @@ async function main(): Promise<void> {
     // Task-list summary ("tasks: 2/5") before the context counter. Pulled on
     // every render, like the queue badge.
     ed.onTasksQuery = () => todosSummary()
-    // Use the configured context window for the fill percentage/color.
-    ed.setContextLimit(config.ui.contextLimit)
+    // Use the configured context window for the fill percentage/color. The
+    // window is PROVIDER-dependent: Qwen's is per-model (258K/1M, see
+    // qwenContextWindow), DeepSeek's is the ui.contextLimit.
+    ed.setContextLimit(effectiveContextLimit())
     // Toggle icons (🧠 deep thinking, 🌐 web search) before the context
     // counter. The editor pulls the live state on every render.
     ed.onToggleQuery = () => browser.getToggleStatesSync()
@@ -1659,7 +1699,7 @@ async function main(): Promise<void> {
         chatId: currentChatId,
         queueLength: pendingQueue.length,
         tokens: browser.getLastTokenUsage(),
-        contextLimit: config.ui.contextLimit,
+        contextLimit: effectiveContextLimit(),
         tasks: todosSummary(),
         locale: currentLocale,
       })
@@ -2004,10 +2044,15 @@ async function main(): Promise<void> {
     }
     // The context window size feeds the status-bar percentage and its color.
     // Apply it to the live editor immediately (the value is a plain number,
-    // no restart needed).
-    if (path === 'ui.contextLimit' && typeof value === 'number') {
+    // no restart needed). A change to EITHER provider's limit matters: the
+    // Qwen one is what a /model pick rewrites, and the active provider is
+    // what decides which value the editor shows.
+    if (
+      (path === 'ui.contextLimit' || path === 'qwen.contextLimit') &&
+      typeof value === 'number'
+    ) {
       if (editor) {
-        editor.setContextLimit(value)
+        editor.setContextLimit(effectiveContextLimit())
         editor.refreshStatus()
       }
     }
@@ -2902,6 +2947,16 @@ async function main(): Promise<void> {
           if (picked) {
             config.qwen.model = picked
             if (typeof qb.model === 'string') qb.model = picked
+            // Derive the context window from the picked model: Qwen windows
+            // are per-model (258K vs 1M), and this number is the denominator
+            // of the auto-compact threshold. The operator's manual
+            // `/config set qwen.contextLimit` still wins afterwards (this
+            // only runs on an explicit pick).
+            applyModelContextLimit(picked)
+            if (editor) {
+              editor.setContextLimit(effectiveContextLimit())
+              editor.refreshStatus()
+            }
             try {
               writeConfigValue('home', 'qwen.model', picked)
             } catch {}
@@ -2915,6 +2970,11 @@ async function main(): Promise<void> {
       }
       config.qwen.model = arg
       if (typeof qb.model === 'string') qb.model = arg
+      applyModelContextLimit(arg)
+      if (editor) {
+        editor.setContextLimit(effectiveContextLimit())
+        editor.refreshStatus()
+      }
       try {
         writeConfigValue('home', 'qwen.model', arg)
       } catch {}
@@ -3713,7 +3773,7 @@ async function main(): Promise<void> {
                 saveLastChat(chatId, currentWorkdir)
               }
             },
-            contextLimit: config.ui.contextLimit,
+            contextLimit: effectiveContextLimit(),
             getTokenUsage: () => browser.getLastTokenUsage(),
             goal: sessionGoal,
           },
@@ -3866,7 +3926,7 @@ async function main(): Promise<void> {
               mcpTools: mcpStatus.toolCount,
               transcriptOk: !!transcript.file,
               authSaved: authMarkerExists(),
-              contextLimit: config.ui.contextLimit,
+              contextLimit: effectiveContextLimit(),
               hasOrigin: gitOk
                 ? (await runGitArgs(['remote'], currentWorkdir, 5000)).includes(
                     'origin',
@@ -4450,7 +4510,7 @@ async function main(): Promise<void> {
               }
             : null,
           autoCompactPct: config.browser.autoCompactPct,
-          contextLimit: config.ui.contextLimit,
+          contextLimit: effectiveContextLimit(),
           getTokenUsage: () => browser.getLastTokenUsage(),
           goal: sessionGoal,
           // Completion-goal mode (Claude Code parity): the goal is a CONDITION,

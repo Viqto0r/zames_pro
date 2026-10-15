@@ -25,6 +25,13 @@ export const DEFAULTS: ZamesConfig = {
   qwen: {
     model: '',
     enabled: false,
+    // Qwen's context window is PER-MODEL, not a site constant: Qwen3-Max is
+    // 258K while the 3.7/3.8-Max and Coder builds are 1M. The default assumes
+    // the common Qwen3-Max; `/model` re-derives it from the picked id (see
+    // qwenContextWindow in src/qwen-ui.ts) and `/config set qwen.contextLimit`
+    // overrides it. Kept SEPARATE from ui.contextLimit (DeepSeek's 1M) so one
+    // backend's window never becomes the other's denominator.
+    contextLimit: 258_048,
     // Qwen DOES rate-limit a rapid burst: measured live, the 5th back-to-back
     // send at 0 ms gap hit "too frequent" and needed a 5-min back-off. A 1 s
     // gap was too small for a real editing session, so the default is now 4 s
@@ -284,6 +291,14 @@ export const CONFIG_SCHEMA: ConfigField[] = [
     path: 'qwen.model',
     type: 'string',
     labelKey: 'cfg.f.qwen_model',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'qwen.contextLimit',
+    type: 'number',
+    min: 10_000,
+    max: 10_000_000,
+    labelKey: 'cfg.f.qwen_contextLimit',
     groupKey: 'cfg.group.browser',
   },
   {
