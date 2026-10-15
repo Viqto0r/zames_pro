@@ -565,3 +565,19 @@ test('parseCsiU: kitty Ctrl+Delete deletes the word on the LEFT', () => {
   // Plain kitty Delete still deletes one char.
   assert.equal(parseCsiU(ESC + '[3u')?.type, 'delete')
 })
+
+test('dispatchKey: ESC d (VSCode Ctrl+Delete) deletes the word LEFT', () => {
+  // VSCode's terminal sends Ctrl+Delete as `ESC d`, which Ink reports as
+  // meta+d (name='d', input='d'). The operator expects it to delete the word
+  // BEFORE the cursor — without this branch it fell through and did nothing.
+  const ctx = {
+    searchMode: false,
+    bufferEmpty: false,
+    endsWithBackslash: false,
+  }
+  const edges = { atTop: true, atBottom: true }
+  assert.equal(
+    dispatchKey('d', key({ meta: true }), ctx, edges)?.type,
+    'deleteWordLeft',
+  )
+})

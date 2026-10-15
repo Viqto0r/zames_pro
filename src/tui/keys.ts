@@ -189,6 +189,9 @@ export function dispatchKey(
     if (key.return) return { type: 'newline' }
     if (input === 'b') return { type: 'wordLeft' }
     if (input === 'f') return { type: 'wordRight' }
+    // VSCode sends Ctrl+Delete as `ESC d` (which Ink reports as Alt+d).
+    // The operator expects it to delete the word BEFORE the cursor.
+    if (input === 'd') return { type: 'deleteWordLeft' }
     if (key.backspace) return { type: 'deleteWordLeft' }
     if (key.delete) return { type: 'deleteWordRight' }
     return null
