@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.75.2] - 2026-10-15
+
+### Changed
+
+- batch read-only tool calls and skip redundant checkpoints
+
 ## [2.75.1] - 2026-10-15
 
 ### Added
