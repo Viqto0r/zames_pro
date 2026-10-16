@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.76.0] - 2026-10-16
+
+### Added
+
+- bake methodology skills in, localize skill hints, fix Ctrl+Del and scroll-to-bottom
+
 ## [2.75.6] - 2026-10-16
 
 ### Added
