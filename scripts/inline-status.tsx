@@ -18,7 +18,6 @@ const p = {
   onSubmit: () => {},
   onEscape: () => {},
   onCtrlC: () => {},
-  onCopyCode: () => {},
   onAttach: () => null,
   onClipboard: () => Promise.resolve(null),
   onHistoryChange: () => {},

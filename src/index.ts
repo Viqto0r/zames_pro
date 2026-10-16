@@ -98,7 +98,6 @@ import {
 import { createCliArgs } from './cli-args.js'
 import { qwenContextWindow } from './qwen-ui.js'
 import { renderMarkdown, setAnswerWidth } from './markdown.js'
-import { extractCodeBlocks } from './code-blocks.js'
 import { contentWidth } from './width.js'
 import { renderStartupBanner } from './banner.js'
 import { runStatusLineCommand } from './statusline.js'
@@ -1827,12 +1826,6 @@ async function main(): Promise<void> {
       )
       return att
     }
-    // Ctrl+Y (and /copy-code) copies a code block from the LAST answer. The
-    // callback is a thin adapter over writeClipboardText so the browser/UI
-    // never talks to the clipboard directly. The UI surface is shared with the
-    // legacy LineEditor, which has no copy hook — TS narrows the ternary to a
-    // union, so assign through the common record form.
-    ;(ed as UiEditor).onCopyText = (text: string) => writeClipboardText(text)
     ed.onSubmit = (text: string, items) => {
       // While the agent is busy the main command loop is blocked on
       // `await runTask()`, so ONLY commands that make sense without the main
@@ -3681,60 +3674,6 @@ async function main(): Promise<void> {
         console.log(theme.assistant(t('copy.done', { tool: res.via })))
       } else {
         console.error(theme.warn(t('copy.failed', { tool: res.via })))
-      }
-      continue
-    }
-
-    if (lower === '/copy-code' || lower.startsWith('/copy-code ')) {
-      const arg = trimmed.slice('/copy-code'.length).trim()
-      const blocks = extractCodeBlocks(lastAssistantMessage ?? '')
-      if (!blocks.length) {
-        console.log(theme.dim(t('copy.no_code')))
-        continue
-      }
-      if (arg === 'list') {
-        console.log(theme.system(t('copy_code.list')))
-        for (const b of blocks) {
-          console.log(
-            theme.assistant(
-              t('copy_code.item', {
-                n: String(b.index),
-                lang: b.lang || 'text',
-                lines: String(b.text.split(String.fromCharCode(10)).length),
-              }),
-            ),
-          )
-        }
-        continue
-      }
-      // Prefer the TUI copy path (it reports into the log); fall back to a
-      // direct clipboard write for the legacy editor / non-TTY.
-      const n = arg ? Number(arg) : undefined
-      if (n !== undefined && (!Number.isInteger(n) || n < 1)) {
-        console.log(theme.warn(t('copy.bad_index', { n: arg })))
-        continue
-      }
-      if (
-        editor &&
-        'copyCode' in editor &&
-        typeof editor.copyCode === 'function'
-      ) {
-        editor.copyCode(n)
-        continue
-      }
-      const pick =
-        n !== undefined
-          ? blocks.find((b) => b.index === n)
-          : blocks[blocks.length - 1]
-      if (!pick) {
-        console.log(theme.warn(t('copy.bad_index', { n: String(n) })))
-        continue
-      }
-      const res2 = writeClipboardText(pick.text)
-      if (res2.ok) {
-        console.log(theme.assistant(t('copy.done', { tool: res2.via })))
-      } else {
-        console.error(theme.warn(t('copy.failed', { tool: res2.via })))
       }
       continue
     }

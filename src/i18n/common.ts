@@ -252,22 +252,6 @@ export const commonMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Не удалось скопировать (нет {tool} или он недоступен).',
     en: 'Could not copy ({tool} missing or unavailable).',
   },
-  'copy.no_code': {
-    ru: 'В последнем ответе нет блоков кода.',
-    en: 'The last answer has no code blocks.',
-  },
-  'copy.bad_index': {
-    ru: 'Нет блока кода #{n}.',
-    en: 'No code block #{n}.',
-  },
-  'copy_code.list': {
-    ru: 'Блоки кода последнего ответа:',
-    en: 'Code blocks in the last answer:',
-  },
-  'copy_code.item': {
-    ru: '  #{n} {lang} — {lines} стр.',
-    en: '  #{n} {lang} — {lines} lines',
-  },
   'retry.running': { ru: 'Повторяю задачу…', en: 'Retrying the task...' },
   'rename.usage': {
     ru: 'Использование: /rename <title>',

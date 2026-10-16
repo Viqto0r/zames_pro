@@ -12,7 +12,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
-import fs from 'node:fs'
 import path from 'node:path'
 import { Term } from './vt100.mjs'
 
@@ -26,7 +25,6 @@ function runProbe(
   buf: string,
   keys: string[],
   delayMs = 250,
-  copyLog?: string,
   inline = false,
   probe = 'tui-probe',
   cols = COLS,
@@ -46,7 +44,6 @@ function runProbe(
           ...process.env,
           COLUMNS: String(cols),
           LINES: String(rows),
-          ...(copyLog ? { PROBE_COPY_LOG: copyLog } : {}),
           ...(inline ? { PROBE_INLINE: '1' } : {}),
           // The pty probes mount the app with the SCROLL mouse mode, so the
           // hint row they assert on is the Shift-to-select variant.
@@ -137,29 +134,10 @@ run(
   },
 )
 
-run('pty: Ctrl+Y fires the code-copy callback', async () => {
-  const copyLog = path.join(process.cwd(), 'tmp', 'probe-copy.log')
-  try {
-    fs.unlinkSync(copyLog)
-  } catch {
-    /* ignore */
-  }
-  // Ctrl+Y = 0x19.
-  const out = await runProbe('', ['\u0019'], 400, copyLog)
-  void out
-  let hits = ''
-  try {
-    hits = fs.readFileSync(copyLog, 'utf-8')
-  } catch {
-    /* ignore */
-  }
-  assert.ok(hits.includes('copy'), 'Ctrl+Y must invoke onCopyCode')
-})
-
 run('pty: INLINE mode renders the input and accepts a newline', async () => {
   // Inline mode does not use the alternate screen; the input box still grows
   // with a multi-line buffer and the Ctrl+J newline must appear.
-  const out = await runProbe('', ['a', NL, 'b'], 350, undefined, true)
+  const out = await runProbe('', ['a', NL, 'b'], 350, true)
   const term = screen(out)
   assert.ok(term.findRow('> a') >= 0, 'inline: first line must be visible')
   assert.ok(
@@ -179,7 +157,6 @@ run(
       '',
       ['a', NL, 'b', NL, 'c'],
       250,
-      undefined,
       false,
       'tui-repro',
       40,
@@ -346,7 +323,6 @@ run('pty: a key hint sits UNDER the input box (full-screen)', async () => {
     '',
     ['a', NL, 'b'],
     250,
-    undefined,
     false,
     'tui-repro',
     80,

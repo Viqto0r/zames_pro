@@ -107,11 +107,6 @@ export interface TuiState {
   searchEnabled: boolean
   /** statusLine hook text, empty hides it. */
   statusLine: string
-  /** Code blocks extracted from the LAST assistant answer, so one can be
-   *  copied by hotkey (a terminal has no copy buttons). */
-  codeBlocks: Array<{ lang: string; text: string; index: number }>
-  /** Which code block a copy targets: -1 = the LAST one. */
-  codeFocus: number
   /** Terminal columns (resize-aware). */
   columns: number
 }
@@ -146,8 +141,6 @@ function initialState(): TuiState {
     thinkingEnabled: false,
     searchEnabled: false,
     statusLine: '',
-    codeBlocks: [],
-    codeFocus: -1,
     columns: process.stdout.columns || 80,
   }
 }

@@ -1269,7 +1269,6 @@ export const SLASH_COMMANDS: SlashCommandEntry[] = [
   { name: '/rename', key: 'help.cmd.rename' },
   { name: '/context', key: 'help.cmd.context' },
   { name: '/copy', key: 'help.cmd.copy' },
-  { name: '/copy-code', key: 'help.cmd.copy_code' },
   { name: '/chat', key: 'help.cmd.chat' },
   { name: '/cd', key: 'help.cmd.cd' },
   { name: '/pwd', key: 'help.cmd.pwd' },

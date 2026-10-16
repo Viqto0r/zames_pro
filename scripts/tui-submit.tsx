@@ -33,7 +33,6 @@ const inputProps = {
   },
   onEscape: () => {},
   onCtrlC: () => {},
-  onCopyCode: () => {},
   onAttach: () => null,
   onClipboard: () => Promise.resolve(null),
   onHistoryChange: () => {},

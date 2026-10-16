@@ -46,11 +46,6 @@ export function badgeTextWidth(state: TuiState): number {
   if (state.statusLine) w += visLen(state.statusLine) + 1
   if (state.provider) w += visLen('[' + state.provider + '] ')
   if (state.queueLength > 0) w += visLen('⧗' + state.queueLength + ' ')
-  if (state.codeBlocks.length > 0) {
-    const idx =
-      state.codeFocus >= 0 ? state.codeFocus + 1 : state.codeBlocks.length
-    w += visLen('⌘ ' + idx + '/' + state.codeBlocks.length + ' ')
-  }
   if (state.tasks) w += visLen(state.tasks) + 1
   const toggles: string[] = []
   if (state.thinkingEnabled) toggles.push('🧠\uFE0E')
@@ -109,18 +104,6 @@ function Badges({
       visLen('⧗' + state.queueLength + ' '),
       <Text key="q" color="#c9a86a">
         {'⧗' + state.queueLength}{' '}
-      </Text>,
-    )
-  }
-  if (state.codeBlocks.length > 0) {
-    const idx =
-      state.codeFocus >= 0 ? state.codeFocus + 1 : state.codeBlocks.length
-    const label = '⌘ ' + idx + '/' + state.codeBlocks.length + ' '
-    add(
-      'code',
-      visLen(label),
-      <Text key="code" color="#7fc4f0">
-        {label}
       </Text>,
     )
   }

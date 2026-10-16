@@ -84,8 +84,6 @@ export interface InputLineProps {
   /** Called on Esc (abort generation). */
   onEscape: () => void
   onCtrlC: () => void
-  /** Copy the focused (or last) code block from the last answer. */
-  onCopyCode: () => void
   /** Called with a pasted path/data to attach it. */
   onAttach: (raw: string) => Promise<Attachment | null> | Attachment | null
   /** Called to try the OS clipboard for an image. */
@@ -346,9 +344,6 @@ export function InputLine(props: InputLineProps): React.ReactElement {
           return
         case 'clipboard':
           void tryClipboard()
-          return
-        case 'copyCode':
-          props.onCopyCode()
           return
         default:
           return

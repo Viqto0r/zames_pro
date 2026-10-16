@@ -23,25 +23,18 @@ store.set({
   commands: [],
   mouseScroll: process.env.PROBE_MOUSE === '1',
   edit: { ...initialEditState(), buf: process.argv[2] ?? '' },
-  // A copyable code block, so a pty run can press Ctrl+Y and assert the copy
-  // callback fired (the raw block, not the highlighted render).
-  codeBlocks: [{ lang: 'ts', text: 'const a = 1', index: 1 }],
 })
 
 // A few log rows so the viewport is not empty.
 store.pushLog('system', 'log line one')
 store.pushLog('system', 'log line two')
 
-const COPY_LOG = process.env.PROBE_COPY_LOG || ''
 const INLINE = process.env.PROBE_INLINE === '1'
 
 const inputProps = {
   onSubmit: () => {},
   onEscape: () => {},
   onCtrlC: () => {},
-  onCopyCode: () => {
-    if (COPY_LOG) fs.appendFileSync(COPY_LOG, 'copy' + String.fromCharCode(10))
-  },
   onAttach: () => null,
   onClipboard: () => Promise.resolve(null),
   onHistoryChange: () => {},
