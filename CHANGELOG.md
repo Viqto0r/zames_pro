@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.75.6] - 2026-10-16
+
 ### Added
 
 - **tools:** AskUser — a modal question with options (and a free-text escape)
@@ -20,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- prune dead code, untrack one-off TUI probes, ship only postinstall
 - **tui:** drop the unused onCopy/hint affordance from CodeBlock
 - **tui:** drop the code-block copy feature (Ctrl+Y / /copy-code)
 
