@@ -120,6 +120,19 @@ export const commonMessages: Record<string, { ru: string; en: string }> = {
     en: 'Allow this call?',
   },
   'perm.title': { ru: 'Подтверждение', en: 'Confirmation' },
+  // The AskUser modal (the model asks the operator a question with options).
+  'askuser.title': { ru: 'Вопрос от агента', en: 'Question from the agent' },
+  'askuser.other': {
+    ru: 'Свой вариант — введу текстом',
+    en: 'Other — I will type my own answer',
+  },
+  'askuser.recommended': { ru: 'рекомендую', en: 'recommended' },
+  'askuser.your_answer': { ru: 'Ваш ответ:', en: 'Your answer:' },
+  'askuser.hint_select': { ru: 'выбор', en: 'select' },
+  'askuser.hint_ok': { ru: 'ок', en: 'ok' },
+  'askuser.hint_dismiss': { ru: 'закрыть', en: 'dismiss' },
+  'askuser.hint_send': { ru: 'отправить', en: 'send' },
+  'askuser.hint_cancel': { ru: 'отмена', en: 'cancel' },
   'confirm.yes': { ru: 'Да', en: 'Yes' },
   'confirm.no': { ru: 'Нет', en: 'No' },
   'perm.ask_sub': {

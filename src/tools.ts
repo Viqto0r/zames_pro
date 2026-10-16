@@ -375,6 +375,36 @@ export function createTools(
       'Subagents are not available in this run. Do the work yourself.',
   }
 
+  // The AskUser seam: a MODAL question to the operator (multi-choice with a
+  // recommended option and a free-text escape). Like `Task`, it is handled by
+  // the CALLER (onAskUser), not by `fn` — the live path intercepts the name in
+  // agent-loop. `fn` only answers a direct unit-test call. It is not offered in
+  // plan/read-only mode (a plan must not interrupt).
+  const askUserTool: ToolDef = {
+    name: 'AskUser',
+    description:
+      'Ask the operator a question with a short list of OPTIONS when a decision ' +
+      'is genuinely ambiguous and you cannot proceed safely without it. One ' +
+      'option may be marked recommended (the model puts it FIRST and sets ' +
+      '`recommended` to its index/label). The operator can also pick "other" ' +
+      'and type free text. Use it SPARINGLY: prefer a reasonable default and ' +
+      'state it in your final answer — a question costs the operator a ' +
+      'context switch and blocks the run until answered. Do NOT ask for ' +
+      'confirmation of something you can verify yourself (read the file, run ' +
+      'the test). Returns the chosen option label, or the typed text, or an ' +
+      'empty answer when the operator dismissed the dialog.',
+    parameters: {
+      question: 'string',
+      options: 'array',
+      recommended: 'number?',
+      allow_text: 'boolean?',
+    },
+    fn: async ({ question }: ToolArgs) =>
+      'AskUser is not available in this run (no interactive UI). Proceed with ' +
+      'your best judgement and state the assumption. Question was: ' +
+      String(question ?? ''),
+  }
+
   // In plan (read-only) mode `Task` is dropped too: a `general` subagent could
   // otherwise write through it and defeat the read-only promise.
   const all = [
@@ -383,6 +413,7 @@ export function createTools(
     ...gitTools,
     ...webTools,
     ...(subagents && !readOnly ? [taskTool] : []),
+    ...(readOnly ? [] : [askUserTool]),
     respondTool,
   ]
   return readOnly ? filterToolsForReadOnly(all) : all
@@ -403,6 +434,11 @@ export const MUTATING_TOOLS = new Set([
   'GitAdd',
   'GitCommit',
   'GitPush',
+  // AskUser is NOT mutating (it touches no file), but plan mode exists to
+  // PRODUCE a plan with no side effects and no interruptions; a modal question
+  // mid-plan is exactly what plan mode must not do. Dropped in read-only mode
+  // so the model records the open question as a plan note instead.
+  'AskUser',
 ])
 
 /** Drop mutating tools for read-only / plan mode. Pure; unit-tested. */

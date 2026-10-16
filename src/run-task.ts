@@ -18,6 +18,7 @@ import {
 import { formatCompactTokens, pasteReplacement, expandPastes } from './input.js'
 import type {
   runAgentLoop,
+  AskUserRequest,
   SubagentRequest,
   SubagentResult,
 } from './agent-loop.js'
@@ -91,6 +92,12 @@ export interface RunTaskOptions {
    * the caller so this module stays free of the browser/session lifecycle.
    */
   onSubagent?: ((req: SubagentRequest) => Promise<SubagentResult>) | null
+  /**
+   * Ask the operator a modal question (the `AskUser` tool). Provided by the
+   * caller so this module stays free of the TUI import; the default builds one
+   * that pauses the editor, shows the Ink modal and resumes.
+   */
+  onAskUser?: ((req: AskUserRequest) => Promise<string | null>) | null
 }
 
 // Everything the task runner needs from the main module. Passed explicitly so
@@ -435,6 +442,7 @@ export async function runTask(
     todosQuery = null,
     selfImprovement = false,
     onSubagent = null,
+    onAskUser = undefined,
   } = opts
 
   // The ACTIVE goal for the duration of this run. It is mutable because a
@@ -579,6 +587,30 @@ export async function runTask(
         getTokenUsage,
         selfImprovement,
         onSubagent,
+        // The `AskUser` seam. Default: pause the editor, show the Ink modal,
+        // resume; on a non-TTY (or no editor) it resolves null so the model is
+        // told to pick a default rather than being stuck on a question nobody
+        // can see.
+        onAskUser:
+          onAskUser === undefined
+            ? async (req: AskUserRequest) => {
+                if (!editor) return null
+                editor.pause()
+                try {
+                  const { askQuestionInk } = await import(
+                    './tui/run-ask.js'
+                  )
+                  return await askQuestionInk({
+                    question: req.question,
+                    options: req.options,
+                    recommended: req.recommended,
+                    allowText: req.allowText,
+                  })
+                } finally {
+                  editor.resume()
+                }
+              }
+            : onAskUser,
         // N38: the check command appended to a tool result after an edit
         // (off by default; config.diagnostics).
         diagnostics: deps.config.diagnostics,

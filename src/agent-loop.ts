@@ -152,6 +152,27 @@ export interface RunAgentLoopOptions {
    * the parent chat. The loop awaits it, so it serializes with the throttle.
    */
   onSubagent?: ((req: SubagentRequest) => Promise<SubagentResult>) | null
+  /**
+   * Ask the operator a modal question with options (the `AskUser` tool). The
+   * callback owns the UI (the Ink select list) and returns the chosen option
+   * label, the free text the operator typed, or null when dismissed. When
+   * omitted the `AskUser` tool is not offered and a stray call answers with
+   * the tool's own fallback text.
+   */
+  onAskUser?:
+    | ((req: AskUserRequest) => Promise<string | null>)
+    | null
+}
+
+// One `AskUser` request: the question, the options (the FIRST is the model's
+// recommendation), and whether the operator may answer with free text.
+export interface AskUserRequest {
+  question: string
+  options: string[]
+  /** Index of the recommended option (0-based), or null. */
+  recommended: number | null
+  /** True when the "type my own answer" escape should be shown. */
+  allowText: boolean
 }
 
 export async function runAgentLoop({
@@ -188,6 +209,7 @@ export async function runAgentLoop({
   onAskPermission = undefined,
   selfImprovement = false,
   onSubagent = null,
+  onAskUser = null,
 }: RunAgentLoopOptions): Promise<string> {
   // Resolve the hook config ONCE per task: a read per tool call would be
   // wasteful, and a mid-task edit of hooks.json is not something to chase.
@@ -1128,6 +1150,70 @@ export async function runAgentLoop({
           // the capture left over from the subagent's chat would otherwise make
           // the watchdog compare the parent's next answer against IT and fire.
           lastRaw = ''
+          if (browser._abort || browser._stopped) {
+            transcript?.log('user_aborted')
+            return '(прервано пользователем)'
+          }
+          continue
+        }
+
+        // `AskUser` is a SEAM like `Task`: the CALLER owns the modal UI, the
+        // loop only relays the question and folds the answer back as the tool
+        // result. Intercepted BEFORE the unknown-tool branch so the tool can be
+        // handled even though its `fn` is a stub.
+        if (call.tool === 'AskUser') {
+          const rawQ =
+            typeof call.args.question === 'string'
+              ? call.args.question.trim()
+              : ''
+          const opts = Array.isArray(call.args.options)
+            ? (call.args.options as unknown[])
+                .map((o) => String(o ?? '').trim())
+                .filter(Boolean)
+                .slice(0, 6)
+            : []
+          const recRaw = Number(call.args.recommended)
+          const recommended =
+            Number.isInteger(recRaw) && recRaw >= 0 && recRaw < opts.length
+              ? recRaw
+              : null
+          const allowText = call.args.allow_text !== false
+          if (!onAskUser || !rawQ || opts.length < 2) {
+            const err =
+              !onAskUser
+                ? 'AskUser is not available in this run. Choose a sensible default, proceed, and state the assumption in your final answer.'
+                : 'AskUser requires a non-empty `question` and at least two `options`. Proceed with your best judgement instead.'
+            safeToolResult(err)
+            transcript?.log('tool_error', { tool: 'AskUser', error: err })
+            results.push({ tool: 'AskUser', result: err })
+            continue
+          }
+          syncToolAbort()
+          safeToolCall('AskUser', call.args)
+          transcript?.log('ask_user', {
+            question: rawQ,
+            options: opts,
+            recommended,
+            allowText,
+          })
+          let answer: string | null
+          try {
+            answer = await onAskUser({
+              question: rawQ,
+              options: opts,
+              recommended,
+              allowText,
+            })
+          } catch (e) {
+            answer = `AskUser error: ${(e as Error).message}`
+          }
+          const out =
+            answer === null || answer === ''
+              ? '(the operator dismissed the question — choose a sensible default, proceed, and state the assumption)'
+              : 'The operator answered: ' + answer
+          safeToolResult(out)
+          transcript?.log('ask_user_result', { answer: out })
+          results.push({ tool: 'AskUser', result: out })
           if (browser._abort || browser._stopped) {
             transcript?.log('user_aborted')
             return '(прервано пользователем)'

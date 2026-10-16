@@ -64,6 +64,37 @@ cheap; guessing is not.
 // broad search itself and floods the main context) or misuses them (delegates
 // work that needs THIS conversation's history, which the isolated subagent
 // cannot see). Kept short: it competes with the tool list for space.
+// Guidance for the `AskUser` tool, injected only when that tool is offered.
+// Without it the model either never asks (and silently guesses) or asks about
+// things it could verify itself. Kept short and biased toward NOT asking.
+const ASKUSER_SECTION = `
+## AskUser tool (asking the operator)
+
+AskUser shows the operator a MODAL multi-choice question: a short list of
+options, one of them marked recommended, plus an "other" escape where they can
+type free text. It BLOCKS the run until answered and costs the operator a
+context switch, so use it SPARINGLY — only when the decision is genuinely
+ambiguous AND you cannot proceed safely by choosing a sensible default.
+
+Ask when:
+- the request has two or more materially different interpretations and the
+  wrong one wastes real work (e.g. "delete the feature" — code only, or code
+  plus its tests and docs?);
+- a destructive/irreversible action needs a decision you cannot derive from
+  the repo (which remote, which branch to force-push);
+- the operator explicitly asked you to check before deciding.
+
+Do NOT ask when:
+- you can read the answer from the code, the config or the git history;
+- one option is clearly right — pick it and state the assumption in your
+  final answer instead;
+- the task is trivial or already precise.
+
+Keep 2–4 options, put the RECOMMENDED one FIRST and mark it, and give each a
+one-line consequence ("X — because …"). The question text says WHY you are
+asking and what you will do with the answer.
+`
+
 const SUBAGENT_SECTION = `
 ## Task tool (subagents)
 
@@ -223,6 +254,10 @@ export function buildSystemPrompt({
   const subagentSection = tools.some((x) => x.name === 'Task')
     ? SUBAGENT_SECTION
     : ''
+  // Same idea for AskUser: guidance only when the tool is in the set.
+  const askUserSection = tools.some((x) => x.name === 'AskUser')
+    ? ASKUSER_SECTION
+    : ''
 
   const gitSection = gitContext
     ? `\n## Git context\n\n${gitContext}\n`
@@ -330,7 +365,7 @@ Rules for a batch:
 - Typical wins: read all the files a task mentions at once; grep for all the
   symbols you need at once; after planning a multi-file change, write all the
   files you can write independently at once.
-${subagentSection}
+${subagentSection}${askUserSection}
 ## MCP tools
 
 Some tools are provided by external MCP servers and their names look
