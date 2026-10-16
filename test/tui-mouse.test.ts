@@ -9,6 +9,7 @@ import {
   incompleteTail,
   mouseModeSequences,
 } from '../src/tui/useMouseWheel.ts'
+import { DEFAULTS } from '../src/config.ts'
 
 const ESC = String.fromCharCode(27)
 
@@ -89,6 +90,14 @@ test('mouseModeSequences(SELECT): reporting OFF in the steady state', () => {
   )
   assert.ok(off.includes(ESC + '[?1006l'))
   assert.ok(off.includes(ESC + '[?1000l'))
+})
+
+test('config: ui.mouseScroll defaults to SELECT (selection works)', () => {
+  // The default must keep NATIVE drag-select working, i.e. mouse reporting
+  // OFF (SELECT). Flipping it to true steals the mouse and needs Shift to
+  // select — the operator complained about exactly that, so the default is
+  // pinned here.
+  assert.equal(DEFAULTS.ui.mouseScroll, false)
 })
 
 test('parseWheel: SHIFT+wheel still scrolls (modifier is ignored)', () => {

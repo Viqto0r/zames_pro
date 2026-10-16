@@ -73,12 +73,21 @@ function runProbe(
   })
 }
 
-/** Replay the pty output, dropping `script`'s own kill banner (it overwrites
- *  the last row and would corrupt the geometry assertion). */
+/** Replay the pty output, dropping the pty's own kill banner. */
 function screen(out: string): Term {
-  const idx = out.indexOf('Session terminated')
+  // `script`'s banner ('Session terminated, killing shell...') is appended
+  // WITHOUT a leading newline, so it OVERWRITES the last row of the real
+  // screen — the hint row this file asserts on. Cut the replay at the LAST
+  // newline BEFORE the banner: the real output always ends a frame with one,
+  // and everything after it is the banner.
+  const banner = out.indexOf('Session terminated')
+  const cut = out.lastIndexOf(
+    String.fromCharCode(10),
+    banner >= 0 ? banner : out.length,
+  )
+  const body = banner >= 0 ? out.slice(0, cut >= 0 ? cut : banner) : out
   const term = new Term(ROWS, COLS)
-  term.write(idx >= 0 ? out.slice(0, idx) : out)
+  term.write(body)
   return term
 }
 
@@ -344,8 +353,10 @@ run('pty: a key hint sits UNDER the input box (full-screen)', async () => {
   const top = term.findRow('╭')
   const bottom = term.findRow('╰')
   assert.ok(top >= 0 && bottom > top, 'the input box must be on screen')
-  // The hint row is BELOW the bottom border.
-  const hintRow = term.findRow('Shift+drag')
+  // The hint row is BELOW the bottom border. The hint is localized, and the
+  // wording is "Shift+click" (matching what the key does); match a stable
+  // fragment instead of the full line so a copy tweak does not break the test.
+  const hintRow = term.findRow('wheel — scroll')
   assert.ok(hintRow > bottom, 'the hint must be under the input box')
   // Both typed lines are INSIDE the box (the panel did not overflow).
   const aRow = term.findRow('❯ › a')

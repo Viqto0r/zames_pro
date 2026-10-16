@@ -258,8 +258,11 @@ The prompt is a small line editor with persistent history:
 Full-screen mode adds dialog navigation, so a long answer can be read and
 selected without leaving the terminal:
 
-- mouse wheel — scroll the dialog (never the input history; history is arrow
-  keys only). Selecting text needs `Shift`+click, the standard TUI convention.
+- `ui.mouseScroll=false` (default) — the terminal owns the mouse: normal text
+  selection works and the wheel is inert (it never scrolls the input history —
+  history is arrow keys only).
+- `ui.mouseScroll=true` — the app consumes the wheel and scrolls the dialog;
+  selecting text then needs `Shift`+click (the TUI convention).
 - `PgUp` / `PgDn` — move up/down the dialog half a screen.
 - `Home` / `End` — jump to the very top / bottom of the dialog (only while the
   input line is empty; with text typed they move the caret as usual).
@@ -838,8 +841,11 @@ zames
 В полноэкранном режиме добавляется навигация по диалогу, чтобы длинный ответ
 можно было прочитать и выделить не покидая терминал:
 
-- колесо мыши — скролл диалога (историю ввода колесо НЕ листает; история —
-  только стрелки). Выделение текста — `Shift`+клик, стандарт TUI.
+- `ui.mouseScroll=false` (по умолчанию) — терминал владеет мышью: обычное
+  выделение текста работает, колесо инертно (и никогда не листает историю
+  ввода — история только стрелками).
+- `ui.mouseScroll=true` — приложение перехватывает колесо и скроллит диалог;
+  выделение текста тогда — `Shift`+клик (стандарт TUI).
 - `PgUp` / `PgDn` — вверх/вниз по диалогу на пол-экрана.
 - `Home` / `End` — прыжок в самый верх / низ диалога (только когда строка ввода
   пуста; при набранном тексте они двигают курсор, как обычно).

@@ -435,17 +435,17 @@ lifetime, so the wheel never becomes arrows.
 The two useful behaviors are MUTUALLY EXCLUSIVE, so the hook has exactly two
 modes and `mouseModeSequences(enabled)` returns a single sequence per mode:
 
-- **SCROLL** (`ui.mouseScroll=true`, the DEFAULT): reporting is ON, the raw SGR
-  events scroll the log, and drag-select needs Shift (the standard TUI
-  convention: Claude Code / Codex / opencode do the same). This is the default
-  because the operator wants the wheel to scroll the DIALOG, and the wheel must
-  NEVER touch the input history (history is arrow keys only). `1007l` is sent
-  so the terminal never turns the wheel into arrows.
-- **SELECT** (`ui.mouseScroll=false`): mouse reporting stays OFF, so the
-  terminal owns the mouse — drag-select works natively and the wheel is inert.
-  The 1007l primer is applied once at mount (with reporting briefly on, since
-  some terminals ignore 1007l otherwise) and reporting is then turned back off;
-  the listener is not bound, so nothing consumes the selection.
+- **SELECT** (`ui.mouseScroll=false`, the DEFAULT): mouse reporting stays OFF,
+  so the terminal owns the mouse — drag-select works natively and the wheel is
+  inert. The 1007l primer is applied once at mount (with reporting briefly on,
+  since some terminals ignore 1007l otherwise) and reporting is then turned
+  back off; the listener is not bound, so nothing consumes the selection. This
+  is the default because selection is a baseline expectation in a terminal UI.
+- **SCROLL** (`ui.mouseScroll=true`): reporting is ON, the raw SGR events
+  scroll the log, and drag-select needs Shift (the standard TUI convention:
+  Claude Code / Codex / opencode do the same). `1007l` is sent so the terminal
+  never turns the wheel into arrows, and the wheel must NEVER touch the input
+  history (history is arrow keys only).
 
 Earlier the hook enabled reporting UNCONDITIONALLY and only gated the scroll,
 so native selection was lost even with the option off. A SECOND regression was
