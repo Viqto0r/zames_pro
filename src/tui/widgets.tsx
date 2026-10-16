@@ -139,13 +139,12 @@ export function HintBar({
 }
 
 /**
- * A CODE BLOCK with a syntax-highlighted body and a copy affordance.
+ * A CODE BLOCK with a syntax-highlighted body and an optional title label.
  *
  * The agent's answers are printed as pre-rendered ANSI (markdown.ts already
  * highlights with cli-highlight), so the live log does NOT use this component —
  * it exists for menus/panels that show a snippet inline (and for a future
- * structured log). Copying is a KEY, not a button: a terminal has no pointer.
- * Pass `onCopy` and show `hint` so the operator learns the binding.
+ * structured log).
  */
 export function CodeBlock({
   code,
@@ -154,23 +153,16 @@ export function CodeBlock({
   width,
   hint,
   focused,
-  onCopy,
 }: {
   code: string
   lang?: string
   /** Pre-highlighted ANSI for the body; falls back to the raw `code`. */
   highlighted?: string
   width?: number
-  /** e.g. "Ctrl+Y copy" — shown in the title bar when `onCopy` is set. */
+  /** A short label shown on the right of the title bar. */
   hint?: string
   focused?: boolean
-  onCopy?: () => void
 }): React.ReactElement {
-  // React cannot call `onCopy` from a keydown here (Ink has no per-element
-  // focus ring by default); the caller wires the key and passes `focused` to
-  // show which block it will copy. `onCopy` is kept so a future focus manager
-  // can invoke it without changing the call sites.
-  void onCopy
   return (
     <Box
       flexDirection="column"
