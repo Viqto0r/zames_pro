@@ -21,7 +21,7 @@ export const CHAT_ID_RE = /\/chat\/s\/([a-zA-Z0-9_-]+)/
 
 // DeepSeek's chat URL shape. A direct navigation always yields the requested
 // chat (the sidebar link click is tried first, this is the fallback).
-export const CHAT_PATH_PREFIX = 'a/chat/s/'
+const CHAT_PATH_PREFIX = 'a/chat/s/'
 export function chatUrl(id: string): string {
   return CHAT_URL + CHAT_PATH_PREFIX + id
 }
@@ -210,8 +210,6 @@ export const MFA_CODE_SELECTORS = [
   '.ds-mfa-verification-modal input[type="tel"]',
   'input[inputmode="numeric"][maxlength="6"]',
 ]
-
-export const MFA_MODAL_SELECTOR = '.ds-mfa-verification-modal, [role="dialog"]'
 
 export const MFA_SUBMIT_SELECTORS = [
   'div[role="button"].ds-mfa-verification-submit',

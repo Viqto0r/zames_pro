@@ -809,110 +809,20 @@ exhausted the operator gets `ds.incomplete_give_up` (which suggests turning the
 reasoning mode off).
 
 `browser.autoContinue` (true by default) — click DeepSeek's **Continue** button
-automatically. With the reasoning toggle on the server also CAPS the THINK
-phase (a long reasoning turn pauses mid-way and shows Continue); the model does
-NOT resume by itself, so the turn used to sit idle until the operator pressed
-Continue by hand. `_clickContinueIfVisible()` (src/browser.ts) is polled in BOTH
-`_askOnce()` loops; it matches the button's accessible name against
-`CONTINUE_NAME_RE` — a bare continue word OR the same word plus a short
-reasoning/answer suffix. In reasoning mode DeepSeek labels the button
-«Продолжить размышление» / «Continue thinking» (NOT a bare «Continue»), so the
-old EXACT list (`Continue`/`Продолжить`/`Продолжение`) MISSED it: the button was
-never found and the operator had to press it by hand. The regex is anchored and
-length-limited, so a "Continue" inside rendered prose is never clicked (the old
-non-exact `getByRole` matched any button CONTAINING the word). The click is a
-TRUSTED Playwright click (`getByRole('button', { name: CONTINUE_NAME_RE }).click()`),
-with a raw-DOM fallback (`pointerdown`→`mousedown`→`pointerup`→`mouseup`→
-`click`) for a build without a proper role. The OLD code only did the in-page
-`e.click()`/dispatchEvent, which DeepSeek's React button IGNORED — the operator
-saw the button and the "жму Continue" message, but the turn never resumed. A
-live fixture check confirmed `getByRole('button')` matches DeepSeek's
-`div[role=button]` and the trusted click fires the handler. `_continueButtonVisible()`
-uses the SAME regex, so the paused-turn guard is not blind in reasoning mode
-either. Covered by `test/continue-button.test.ts`.
+automatically when a reasoning turn is capped (the model does NOT resume by
+itself). Set `browser.autoContinue: false` to disable it. `browser.continueMinGapMs`
+(1500ms) throttles the click — a `chat/continue` request hits the same rate limit
+as a normal send. ORDER MATTERS: Continue RESUMES the same turn, so on a
+truncated (`generation_err`/`INCOMPLETE`) or finished-without-answer turn the
+code clicks Continue FIRST and only throws `GenerationIncompleteError` (which
+makes `ask()` resend) when the button is absent. A PAUSED turn also looks
+"settled", so `_continueButtonVisible()` is checked BEFORE the stability
+early-return in BOTH `_askOnce` loops.
 
-THROTTLE: a Continue click sends a `chat/continue` request and hits the rate
-limit just like a normal send, so it must NOT fire back-to-back. A run that
-keeps getting truncated could otherwise hammer it. `_clickContinueIfVisible()`
-clicks AT MOST once per `continueMinGapMs` (default **1500ms**), measured from
-the LATEST of `_lastSentAt` and `_lastContinueAt` (a new field). The gap is
-DELIBERATELY smaller than `minSendIntervalMs` (15s): the reasoning button
-appears immediately when the THINK phase is capped, and waiting out the full
-send interval before each click made every resume feel sluggish (the operator
-saw a frozen turn for ~15s). Set `browser.continueMinGapMs` to tune it. The
-button is looked up FIRST and the slot is waited out only when it is actually
-present, so probing every tick stays cheap. A normal send updates
-`_lastSentAt`; a Continue click updates `_lastContinueAt`.
-
-ORDER MATTERS: the Continue button RESUMES the SAME turn (a `chat/continue`
-request); resending the prompt creates a NEW turn and duplicates the work. So
-whenever a truncated turn (`generation_err` / `INCOMPLETE`) or a
-finished-without-answer turn is detected, the code FIRST tries
-`_clickContinueIfVisible()` and only throws `GenerationIncompleteError` (which
-makes `ask()` resend) when there is no button to click (or `autoContinue` is
-off). Set `browser.autoContinue: false` to disable the auto-click.
-
-IMPORTANT: a PAUSED generation also looks "settled" (the answer text stops
-changing while Continue is on screen), so the finish loop's stability check
-(`stable >= stabilityChecks - 1`) used to RETURN the partial answer right there —
-the "agent stopped with a Continue button" symptom survived the first
-`_clickContinueIfVisible` fix because the early-return fired before the click
-mattered. `_continueButtonVisible()` is therefore checked BEFORE the settled
-return in the finish loop and in the start-wait's SETTLED branch: while Continue
-is visible the answer is NOT accepted — the loop clicks Continue and keeps
-waiting. When the start-wait sees Continue it clicks it (the button appears
-before any RESPONSE text, so the wait would otherwise spin to the deadline).
-
-### "Stopped" in the browser: a FINISHED turn with no answer
-
-A SECOND Continue case, distinct from `generation_err`: DeepSeek can END a
-reasoning turn with `quasi_status: FINISHED` but produce **only a THINK
-fragment and no RESPONSE fragment at all**. The web UI shows the status
-**Stopped** plus a Continue button, while the DOM keeps the reasoning/previous
-text. `extractAnswer()` returns `''` (it only collects RESPONSE fragments), so
-`_netCapture` stayed empty, `_netCaptureAt` was NOT refreshed, and the finish
-loop waited out the whole `answerTimeoutMs` and threw `ds.send_no_new_answer` —
-the operator saw the agent hang on "Stopped" with a spinning terminal.
-`isGenerationIncompleteText()` does NOT catch this (status is FINISHED, not
-INCOMPLETE), which is why the earlier fix missed it.
-
-Fix: `isFinishedWithoutAnswer(body)` (src/net-capture.ts) detects
-`quasi_status: FINISHED` with no non-empty RESPONSE fragment; `_onResponse`
-sets `browser._netNoAnswer` (with a fresh `_netCaptureAt`) for such a body from
-a `chat/(completion|continue)` URL. Both `_askOnce` loops then CLICK Continue
-and keep waiting (and, if Continue cannot be clicked, the finish loop throws
-`GenerationIncompleteError` so `ask()` resends the prompt — the same thing the
-button does). The flag is reset before every send. Verified against real
-captures: exactly the one body that hung the live agent is flagged, with zero
-false positives across 2118 bodies. Covered by
-`test/generation-incomplete.test.ts`.
-
-#### "Stopped" with NO Continue button
-
-DeepSeek can also show **Stopped without any Continue button**. In that case
-there is nothing to click, so waiting out the timeout is pointless. Both
-`_askOnce` loops now treat a truncated (`generation_err`/`INCOMPLETE`) OR a
-finished-without-answer turn as "dead" the moment Continue is absent (or
-`autoContinue` is off): they throw `GenerationIncompleteError` immediately and
-`ask()` resends the prompt. Previously only the INCOMPLETE case threw; the
-finished-without-answer case spun until the full timeout.
-
-#### CRITICAL: the detectors must read the RAW body, not `_netCapture`
-
-The incomplete/no-answer detectors were guarded on `this._netCapture &&` — but
-BOTH failure modes (generation_err/INCOMPLETE, and FINISHED-with-only-reasoning)
-have NO RESPONSE fragment, so `extractAnswer()` returns `''` and `_netCapture`
-is EMPTY. The guard was therefore dead code: the check never fired, and the
-agent hung on "Stopped" until the timeout (this is exactly why the earlier
-2.29.2/2.29.3 fixes did not help the live agent).
-
-Fix: `_onResponse` stores the RAW SSE body of the current answer in
-`browser._netBody` (completion/continue URLs only, kept even when there is no
-RESPONSE text) and refreshes `_netCaptureAt`. All four detector call sites
-(start-wait + finish-loop, incomplete + no-answer) now run on `_netBody` /
-`_netNoAnswer` and are NOT gated on `_netCapture`. `_netBody` is reset before
-every send alongside the other capture fields. A regression test feeds a real
-truncated body (extractAnswer() === '') and asserts the detector still fires.
+The "Stopped" family (a FINISHED turn with only a THINK fragment and no
+RESPONSE; "Stopped" with no Continue button; and why all four detectors must
+read the RAW SSE body `_netBody`/`_netNoAnswer`, not `_netCapture`) is a deep
+root-cause write-up — see docs/DESIGN-NOTES.md, section "The Continue button".
 
 ## Headless by default + login (src/browser.ts)
 

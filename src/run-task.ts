@@ -597,9 +597,7 @@ export async function runTask(
                 if (!editor) return null
                 editor.pause()
                 try {
-                  const { askQuestionInk } = await import(
-                    './tui/run-ask.js'
-                  )
+                  const { askQuestionInk } = await import('./tui/run-ask.js')
                   return await askQuestionInk({
                     question: req.question,
                     options: req.options,

@@ -26,9 +26,6 @@ export function chatUrl(id: string): string {
   return CHAT_URL + 'c/' + id
 }
 
-// The two-step API. `NEW_CHAT_URL` creates a chat and returns its id;
-// `COMPLETIONS_URL(id)` streams the answer.
-export const NEW_CHAT_URL = 'https://chat.qwen.ai/api/v2/chats/new'
 export const MODELS_URL = 'https://chat.qwen.ai/api/v2/models/'
 
 // The chat list, newest first, EXCLUDING project chats (verified live on a
@@ -44,12 +41,6 @@ export function chatHistoryUrl(chatId: string, limit = 50): string {
     encodeURIComponent(chatId) +
     '?direction=up&limit=' +
     String(limit)
-  )
-}
-export function completionsUrl(chatId: string): string {
-  return (
-    'https://chat.qwen.ai/api/v2/chat/completions?chat_id=' +
-    encodeURIComponent(chatId)
   )
 }
 
@@ -206,8 +197,6 @@ export const ATTACH_SELECTORS = ['input#filesUpload', 'input[type="file"]']
 
 // Qwen's sign-in is a SEPARATE origin (auth.qwen.ai) opened from the header
 // "Log in" button. Email / Google / GitHub are accepted; no phone required.
-export const LOGIN_BUTTON_RE = /^\s*(log ?in|sign ?in|войти)\s*$/i
-
 export const PASSWORD_SELECTORS = [
   'input[type="password"]',
   'input[autocomplete="current-password"]',

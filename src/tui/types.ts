@@ -47,8 +47,6 @@ export interface UiEditor {
   onContextQuery: (() => number | null) | null
   onToggleQuery:
     (() => { deepThinking: boolean; webSearch: boolean } | null) | null
-  /** Copy text to the OS clipboard (returns the tool used + ok). */
-  onCopyText?: ((text: string) => { ok: boolean; via: string }) | null
 
   // ---- lifecycle ----
   start(): boolean

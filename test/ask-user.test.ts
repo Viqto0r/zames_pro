@@ -36,7 +36,9 @@ test('AskUser counts as a non-mutating tool dropped by the read-only filter', ()
 test('the AskUser prompt guidance appears only when the tool is offered', () => {
   const withAsk = buildSystemPrompt({
     workdir: '/proj',
-    tools: [{ name: 'AskUser', description: 'x', parameters: {}, fn: () => '' }],
+    tools: [
+      { name: 'AskUser', description: 'x', parameters: {}, fn: () => '' },
+    ],
   })
   assert.match(withAsk, /## AskUser tool/)
   const without = buildSystemPrompt({ workdir: '/proj', tools: [] })

@@ -20,3 +20,11 @@ commit-msg.tmp
 # used to commit it on every task; keep it OUT of the repo so a self-update
 # never lands it in a release.
 BACKLOG.md
+
+# One-off TUI pty probes/drivers written per-bug during development. Kept
+# locally (useful to reproduce a rendering regression by hand) but not tracked:
+# their checks are already covered by unit tests and they only bloat the repo.
+scripts/dev-probes/
+
+# Local draft of the next TUI work plan — a scratchpad, not part of the repo.
+docs/NEXT-TASK.md

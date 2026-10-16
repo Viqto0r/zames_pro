@@ -159,9 +159,7 @@ export interface RunAgentLoopOptions {
    * omitted the `AskUser` tool is not offered and a stray call answers with
    * the tool's own fallback text.
    */
-  onAskUser?:
-    | ((req: AskUserRequest) => Promise<string | null>)
-    | null
+  onAskUser?: ((req: AskUserRequest) => Promise<string | null>) | null
 }
 
 // One `AskUser` request: the question, the options (the FIRST is the model's
@@ -1179,10 +1177,9 @@ export async function runAgentLoop({
               : null
           const allowText = call.args.allow_text !== false
           if (!onAskUser || !rawQ || opts.length < 2) {
-            const err =
-              !onAskUser
-                ? 'AskUser is not available in this run. Choose a sensible default, proceed, and state the assumption in your final answer.'
-                : 'AskUser requires a non-empty `question` and at least two `options`. Proceed with your best judgement instead.'
+            const err = !onAskUser
+              ? 'AskUser is not available in this run. Choose a sensible default, proceed, and state the assumption in your final answer.'
+              : 'AskUser requires a non-empty `question` and at least two `options`. Proceed with your best judgement instead.'
             safeToolResult(err)
             transcript?.log('tool_error', { tool: 'AskUser', error: err })
             results.push({ tool: 'AskUser', result: err })

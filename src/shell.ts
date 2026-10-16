@@ -243,13 +243,6 @@ export function killBackground(id: string): string {
   return `Killed background process ${id}.`
 }
 
-/** List running background processes (for /status and cleanup). */
-export function listBackground(): Array<{ id: string; command: string }> {
-  return [...BG_PROCS.values()]
-    .filter((p) => p.status === 'running')
-    .map((p) => ({ id: p.id, command: p.command }))
-}
-
 /** Kill every background process — called on exit so no orphan survives. */
 export function killAllBackground(): void {
   for (const id of [...BG_PROCS.keys()]) killBackground(id)

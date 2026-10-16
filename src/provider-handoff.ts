@@ -92,8 +92,3 @@ export function clearProviderHandoff(): void {
     fs.unlinkSync(HANDOFF_FILE)
   } catch {}
 }
-
-/** For tests: the file the handoff lives in. */
-export function providerHandoffFile(): string {
-  return HANDOFF_FILE
-}
