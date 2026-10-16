@@ -43,6 +43,22 @@ Rules for that note:
   worth noting, add nothing.
 `
 
+// The skills DISCIPLINE, appended to the `## Skills` section (and mirrored in
+// the section above it): the model must CHECK the list before a non-trivial
+// task and READ a matching skill's body, instead of only seeing a static list.
+// This is the zames equivalent of superpowers' `using-superpowers` bootstrap —
+// no SessionStart hook needed, the text simply lives in the system prompt. Kept
+// narrow ("when relevant", not "always") so the model does not burn iterations
+// Reading SKILL.md files for a trivial edit.
+const SKILLS_DISCIPLINE = `
+Before starting a NON-TRIVIAL task (a new feature, a bug hunt, a multi-file
+change), scan the list above for a matching skill and, if one applies, Read
+its \`file:\` path FIRST — the body is the workflow you must follow. Skip this
+for a trivial edit or a single read: the scan must never cost more than the
+task itself. If a skill looks relevant but you are unsure, reading it is
+cheap; guessing is not.
+`
+
 // Guidance for the `Task` tool (subagents), injected only when that tool is in
 // the model's set. Without it the model under-uses subagents (it does every
 // broad search itself and floods the main context) or misuses them (delegates
@@ -157,7 +173,8 @@ export function renderContextSection(
       '\n## Skills\n\n' +
       'Specialized workflows. A skill with a `file:` is a SKILL.md on disk (read it when it applies); a `(built-in)` skill has no file — the operator can invoke it with /<name> and its instructions arrive as the task. Skills are progressive disclosure: only read the body when the skill applies.\n\n' +
       lines.join('\n') +
-      '\n'
+      '\n' +
+      SKILLS_DISCIPLINE
   }
 
   if (context.commands.length) {

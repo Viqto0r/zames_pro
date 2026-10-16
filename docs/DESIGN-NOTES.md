@@ -479,3 +479,28 @@ operator said the whole code-copy feature is not needed, so the hotkey, the
 `/copy-code` command and the `⌘ n/m` status badge are gone. `/copy` (the whole
 last answer to the clipboard) stays; so does `src/code-blocks.ts`, kept as a
 pure helper.
+
+### Skills get a DISCIPLINE paragraph (the superpowers idea, without the hook)
+
+superpowers (github.com/obra/superpowers) makes a coding agent actually USE
+its skills by injecting a `using-superpowers` bootstrap at SessionStart and
+after every compaction: "before a task, check whether a skill applies". zames
+already DISCOVERS skills (`loadProjectContext`) and lists their frontmatter in
+the `## Skills` section, but a static list is dead weight — the model has no
+instruction to act on it. `SKILLS_DISCIPLINE` (src/system-prompt.ts) is that
+instruction as plain prompt text, appended to the section whenever at least one
+skill exists: scan the list before a NON-TRIVIAL task, Read the matching
+`file:`, follow the body; a trivial edit is explicitly exempt so the model does
+not burn iterations Reading SKILL.md files for a one-line change.
+
+The one real conflict with superpowers is its CONVERSATIONAL turn
+(brainstorming asks the operator questions and waits). zames has no such turn:
+the operator sees only the final `respond`. The bundled `brainstorming` skill is
+therefore REWRITTEN to do the reasoning silently and return one concrete
+proposal (goal / assumptions / what will NOT be done / the one decision it
+cannot make alone), instead of an interview.
+
+Deliberately NOT ported: parallel subagents (`dispatching-parallel-agents`),
+git worktrees, the full subagent-driven-development loop, and the plugin/
+telemetry infrastructure — all conflict with zames' single-browser,
+single-send-slot, single-workdir design.

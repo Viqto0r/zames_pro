@@ -664,6 +664,16 @@ What is loaded, in priority order:
   (`name`, `description`, optional `allowed-tools`, `user-invokable`) goes
   into the prompt — the body is read on demand (progressive disclosure).
   Project skills override global ones with the same name.
+  The `## Skills` section also carries a DISCIPLINE paragraph
+  (`SKILLS_DISCIPLINE` in src/system-prompt.ts): before a NON-TRIVIAL task the
+  model must scan the list and Read the `file:` of a matching skill first,
+  while a trivial edit is explicitly exempt. This is the zames equivalent of
+  superpowers' `using-superpowers` bootstrap — plain prompt text, no
+  SessionStart hook required. The bundled methodology skills
+  (`brainstorming` adapted to the silent mode, `writing-plans`,
+  `systematic-debugging`, `verification-before-completion`,
+  `test-driven-development`) live in `.zames/skills/` (gitignored; they ship
+  with the project locally, not in the npm package).
 - **custom commands** — `.md` files under `.zames/commands`, `.claude/commands`,
   `.agents/commands`, `~/.zames/commands`, `~/.claude/commands`. The body
   supports `$ARGUMENTS` and `{{args}}` placeholders, plus positional `$1`..`$N`
