@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **tools:** AskUser — a modal question with options (and a free-text escape)
+- **skills:** tell the model to check and read a matching skill before a non-trivial task
+
 ### Fixed
 
 - **deepseek:** retry a FINISHED turn with only a truncated RESPONSE head
