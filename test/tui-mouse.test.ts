@@ -92,12 +92,11 @@ test('mouseModeSequences(SELECT): reporting OFF in the steady state', () => {
   assert.ok(off.includes(ESC + '[?1000l'))
 })
 
-test('config: ui.mouseScroll defaults to SELECT (selection works)', () => {
-  // The default must keep NATIVE drag-select working, i.e. mouse reporting
-  // OFF (SELECT). Flipping it to true steals the mouse and needs Shift to
-  // select — the operator complained about exactly that, so the default is
-  // pinned here.
-  assert.equal(DEFAULTS.ui.mouseScroll, false)
+test('config: ui.mouseScroll defaults to SCROLL (the wheel scrolls the log)', () => {
+  // The operator asked that the wheel scroll the DIALOG by default; that
+  // needs mouse reporting ON (SCROLL), with drag-select on Shift. The default
+  // is pinned here so a silent flip back to SELECT is caught.
+  assert.equal(DEFAULTS.ui.mouseScroll, true)
 })
 
 test('parseWheel: SHIFT+wheel still scrolls (modifier is ignored)', () => {

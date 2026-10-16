@@ -21,6 +21,7 @@ store.set({
   prompt: '> ',
   locale: 'en',
   commands: [],
+  mouseScroll: process.env.PROBE_MOUSE === '1',
   edit: { ...initialEditState(), buf: process.argv[2] ?? '' },
   // A copyable code block, so a pty run can press Ctrl+Y and assert the copy
   // callback fired (the raw block, not the highlighted render).

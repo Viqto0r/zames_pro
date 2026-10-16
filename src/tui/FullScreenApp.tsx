@@ -185,9 +185,14 @@ export function FullScreenApp({
       />
       {/* A dim, single-line key hint UNDER the box. It is part of the fixed
           panel (see HINT_ROWS above), so it shrinks the log by one row and
-          never shifts the caret. Truncated so it cannot wrap. */}
+          never shifts the caret. Truncated so it cannot wrap. The hint names
+          the ACTIVE mouse mode, so the operator can tell why selection needs
+          Shift (wheel scroll on) or why the wheel is inert (it is off). */}
       <Text color="#5b616e" wrap="truncate">
-        {' ' + translate(state.locale)('editor.keys_hint')}
+        {' ' +
+          translate(state.locale)(
+            state.mouseScroll ? 'editor.keys_hint' : 'editor.keys_hint_select',
+          )}
       </Text>
     </Box>
   )

@@ -31,6 +31,9 @@ store.set({
   prompt: '❯ › ',
   locale: process.env.PROBE_LOCALE === 'ru' ? 'ru' : 'en',
   commands,
+  // Mirror the ACTIVE mouse mode so the hint row (and the mouse reporting the
+  // app turns on) matches the live default. The pty test sets PROBE_MOUSE=1.
+  mouseScroll: process.env.PROBE_MOUSE === '1',
   edit: { ...initialEditState(), buf: process.argv[2] ?? '' },
 })
 

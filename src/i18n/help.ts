@@ -102,8 +102,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: 'PgUp / PgDn               up/down the dialog (Home/End — top/bottom) [full-screen]',
   },
   'help.key.wheel': {
-    ru: 'ui.mouseScroll            off (умолч.) — выделение мышью; on — колесо скроллит диалог',
-    en: 'ui.mouseScroll            off (default) — select with the mouse; on — wheel scrolls the dialog',
+    ru: 'ui.mouseScroll            on (умолч.) — колесо скроллит диалог (выделение Shift); off — выделение мышью',
+    en: 'ui.mouseScroll            on (default) — wheel scrolls the dialog (select: Shift); off — select with the mouse',
   },
   'help.key.bang': {
     ru: '!команда                  выполнить shell-команду напрямую (мимо модели)',

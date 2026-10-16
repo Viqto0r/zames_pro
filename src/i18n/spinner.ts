@@ -35,10 +35,16 @@ export const spinnerMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Напишите задачу и нажмите Enter. /help — команды, Ctrl+J — новая строка.',
     en: 'Type a task and press Enter. /help for commands, Ctrl+J for a new line.',
   },
-  // One-line key hint UNDER the input box (full-screen mode).
+  // One-line key hint UNDER the input box (full-screen mode). Two variants:
+  // with in-app wheel scroll the mouse belongs to the app, so selection needs
+  // Shift; without it the terminal keeps the mouse and the wheel is inert.
   'editor.keys_hint': {
     ru: 'выделение — Shift+клик · колесо — скролл · PgUp/PgDn — вверх/вниз · Home/End — в начало/конец',
     en: 'select — Shift+click · wheel — scroll · PgUp/PgDn — up/down · Home/End — top/bottom',
+  },
+  'editor.keys_hint_select': {
+    ru: 'выделение — мышью · PgUp/PgDn — вверх/вниз · Home/End — в начало/конец',
+    en: 'select — drag · PgUp/PgDn — up/down · Home/End — top/bottom',
   },
   // Reverse search (Ctrl+R) status line. The query may be empty.
   'editor.search_prompt': {

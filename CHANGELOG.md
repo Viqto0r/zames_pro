@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **tui:** default ui.mouseScroll back to false so native selection works
+
 ## [2.75.5] - 2026-10-15
 
 ### Fixed

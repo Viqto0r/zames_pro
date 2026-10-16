@@ -48,6 +48,9 @@ function runProbe(
           LINES: String(rows),
           ...(copyLog ? { PROBE_COPY_LOG: copyLog } : {}),
           ...(inline ? { PROBE_INLINE: '1' } : {}),
+          // The pty probes mount the app with the SCROLL mouse mode, so the
+          // hint row they assert on is the Shift-to-select variant.
+          PROBE_MOUSE: '1',
         },
       },
     )
