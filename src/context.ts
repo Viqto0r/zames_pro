@@ -104,6 +104,115 @@ const BUILTIN_SKILLS: Array<{
       'couplings, and any WHY-comments that matter.\n' +
       '4. Do NOT change code. Answer in the operator language.',
   },
+  // Methodology skills, ported from superpowers (github.com/obra/superpowers)
+  // as plain prompt bodies — the zames equivalent of its SessionStart
+  // bootstrap, without a hook. The model is nudged to read the matching one
+  // before a non-trivial task by SKILLS_DISCIPLINE (src/system-prompt.ts).
+  // Baked in (not a file on disk) so a user who installed the npm package has
+  // them out of the box; a project skill of the same name overrides them.
+  {
+    name: 'brainstorming',
+    description:
+      'Use when the request is a GOAL, not a spec — "add X", "make it better", "integrate Y" — and it is unclear what "done" means.',
+    body:
+      'When a request is a goal ("make scrolling feel right"), building ' +
+      'immediately produces the wrong thing fast. First make the intent concrete.\n' +
+      'Pin down: (a) the REAL outcome — what should be TRUE after that is not ' +
+      'true now; (b) the acceptance check — how the operator will know it works; ' +
+      '(c) scope edges — what is explicitly NOT part of this; (d) the ' +
+      'alternatives considered and why you chose one.\n' +
+      'zames has NO conversational turn: the operator sees only your final ' +
+      'respond. So do the brainstorming YOURSELF and return a SHORT, concrete ' +
+      'proposal in ONE respond — the goal as you understood it, your ' +
+      'assumptions and defaults, what you will NOT do — then either proceed if ' +
+      'the request was clearly actionable, or stop and ask the ONE decision you ' +
+      'genuinely cannot make alone. For an already-precise request ("read X", ' +
+      '"rename Y") skip this entirely.',
+  },
+  {
+    name: 'writing-plans',
+    description:
+      'Use when a task needs more than one or two tool calls — a multi-file change, a new feature, a refactor. Breaks it into small ordered steps with exact paths and a verification for each.',
+    body:
+      'A plan is a sequence of steps a careful engineer with NO project ' +
+      'context could follow. Each step (2-5 minutes) names: the EXACT file ' +
+      'path(s); the concrete edit; how to verify it (command, test name, ' +
+      'expected output). Order matters: put the step that DE-RISKS the task ' +
+      'first (a spike, a failing test, a proof the API works) — do not build ' +
+      'three layers on an unverified assumption.\n' +
+      'Rules: one concern per step ("add the flag AND refactor the caller" is ' +
+      'two); prefer a step that FAILS LOUDLY over one that silently ' +
+      'half-works; every behavioural change gets a test step (see ' +
+      'test-driven-development); if a step turns out wrong, STOP and revise the ' +
+      'plan instead of improvising; a 30-step plan means the task should be ' +
+      'split. In zames the plan lives in your reasoning and, for a long task, ' +
+      'in a TodoWrite list — one entry per step. Do not narrate it between tool ' +
+      'calls; the todo list IS the visible plan.',
+  },
+  {
+    name: 'test-driven-development',
+    description:
+      'Use when writing or changing testable behaviour — a bug fix, a new function, a parser, a formatter. Write the failing test first, watch it fail, then make it pass.',
+    body:
+      'RED -> GREEN -> REFACTOR. The order is the point, not a formality.\n' +
+      '1. RED — write the smallest test that expresses the new behaviour and ' +
+      'RUN it. It must FAIL for the RIGHT reason ("not implemented", not a ' +
+      'typo). A test you never saw fail proves nothing.\n' +
+      '2. GREEN — write the MINIMUM code that makes it pass; do not add the ' +
+      'next feature "while you are there".\n' +
+      '3. REFACTOR — clean up with the test green, then re-run.\n' +
+      'A good test asserts BEHAVIOUR (input -> output), is deterministic (no ' +
+      'sleeps, no network, no wall-clock or test-order dependence) and fails ' +
+      'for ONE reason with a message that says what broke. In this project a ' +
+      'bug fix ALWAYS gets a regression test reproducing the original bug. ' +
+      'When a test needs fixing, ask whether the TEST or the CODE was wrong; ' +
+      'if the code was written before its test, rewrite it driven by the test.',
+  },
+  {
+    name: 'systematic-debugging',
+    description:
+      'Use when something is broken and the cause is not obvious — a failing test, a wrong result, a hang, a crash. Four phases: reproduce, isolate, hypothesize, fix.',
+    body:
+      'Do NOT start by editing code. Work the four phases in order; each ' +
+      'produces an artifact you can point at.\n' +
+      '1. REPRODUCE — get a command that FAILS the way the operator describes; ' +
+      'copy the exact error. If it passes you do not have the bug yet: narrow ' +
+      'the input until it fails.\n' +
+      '2. ISOLATE — shrink to the smallest failing unit (bisect, stub, ' +
+      'binary-search). Read the code the failing path ACTUALLY executes. Check ' +
+      'the obvious first: wrong file, stale build, cached state, different ' +
+      'config, an error swallowed by a catch.\n' +
+      '3. HYPOTHESIZE — state it in one sentence and predict what you should ' +
+      'see if it is right; test exactly that. One change at a time; prefer an ' +
+      'observation (log, test assertion) over an edit. If the prediction is ' +
+      'wrong, DISCARD the hypothesis.\n' +
+      '4. FIX AND VERIFY — fix the CAUSE, not the symptom; add a regression ' +
+      'test that fails WITHOUT the fix; re-run the phase-1 reproduction ' +
+      'verbatim; look for the same bug elsewhere.\n' +
+      'Anti-patterns: editing before reproducing; "it works now" without ' +
+      'knowing what changed; silencing an error you do not understand with a ' +
+      'try/catch; trusting a green test never seen red.',
+  },
+  {
+    name: 'verification-before-completion',
+    description:
+      'Use BEFORE declaring a task done — a feature, a bug fix, a generated file. Forces you to run the verification you promised instead of trusting the code looks right.',
+    body:
+      '"It should work" is not done. Before reporting success, produce ' +
+      'EVIDENCE from the real artifact, not from your intent.\n' +
+      '1. Re-read the original request; tick every requirement (including the ' +
+      'ones in a parenthetical) against something you can show.\n' +
+      '2. Run the thing: build/typecheck/tests for code; run a script; for a ' +
+      'generated file, open/parse it and confirm it is COMPLETE, not ' +
+      'truncated; for a UI, the real screen, not the diff.\n' +
+      '3. Re-read your own diff as a reviewer: leftover debug output, dead ' +
+      'code, a wrong path, a test that asserts nothing.\n' +
+      '4. State the evidence in the final report — the exact command and its ' +
+      'result — so the operator can reproduce it. "Tests pass" without the ' +
+      'command is not evidence.\n' +
+      'If you cannot run the verification, SAY SO explicitly and describe what ' +
+      'you did instead; never report "done" implying a check you did not run.',
+  },
 ]
 
 export interface CustomCommand {

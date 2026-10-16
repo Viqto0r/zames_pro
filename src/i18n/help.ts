@@ -574,4 +574,51 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Индикаторы в статус-строке: 🧠 — глубокое размышление, 🌐 — поиск в интернете (видны, когда включены).',
     en: 'Status-line icons: 🧠 — Deep thinking, 🌐 — web search (shown when enabled).',
   },
+
+  // Localized descriptions for the WELL-KNOWN skills (built-in + bundled
+  // methodology). A skill's SKILL.md frontmatter is agent-facing English, so
+  // showing it verbatim in the «/» hints would leave an English line in a
+  // Russian UI. Keyed by skill NAME, applied regardless of source, so a local
+  // `.zames/skills/` copy of a bundled skill still shows the translated text.
+  // An unknown (user-authored) skill has no key and keeps its own description.
+  'skill.desc.commit': {
+    ru: 'подготовить аккуратный git-коммит из текущих изменений',
+    en: 'prepare a clean git commit from the current changes',
+  },
+  'skill.desc.review': {
+    ru: 'ревью текущего диффа на баги и риски (без правок)',
+    en: 'review the current diff for bugs and risks (no changes)',
+  },
+  'skill.desc.test': {
+    ru: 'прогнать тесты проекта и чинить падения до зелёного',
+    en: 'run the project tests and fix failures until green',
+  },
+  'skill.desc.debug': {
+    ru: 'системно диагностировать и починить баг',
+    en: 'systematically diagnose and fix a bug',
+  },
+  'skill.desc.explain': {
+    ru: 'объяснить, как работает файл/модуль/фича',
+    en: 'explain how a file/module/feature works',
+  },
+  'skill.desc.brainstorming': {
+    ru: 'когда запрос — это цель, а не спека: сначала прояснить замысел',
+    en: 'when the request is a goal, not a spec: pin down the intent first',
+  },
+  'skill.desc.writing-plans': {
+    ru: 'разбить многошаговую задачу на маленькие шаги с проверкой каждого',
+    en: 'break a multi-step task into small steps, each with a check',
+  },
+  'skill.desc.test-driven-development': {
+    ru: 'сначала падающий тест, потом код (RED → GREEN → REFACTOR)',
+    en: 'write the failing test first, then the code (RED → GREEN → REFACTOR)',
+  },
+  'skill.desc.systematic-debugging': {
+    ru: 'четыре фазы отладки: воспроизвести, изолировать, гипотеза, фикс',
+    en: 'four debugging phases: reproduce, isolate, hypothesize, fix',
+  },
+  'skill.desc.verification-before-completion': {
+    ru: 'прогнать проверку ПЕРЕД тем, как объявить задачу готовой',
+    en: 'run the verification BEFORE declaring the task done',
+  },
 }

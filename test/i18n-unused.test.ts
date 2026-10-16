@@ -18,7 +18,22 @@ import { CATALOG } from '../src/i18n.ts'
 //
 // A dynamic key built by concatenation would be a false positive; any such key
 // must be listed in ALLOW with a comment. None do that today.
-const ALLOW: string[] = []
+//
+// `skill.desc.<name>` is built at runtime in refreshDynamicCommands()
+// (src/index.ts) as 'skill.desc.' + skillName, so the full key never appears
+// as a literal. The known skill names are fixed, so list them explicitly.
+const ALLOW: string[] = [
+  'skill.desc.commit',
+  'skill.desc.review',
+  'skill.desc.test',
+  'skill.desc.debug',
+  'skill.desc.explain',
+  'skill.desc.brainstorming',
+  'skill.desc.writing-plans',
+  'skill.desc.test-driven-development',
+  'skill.desc.systematic-debugging',
+  'skill.desc.verification-before-completion',
+]
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 

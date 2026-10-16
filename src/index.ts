@@ -690,9 +690,19 @@ async function refreshDynamicCommands(workdir: string): Promise<void> {
     const skills = await loadSkills(workdir)
     for (const s of skills) {
       if (!s.userInvokable) continue
+      // A well-known skill (built-in or bundled methodology) has a localized
+      // description keyed by NAME — its SKILL.md frontmatter is agent-facing
+      // English, which must not leak into a Russian UI. `t` returns the key
+      // itself when it is missing, so an unknown (user-authored) skill falls
+      // back to its own description.
+      const descKey = 'skill.desc.' + s.name
+      const localized = t(descKey)
       out.push({
         name: '/' + s.name,
-        description: s.description || t('help.cmd.skill'),
+        description:
+          localized !== descKey
+            ? localized
+            : s.description || t('help.cmd.skill'),
       })
     }
     const cmds = await loadCommands(workdir)

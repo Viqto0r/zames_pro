@@ -609,6 +609,15 @@ therefore REWRITTEN to do the reasoning silently and return one concrete
 proposal (goal / assumptions / what will NOT be done / the one decision it
 cannot make alone), instead of an interview.
 
+The five methodology skills are BAKED INTO `BUILTIN_SKILLS` (src/context.ts),
+not shipped as `.zames/skills/*/SKILL.md`. Reason: `.zames/` is gitignored and
+never in the npm `files` list, so a disk copy would reach only THIS checkout —
+a user who ran `npm i -g zames_pro` would see no methodology skills at all. As
+built-ins (like `commit`/`review`/`test`) they travel inside `dist/` and are
+available out of the box; a project SKILL.md of the same name still overrides
+the built-in copy. The disk copies in `.zames/skills/` are a local convenience
+for editing them during development.
+
 Deliberately NOT ported: parallel subagents (`dispatching-parallel-agents`),
 git worktrees, the full subagent-driven-development loop, and the plugin/
 telemetry infrastructure — all conflict with zames' single-browser,

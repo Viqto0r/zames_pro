@@ -295,6 +295,10 @@ export class TuiEditor {
         theme.user(wrapToWidth(display, contentWidth() - 2)),
     )
     this.store.set({ pastes: [] })
+    // Sending a message pins the log back to the newest content: the operator
+    // expects their message (and the answer) at the BOTTOM, so a viewport left
+    // scrolled-up (PgUp / wheel) must snap to scroll=0 on submit.
+    this.store.set({ scroll: 0 })
     this.onSubmit?.(text, atts)
     if (this.busy) this.thinking()
   }

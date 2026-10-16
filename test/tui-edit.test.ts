@@ -461,9 +461,10 @@ test('dispatchKey: Alt+Backspace/Delete -> слово-удаление, пуст
     dispatchKey('', key({ meta: true, backspace: true }), ctx, edges)?.type,
     'deleteWordLeft',
   )
+  // Alt+Delete deletes the word AFTER the cursor (standard editor binding).
   assert.equal(
     dispatchKey('', key({ meta: true, delete: true }), ctx, edges)?.type,
-    'deleteWordLeft',
+    'deleteWordRight',
   )
   assert.equal(dispatchKey('z', key({ meta: true }), ctx, edges), null)
   assert.equal(dispatchKey('', key({}), ctx, edges), null)
@@ -518,26 +519,25 @@ test('dispatchKey: Enter — submit, но Shift+Enter и «\»+Enter = пере�
   )
 })
 
-test('deleteWordRight: at end of line falls back to deleting the word LEFT', () => {
-  // The operator's terminal (VSCode) sends the standard xterm Ctrl+Delete
-  // (ESC[3;5~) which maps to deleteWordRight. With the cursor at the END of
-  // the line there was nothing to the right, so the key did NOTHING and the
-  // operator read it as "Ctrl+Delete does not delete the word before the
-  // cursor". At the end of a line it now deletes the word on the LEFT.
+test('deleteWordRight: deletes the word to the RIGHT, no-op at end', () => {
+  // Standard editor binding: Ctrl+Delete removes the word AFTER the cursor.
+  // At the END of a line there is nothing to the right — the buffer is left
+  // UNCHANGED (never a surprise leftward delete).
   const atEnd = { ...initialEditState(), buf: 'foo bar baz', cursor: 11 }
-  assert.equal(deleteWordRight(atEnd).buf, 'foo bar ')
-  // Mid-line it still deletes the word on the RIGHT (standard behaviour).
+  assert.equal(deleteWordRight(atEnd).buf, 'foo bar baz')
+  // Mid-line it deletes the word on the RIGHT (standard behaviour).
   const mid = { ...initialEditState(), buf: 'foo bar baz', cursor: 4 }
   assert.equal(deleteWordRight(mid).buf, 'foo  baz')
-  // Only whitespace to the newline: also delete left, do not eat the newline.
+  // Only whitespace to the newline: delete it, but never the newline itself.
   const NLc = String.fromCharCode(10)
   const beforeNl = { ...initialEditState(), buf: 'foo bar' + NLc, cursor: 7 }
-  assert.equal(deleteWordRight(beforeNl).buf, 'foo ' + NLc)
+  assert.equal(deleteWordRight(beforeNl).buf, 'foo bar' + NLc)
 })
 
-test('dispatchKey: Ctrl+Delete deletes the word on the LEFT', () => {
-  // The operator's binding: Ctrl+Del removes the word BEFORE the cursor
-  // (like Ctrl+Backspace). Plain Delete still removes one char to the right.
+test('dispatchKey: Ctrl+Delete deletes the word on the RIGHT', () => {
+  // Standard editor binding: Ctrl+Del removes the word AFTER the cursor;
+  // Ctrl+Backspace removes the word BEFORE it. Plain Delete removes one char
+  // to the right.
   const ctx = {
     searchMode: false,
     bufferEmpty: false,
@@ -546,30 +546,30 @@ test('dispatchKey: Ctrl+Delete deletes the word on the LEFT', () => {
   const edges = { atTop: true, atBottom: true }
   assert.equal(
     dispatchKey('', key({ ctrl: true, delete: true }), ctx, edges)?.type,
-    'deleteWordLeft',
+    'deleteWordRight',
   )
   assert.equal(
     dispatchKey('', key({ delete: true }), ctx, edges)?.type,
     'delete',
   )
-  // Alt+Delete also deletes the word on the LEFT.
+  // Alt+Delete also deletes the word on the RIGHT.
   assert.equal(
     dispatchKey('', key({ meta: true, delete: true }), ctx, edges)?.type,
-    'deleteWordLeft',
+    'deleteWordRight',
   )
 })
 
-test('parseCsiU: kitty Ctrl+Delete deletes the word on the LEFT', () => {
+test('parseCsiU: kitty Ctrl+Delete deletes the word on the RIGHT', () => {
   const ESC = String.fromCharCode(27)
-  assert.equal(parseCsiU(ESC + '[3;5u')?.type, 'deleteWordLeft')
+  assert.equal(parseCsiU(ESC + '[3;5u')?.type, 'deleteWordRight')
   // Plain kitty Delete still deletes one char.
   assert.equal(parseCsiU(ESC + '[3u')?.type, 'delete')
 })
 
-test('dispatchKey: ESC d (VSCode Ctrl+Delete) deletes the word LEFT', () => {
+test('dispatchKey: ESC d (VSCode Ctrl+Delete) deletes the word RIGHT', () => {
   // VSCode's terminal sends Ctrl+Delete as `ESC d`, which Ink reports as
-  // meta+d (name='d', input='d'). The operator expects it to delete the word
-  // BEFORE the cursor — without this branch it fell through and did nothing.
+  // meta+d (name='d', input='d'). Standard editor binding: delete the word
+  // AFTER the cursor.
   const ctx = {
     searchMode: false,
     bufferEmpty: false,
@@ -578,6 +578,6 @@ test('dispatchKey: ESC d (VSCode Ctrl+Delete) deletes the word LEFT', () => {
   const edges = { atTop: true, atBottom: true }
   assert.equal(
     dispatchKey('d', key({ meta: true }), ctx, edges)?.type,
-    'deleteWordLeft',
+    'deleteWordRight',
   )
 })

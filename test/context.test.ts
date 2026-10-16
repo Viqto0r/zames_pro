@@ -59,6 +59,35 @@ test('loadSkills includes built-in skills with an inline body', async () => {
   assert.equal(commit!.userInvokable, true)
 })
 
+// The five methodology skills are baked into BUILTIN_SKILLS (not shipped as
+// .zames/skills/*/SKILL.md files, which never reach the npm package), so a
+// fresh install has them. Guard against them being dropped: each must appear
+// as a built-in with an inline body and a non-empty description.
+test('the methodology skills are built in (superpowers port)', async () => {
+  const root = await mkTmp()
+  const skills = await loadSkills(root)
+  const methodology = [
+    'brainstorming',
+    'writing-plans',
+    'test-driven-development',
+    'systematic-debugging',
+    'verification-before-completion',
+  ]
+  for (const name of methodology) {
+    const s = skills.find((x) => x.name === name)
+    assert.ok(s, name + ' should be a built-in skill')
+    assert.equal(s!.path, '', name + ' should have no file path')
+    assert.ok(
+      (s!.builtinBody || '').length > 100,
+      name + ' should carry a real inline body',
+    )
+    assert.ok(
+      (s!.description || '').length > 0,
+      name + ' should have a description',
+    )
+  }
+})
+
 test('a project skill overrides a built-in with the same name', async () => {
   const root = await mkTmp()
   const dir = path.join(root, '.zames', 'skills', 'commit')

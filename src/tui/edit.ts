@@ -123,35 +123,23 @@ export function deleteWordLeft(s: EditState): EditState {
 }
 
 /**
- * Delete the word on the RIGHT of the cursor (Ctrl+Delete / Alt+Delete).
- *
- * FALLBACK: at the END of the line there is no word to the right, so the key
- * did NOTHING and the operator (whose terminal sends the standard xterm
- * Ctrl+Delete) read it as "Ctrl+Delete does not delete the word before the
- * cursor". Deleting the word on the LEFT there matches what other terminal
- * editors do and what the operator expects, while keeping the standard
- * right-delete when the cursor is mid-line.
+ * Delete the word on the RIGHT of the cursor (Ctrl+Delete / Alt+Delete):
+ * skip the whitespace after the cursor, then delete up to the end of the next
+ * word — the mirror of deleteWordLeft(). At the end of the line there is
+ * nothing to the right, so the buffer is left UNCHANGED (never a surprise
+ * leftward delete), matching the legacy LineEditor's _deleteWordRight().
  */
 export function deleteWordRight(s: EditState): EditState {
   const chars = charsOf(s)
-  // Nothing to the right (end of buffer or only whitespace to the newline):
-  // delete the word on the LEFT instead of doing nothing.
-  let probe = s.cursor
-  while (
-    probe < chars.length &&
-    chars[probe] !== NL &&
-    /\s/.test(chars[probe])
-  ) {
-    probe++
-  }
-  if (probe >= chars.length || chars[probe] === NL) {
-    return deleteWordLeft(s)
-  }
+  // Stop at a NEWLINE: it is whitespace for /\s/ but must never be swallowed
+  // by a word delete (the old code guarded this; without the guard the key
+  // ate the line break).
   let i = s.cursor
-  while (i < chars.length && /\s/.test(chars[i])) i++
-  while (i < chars.length && !/\s/.test(chars[i])) i++
+  while (i < chars.length && chars[i] !== NL && /\s/.test(chars[i])) i++
+  while (i < chars.length && chars[i] !== NL && !/\s/.test(chars[i])) i++
+  if (i === s.cursor) return s
   chars.splice(s.cursor, i - s.cursor)
-  return { ...s, buf: chars.join('') }
+  return { ...s, buf: chars.join(''), cursor: s.cursor }
 }
 
 /** Delete from the cursor to the end of the current LOGICAL line (Ctrl+K). */

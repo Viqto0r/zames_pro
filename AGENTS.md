@@ -672,8 +672,11 @@ What is loaded, in priority order:
   SessionStart hook required. The bundled methodology skills
   (`brainstorming` adapted to the silent mode, `writing-plans`,
   `systematic-debugging`, `verification-before-completion`,
-  `test-driven-development`) live in `.zames/skills/` (gitignored; they ship
-  with the project locally, not in the npm package).
+  `test-driven-development`) are BAKED INTO `BUILTIN_SKILLS` (src/context.ts),
+  like `commit`/`review`/`test`/`debug`/`explain`, so a user who installed the
+  npm package has them out of the box; a project SKILL.md of the same name
+  overrides the built-in. The `.zames/skills/*/SKILL.md` copies are a LOCAL
+  convenience (gitignored, not shipped).
 - **custom commands** — `.md` files under `.zames/commands`, `.claude/commands`,
   `.agents/commands`, `~/.zames/commands`, `~/.claude/commands`. The body
   supports `$ARGUMENTS` and `{{args}}` placeholders, plus positional `$1`..`$N`

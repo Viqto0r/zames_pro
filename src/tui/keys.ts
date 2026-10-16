@@ -37,8 +37,8 @@ export function parseCsiU(raw: string): EditorAction | null {
   const alt = (mod & 2) !== 0
   if (cp === 13 && (ctrl || alt)) return { type: 'newline' }
   if (cp === 3) {
-    // Ctrl/Alt+Delete deletes the word on the LEFT (see dispatchKey).
-    return ctrl || alt ? { type: 'deleteWordLeft' } : { type: 'delete' }
+    // Ctrl/Alt+Delete deletes the word on the RIGHT (standard editor binding).
+    return ctrl || alt ? { type: 'deleteWordRight' } : { type: 'delete' }
   }
   if (cp === 127) {
     return ctrl || alt ? { type: 'deleteWordLeft' } : { type: 'backspace' }
@@ -135,10 +135,10 @@ export function dispatchKey(
     // return null` used to swallow them silently (Ctrl+arrows did nothing).
     if (key.leftArrow) return { type: 'wordLeft' }
     if (key.rightArrow) return { type: 'wordRight' }
-    // Ctrl+Delete deletes the word BEFORE the cursor (the operator's binding:
-    // "Ctrl+Del must delete the word before the cursor"). Ctrl+Backspace does
-    // the same. Plain Delete still deletes one char to the RIGHT.
-    if (key.delete) return { type: 'deleteWordLeft' }
+    // Ctrl+Delete deletes the word AFTER the cursor (the standard editor
+    // binding, same as the legacy LineEditor). Ctrl+Backspace deletes the word
+    // BEFORE it. Plain Delete still deletes one char to the right.
+    if (key.delete) return { type: 'deleteWordRight' }
     if (key.backspace) return { type: 'deleteWordLeft' }
     if (key.home) return { type: 'home' }
     if (key.end) return { type: 'end' }
@@ -187,13 +187,13 @@ export function dispatchKey(
     if (input === 'b') return { type: 'wordLeft' }
     if (input === 'f') return { type: 'wordRight' }
     // VSCode sends Ctrl+Delete as `ESC d` (which Ink reports as Alt+d).
-    // The operator expects it to delete the word BEFORE the cursor.
-    if (input === 'd') return { type: 'deleteWordLeft' }
+    // Standard editor binding: delete the word AFTER the cursor.
+    if (input === 'd') return { type: 'deleteWordRight' }
     if (key.backspace) return { type: 'deleteWordLeft' }
-    // Alt/Ctrl+Delete also deletes the word BEFORE the cursor (the operator's
-    // binding, consistent with ESC d): some terminals encode Ctrl+Delete as
-    // meta+Delete rather than ESC d.
-    if (key.delete) return { type: 'deleteWordLeft' }
+    // Alt/Ctrl+Delete also deletes the word AFTER the cursor (consistent with
+    // ESC d): some terminals encode Ctrl+Delete as meta+Delete rather than
+    // ESC d.
+    if (key.delete) return { type: 'deleteWordRight' }
     return null
   }
 
