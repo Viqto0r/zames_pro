@@ -9,7 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **tui:** default ui.mouseScroll back to true (wheel scrolls the log)
 - **tui:** default ui.mouseScroll back to false so native selection works
+
+### Changed
+
+- **tui:** drop the code-block copy feature (Ctrl+Y / /copy-code)
 
 ## [2.75.5] - 2026-10-15
 

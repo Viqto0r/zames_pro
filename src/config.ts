@@ -79,7 +79,11 @@ export const DEFAULTS: ZamesConfig = {
     incompleteWaitMs: 2000,
     autoContinue: true,
     continueMinGapMs: 1500,
-    askDeadlineMs: 240000,
+    // The agent-loop watchdog for ONE ask(). It only bounds a SILENT send:
+    // a turn the server already ENDED with no answer (FINISHED + truncated
+    // RESPONSE) is detected by the network detectors and retried in seconds,
+    // not waited out. 240s used to mean a 4-minute spinner per dead turn.
+    askDeadlineMs: 120000,
     maxAfterToolRetries: 6,
     autoCompact: false,
     autoCompactPct: 95,

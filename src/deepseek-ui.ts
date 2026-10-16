@@ -319,7 +319,6 @@ export const INCOMPLETE_STATUS_RE = /"quasi_status"(?::|,"v":)"INCOMPLETE"/i
 // fragment. The UI shows Stopped + Continue. Matches both the JSON-property
 // and the BATCH shape (see INCOMPLETE_STATUS_RE).
 export const FINISHED_STATUS_RE = /"quasi_status"(?::|,"v":)"FINISHED"/i
-export const RESPONSE_CONTENT_RE = /"type":"RESPONSE","content":"[^"]/
 
 // Only a completion/continue turn carries a real answer. Gating the capture
 // assignment to these URLs keeps a future endpoint (which happens to return a

@@ -18,7 +18,6 @@ import {
   GENERATION_ERR_RE,
   INCOMPLETE_STATUS_RE,
   FINISHED_STATUS_RE,
-  RESPONSE_CONTENT_RE,
 } from '../src/deepseek-ui.ts'
 import {
   isGenerationIncompleteText,
@@ -120,9 +119,8 @@ test('SSE markers detect truncation / finished-without-answer', () => {
     INCOMPLETE_STATUS_RE.test('"quasi_status","v":"FINISHED"'),
     false,
   )
-  // isFinishedWithoutAnswer() lives in net-capture.ts and uses these two.
+  // isFinishedWithoutAnswer() lives in net-capture.ts and uses this.
   assert.equal(FINISHED_STATUS_RE.test('"quasi_status","v":"FINISHED"'), true)
-  assert.equal(RESPONSE_CONTENT_RE.test('"type":"RESPONSE","content":"x'), true)
 })
 
 test('rate-limit vs server-busy stay distinct (the shared toast tail is not a rate limit)', () => {

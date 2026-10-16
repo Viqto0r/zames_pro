@@ -686,15 +686,20 @@ export class DeepSeekBrowser {
           /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/,
         )
         if (cid) this._netChatId = cid[0]
+        // A live hang: the turn ENDED (`quasi_status: FINISHED`) with no real
+        // answer — only reasoning, or a RESPONSE fragment truncated to a lone
+        // `{`. The extractor yields '' or the fragment, so the OLD
+        // `!extracted` guard skipped the check and the finish loop waited out
+        // the whole askDeadlineMs. Run the check on the RAW body regardless of
+        // whether a (bogus) fragment was extracted.
+        if (isFinishedWithoutAnswer(body)) {
+          // The UI shows Stopped + Continue. Record it with a fresh timestamp
+          // so the ask() loops do not wait out the timeout — they click
+          // Continue / resend.
+          this._netNoAnswer = true
+          this._netCapture = ''
+        }
         if (!extracted) {
-          if (isFinishedWithoutAnswer(body)) {
-            // A FINISHED turn with NO RESPONSE fragment (only reasoning): the
-            // UI shows Stopped + Continue. Record it with a fresh timestamp
-            // so the ask() loops do not wait out the timeout — they click
-            // Continue / resend.
-            this._netNoAnswer = true
-            this._netCapture = ''
-          }
           // A truncated turn (generation_err / INCOMPLETE) also has no
           // RESPONSE; make the body visible to the incomplete check by
           // refreshing the timestamp.
@@ -2427,6 +2432,12 @@ export class DeepSeekBrowser {
     // Ticks since the SSE body reported FINISHED-with-answer while the DOM
     // heuristics kept the loop waiting (see the safety net below).
     let netFinishedTicks = 0
+    // Ticks since the SSE body reported FINISHED but produced NO real answer
+    // (only reasoning / a truncated head) while no Continue button was found.
+    // Waiting out the full answerTimeoutMs (up to 15 min) on a turn the server
+    // already ENDED with nothing is pointless — after a short grace period the
+    // loop gives up so ask() resends the prompt instead of a 4-minute spinner.
+    let deadTicks = 0
     while (Date.now() < deadline) {
       if (this._abort || this._askCancelled) {
         return last || '(прервано пользователем)'
@@ -2556,6 +2567,28 @@ export class DeepSeekBrowser {
         }
       } else {
         netFinishedTicks = 0
+      }
+      // DEAD-TURN SAFETY NET. The server ENDED the turn (`quasi_status:
+      // FINISHED`) but produced no real answer (only reasoning, or a truncated
+      // RESPONSE head) AND there is no Continue button to resume it. The
+      // `truncated`/`noAnswer` branches above throw at once when the raw body
+      // says so; this is the belt-and-braces variant that also covers a body
+      // whose flags were cleared by an earlier Continue click. Waiting out the
+      // full answerTimeoutMs (up to 15 min) is pointless — after a short grace
+      // period give up so ask() resends the prompt instead of a long spinner.
+      if (
+        this._netCaptureAt >= this._lastSentAt &&
+        isFinishedWithAnswer(this._netBody) === false &&
+        isGenerationIncompleteText(this._netBody) === false &&
+        (this._netNoAnswer || isFinishedWithoutAnswer(this._netBody))
+      ) {
+        deadTicks++
+        if (deadTicks >= 6 && !(await this._continueButtonVisible())) {
+          this._askDebug('THROW dead-turn (finished without answer)')
+          throw new GenerationIncompleteError('finished without answer')
+        }
+      } else {
+        deadTicks = 0
       }
       if (isNew && cur === last) {
         stable++

@@ -160,3 +160,28 @@ test('a truncated body has no answer text but IS detected as truncated', () => {
   // But the raw body must still be recognized as a truncated turn.
   assert.equal(isGenerationIncompleteText(body), true)
 })
+
+// REGRESSION (live hang, 2026-10-16): DeepSeek began the RESPONSE fragment
+// with a single `{` and then ended the turn with `quasi_status: FINISHED` — no
+// tool-call JSON ever followed (the net-log body was `{"type":"RESPONSE",
+// "content":"{"` + the status). The old RESPONSE_CONTENT_RE (one non-quote
+// char) matched that `{`, so the body looked "finished WITH an answer":
+// isFinishedWithoutAnswer() stayed false, the finish loop kept polling for a
+// complete answer and ask() gave up only at the 240s watchdog. The operator
+// watched a spinner with no tool call. A truncated RESPONSE head must count as
+// "no answer" so the turn is retried immediately.
+test('a FINISHED turn with only a truncated RESPONSE head is retried', () => {
+  const truncatedHead = [
+    'data: {"v":{"response":{"status":"WIP","fragments":[{"type":"RESPONSE","content":"{"}]}}}',
+    'data: {"p":"response","o":"BATCH","v":[{"p":"quasi_status","v":"FINISHED"}]}',
+  ].join('\n')
+  assert.equal(isFinishedWithoutAnswer(truncatedHead), true)
+  assert.equal(isFinishedWithAnswer(truncatedHead), false)
+  // A REAL (long) answer is still accepted as finished-with-answer.
+  const real = [
+    'data: {"p":"response/fragments","o":"APPEND","v":[{"type":"RESPONSE","content":"{\\"tool\\": \\"Read\\"}"}]}',
+    'data: {"p":"response","o":"BATCH","v":[{"p":"quasi_status","v":"FINISHED"}]}',
+  ].join('\n')
+  assert.equal(isFinishedWithoutAnswer(real), false)
+  assert.equal(isFinishedWithAnswer(real), true)
+})

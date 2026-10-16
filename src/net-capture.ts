@@ -1,7 +1,7 @@
 import fs from 'fs/promises'
 import os from 'os'
 import path from 'path'
-import { FINISHED_STATUS_RE, RESPONSE_CONTENT_RE } from './deepseek-ui.js'
+import { FINISHED_STATUS_RE } from './deepseek-ui.js'
 
 // Extraction of the RAW model answer text from DeepSeek's network data.
 //
@@ -163,15 +163,44 @@ export function extractAnswer(body: string): string {
   return extractFromJson(body)
 }
 
+// The smallest RESPONSE that counts as a REAL answer rather than a truncated
+// head. A live hang: DeepSeek began the RESPONSE fragment with a single `{`
+// (`"type":"RESPONSE","content":"{"`), then the stream ended with
+// `quasi_status: FINISHED` and no tool-call JSON ever followed. The OLD
+// RESPONSE_CONTENT_RE (one non-quote char) matched that `{`, so the body looked
+// "finished WITH an answer" (isFinishedWithAnswer === true,
+// isFinishedWithoutAnswer === false): the finish loop kept polling for a
+// complete answer and `ask()` gave up only at the askDeadlineMs watchdog — the
+// operator watched a spinner for ~4 minutes with no tool call.
+// A real answer (a tool-call JSON, prose, a `respond` call) is far longer, so
+// anything below this is treated as a truncated/empty turn and retried.
+const MIN_FINISHED_ANSWER_CHARS = 4
+
+// How many chars of RESPONSE text the body carries, or -1 when there is NO
+// RESPONSE fragment at all. The fragment is SSE/JSON-encoded, so the content
+// may contain `\"` escapes AND raw `"` inside the JSON (the capture is the RAW
+// body — `{"type":"RESPONSE","content":"{"tool": ...` is a real shape). A naive
+// `[^"]*` therefore stops at the first escaped quote and MIS-reads a long
+// answer as one char. Reuse the real extractor instead of a regex: it decodes
+// the content properly, so the length is exact (we only compare it to a small
+// threshold; the answer text itself comes from extractAnswer()).
+function responseContentLength(body: string): number {
+  const b = String(body || '')
+  if (!/"type":"RESPONSE"/.test(b)) return -1
+  return extractFromSse(b).length
+}
+
 // True when the SSE body shows a turn that ENDED (`quasi_status: FINISHED`)
-// but produced NO answer text — the reasoning (THINK fragment) was generated
-// and then the model stopped WITHOUT writing a RESPONSE fragment.
+// but produced NO real answer text — the reasoning (THINK fragment) was
+// generated and then the model stopped WITHOUT writing a RESPONSE fragment,
+// OR the RESPONSE fragment is a truncated head (a lone `{`, a couple of
+// chars).
 //
 // This is the "Stopped + Continue button" case: DeepSeek finishes the turn
 // with only reasoning, the UI shows a Continue button, and extractAnswer()
-// returns '' (it only collects RESPONSE fragments). The old code then saw an
-// empty capture, ignored it, and the finish loop waited out the whole timeout
-// and threw ds.send_no_new_answer — to the operator the agent "hung on Stopped".
+// returns '' or a fragment. The old code saw a non-empty capture (the `{`),
+// treated the turn as answered, and the finish loop waited out the whole
+// askDeadlineMs — to the operator the agent "hung on Stopped".
 // Unlike generation_err, `quasi_status` here is FINISHED, so
 // isGenerationIncompleteText() does NOT catch it.
 //
@@ -180,10 +209,11 @@ export function isFinishedWithoutAnswer(body: string): boolean {
   if (!b) return false
   const finished = FINISHED_STATUS_RE.test(b)
   if (!finished) return false
-  // A RESPONSE fragment with actual content means the model DID answer.
-  if (RESPONSE_CONTENT_RE.test(b)) return false
-  // The turn carried reasoning (THINK) or was truncated mid-way; treat the
-  // absence of response content as "no answer produced".
+  // A RESPONSE fragment with real content means the model DID answer.
+  const len = responseContentLength(b)
+  if (len >= MIN_FINISHED_ANSWER_CHARS) return false
+  // No RESPONSE fragment at all (len === -1) or only a truncated head:
+  // treat the absence of a real answer as "no answer produced".
   return true
 }
 
@@ -201,7 +231,10 @@ export function isFinishedWithAnswer(body: string): boolean {
   const b = String(body || '')
   if (!b) return false
   if (!FINISHED_STATUS_RE.test(b)) return false
-  return RESPONSE_CONTENT_RE.test(b)
+  // A truncated RESPONSE head (a lone `{`) is NOT a complete answer: the
+  // finish loop would return it as the model's text and the tool-call parser
+  // would fail on it. Require real content (see MIN_FINISHED_ANSWER_CHARS).
+  return responseContentLength(b) >= MIN_FINISHED_ANSWER_CHARS
 }
 
 // The CONTEXT size (in tokens) DeepSeek reports for the current answer.
