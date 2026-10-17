@@ -873,3 +873,38 @@ exported from utils.'` → `true`, `'Set the parameter: name in the config.'` �
 
 - `src/answer-parse.ts` — репортный отчёт не считается «незаконченной работой»
   (2026-10-17).
+
+### Такт 31 (2026-10-17) — исправлено
+
+**Цель:** net-capture — счётчик контекста (`extractTokenUsage`,
+`src/net-capture.ts`).
+
+**Баг:** функция читала только SSE-форму (`v.response.accumulated_token_usage`
+и BATCH-обновления). Но сетевой хук вызывает её для ЛЮБОГО интересного ответа,
+включая `/api/v0/chat/history_messages` — это ПРОСТОЙ JSON (не SSE), где счётчик
+лежит в каждом сообщении. Проверено запуском: тело вида
+`{data:{biz_data:{chat_messages:[{accumulated_token_usage:555}]}}}` → `null`,
+`data: {"usage":{"total_tokens":42}}` → `null`. Итог: после `/resume` или
+перезагрузки страницы счётчик контекста («ctx: N») оставался пустым до
+следующего ответа модели, `/cost` показывал «неизвестно».
+
+**Фикс:** добавлен разбор `usage.total_tokens` (OpenAI-форма) в SSE-ветке и
+рекурсивный обход plain-JSON тела (последнее значение счётчика побеждает).
+SSE-ветка по-прежнему приоритетна.
+
+**Тест:** `test/token-usage-json.test.ts` (4 кейса: plain JSON
+history_messages; OpenAI usage; приоритет SSE; отсутствие счётчика). RED до
+фикса (2 pass / 2 fail, подтверждено `git stash`), GREEN после; вместе с
+`net-capture.test.ts` — 17 pass, 0 fail.
+
+**Гейты:** `npm test` 1153 теста (1143 pass, 0 fail, 10 skip), `typecheck`,
+`lint`, `format:check`, `build`, `sched-smoke` — зелёные.
+
+**Коммит:** `372579c`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- `src/net-capture.ts` — счётчик контекста читается и из plain-JSON
+  `history_messages` и из OpenAI `usage` (2026-10-17).
