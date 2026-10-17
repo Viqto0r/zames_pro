@@ -400,7 +400,9 @@ Codex CLI:
 tests`). /cron "<min> <hour> <dom> <month> <dow>" <task> — run on a schedule.
   /jobs [rm <id>|clear] lists and stops them. A fired job is put into the same
   message queue you type into, so it runs when the agent is free (never mid-
-  generation) and still respects the send throttle.
+  generation) and still respects the send throttle. The FIRST run of a `/loop`
+  is due at once (and runs as soon as the agent is idle); a `/cron` job waits
+  for its schedule.
 - /thinking [on|off] and /web [on|off] — toggle the reasoning / web-search
   behaviour. On **DeepSeek** these are the "Deep thinking" / "Smart search"
   toggles; on **Qwen** they drive its thinking MODE (Thinking / Fast) and the
@@ -987,7 +989,8 @@ zames --task "..." --output-format jsonl \
   запуск по расписанию. /jobs [rm <id>|clear] перечисляет и останавливает их.
   Сработавшая задача попадает в ту же очередь сообщений, что и ваш ввод, так
   что выполняется, когда агент свободен (никогда посреди генерации), и всё
-  равно соблюдает троттлинг отправки.
+  равно соблюдает троттлинг отправки. ПЕРВЫЙ запуск `/loop` — сразу же (как
+  только агент свободен); задача `/cron` ждёт своего расписания.
 - /thinking [on|off] и /web [on|off] — переключить режим размышления /
   веб-поиска. В **DeepSeek** это тумблеры «Deep thinking» / «Smart search»;
   в **Qwen** — это режим размышления (Thinking / Fast) и пункт «Web search»

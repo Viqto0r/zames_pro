@@ -343,8 +343,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '⏰ Job #{id} added ({when}): {task}',
   },
   'sched.added_hint': {
-    ru: 'Первый запуск — через интервал, если агент свободен; иначе сразу после текущей задачи. Список — /jobs, удалить — /jobs rm <id>.',
-    en: 'The first run happens after the interval if the agent is idle — otherwise right after the current task. List: /jobs, remove: /jobs rm <id>.',
+    ru: 'Если агент свободен — запуск сразу, иначе сразу после текущей задачи; дальше — по расписанию. Список — /jobs, удалить — /jobs rm <id>.',
+    en: 'Runs at once if the agent is idle, otherwise right after the current task; then on schedule. List: /jobs, remove: /jobs rm <id>.',
   },
   'sched.title': { ru: 'Запланированные задачи:', en: 'Scheduled jobs:' },
   'sched.none': { ru: 'Запланированных задач нет.', en: 'No scheduled jobs.' },

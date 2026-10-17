@@ -76,20 +76,19 @@ test('nextCronTime: strictly in the future', () => {
   assert.equal(d.getSeconds(), 0)
 })
 
-test('Scheduler: addLoop, due, and reschedule', () => {
+test('Scheduler: addLoop fires at once, then every interval', () => {
   const s = new Scheduler()
-  s.addLoop(60_000, 'ping', 1000)
+  const now = 1000
+  s.addLoop(60_000, 'ping', now)
   assert.equal(s.count(), 1)
-  // Not due before its time.
-  assert.equal(s.due(1000).length, 0)
-  assert.equal(s.due(60_999).length, 0)
-  // Due at exactly nextAt.
-  const fired = s.due(61_000)
-  assert.equal(fired.length, 1)
-  assert.equal(fired[0].task, 'ping')
+  // The FIRST fire is due immediately (write once, the loop starts working).
+  const first = s.due(now)
+  assert.equal(first.length, 1)
+  assert.equal(first[0].task, 'ping')
   // Rescheduled for the next period, not due again immediately.
-  assert.equal(s.due(61_000).length, 0)
-  assert.equal(s.due(121_000).length, 1)
+  assert.equal(s.due(now).length, 0)
+  assert.equal(s.due(now + 60_000 - 1).length, 0)
+  assert.equal(s.due(now + 60_000).length, 1)
 })
 
 test('Scheduler: a loop that fell behind coalesces missed fires', () => {

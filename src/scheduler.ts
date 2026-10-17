@@ -186,7 +186,13 @@ export class Scheduler {
       kind: 'loop',
       task,
       intervalMs,
-      nextAt: now + intervalMs,
+      // The FIRST run is due at once: `/loop 30m <task>` means "start now,
+      // then repeat every 30m". Scheduling the first fire one full interval
+      // ahead left the operator staring at half an hour of silence right
+      // after the command — it read as "the loop did nothing". `due()`
+      // reschedules the job a full interval ahead AFTER it fires, so this
+      // does not become a busy loop.
+      nextAt: now,
       createdAt: now,
     }
     this.jobs.push(job)

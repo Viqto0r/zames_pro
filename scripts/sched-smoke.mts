@@ -61,7 +61,9 @@ check('parseInterval мусор = null', parseInterval('abc') === null)
 const s = new Scheduler()
 const loop = s.addLoop(parseInterval('20s')!, 'проверь состояние', 1_000_000)
 check('addLoop создал job #' + loop.id, loop.kind === 'loop' && loop.id === 1)
-check('nextAt = now + interval', loop.nextAt === 1_000_000 + 20_000)
+// The first tick is due AT ONCE (`/loop` must start working immediately);
+// the next fire is one full interval ahead.
+check('nextAt = now (first tick at once)', loop.nextAt === 1_000_000)
 console.log('  ' + formatJobLine(loop, 1_000_000))
 
 // ---------------------------------------------------------------------------
@@ -95,7 +97,11 @@ const tick = (now: number): number => {
   }
   return due.length
 }
-check('до срока tick ничего не даёт', tick(1_000_000 + 1_000) === 0)
+// The loop is due IMMEDIATELY, so the first tick fires it right away; the
+// cron job is due only at its computed minute.
+check('tick сразу срабатывает loop (первый тик)', tick(1_000_000) === 1)
+check('loop попал в очередь', pendingQueue.some((m) => m.jobId === loop.id))
+check('до срока cron tick ничего не даёт', tick(1_000_000 + 1_000) === 0)
 check('cron */2 сработал по сроку', tick(cron!.nextAt) >= 1)
 check(
   'задача попала в очередь',
