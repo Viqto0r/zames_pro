@@ -231,6 +231,28 @@ surrogate at the cut» (RED до фикса, GREEN после).
 
 ---
 
+### Такт 10 (2026-10-17) — исправлено
+
+**Цель:** слэш-команды — `/jobs` (рендер `formatJobLine`, `src/scheduler.ts`).
+
+**Баг:** задача, чей следующий запуск вычислить не удалось, хранит
+`nextAt = Infinity` (так её ставит `due()`, чтобы она больше никогда не
+срабатывала). `formatJobLine` считал `Math.max(0, Infinity - now)` и печатал
+`next ~-` (не-конечное значение `formatInterval` превращает в `-`) — мёртвая
+задача в `/jobs` выглядела как здоровая.
+
+**Фикс:** при не-конечном `nextAt` строка говорит `NEVER fires again`.
+
+**Тест:** `test/scheduler.test.ts` +1 — «formatJobLine marks a job that can
+never fire» (RED до фикса: `next ~-`, GREEN после).
+
+**Гейты:** `npm test` 1101 тест (1091 pass, 0 fail, 10 skip), `typecheck`,
+`lint`, `format:check`, `build` — зелёные.
+
+**Коммит:** `a55724f`.
+
+---
+
 ## Покрытые области (не повторять без причины)
 
 - `src/tui/log-window.ts` — оконная разбивка лога по строкам (2026-10-17).
