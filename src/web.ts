@@ -189,6 +189,27 @@ export function isPrivateIp(ip: string): boolean {
     )
   }
   if (low.startsWith('64:ff9b:')) return true
+  // IPv4-COMPATIBLE form `::a.b.c.d` (deprecated, but the OS/HTTP stack still
+  // resolves it, so `http://[::127.0.0.1]/` reached localhost). `::` itself and
+  // `::1` are already handled above; `::ffff:…` was handled as MAPPED. Any
+  // other `::`-prefixed address whose tail is an embedded IPv4 belongs to the
+  // same family and must be judged by the embedded address.
+  const compat = low.match(/^::(?:ffff:)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/)
+  if (compat) return isPrivateIp(compat[1])
+  const compatHex = low.match(/^::([0-9a-f]{1,4}):([0-9a-f]{1,4})$/)
+  if (compatHex) {
+    const hi = parseInt(compatHex[1], 16)
+    const lo = parseInt(compatHex[2], 16)
+    return isPrivateIp(
+      ((hi >> 8) & 0xff) +
+        '.' +
+        (hi & 0xff) +
+        '.' +
+        ((lo >> 8) & 0xff) +
+        '.' +
+        (lo & 0xff),
+    )
+  }
   return false
 }
 
