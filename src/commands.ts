@@ -1,5 +1,6 @@
 import { providerLabel } from './providers.js'
 import path from 'path'
+import os from 'os'
 import { isImageName } from './attachments.js'
 import { translate, type TranslateFn } from './i18n.js'
 
@@ -490,8 +491,16 @@ export function resolveExtraDir(
   workdir: string,
   t: TranslateFn = translate('en'),
 ): { path: string } | { error: string } {
-  const raw = String(input ?? '').trim()
+  let raw = String(input ?? '').trim()
   if (!raw) return { error: t('adddir.usage') }
+  // A leading `~` means the home directory (a shell convention the operator
+  // expects). Without expansion resolve() treated it as a literal directory
+  // named `~` under the working dir, so /add-dir ~ reported "No such
+  // directory: /w/~". Only a LEADING `~` / `~/` expands; a `~` elsewhere is
+  // an ordinary character.
+  if (raw === '~') raw = os.homedir()
+  else if (raw.startsWith('~/') || raw.startsWith('~' + path.sep))
+    raw = path.join(os.homedir(), raw.slice(2))
   const abs = path.resolve(workdir, raw)
   if (abs === path.resolve(workdir)) {
     return { error: t('adddir.same') }

@@ -25,6 +25,8 @@ import {
   buildSlashCommandHints,
   SLASH_COMMANDS,
 } from '../src/commands.ts'
+import path from 'node:path'
+import os from 'node:os'
 
 const NL = String.fromCharCode(10)
 const Q = String.fromCharCode(34)
@@ -618,4 +620,19 @@ test('SLASH_COMMANDS has unique names and non-empty keys', () => {
   const names = SLASH_COMMANDS.map((c) => c.name.toLowerCase())
   assert.equal(new Set(names).size, names.length)
   for (const c of SLASH_COMMANDS) assert.ok(c.key.length > 0)
+})
+
+// A user types `~` or `~/projects/x` meaning their home directory. resolve()
+// treated `~` as a LITERAL directory name under the working dir, so
+// /add-dir ~ reported "No such directory: /w/~" instead of validating the home
+// path. Tilde expansion is a shell convention the operator expects.
+test('resolveExtraDir expands a leading ~ to the home directory', () => {
+  const home = os.homedir()
+  const r = resolveExtraDir('~', '/w') as { path: string }
+  assert.equal(r.path, home)
+  const r2 = resolveExtraDir('~/projects', '/w') as { path: string }
+  assert.equal(r2.path, path.join(home, 'projects'))
+  // A tilde in the MIDDLE is a literal character, not an expansion.
+  const r3 = resolveExtraDir('a/~/b', '/w') as { path: string }
+  assert.equal(r3.path, path.join('/w', 'a', '~', 'b'))
 })
