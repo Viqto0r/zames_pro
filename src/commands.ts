@@ -23,7 +23,11 @@ export function formatDiff(
     .split(CR + NL)
     .join(NL)
     .trimEnd()
-  if (!trimmed) return t('diff.no_changes')
+  // The shared git runner reports an EMPTY result as this sentinel, so a clean
+  // tree must not print it to the operator (formatDiffStat already handles it).
+  if (!trimmed || trimmed.trim() === '(command produced no output)') {
+    return t('diff.no_changes')
+  }
   const lines = trimmed.split(NL)
   if (lines.length <= maxLines) return trimmed
   const head = lines.slice(0, maxLines).join(NL)
