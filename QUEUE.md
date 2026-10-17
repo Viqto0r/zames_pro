@@ -803,3 +803,39 @@ P0, и `/improve` выбирал его вместо реального бэкл
 
 - `src/commands.ts` — `parseBacklogItems` пропускает fenced-блоки
   (2026-10-17).
+
+### Такт 29 (2026-10-17) — исправлено
+
+**Цель:** парсер tool-call — сторож «похоже на вызов»
+(`responseLooksLikeToolCall`, `src/answer-parse.ts`).
+
+**Баг:** в списке маркеров вызова стояли ГОЛЫЕ слова `\binvoke\b` и
+`\bparameter\b`. Любой финальный отчёт, где эти слова — обычный английский
+текст, считался нераспознанным вызовом: `runAgentLoop` отвергал готовый ответ
+и переспрашивал модель, а после `MAX_MALFORMED_RETRIES` заканчивал задачу
+ошибкой вместо отчёта. Проверено запуском: `responseLooksLikeToolCall('I added
+a timeout parameter: the default is 30s.')` → `true`, `'The invoke helper is
+exported from utils.'` → `true`, `'Set the parameter: name in the config.'` →
+`true`.
+
+**Фикс:** убраны оба «словарных» маркера. Настоящая XML/DSML-форма по-прежнему
+ловится шаблоном тегов (`<\s*\|?\s*(DSML|invoke|parameter)`), а ключ JSON —
+`"tool":`.
+
+**Тест:** `test/guard-toolcall-prose.test.ts` (3 кейса: проза со словом
+`parameter`; проза со словами `invoke`/`parameter`; реальный `<invoke …>` и
+`DSML|invoke` по-прежнему ловятся). RED до фикса (1 pass / 2 fail,
+подтверждено `git stash`), GREEN после; вместе с `guard-toolcall.test.ts` и
+`answer-parse.test.ts` — 12 pass.
+
+**Гейты:** `npm test` 1146 тестов (1136 pass, 0 fail, 10 skip), `typecheck`,
+`lint`, `format:check`, `build`, `sched-smoke` — зелёные.
+
+**Коммит:** `5409760`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- `src/answer-parse.ts` — сторож вызова не срабатывает на прозу со словами
+  `invoke`/`parameter` (2026-10-17).
