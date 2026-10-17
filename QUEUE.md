@@ -40,6 +40,35 @@ CATALOG на упоминание удалённой формы `/resume <n>`.
 **Гейты:** `npm test` 1083 теста (1073 pass, 0 fail, 10 skip),
 `typecheck`, `lint`, `format:check`, `build` — зелёные.
 
+**Коммит:** `37d6e55`.
+
+---
+
+### Такт 3 (2026-10-17) — исправлено
+
+**Цель:** локализация ru/en в Ink-диалогах TUI.
+
+**Баг:** панель подсказок клавиш (`HintBar`) в `SelectList`,
+`ConfigMenu` и `ConfirmDialog` — а также метка «← текущая» в выборе модели
+`/model` — были захардкожены по-русски. Оператор с `ui.locale=en` видел
+русскую строку подсказок в каждом модальном меню; переводчик не мог её
+поправить. Нарушение правила «операторский текст — только через CATALOG».
+
+**Фикс:**
+- `src/i18n/deepseek.ts` — новые ключи `tui.hint.*` (select/edit/ok/cancel/
+  search/reset/change/quit) и `tui.list.current` (ru+en).
+- `src/tui/SelectList.tsx`, `ConfigMenu.tsx`, `ConfirmDialog.tsx` — prop
+  `locale`, подсказки читаются через `translate(locale)`.
+- `run-select.tsx`, `run-confirm.tsx`, `/config`-меню, permission-ask и
+  пикер модели в `index.ts` — прокинут `currentLocale`.
+
+**Тест:** `test/tui-hints-locale.test.ts` (RED до фикса — все три
+компонента падали с русскими метками, GREEN после): сканирует исходники
+компонентов и падает на любом кириллическом label в `hints={[...]}`.
+
+**Гейты:** `npm test` 1087 тестов (1077 pass, 0 fail, 10 skip),
+`typecheck`, `lint`, `format:check`, `build` — зелёные.
+
 **Коммит:** см. `git log -1`.
 
 ---
