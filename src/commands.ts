@@ -135,9 +135,15 @@ export function summarizeTranscript(entries: TranscriptEntry[]): SessionStats {
   const stats: SessionStats = {
     turns: 0,
     toolCalls: 0,
-    toolCounts: {},
+    // Null-prototype maps: a tool NAME is arbitrary text (an MCP server can
+    // advertise anything, the model may emit any name). With a plain {} a name
+    // like '__proto__' assigns the PROTOTYPE (the tool vanishes from the count
+    // and Object.prototype gets mutated), and 'constructor'/'toString' read an
+    // inherited function instead of a number — /cost then printed
+    // "constructor: function Object() { [native code] }1".
+    toolCounts: Object.create(null) as Record<string, number>,
     toolMs: 0,
-    toolTime: {},
+    toolTime: Object.create(null) as Record<string, number>,
     durationMs: 0,
     startedAt: null,
     autoCompacts: 0,
