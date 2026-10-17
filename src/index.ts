@@ -3146,6 +3146,13 @@ async function main(): Promise<void> {
       const intervalStr = sp === -1 ? rest : rest.slice(0, sp)
       const taskStr = sp === -1 ? '' : rest.slice(sp + 1).trim()
       const ms = parseInterval(intervalStr)
+      if (!ms && intervalStr) {
+        // Say WHY the job was not added. A bare `10` is not a typo the agent
+        // can spot: it IS a valid interval (10 SECONDS), while an operator who
+        // meant ten minutes needs the `m` suffix.
+        console.error(theme.error(t('sched.interval_typo', { v: intervalStr })))
+        continue
+      }
       if (!ms || !taskStr) {
         console.error(theme.error(t('sched.loop_usage')))
         continue
@@ -3174,6 +3181,12 @@ async function main(): Promise<void> {
           }),
         ),
       )
+      // Tell the operator WHEN it will actually run. A scheduled task never
+      // interrupts a running turn: it is queued and starts only when the
+      // agent is idle (or right after the current task). The bare "added"
+      // line made a first /loop look like a no-op, so the operator re-sent the
+      // task by hand (the very report this line answers).
+      console.log(theme.dim(t('sched.added_hint')))
       continue
     }
 
@@ -3208,6 +3221,7 @@ async function main(): Promise<void> {
           }),
         ),
       )
+      console.log(theme.dim(t('sched.added_hint')))
       continue
     }
 

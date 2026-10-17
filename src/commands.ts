@@ -750,11 +750,22 @@ export interface QueuedAttachment {
 export interface QueuedMessage {
   text: string
   attachments?: QueuedAttachment[]
+  /** Set when the message came from a scheduled /loop or /cron job. */
+  jobId?: number
 }
 
 export interface MergedMessage {
   text: string
   attachments: QueuedAttachment[]
+  /**
+   * The jobId of a SCHEDULED message in the batch (undefined for an operator
+   * batch). It MUST survive the merge: dropping it meant the job's queued
+   * marker vanished the moment its turn was sent, so the `hasQueuedJob` guard
+   * in the scheduler ticker no longer saw a copy in flight and fired the SAME
+   * job again on every tick — a /loop 1m piled up a copy per minute while the
+   * first run was still going.
+   */
+  jobId?: number
 }
 
 // True when a scheduled job already has a message waiting in the queue. The
@@ -1080,6 +1091,7 @@ export function mergeMessages(msgs: QueuedMessage[]): MergedMessage {
     return {
       text: list[0].text,
       attachments: (list[0].attachments || []).slice(),
+      jobId: list[0].jobId,
     }
   }
   let imgOffset = 0
@@ -1112,7 +1124,10 @@ export function mergeMessages(msgs: QueuedMessage[]): MergedMessage {
     ' messages while you were working. They are listed below in order — ' +
     'treat them as one instruction.'
   const text = header + NL + NL + parts.join(NL + NL + '---' + NL + NL)
-  return { text, attachments }
+  // Keep the FIRST scheduled job id in the batch so the ticker still knows a
+  // copy of that job is in flight (see MergedMessage.jobId).
+  const jobId = list.find((m) => m.jobId !== undefined)?.jobId
+  return { text, attachments, jobId }
 }
 
 // ---------- /improve ----------

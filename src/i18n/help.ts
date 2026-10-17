@@ -330,6 +330,10 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Использование: /cron "<мин> <час> <день> <мес> <день недели>" <задача>',
     en: 'Usage: /cron "<min> <hour> <dom> <month> <dow>" <task>',
   },
+  'sched.interval_typo': {
+    ru: 'Интервал «{v}» не распознан — задача НЕ добавлена. Единицы: s/sec, m/min, h (например, /loop 10m проверь тесты). Без единицы — СЕКУНДЫ (120 = 120с), для минут нужен суффикс m.',
+    en: 'Interval "{v}" was not recognized — NO job was added. Units: s/sec, m/min, h (e.g. /loop 10m run the tests). Without a unit it means SECONDS (120 = 120s); use the m suffix for minutes.',
+  },
   'sched.loop_too_short': {
     ru: 'Слишком часто: минимум {min} (троттлинг отправок 15с).',
     en: 'Too frequent: minimum {min} (the send throttle is 15s).',
@@ -337,6 +341,10 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
   'sched.added': {
     ru: '⏰ Задача #{id} добавлена ({when}): {task}',
     en: '⏰ Job #{id} added ({when}): {task}',
+  },
+  'sched.added_hint': {
+    ru: 'Первый запуск — через интервал, если агент свободен; иначе сразу после текущей задачи. Список — /jobs, удалить — /jobs rm <id>.',
+    en: 'The first run happens after the interval if the agent is idle — otherwise right after the current task. List: /jobs, remove: /jobs rm <id>.',
   },
   'sched.title': { ru: 'Запланированные задачи:', en: 'Scheduled jobs:' },
   'sched.none': { ru: 'Запланированных задач нет.', en: 'No scheduled jobs.' },

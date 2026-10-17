@@ -63,3 +63,26 @@ test('isSlashCommand detects commands (trimmed)', () => {
   assert.equal(isSlashCommand('!git status'), true)
   assert.equal(isSlashCommand('  !ls '), true)
 })
+
+// A SCHEDULED message (/loop, /cron) carries a jobId. The scheduler ticker
+// skips a job that already has a copy queued; dropping the id while merging
+// the batch made the ticker fire the SAME job again on every tick, so a
+// `/loop 1m` piled up one copy per minute while the first run was still going.
+test('a single scheduled message keeps its jobId', () => {
+  const m = mergeMessages([{ text: 'ping', jobId: 7 }])
+  assert.equal(m.text, 'ping')
+  assert.equal(m.jobId, 7)
+})
+
+test('a merged batch keeps the scheduled jobId (first one wins)', () => {
+  const m = mergeMessages([
+    { text: 'ping', jobId: 7 },
+    { text: 'operator note' },
+  ])
+  assert.equal(m.jobId, 7)
+})
+
+test('an operator-only batch has no jobId', () => {
+  assert.equal(mergeMessages([{ text: 'a' }, { text: 'b' }]).jobId, undefined)
+  assert.equal(mergeMessages([{ text: 'a' }]).jobId, undefined)
+})
