@@ -198,9 +198,15 @@ export function parseQwenHistory(json: unknown): ChatMessage[] {
       }
     }
     // `content_list` (phase-split output) is used when `content` is empty.
+    // Each part carries its PHASE, and the reasoning phase must never leak
+    // into the restored dialogue as the answer (the live SSE parser skips
+    // `thinking_summary` for the same reason).
     if (!text && Array.isArray(m.content_list)) {
       for (const part of m.content_list as Array<Record<string, unknown>>) {
-        if (part && typeof part.content === 'string') text += part.content
+        if (!part || typeof part.content !== 'string') continue
+        const phase = String(part.phase ?? part.type ?? '')
+        if (/think|reason/i.test(phase)) continue
+        text += part.content
       }
     }
     // `reasoning_content` is the THINK phase and must never leak into the
