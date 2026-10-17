@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **scheduler:** start the first /loop tick immediately
+
+### Fixed
+
+- **diff:** show no-changes text instead of the git runner sentinel
+- **config:** refuse prototype-polluting segments in setByPath
+- **net:** read the context counter from history_messages and OpenAI usage
+- **agent-loop:** do not flag a report that explains the work as unfinished
+- **agent-loop:** stop treating prose that mentions invoke/parameter as a tool call
+- **backlog:** ignore headings inside fenced code blocks
+- **subagent:** keep the SubagentStop hook output when the run fails
+- **goal:** parse a markdown-formatted evaluator verdict
+- **qwen:** skip the thinking phase when restoring a chat from content_list
+- **changelog:** keep drafted group headings on their own line
+- **tui:** decode modified and release wheel reports correctly
+- **shell:** normalize an invalid Bash timeout instead of crashing the tool
+- **cost:** keep per-tool stats safe for __proto__/constructor tool names
+- **tui:** mark blocked/aborted tool calls as errors in the result icon
+- **mcp:** do not split a surrogate pair when truncating an MCP result
+- **context:** discover skills at the documented 3 levels deep
+- **commands:** /diffstat accepts --staged like /diff
+- **commands:** /add-dir expands a leading ~ to the home directory
+- **scheduler:** accept the N/step cron form
+- **scheduler:** reject a /loop interval that overflows the 32-bit timer
+- **diagnostics:** never cut the check output inside a surrogate pair
+- **web:** close two SSRF-guard bypasses in WebFetch
+- **scheduler:** flag a job whose next fire could not be computed
+- **subagent:** cap a report without splitting a surrogate pair
+- **qwen:** a retry wait cut short by Esc must stop the retry chain
+- **tui:** a bracketed paste split across reads must not leak its end marker
+- **agent-loop:** do not cut a tool result inside a surrogate pair
+- **web:** a broken numeric HTML entity must not fail the whole WebFetch
+- **scheduler:** keep a scheduled message's jobId through the queue merge; explain an unrecognized /loop interval
+- **tui:** localize the Ink dialog key-hint bars
+- **i18n:** drop the dead /resume <n> hint from /sessions and the docs
+
 ## [2.76.0] - 2026-10-16
 
 ### Added
