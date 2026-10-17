@@ -525,3 +525,40 @@ required argument`, `command failed`, `exit code`). Но агент-луп во�
 ## Покрытые области (не повторять без причины)
 
 - `src/tool-summary.ts` — иконка результата: блокировки/аборт = ошибка (2026-10-17).
+
+### Такт 21 (2026-10-17) — исправлено
+
+**Цель:** `/cost` и `/export` — агрегация статистики по инструментам
+(`summarizeTranscript` в `src/commands.ts`).
+
+**Баг:** `toolCounts`/`toolTime` — обычные `{}`, а имя инструмента это
+ПРОИЗВОЛЬНЫЙ текст (MCP-сервер может объявить любое, модель может прислать
+любое). При имени `__proto__` строка `counts[name] = (counts[name] || 0) + 1`
+не добавляет ключ, а ПРИСВАИВАЕТ ПРОТОТИП: счётчик `counts['__proto__']`
+становится `NaN`, запись в `/cost` пропадает, а сам объект получает числовой
+прототип. Последствие тяжелее, чем «неверная цифра»: `formatExport` делает
+`JSON.stringify(stats)`, и сериализация падала с `TypeError: Cannot convert
+object to primitive value` — `/export` полностью ломался. С именами
+`constructor`/`toString` — та же болезнь в мягкой форме: `/cost` печатал
+`constructor: function Object() { [native code] }1`.
+
+**Фикс:** `toolCounts` и `toolTime` создаются через `Object.create(null)` —
+собственный ключ для любого имени, никакой унаследованной функции и никакого
+прототипного сеттера.
+
+**Тест:** `test/transcript-prototype-keys.test.ts` (4 кейса: собственный ключ
+`__proto__`; JSON-сериализация статистики; время под `__proto__`; числовые
+счётчики для `constructor`/`toString`). RED до фикса (все 4 падения,
+подтверждено через `git stash`), GREEN после.
+
+**Гейты:** `npm test` 1125 тестов (1115 pass, 0 fail, 10 skip), `typecheck`,
+`lint`, `format:check`, `build`, `sched-smoke` — зелёные.
+
+**Коммит:** `05d649d`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- `src/commands.ts` — статистика `/cost`/`/export` безопасна для имён
+  `__proto__`/`constructor` (2026-10-17).
