@@ -118,6 +118,12 @@ export function syncUnreleased(changelog: string, body: string): string {
   const tail = next < 0 ? '' : rest.slice(next)
   const cleanBody = String(body || '')
     .replace(/^## \[Unreleased\]\s*/m, '')
+    // A drafted group heading must START a line of its own. When the draft
+    // carries several groups (`## Added` … `## Fixed`) without a blank line
+    // between them, the next group used to stay glued to the last bullet
+    // (`- a### Fixed`) — it was not a heading at all, so the item vanished
+    // from the rendered changelog.
+    .replace(/([^\n])\n?(?=## )/g, '$1' + nl + nl)
     .trim()
     // The draft renders groups as `## Added` (top-level), but INSIDE the file
     // a version's groups are `### Added` (a subsection of the version heading).
