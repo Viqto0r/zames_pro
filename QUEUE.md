@@ -460,3 +460,36 @@ overflows a 32-bit timer» (RED до фикса, GREEN после; гранич�
 - `src/tui/InputLine.tsx` (2026-10-17).
 - `src/input/suggest.ts` + `src/input/layout.ts` (2026-10-17).
 - `src/tui/StatusBar.tsx` (2026-10-17).
+
+### Такт 19 (2026-10-17) — исправлено
+
+**Цель:** MCP — обрезка результата инструмента (`truncateMcpResult`,
+`src/mcp.ts`).
+
+**Баг:** большой результат MCP-сервера (browser_snapshot, гигантский
+текстовый блок) режется до `MCP_RESULT_LIMIT` сырым `str.slice`. На тексте с
+эмодзи/астральной CJK-графикой разрез попадал МЕЖДУ половинами суррогатной
+пары — в контекст модели уходил lone high surrogate (`"xxxxxxxxxx�
+[...truncated ...]"`).
+Задета ОБЕ ветки: и обычная, и «по границе строки» (она использует тот же
+`head`). То же правило, что уже применено в `truncateToolResult`, `capReport`
+и `summarizeDiagnostics`.
+
+**Фикс:** после `slice` отступаем на один UTF-16 юнит, если последний символ
+`head` — high surrogate (низкий суррогат в одиночку из валидной строки не
+возникает, поэтому проверки high-половины достаточно).
+
+**Тест:** `test/mcp-truncate-surrogate.test.ts` (2 кейса — обычный разрез и
+разрез по границе строки; обход по CODE POINT). RED до фикса (`actual: true`
+для lone surrogate), GREEN после.
+
+**Гейты:** `npm test` 1117 тестов (1107 pass, 0 fail, 10 skip),
+`typecheck`, `lint`, `format:check`, `build`, `sched-smoke` — зелёные.
+
+**Коммит:** `8729901`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- `src/mcp.ts` — обрезка результата не рвёт суррогатную пару (2026-10-17).
