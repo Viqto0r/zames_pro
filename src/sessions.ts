@@ -60,8 +60,19 @@ function ensureDir(): void {
   fs.mkdirSync(SESSIONS_DIR, { recursive: true })
 }
 
+// A chat id is used as a FILE NAME. Replacing every unsafe character with `_`
+// made two DIFFERENT ids collide on one file ('a/b' and 'a_b'), so the second
+// session overwrote the first and the other chat could not be resumed. Encode
+// the unsafe characters instead: `_` becomes `_5f` and every other unsafe byte
+// `_XX` (hex), which is injective and still path-safe.
 function safeName(id: string): string {
-  return String(id).replace(/[^a-zA-Z0-9_.-]/g, '_')
+  const s = String(id)
+  let out = ''
+  for (const ch of s) {
+    if (/[a-zA-Z0-9.-]/.test(ch)) out += ch
+    else out += '_' + ch.codePointAt(0)!.toString(16).padStart(2, '0')
+  }
+  return out
 }
 
 // Save/update a session. workdir is needed so that when launched from the same
