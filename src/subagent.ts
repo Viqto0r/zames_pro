@@ -251,7 +251,14 @@ export function createSubagentRunner(
       )
     } catch {}
 
-    if (failed) return { ok: false, text: failed }
+    // A failed subagent must NOT lose the hook's stdout: a SubagentStop hook
+    // that reports the broken state is most useful exactly when the run died.
+    if (failed) {
+      return {
+        ok: false,
+        text: capReport(hookOut ? failed + '\n\n' + hookOut : failed),
+      }
+    }
     return {
       ok: true,
       text: capReport(hookOut ? report + '\n\n' + hookOut : report),
