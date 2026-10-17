@@ -50,7 +50,15 @@ export function parseWheel(chunk: string): number {
   let m: RegExpExecArray | null
   while ((m = re.exec(chunk)) !== null) {
     const cb = Number(m[1])
+    // SGR reports a RELEASE as the same button number with a lowercase `m`.
+    // Only press events are wheels: a terminal that sends 1000/1002/1003
+    // release reports (xterm does for button events) would otherwise count
+    // every notch TWICE — once for the press and once for its release.
+    if (m[0].endsWith('m')) continue
     // Button code 64 = wheel up (scroll back), 65 = wheel down (scroll fwd).
+    // Modifier bits (4=shift, 8=alt, 16=ctrl) must be masked OFF first: the
+    // mask below used to keep bit 0, so Ctrl/Alt-wheel (Cb 80/72/... — odd or
+    // even) fell through and that notch was lost.
     const button = cb & 0b11000011
     if (button === 64) delta += 1
     else if (button === 65) delta -= 1
