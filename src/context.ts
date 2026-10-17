@@ -441,7 +441,11 @@ async function findSkillFiles(root: string, depth = 3): Promise<string[]> {
       else if (e.isDirectory() && level < depth) await walk(full, level + 1)
     }
   }
-  await walk(root, 1)
+  // Start at level 0 so `level < depth` admits exactly `depth` levels of
+  // subdirectories: with walk(root, 1) the FIRST level counted as 1 and the
+  // walk stopped one level early, so a skill at the documented "3 levels
+  // deep" (`.zames/skills/<a>/<b>/<skill>/SKILL.md`) was never discovered.
+  await walk(root, 0)
   return out
 }
 
