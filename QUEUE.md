@@ -1196,3 +1196,35 @@ origin` подтверждает `refs/tags/v2.77.1` → `cd444ed`), GitHub Acti
 - Релиз 2.77.1 (patch): sessions history cap, session file-name collision,
   `/diff` sentinel, SSRF IPv4-compatible IPv6, Qwen answer-text false
   positive, backlog collapse note safety (2026-10-17).
+
+### Такт 41 (2026-10-17) — исправлено
+
+**Цель:** атомарная запись файлов (`writeFileAtomic`, `src/fsutil.ts`).
+
+**Баг:** при сбое записи/fsync/rename (полный диск, EIO, каталог на месте
+цели) временный файл `<file>.tmp-<pid>` оставался на диске. Каждый неудачный
+сброс конфига/истории/сессии копил мусорный `.tmp-<pid>` рядом с реальным
+файлом, а следующая неудача того же процесса использовала то же имя, так что
+мусор не убирался никогда. Проверено запуском: после падения `rename` в
+каталоге оставался `c.json.tmp-453786`.
+
+**Фикс:** весь блок write → fsync → rename обёрнут в `try`; в `catch` временный
+файл удаляется, затем исключение пробрасывается (поведение вызывающих не
+меняется).
+
+**Тест:** `test/fsutil-tmp-cleanup.test.ts` (падение rename на каталоге-цели →
+исключение пробрасывается, `.tmp-` файлов не остаётся). RED до фикса
+(0 pass / 1 fail, подтверждено `git stash`), GREEN после; вместе с
+`backlog-improvements.test.ts` — 12 pass, 0 fail.
+
+**Гейты:** `npm test` 1173 теста (1163 pass, 0 fail, 10 skip), `typecheck`,
+`lint`, `format:check`, `build`, `sched-smoke` — зелёные.
+
+**Коммит:** `1332315`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- `src/fsutil.ts` — неудачная атомарная запись не оставляет tmp-файл
+  (2026-10-17).
