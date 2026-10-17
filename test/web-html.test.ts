@@ -126,3 +126,35 @@ test('createReusable.reset without a value is a no-op', async () => {
   await r.reset()
   assert.equal(disposed, 0)
 })
+
+// A single bad numeric entity used to throw RangeError (String.fromCodePoint
+// rejects > 0x10FFFF, surrogates and NaN), and the throw escaped htmlToText
+// into the WebFetch handler's catch — the whole page came back as
+// "Error fetching <url>: Invalid code point". A page with one broken entity
+// must still return its text.
+test('htmlToText survives an out-of-range numeric entity', () => {
+  const out = htmlToText('<p>before &#999999999; after</p>')
+  assert.ok(out.includes('before'), out)
+  assert.ok(out.includes('after'), out)
+})
+
+test('htmlToText survives a surrogate / empty numeric entity', () => {
+  const out = htmlToText('<p>a &#xD800; b &#; c</p>')
+  assert.ok(out.includes('a'), out)
+  assert.ok(out.includes('c'), out)
+})
+
+// A surrogate PAIR written as two numeric references is one astral character
+// (an emoji): decoding them separately leaves two lone surrogates in the text.
+test('htmlToText joins a numeric-reference surrogate pair', () => {
+  const out = htmlToText('<p>x &#55357;&#56832; y</p>')
+  assert.ok(out.includes(String.fromCodePoint(0x1f600)), out)
+  // Check the CODE POINTS: a string built from a surrogate pair CONTAINS the
+  // high surrogate half, so includes('\ud83d') is true even for a CORRECT
+  // emoji. Assert instead that no code point is inside the surrogate block.
+  const lone = [...out].some((ch) => {
+    const cp = ch.codePointAt(0) as number
+    return cp >= 0xd800 && cp <= 0xdfff
+  })
+  assert.equal(lone, false, 'a lone surrogate leaked into the text')
+})

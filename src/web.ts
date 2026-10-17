@@ -8,7 +8,37 @@ const MAX_TEXT = 12_000
 
 // Removes scripts, styles, and turns HTML into readable text. Exported for
 // tests — the entity/whitespace/collapse branches are pure and worth pinning.
+// Decode ONE numeric HTML entity to its character. A hostile/broken page can
+// carry `&#999999999;` (beyond Unicode), a surrogate (`&#xD800;`) or a huge
+// hex value; String.fromCodePoint THROWS RangeError on those, and the throw
+// escaped htmlToText into the WebFetch handler — the whole page came back as
+// "Error fetching <url>: Invalid code point 999999999". An undecodable
+// reference is kept VERBATIM instead.
+//
+// A surrogate PAIR written as two references (`&#55357;&#56832;`) is ONE
+// astral character (an emoji): decoding each half alone left two lone
+// surrogates in the text. A lone high surrogate is remembered and JOINED with
+// the low surrogate that immediately follows it (the replacer runs in order).
+let pendingHighSurrogate: string | null = null
+function decodeEntityCode(cp: number): string {
+  if (!Number.isInteger(cp) || cp < 0 || cp > 0x10ffff) return ''
+  if (cp >= 0xd800 && cp <= 0xdbff) {
+    pendingHighSurrogate = String.fromCharCode(cp)
+    return ''
+  }
+  if (cp >= 0xdc00 && cp <= 0xdfff) {
+    const high = pendingHighSurrogate
+    pendingHighSurrogate = null
+    return high ? high + String.fromCharCode(cp) : String.fromCharCode(cp)
+  }
+  pendingHighSurrogate = null
+  return String.fromCodePoint(cp)
+}
+
 export function htmlToText(html: string): string {
+  // Reset the cross-reference surrogate state: it must never leak from one
+  // document to the next.
+  pendingHighSurrogate = null
   // Remove blocks we don't need
   let s = html
     .replace(/<script[\s\S]*?<\/script>/gi, '')
@@ -44,10 +74,8 @@ export function htmlToText(html: string): string {
     .replace(/&mdash;/g, '—')
     .replace(/&ndash;/g, '–')
     .replace(/&hellip;/g, '…')
-    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, n) =>
-      String.fromCodePoint(parseInt(n, 16)),
-    )
+    .replace(/&#(\d+);/g, (_, n) => decodeEntityCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => decodeEntityCode(parseInt(n, 16)))
 
   // Collapse blank lines
   s = s
