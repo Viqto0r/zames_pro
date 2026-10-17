@@ -85,12 +85,21 @@ function argumentReason(reason: string): boolean {
 // "continue", never as "done").
 export function parseGoalVerdict(text: string): GoalVerdict | null {
   const t = String(text ?? '')
-  const m = /VERDICT:\s*(`{0,3})?\s*(MET|NOT_MET|IMPOSSIBLE)/i.exec(t)
+  // The label may be bolded/italicised and the colon may carry surrounding
+  // spaces (`**VERDICT:** MET`) — a markdown-model answer did exactly that and
+  // the strict `VERDICT:` matcher returned null, so the goal never parsed and
+  // the loop auto-continued until the turn budget.
+  const m = /VERDICT\s*[*_`]*\s*:\s*[*_`]*\s*(MET|NOT_MET|IMPOSSIBLE)/i.exec(t)
   if (!m) return null
-  const raw = m[2].toUpperCase()
+  const raw = m[1].toUpperCase()
   const status: GoalVerdict['status'] =
     raw === 'MET' ? 'met' : raw === 'IMPOSSIBLE' ? 'impossible' : 'not_met'
-  const rm = /REASON:\s*(.+)/i.exec(t)
-  const reason = rm ? rm[1].replace(/`{2,}/g, '').trim() : ''
+  const rm = /REASON\s*[*_`]*\s*:\s*(.+)/i.exec(t)
+  const reason = rm
+    ? rm[1]
+        .replace(/`{1,3}/g, '')
+        .replace(/\*{1,2}/g, '')
+        .trim()
+    : ''
   return { status, reason }
 }
