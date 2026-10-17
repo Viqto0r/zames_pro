@@ -493,3 +493,35 @@ overflows a 32-bit timer» (RED до фикса, GREEN после; гранич�
 ## Покрытые области (не повторять без причины)
 
 - `src/mcp.ts` — обрезка результата не рвёт суррогатную пару (2026-10-17).
+
+### Такт 20 (2026-10-17) — исправлено
+
+**Цель:** TUI — иконка результата инструмента (`looksLikeToolError`,
+`src/tool-summary.ts`, рисуется в `TuiEditor.toolResult`).
+
+**Баг:** классификатор знал только ВЫБРОШЕННЫЕ ошибки (`Error:`, `Missing
+required argument`, `command failed`, `exit code`). Но агент-луп возвращает
+неудачу строкой и без throw: `Blocked by permission policy: …`,
+`Blocked by PreToolUse hook: …`, `Denied by operator: …`, `Unknown tool: …`,
+`Subagents are not available in this run.`, `Subagent failed/error: …`,
+`⏱ Timeout after … — process killed.`, `(aborted by the operator)`. Все они
+показывались с ЗЕЛЁНОЙ галочкой ✔ — оператор видел «успех» у вызова, который
+не выполнялся. Проверено живьём: все перечисленные строки → `false`.
+
+**Фикс:** добавлены префиксы/подстроки для блокировок, отказа оператора,
+неизвестного инструмента, отказа субагента, таймаута и аборта.
+
+**Тест:** `test/tool-summary-blocked.test.ts` (4 кейса: блокировки, аборт/
+таймаут, unknown/subagent, нормальный результат остаётся успехом). RED до
+фикса (3 падения), GREEN после.
+
+**Гейты:** `npm test` 1121 тест (1111 pass, 0 fail, 10 skip), `typecheck`,
+`lint`, `format:check`, `build`, `sched-smoke` — зелёные.
+
+**Коммит:** `c0c8383`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- `src/tool-summary.ts` — иконка результата: блокировки/аборт = ошибка (2026-10-17).
