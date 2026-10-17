@@ -40,3 +40,19 @@ test('a cut near a line boundary keeps whole lines', () => {
   assert.ok(kept.length <= 1000 && kept.length > 1000 - 31)
   assert.match(out, /\[\.\.\.truncated \d+ chars\]/)
 })
+
+// A CJK/emoji-heavy result must not be cut INSIDE a surrogate pair: a lone
+// high surrogate at the cut is a broken code point, and some channels turn it
+// into '?' or drop the rest of the text.
+test('truncation never leaves a lone surrogate at the cut', () => {
+  const emoji = String.fromCodePoint(0x1f600)
+  const text = emoji.repeat(50)
+  // Limit lands in the MIDDLE of the 20th emoji (2 UTF-16 units each).
+  const out = truncateToolResult(text, 41)
+  const kept = out.split(String.fromCharCode(10))[0]
+  const last = kept.codePointAt(kept.length - 2) as number
+  assert.ok(
+    last < 0xd800 || last > 0xdfff,
+    'the kept text ends with a lone surrogate: ' + last.toString(16),
+  )
+})

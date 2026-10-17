@@ -49,3 +49,28 @@ test('paging: Ctrl+N scrolls the suggestion window', () => {
   e._suggestMove(SUGGEST_PAGE)
   assert.ok(e._suggestOffset > 0)
 })
+
+// B7: a custom command's `argument-hint:` frontmatter (e.g. `<file> [focus]`)
+// is DISPLAY ONLY — shown after the name in the «/» list, but Tab completion
+// must insert the NAME. The dynamic entries were built as `{name, description}`
+// objects that DROPPED the hint, so the list showed `/mycmd` with no argument
+// hint at all while the static table kept it.
+import { buildSlashCommandHints } from '../src/commands.ts'
+import { translate } from '../src/i18n.ts'
+
+test('dynamic command argument hints survive into the «/» list', () => {
+  const hints = buildSlashCommandHints({
+    devMode: false,
+    t: translate('en'),
+    dynamic: [
+      {
+        name: '/mycmd',
+        description: 'my command',
+        hint: '<file> [focus]',
+      },
+    ],
+  })
+  const found = hints.find((h) => h.name === '/mycmd')
+  assert.ok(found, 'the dynamic command is listed')
+  assert.equal(found.hint, '<file> [focus]')
+})

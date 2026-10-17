@@ -25,6 +25,13 @@ export function truncateToolResult(text: string, limit: number): string {
   // Cut AFTER the newline (include it) so the kept part is a whole number of
   // lines — a cut that EXCLUDED the newline left a half line before the marker.
   if (nl >= searchFrom) cut = nl + 1
+  // Never split a surrogate PAIR (an emoji / astral CJK char): the high half
+  // alone is a lone surrogate — a broken code point some channels replace with
+  // '?' or truncate at. Step back one unit so the pair is dropped WHOLE.
+  else {
+    const c = text.charCodeAt(cut - 1)
+    if (c >= 0xd800 && c <= 0xdbff) cut--
+  }
   const omitted = text.length - cut
   return text.slice(0, cut) + NL + `[...truncated ${omitted} chars]`
 }
