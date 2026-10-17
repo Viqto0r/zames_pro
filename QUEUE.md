@@ -908,3 +908,35 @@ history_messages; OpenAI usage; приоритет SSE; отсутствие с�
 
 - `src/net-capture.ts` — счётчик контекста читается и из plain-JSON
   `history_messages` и из OpenAI `usage` (2026-10-17).
+
+### Такт 32 (2026-10-17) — исправлено
+
+**Цель:** конфиг — запись значения по dot-пути (`setByPath`, `src/config.ts`).
+
+**Баг:** `setByPath()` шёл по сегментам пути без проверки. Сегмент
+`__proto__` приводил к записи В ПРОТОТИП: `setByPath({}, '__proto__.x', 'yes')`
+делал `({}).x === 'yes'` (загрязнение `Object.prototype` для всего процесса и
+попадание мусорных ключей в файл конфига); `constructor.prototype.x` — та же
+дыра. `deepMerge()` такие ключи уже пропускал, а `setByPath` — нет. Проверено
+запуском: после вызова `({} as any).polluted === 'yes'` и
+`hasOwnProperty(Object.prototype, 'polluted') === true`.
+
+**Фикс:** если ЛЮБОЙ сегмент пути — `__proto__`/`constructor`/`prototype`,
+функция ничего не пишет.
+
+**Тест:** `test/config-setbypath-proto.test.ts` (3 кейса: `__proto__`,
+`constructor.prototype`, обычный вложенный путь). RED до фикса (1 pass / 2 fail,
+подтверждено `git stash`), GREEN после; вместе с `config-edit.test.ts` —
+11 pass, 0 fail.
+
+**Гейты:** `npm test` 1156 тестов (1146 pass, 0 fail, 10 skip), `typecheck`,
+`lint`, `format:check`, `build`, `sched-smoke` — зелёные.
+
+**Коммит:** `c91ae1e`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- `src/config.ts` — `setByPath` не ходит через `__proto__`/`constructor`
+  (2026-10-17).
