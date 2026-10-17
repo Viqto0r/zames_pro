@@ -93,6 +93,19 @@ export function looksLikeToolError(result: string): boolean {
     head.startsWith('missing required argument') ||
     head.startsWith('failed') ||
     head.includes('command failed') ||
-    head.includes('exit code')
+    head.includes('exit code') ||
+    // NOT every failure is a THROWN error: a PreToolUse hook, the permission
+    // policy and the operator's denial BLOCK the call and return their message
+    // as the result; an unknown tool and an aborted/timed-out run are reported
+    // in words too. Those calls never did their work, so a green check next to
+    // them lied to the operator.
+    head.startsWith('blocked by') ||
+    head.startsWith('denied by') ||
+    head.startsWith('unknown tool') ||
+    head.startsWith('subagents are not available') ||
+    head.startsWith('subagent failed') ||
+    head.startsWith('subagent error') ||
+    head.includes('process killed') ||
+    head.startsWith('(aborted by the operator)')
   )
 }
