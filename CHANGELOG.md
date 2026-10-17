@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **backlog:** only collapse real archive blocks, not notes that mention details
+- **qwen:** do not read a retry phrase in the answer as a rate limit
+- **web:** block IPv4-compatible IPv6 addresses in the SSRF guard
+- **sessions:** cap the input history when loading it
+- **sessions:** keep chat ids with unsafe characters in separate files
+
 ## [2.77.0] - 2026-10-17
 
 ### Added
