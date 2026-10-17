@@ -237,7 +237,11 @@ export function loadHistory(): string[] {
   try {
     const raw = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf-8'))
     if (!Array.isArray(raw)) return []
-    return raw.filter((x): x is string => typeof x === 'string')
+    const list = raw.filter((x): x is string => typeof x === 'string')
+    // Cap on LOAD as well: an old/hand-edited/merged file could exceed the
+    // limit, and the next save would write the whole array back out. Keep the
+    // most recent (tail) entries, matching saveHistory().
+    return list.length > HISTORY_LIMIT ? list.slice(-HISTORY_LIMIT) : list
   } catch {
     return []
   }
