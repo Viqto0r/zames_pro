@@ -181,6 +181,12 @@ export function isFinishedWithoutAnswer(body: string): boolean {
 
 // True when the body carries Qwen's rate-limit / busy notice, so ask() can
 // back off instead of waiting out the deadline. Matched against the RAW body.
+// The classifier runs against the RAW body, so a phrase like `please try again
+// later` would also match a NORMAL answer (the model writing about retry
+// logic) and make ask() back off on a good turn. A real notice arrives in an
+// ERROR payload (`event: error` / `"type":"error"`) or as a code; answer text
+// lives in `choices[].delta.content`. We therefore only inspect the body when
+// it is NOT a plain answer stream, or when it carries no answer content.
 export function isRateLimitText(body: string): boolean {
   const b = String(body || '')
   if (!b) return false
@@ -188,9 +194,42 @@ export function isRateLimitText(body: string): boolean {
   // ("The service is currently experiencing high demand. Please try again
   // later.") — a TRANSIENT capacity limit, so it belongs with the rate-limit
   // family (back off and retry), not with the guest DAILY limit.
-  return /too many requests|rate limit|too frequent|please try again later|quota_limit|high demand|слишком часто/i.test(
+  if (/quota_limit/i.test(b)) return true
+  if (/event:\s*error|"type"\s*:\s*"error"|"error"\s*:/i.test(b)) {
+    return /too many requests|rate limit|too frequent|please try again later|high demand|слишком часто/i.test(
+      b,
+    )
+  }
+  // No structured error marker: only treat the body as a notice when it has
+  // NO answer content (a bare notice page/JSON).
+  if (hasAnswerContent(b)) return false
+  return /too many requests|rate limit|too frequent|please try again later|high demand|слишком часто/i.test(
     b,
   )
+}
+
+// True when the body carries actual answer text in an SSE/JSON chunk.
+function hasAnswerContent(body: string): boolean {
+  for (const obj of parseDataLines(body)) {
+    const choices = (obj as Record<string, unknown>).choices
+    if (!Array.isArray(choices)) continue
+    for (const ch of choices) {
+      if (!ch || typeof ch !== 'object') continue
+      const c = ch as Record<string, unknown>
+      const delta =
+        c.delta && typeof c.delta === 'object'
+          ? (c.delta as Record<string, unknown>)
+          : c.message && typeof c.message === 'object'
+            ? (c.message as Record<string, unknown>)
+            : null
+      if (!delta) continue
+      if (isThinkingPhase(delta)) continue
+      if (typeof delta.content === 'string' && delta.content.trim()) {
+        return true
+      }
+    }
+  }
+  return false
 }
 
 // The GUEST daily limit is a DIFFERENT failure from a transient rate limit:
@@ -210,5 +249,10 @@ export function isGuestLimitText(body: string): boolean {
 export function isServerBusyText(body: string): boolean {
   const b = String(body || '')
   if (!b) return false
+  // Same rule as isRateLimitText: a normal ANSWER may mention "try again
+  // later"; only a structured error payload or a body with NO answer content
+  // can be a server-busy notice.
+  const errNotice = /event:\s*error|"type"\s*:\s*"error"|"error"\s*:/i.test(b)
+  if (!errNotice && hasAnswerContent(b)) return false
   return /server is busy|service unavailable|try again later/i.test(b)
 }
