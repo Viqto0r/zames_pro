@@ -1102,3 +1102,39 @@ metadata; hex `::7f00:1`; публичный IPv6 остаётся публич�
 ## Покрытые области (не повторять без причины)
 
 - `src/web.ts` — SSRF-страж блокирует `::a.b.c.d` / `::7f00:1` (2026-10-17).
+
+### Такт 38 (2026-10-17) — исправлено
+
+**Цель:** Qwen-провайдер — классификаторы тела ответа
+(`isRateLimitText`/`isServerBusyText`, `src/qwen-net-capture.ts`).
+
+**Баг:** обе функции матчили RAW-тело по фразам `please try again later` /
+`try again later`. Нормальный ОТВЕТ модели, где она пишет про retry-логику
+(«I added retry logic: please try again later now works.»), классифицировался
+как rate limit (`true`) и как server-busy (`true`): `ask()` уходил в
+многосекундный/многоминутный backoff или падал ошибкой на хорошем ответе.
+Проверено запуском: на SSE-чанке с `choices[].delta.content` обе функции давали
+`true`.
+
+**Фикс:** тело считается уведомлением, только если в нём есть структурный
+маркер ошибки (`event: error` / `"type":"error"` / `"error":`) ИЛИ в нём
+вообще нет текста ответа (`hasAnswerContent`). `quota_limit` распознаётся
+раньше и всегда.
+
+**Тест:** `test/qwen-body-classifier.test.ts` (4 кейса: ответ с фразой → не
+rate limit и не busy; реальный error-payload → rate limit; реальный
+server-busy → busy; `quota_limit` → rate limit). RED до фикса (3 pass / 1 fail,
+подтверждено `git stash`), GREEN после; вместе с `qwen-net-capture.test.ts` и
+`cancel-ask.test.ts` — 18 pass, 0 fail.
+
+**Гейты:** `npm test` 1170 тестов (1160 pass, 0 fail, 10 skip), `typecheck`,
+`lint`, `format:check`, `build`, `sched-smoke` — зелёные.
+
+**Коммит:** `2a7cc30`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- `src/qwen-net-capture.ts` — фраза из ОТВЕТА не считается rate-limit/busy
+  (2026-10-17).
