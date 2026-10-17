@@ -275,7 +275,14 @@ export const MCP_RESULT_LIMIT = 12_000
 export function truncateMcpResult(s: string, limit = MCP_RESULT_LIMIT): string {
   const str = String(s)
   if (str.length <= limit) return str
-  const head = str.slice(0, limit)
+  let head = str.slice(0, limit)
+  // Never leave a lone HIGH surrogate at the cut: an emoji / astral CJK char
+  // sits on two UTF-16 units, and cutting between them hands the model a
+  // broken code point (same rule as truncateToolResult / capReport).
+  if (head.length > 0) {
+    const last = head.charCodeAt(head.length - 1)
+    if (last >= 0xd800 && last <= 0xdbff) head = head.slice(0, -1)
+  }
   // Prefer a line boundary so a cut does not split a line in half.
   const nl = head.lastIndexOf(String.fromCharCode(10))
   const cut = nl > limit * 0.5 ? head.slice(0, nl + 1) : head
