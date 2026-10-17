@@ -6,6 +6,7 @@ import {
   pasteReplacement,
   expandPastes,
   PASTE_MIN_LINES,
+  LineEditor,
 } from '../src/input.ts'
 
 const NL = String.fromCharCode(10)
@@ -111,4 +112,53 @@ test('splitPasteTail does not swallow ordinary text', () => {
 
 test('splitPasteTail on an empty string', () => {
   assert.deepEqual(splitPasteTail(''), { head: '', tail: null })
+})
+
+// A bracketed paste whose END marker (ESC[201~) is split across two stdin
+// reads is NOT a partial PASTE_START: splitPasteTail() holds ESC[20, the next
+// chunk starts with `1~…`, and the previous global hold spliced the head onto
+// the BUFFER TEXT instead of the paste body — the pasted lines were lost and
+// `1~` leaked into the input line.
+test('splitPasteTail holds a partial END marker after paste CONTENT', () => {
+  // The read ended in the middle of ESC[201~ after some pasted text.
+  const chunk = 'line one' + NL + 'line two' + ESC + '[20'
+  const r = splitPasteTail(chunk)
+  assert.equal(r.tail, ESC + '[20')
+  assert.ok(PASTE_END.startsWith(r.tail as string))
+})
+
+// Inside a bracketed paste the body is accumulated VERBATIM, so a chunk that
+// happens to end with `ESC[20` (e.g. pasted text ending in a control char, or
+// the REAL end marker split across reads) must NOT be held back: the hold is
+// re-attached to the next chunk and inserted as text, so `1~` leaked into the
+// input line. Reproduces the exact chunk sequence of a split END marker.
+test('a split END marker inside a bracketed paste does not leak `1~`', () => {
+  const e = new LineEditor()
+  e._render = () => {}
+  e._renderInputOnly = () => {}
+  // Simulate two raw reads: the paste body + half the end marker, then the rest.
+  const first = PASTE_START + 'hello' + NL + 'world' + ESC + '[20'
+  const second = '1~'
+  ;(e as unknown as { _onData: (s: string) => void })._onData(first)
+  ;(e as unknown as { _onData: (s: string) => void })._onData(second)
+  // The buffer holds the paste (collapsed to a marker is fine) and NOT `1~`.
+  assert.equal(e.buf.includes('1~'), false, 'the held tail leaked: ' + e.buf)
+})
+
+// The LineEditor used to hold a partial END marker back even INSIDE a paste:
+// the hold was re-attached to the next chunk as ordinary input text instead of
+// the paste body, so the tail (`1~`) leaked into the input line. This drives
+// the REAL _onData with the exact split chunk sequence.
+test('LineEditor: a split END marker inside a paste does not leak its tail', () => {
+  const e = new LineEditor()
+  e._render = () => {}
+  e._renderInputOnly = () => {}
+  const feed = (s: string): void =>
+    (e as unknown as { _onData: (x: string) => void })._onData(s)
+  // Read 1: the paste start, the body, and the FIRST HALF of ESC[201~.
+  feed(PASTE_START + 'hello' + NL + 'world' + ESC + '[20')
+  // Read 2: the rest of the end marker.
+  feed('1~')
+  assert.equal(e.buf.includes('1~'), false, 'the held tail leaked: ' + e.buf)
+  assert.equal(e.buf.includes('hello'), true, 'the paste body was lost')
 })

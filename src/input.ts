@@ -1735,7 +1735,13 @@ export class LineEditor {
     // A chunk may end in the MIDDLE of a PASTE marker (`ESC[2`, `ESC[20`, …).
     // Hold that tail back so the next chunk completes it; otherwise the
     // fragment is inserted as literal text and the paste is not bracketed.
-    const held = splitPasteTail(s)
+    // EXCEPTION: once inside a bracketed paste the body is appended VERBATIM
+    // to _pasteBuf (it is not parsed by this loop), so a held tail would be
+    // re-attached to `s` and inserted as text BEFORE the body — the tail
+    // (`1~`) leaked into the input line and was not part of the pasted text.
+    const held = this._inPaste
+      ? { head: s, tail: null as string | null }
+      : splitPasteTail(s)
     if (held.tail) {
       this._ctrlTail = held.tail
       s = held.head
