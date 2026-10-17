@@ -1582,7 +1582,8 @@ export class QwenBrowser {
                 max: this.maxRateLimitRetries,
               }),
             )
-            await this._sleepInterruptible(this.rateLimitWaitMs)
+            if (await this._sleepInterruptible(this.rateLimitWaitMs))
+              return '(прервано пользователем)'
             continue
           }
           if (e instanceof QwenServerBusyError || /server busy/i.test(msg)) {
@@ -1595,7 +1596,8 @@ export class QwenBrowser {
                 max: this.maxServerBusyRetries,
               }),
             )
-            await this._sleepInterruptible(this.serverBusyWaitMs)
+            if (await this._sleepInterruptible(this.serverBusyWaitMs))
+              return '(прервано пользователем)'
             continue
           }
           if (e instanceof QwenIncompleteError) {
@@ -1609,7 +1611,8 @@ export class QwenBrowser {
                 }),
               ),
             )
-            await this._sleepInterruptible(this.incompleteWaitMs)
+            if (await this._sleepInterruptible(this.incompleteWaitMs))
+              return '(прервано пользователем)'
             continue
           }
           // A LOST page/context ("Target page, context or browser has been

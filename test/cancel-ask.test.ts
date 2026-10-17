@@ -137,3 +137,29 @@ test('the agent loop source awaits the cancelled ask before the next one', () =>
   assert.ok(/cancelPendingAsk\?\.\(\)/.test(loopSource()))
   assert.ok(/askPromise\.catch/.test(loopSource()))
 })
+
+// Qwen's ask() must ALSO stop when a LONG retry wait (rate limit / server
+// busy / truncated turn) is cut short by stopGeneration()/the watchdog. The
+// DeepSeek path checked the result of _sleepInterruptible and returned the
+// abort sentinel; the Qwen path awaited the sleep and then did ,
+// so it went straight back into ANOTHER send after Esc.
+function qwenSource(): string {
+  const here = dirname(fileURLToPath(import.meta.url))
+  return readFileSync(join(here, '..', 'src', 'qwen-browser.ts'), 'utf-8')
+}
+
+test('Qwen ask() stops when a retry wait was interrupted', () => {
+  const src = qwenSource()
+  // Every retry sleep in ask() must be checked for interruption.
+  const sleeps = [
+    ...src.matchAll(/await this\._sleepInterruptible\(([^)]*)\)/g),
+  ].filter((m) => !/gap/.test(m[1]))
+  assert.ok(sleeps.length >= 3, 'expected the three retry sleeps')
+  for (const m of sleeps) {
+    const after = src.slice(m.index - 10, m.index + 260)
+    assert.ok(
+      /if\s*\(\s*await this\._sleepInterruptible/.test(after),
+      'a retry sleep result is ignored: ' + m[0],
+    )
+  }
+})
