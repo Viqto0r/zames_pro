@@ -63,3 +63,21 @@ test('runDiagnostics: a clean command yields null', () => {
   const out = runDiagnostics(process.cwd(), cfg)
   assert.ok(out === null || typeof out === 'string')
 })
+
+// The diagnostics output is APPENDED to the tool result the model reads. A
+// CJK/emoji-heavy build log made the cut land between the halves of a
+// surrogate pair, leaving a lone high surrogate in the model's context.
+test('summarizeDiagnostics never cuts inside a surrogate pair', () => {
+  const emoji = String.fromCodePoint(0x1f600)
+  const raw = 'error: ' + emoji.repeat(40)
+  // 41 chars: lands in the middle of the 18th emoji (2 UTF-16 units each).
+  const out = summarizeDiagnostics(raw, 41)
+  assert.ok(out)
+  // Walk CODE POINTS: a string containing a surrogate pair still yields the
+  // high half via a code-UNIT iteration, so unit-based checks lie.
+  const lone = [...out].some((ch) => {
+    const cp = ch.codePointAt(0) as number
+    return cp >= 0xd800 && cp <= 0xdfff
+  })
+  assert.equal(lone, false, 'a lone surrogate leaked: ' + out.length)
+})

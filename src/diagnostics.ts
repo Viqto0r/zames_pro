@@ -58,7 +58,13 @@ export function summarizeDiagnostics(
   const chosen = errLines.length ? errLines : lines
   let out = chosen.join('\n')
   if (out.length > maxChars) {
-    out = out.slice(0, maxChars) + '\n… [diagnostics truncated]'
+    // Never split a surrogate PAIR (emoji / astral CJK): the high half alone
+    // is a lone surrogate in the model's context. Same rule as
+    // truncateToolResult (agent-loop) and capReport (subagent).
+    let cut = maxChars
+    const c = out.charCodeAt(cut - 1)
+    if (c >= 0xd800 && c <= 0xdbff) cut--
+    out = out.slice(0, cut) + '\n… [diagnostics truncated]'
   }
   return out
 }
