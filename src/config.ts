@@ -550,12 +550,19 @@ export function getByPath(obj: unknown, path: string): unknown {
   return cur
 }
 
+// Object keys that must NEVER be walked/assigned by a dotted path: they reach
+// the PROTOTYPE chain. deepMerge() already skips them; setByPath did not, so a
+// `__proto__.x` segment polluted Object.prototype for the whole process (and
+// wrote the injected keys into the config file).
+const UNSAFE_PATH_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
 export function setByPath(
   obj: Record<string, unknown>,
   path: string,
   value: unknown,
 ): void {
   const parts = path.split('.')
+  if (parts.some((p) => UNSAFE_PATH_KEYS.has(p))) return
   let cur: Record<string, unknown> = obj
   for (let i = 0; i < parts.length - 1; i++) {
     const p = parts[i]
