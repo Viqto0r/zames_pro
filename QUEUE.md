@@ -562,3 +562,35 @@ object to primitive value` — `/export` полностью ломался. С �
 
 - `src/commands.ts` — статистика `/cost`/`/export` безопасна для имён
   `__proto__`/`constructor` (2026-10-17).
+
+### Такт 22 (2026-10-17) — исправлено
+
+**Цель:** sandbox/shell — запуск команды (`runShell`, `src/shell.ts`).
+
+**Баг:** `timeout` приходит напрямую из аргументов МОДЕЛИ (`timeout:
+'number?'`). Node `exec` валидирует опцию СИНХРОННО и бросает
+`ERR_OUT_OF_RANGE` на отрицательное, дробное или нечисловое значение — и этот
+throw вылетал ИЗ `runShell`, то есть из самого Bash-инструмента. Проверено
+вживую: `runShell(..., -5)` → `RangeError`, `'abc'` → `RangeError`,
+`1.5` → `RangeError` (`The value of "timeout" is out of range. It must be an
+unsigned integer`). Небрежный tool-call ронял инструмент вместо возврата
+строки-ошибки.
+
+**Фикс:** `safeTimeout` — только конечное неотрицательное число, приведённое
+`Math.floor`; иначе 30 000. Используется и в `exec`, и в тексте таймаута.
+
+**Тест:** `test/shell-timeout-invalid.test.ts` (4 кейса: отрицательный,
+дробный, нечисловой таймаут не бросают; валидный по-прежнему работает).
+RED до фикса (3 падения с `RangeError`), GREEN после.
+
+**Гейты:** `npm test` 1129 тестов (1119 pass, 0 fail, 10 skip), `typecheck`,
+`lint`, `format:check`, `build`, `sched-smoke` — зелёные.
+
+**Коммит:** `78f7e2e`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- `src/shell.ts` — невалидный `timeout` нормализуется, инструмент не падает
+  (2026-10-17).
