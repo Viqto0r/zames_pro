@@ -1171,3 +1171,28 @@ server-busy → busy; `quota_limit` → rate limit). RED до фикса (3 pass
 
 - `src/backlog.ts` — сворачиваются только настоящие архивные блоки
   (2026-10-17).
+
+### Такт 40 (2026-10-17) — релиз
+
+**Цель:** выпуск патч-версии после серии багфиксов.
+
+**Что сделано:** `npm run changelog:sync` обновил Unreleased (6 фиксов после
+2.77.0: sessions ×2, diff, web/SSRF, qwen-классификаторы, backlog-collapse),
+затем `npm run release patch -- --no-tests` — версия `2.77.0` → `2.77.1`,
+раздел `## [2.77.1] - 2026-10-17` в CHANGELOG.md, коммит
+`chore: release 2.77.1`, тег `v2.77.1`.
+
+**Пуш:** ветка `master` и тег `v2.77.1` отправлены (`git ls-remote --tags
+origin` подтверждает `refs/tags/v2.77.1` → `cd444ed`), GitHub Actions
+`publish.yml` запущен на `v*`.
+
+**Коммиты:** `7183286` (changelog sync), `cd444ed` (`chore: release 2.77.1`),
+тег `v2.77.1`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- Релиз 2.77.1 (patch): sessions history cap, session file-name collision,
+  `/diff` sentinel, SSRF IPv4-compatible IPv6, Qwen answer-text false
+  positive, backlog collapse note safety (2026-10-17).
