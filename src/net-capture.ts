@@ -280,6 +280,39 @@ export function extractTokenUsage(body: string): number | null {
         }
       }
     }
+
+    // An OpenAI-compatible body reports the turn size as usage.total_tokens.
+    const usage = o.usage as Record<string, unknown> | undefined
+    if (usage && typeof usage === 'object') {
+      consider(usage.total_tokens)
+    }
+  }
+  if (found !== null) return found
+
+  // A PLAIN JSON body (not SSE): /api/v0/chat/history_messages answers this
+  // way, and every message carries the running counter. Without this a
+  // resumed chat showed no context size until the next completion. The
+  // payload is the whole history, so the LAST value wins.
+  try {
+    const root = JSON.parse(body) as Record<string, unknown>
+    const visit = (node: unknown): void => {
+      if (node == null || typeof node !== 'object') return
+      if (Array.isArray(node)) {
+        for (const it of node) visit(it)
+        return
+      }
+      const o = node as Record<string, unknown>
+      consider(o.accumulated_token_usage)
+      const usage = o.usage as Record<string, unknown> | undefined
+      if (usage && typeof usage === 'object') consider(usage.total_tokens)
+      for (const key of Object.keys(o)) {
+        const v = o[key]
+        if (v && typeof v === 'object') visit(v)
+      }
+    }
+    visit(root)
+  } catch {
+    // not plain JSON — nothing more to read
   }
   return found
 }
