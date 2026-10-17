@@ -21,14 +21,24 @@ export function writeFileAtomic(file: string, data: string | Buffer): void {
   // fsync the file BEFORE rename: without it a power loss can leave the
   // renamed name pointing at an empty/partial inode (rename itself is atomic,
   // but the data blocks may not have reached the disk yet).
-  const fd = fs.openSync(tmp, 'w', 0o600)
   try {
-    fs.writeFileSync(fd, data)
-    fs.fsyncSync(fd)
-  } finally {
-    fs.closeSync(fd)
+    const fd = fs.openSync(tmp, 'w', 0o600)
+    try {
+      fs.writeFileSync(fd, data)
+      fs.fsyncSync(fd)
+    } finally {
+      fs.closeSync(fd)
+    }
+    fs.renameSync(tmp, file)
+  } catch (e) {
+    // A failed write/fsync/rename (full disk, EIO, a directory in the way)
+    // must not leave the temp file behind: every failure used to accumulate a
+    // stray `<file>.tmp-<pid>` next to the real file.
+    try {
+      fs.unlinkSync(tmp)
+    } catch {}
+    throw e
   }
-  fs.renameSync(tmp, file)
   // fsync the DIRECTORY so the rename entry itself is durable.
   try {
     const dirFd = fs.openSync(path.dirname(file), 'r')
