@@ -151,6 +151,13 @@ export function formatJobLine(job: ScheduleJob, now: number): string {
     job.kind === 'loop'
       ? 'every ' + formatInterval(job.intervalMs || 0)
       : job.cron || ''
+  // A cron job whose next fire could not be computed stores Infinity (see
+  // due()). "next ~-" (formatInterval maps a non-finite value to '-') read
+  // like a normal schedule, so the job looked healthy while it could never
+  // fire again.
+  if (!Number.isFinite(job.nextAt)) {
+    return '  #' + job.id + ' [' + when + ', NEVER fires again] ' + job.task
+  }
   const nextIn = formatInterval(Math.max(0, job.nextAt - now))
   return '  #' + job.id + ' [' + when + ', next ~' + nextIn + '] ' + job.task
 }

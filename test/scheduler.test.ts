@@ -147,3 +147,22 @@ test('formatJobLine renders loop and cron jobs', () => {
   }
   assert.ok(formatJobLine(cron, now).includes('0 9 * * *'))
 })
+
+// A cron job whose next fire could NOT be computed keeps nextAt = Infinity.
+// `Math.max(0, Infinity - now)` is Infinity, so the listing printed
+// "next ~-" (formatInterval maps a non-finite value to '-') — a job that
+// will never run looked like a normal scheduled one.
+test('formatJobLine marks a job that can never fire', () => {
+  const now = 1_000_000
+  const dead = {
+    id: 3,
+    kind: 'cron' as const,
+    task: 'never',
+    cron: '0 0 31 2 *',
+    nextAt: Number.POSITIVE_INFINITY,
+    createdAt: now,
+  }
+  const line = formatJobLine(dead, now)
+  assert.ok(!line.includes('next ~-'), line)
+  assert.ok(line.includes('NEVER fires'), line)
+})
