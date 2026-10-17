@@ -667,3 +667,37 @@ CHANGELOG, и следующий `changelog:sync` её не видел. Пров
 
 - `src/changelog.ts` — заголовки групп черновика не склеиваются с пунктами
   (2026-10-17).
+
+### Такт 25 (2026-10-17) — исправлено
+
+**Цель:** Qwen-провайдер — восстановление диалога (`parseQwenHistory`,
+`src/qwen-chats.ts`).
+
+**Баг:** ветка `content_list` (phase-split вывод) склеивала ВСЕ части без
+разбора фазы, поэтому `thinking_summary` (рассуждение модели) попадало в
+восстановленный диалог как ответ. Проверено запуском: чат с
+`content_list: [{phase:'thinking_summary',content:'INTERNAL REASONING'},
+{phase:'answer',content:'the answer'}]` давал
+`[{role:'assistant', text:'INTERNAL REASONINGthe answer'}]`. Живой SSE-парсер
+(`qwen-net-capture.ts`) эту фазу уже отбрасывает — восстановление истории
+рассинхронизировалось с ним. Та же утечка при `type: 'reasoning'`.
+
+**Фикс:** часть пропускается, если её `phase`/`type` содержит
+`think`/`reason` (регистронезависимо).
+
+**Тест:** `test/qwen-history-thinking.test.ts` (2 кейса: `phase:
+thinking_summary` и `type: 'reasoning'`). RED до фикса (0 pass / 2 fail,
+подтверждено `git stash`), GREEN после; вместе с `test/qwen-chats.test.ts` —
+12 pass, 0 fail.
+
+**Гейты:** `npm test` 1135 тестов (1125 pass, 0 fail, 10 skip), `typecheck`,
+`lint`, `format:check`, `build`, `sched-smoke` — зелёные.
+
+**Коммит:** `87e62dc`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- `src/qwen-chats.ts` — `content_list` не вливает фазу рассуждения в
+  восстановленный диалог (2026-10-17).
