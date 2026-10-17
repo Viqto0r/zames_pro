@@ -30,10 +30,16 @@ export const SUBAGENT_REPORT_CAP = 20_000
 /** Cap a subagent report before it becomes a parent-context tool result. */
 export function capReport(text: string, cap = SUBAGENT_REPORT_CAP): string {
   if (text.length <= cap) return text
+  // Never split a surrogate PAIR (an emoji / astral CJK char): the high half
+  // alone is a lone surrogate. The report becomes the parent chat's tool
+  // result, so the same rule as truncateToolResult() applies.
+  let cut = cap
+  const c = text.charCodeAt(cut - 1)
+  if (c >= 0xd800 && c <= 0xdbff) cut--
   return (
-    text.slice(0, cap) +
+    text.slice(0, cut) +
     '\n… [report truncated: ' +
-    (text.length - cap) +
+    (text.length - cut) +
     ' chars omitted]'
   )
 }

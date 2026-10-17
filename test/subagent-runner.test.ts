@@ -203,3 +203,20 @@ test('runner не запускает субагента, если id родит�
   assert.ok(/chat id is unknown/i.test(res.text), res.text)
   assert.ok(!calls.includes('newChat'), 'no fresh chat opened')
 })
+
+// The report becomes the PARENT chat's tool result. A report full of emoji /
+// astral CJK characters made the cap cut between the halves of a surrogate
+// pair, leaving a lone high surrogate — a broken code point some channels
+// turn into '?' or drop the rest of the text after.
+test('capReport does not leave a lone surrogate at the cut', () => {
+  const emoji = String.fromCodePoint(0x1f600)
+  const long = emoji.repeat(100)
+  // 41 lands in the MIDDLE of the 21st emoji (2 UTF-16 units each).
+  const capped = capReport(long, 41)
+  const kept = capped.split(String.fromCharCode(10))[0]
+  const lone = [...kept].some((ch) => {
+    const cp = ch.codePointAt(0) as number
+    return cp >= 0xd800 && cp <= 0xdfff
+  })
+  assert.equal(lone, false, 'a lone surrogate leaked: ' + kept.length)
+})
