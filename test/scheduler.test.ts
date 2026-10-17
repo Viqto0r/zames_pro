@@ -166,3 +166,14 @@ test('formatJobLine marks a job that can never fire', () => {
   assert.ok(!line.includes('next ~-'), line)
   assert.ok(line.includes('NEVER fires'), line)
 })
+
+// Beyond 2^31-1 ms (~24.8 days) setInterval clamps its delay and Node prints
+// "TimeoutOverflowWarning: … does not fit into a 32-bit signed integer" on
+// every tick, while the scheduler computes a fire time weeks away that the
+// timer can never reach. A huge interval is a typo, not a schedule.
+test('parseInterval rejects an interval that overflows a 32-bit timer', () => {
+  assert.equal(parseInterval('99999h'), null)
+  assert.equal(parseInterval('30d'), null) // a unit we do not support
+  // The last representable value is still accepted.
+  assert.equal(parseInterval('596h'), 596 * 3_600_000)
+})

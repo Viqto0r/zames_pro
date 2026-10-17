@@ -31,8 +31,17 @@ export function parseInterval(text: string): number | null {
     : unit.startsWith('m')
       ? 60_000
       : 1000
-  return n * mult
+  const ms = n * mult
+  // setInterval clamps its delay to a 32-bit signed int (~24.8 days) and Node
+  // warns on every tick, while the scheduler computes a fire time the timer
+  // can never reach — a huge value is a typo, not a schedule. Reject it here
+  // so the operator gets the usage/typo message instead of a silent dead job.
+  if (ms > MAX_TIMER_MS) return null
+  return ms
 }
+
+/** Largest delay setInterval accepts (32-bit signed milliseconds). */
+export const MAX_TIMER_MS = 2_147_483_647
 
 // Render an interval back to the shortest human form (used in listings).
 // Non-finite input (a cron job whose next fire could not be computed sets
