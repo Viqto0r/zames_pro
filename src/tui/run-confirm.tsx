@@ -5,12 +5,15 @@
 import React from 'react'
 import { render } from 'ink'
 import { ConfirmDialog } from './ConfirmDialog.js'
+import type { Locale } from '../i18n.js'
 
 export interface AskConfirmOptions {
   title: string
   message?: string
   yesLabel: string
   noLabel: string
+  /** Language of the key-hint bar. */
+  locale?: Locale
 }
 
 /**

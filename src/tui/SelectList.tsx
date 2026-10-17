@@ -5,6 +5,7 @@
 import React, { useMemo, useState } from 'react'
 import { Box, Text, useInput, useApp, useWindowSize } from 'ink'
 import { UI, HintBar } from './widgets.js'
+import { translate, type Locale } from '../i18n.js'
 
 export interface SelectItem {
   value: string
@@ -20,6 +21,8 @@ export interface SelectListOptions {
   items: SelectItem[]
   /** Value highlighted on open. */
   initial?: string
+  /** Language of the key-hint bar (operator text goes through i18n). */
+  locale?: Locale
   /** Resolve with the chosen value, or null on Esc/Ctrl+C. */
   onSelect: (value: string | null) => void
 }
@@ -28,10 +31,12 @@ export function SelectList({
   title,
   items,
   initial,
+  locale = 'en',
   onSelect,
 }: SelectListOptions): React.ReactElement {
   const { exit } = useApp()
   const { rows, columns } = useWindowSize()
+  const t = translate(locale)
   const start = Math.max(
     0,
     items.findIndex((it) => it.value === initial),
@@ -103,9 +108,9 @@ export function SelectList({
       })}
       <HintBar
         hints={[
-          ['↑/↓', 'выбор'],
-          ['Enter', 'ok'],
-          ['Esc', 'отмена'],
+          ['↑/↓', t('tui.hint.select')],
+          ['Enter', t('tui.hint.ok')],
+          ['Esc', t('tui.hint.cancel')],
         ]}
       />
     </Box>

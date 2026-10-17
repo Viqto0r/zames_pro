@@ -5,6 +5,7 @@
 import React, { useState } from 'react'
 import { Box, Text, useInput, useApp } from 'ink'
 import { UI, HintBar } from './widgets.js'
+import { translate, type Locale } from '../i18n.js'
 
 export interface ConfirmOptions {
   title: string
@@ -14,6 +15,8 @@ export interface ConfirmOptions {
   noLabel: string
   /** Resolve with the operator's answer. */
   onAnswer: (ok: boolean) => void
+  /** Language of the key-hint bar (operator text goes through i18n). */
+  locale?: Locale
 }
 
 function Button({
@@ -42,10 +45,12 @@ export function ConfirmDialog({
   yesLabel,
   noLabel,
   onAnswer,
+  locale = 'en',
 }: ConfirmOptions): React.ReactElement {
   // Focus starts on "no" — a stray Enter must not confirm a destructive action.
   const [yes, setYes] = useState(false)
   const { exit } = useApp()
+  const t = translate(locale)
 
   const answer = (ok: boolean): void => {
     onAnswer(ok)
@@ -89,8 +94,8 @@ export function ConfirmDialog({
       </Box>
       <HintBar
         hints={[
-          ['←/→', 'выбор'],
-          ['Enter', 'ok'],
+          ['←/→', t('tui.hint.select')],
+          ['Enter', t('tui.hint.ok')],
           ['y/n', ''],
         ]}
       />

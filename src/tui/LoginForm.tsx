@@ -38,7 +38,9 @@ export function LoginForm({
   onResult,
 }: LoginFormOptions): React.ReactElement {
   const { exit } = useApp()
-  const [field, setField] = useState<'user' | 'pass'>(initialUsername ? 'pass' : 'user')
+  const [field, setField] = useState<'user' | 'pass'>(
+    initialUsername ? 'pass' : 'user',
+  )
   const [user, setUser] = useState(initialUsername)
   const [pass, setPass] = useState(initialPassword)
   const [error, setError] = useState('')
@@ -51,7 +53,9 @@ export function LoginForm({
   const submit = (): void => {
     const v = validateLogin(user, pass)
     if (!v.ok) {
-      setError(t(v.reason === 'user' ? 'auth.form.need_user' : 'auth.form.need_pass'))
+      setError(
+        t(v.reason === 'user' ? 'auth.form.need_user' : 'auth.form.need_pass'),
+      )
       setField(v.field)
       return
     }

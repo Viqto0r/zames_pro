@@ -12,6 +12,7 @@
 
 import React, { useMemo, useState } from 'react'
 import { Box, Text, useInput, useApp, useWindowSize } from 'ink'
+import { translate, type Locale } from '../i18n.js'
 import type { TranslateFn } from '../i18n.js'
 import type { ConfigField } from '../config.js'
 import { Checkbox, Select, UI, HintBar } from './widgets.js'
@@ -40,6 +41,8 @@ export interface ConfigMenuInkOptions {
   set: (field: ConfigField, raw: string) => void
   reset: (field: ConfigField) => void
   onExit: () => void
+  /** Language of the key-hint bar (labels already go through `t`). */
+  locale?: Locale
 }
 
 function displayValue(
@@ -56,8 +59,11 @@ function displayValue(
 }
 
 export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
-  const { fields, t, get, set, reset, getDefault } = opts
+  const { fields, t, get, set, reset, getDefault, locale = 'en' } = opts
   const { exit } = useApp()
+  // The hint bar is operator text: it follows the SAME locale the labels use
+  // (a hardcoded Russian bar showed up in an English UI).
+  const hint = translate(locale)
   const { columns, rows } = useWindowSize()
 
   const [cursor, setCursor] = useState(0)
@@ -418,12 +424,12 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
       ) : null}
       <HintBar
         hints={[
-          ['↑/↓', 'выбор'],
-          ['←/→', 'изменить'],
-          ['Enter', 'правка'],
-          ['/', 'поиск'],
-          ['d', 'сброс'],
-          ['q', 'выход'],
+          ['↑/↓', hint('tui.hint.select')],
+          ['←/→', hint('tui.hint.change')],
+          ['Enter', hint('tui.hint.edit')],
+          ['/', hint('tui.hint.search')],
+          ['d', hint('tui.hint.reset')],
+          ['q', hint('tui.hint.quit')],
         ]}
       />
     </Box>

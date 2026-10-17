@@ -1354,6 +1354,8 @@ async function main(): Promise<void> {
               return await askOperatorConfirm(
                 null,
                 t('perm.ask_sub', { tool: info.tool, reason: info.reason }),
+                t,
+                currentLocale,
               )
             } finally {
               if (editor) editor.resume()
@@ -2231,6 +2233,7 @@ async function main(): Promise<void> {
       getDefault: (path: string) => getByPath(DEFAULTS, path),
       set: (field: ConfigField, raw: string) => configSetRaw(field, raw),
       reset: (field: ConfigField) => configResetField(field),
+      locale: currentLocale,
     }
     try {
       // Prefer the Ink menu (nicer, resize-aware) when the TUI is enabled;
@@ -2316,6 +2319,7 @@ async function main(): Promise<void> {
       const { selectListInk } = await import('./tui/run-select.js')
       picked = await selectListInk({
         title: t('chats.pick_title'),
+        locale: currentLocale,
         items: chats.map((c, i) => ({
           value: c.id,
           label: String(i + 1).padStart(2, ' ') + '. ' + c.title,
@@ -2347,6 +2351,7 @@ async function main(): Promise<void> {
       const { selectListInk } = await import('./tui/run-select.js')
       picked = await selectListInk({
         title: t('sessions.pick_title'),
+        locale: currentLocale,
         items: sessions.map((s, i) => ({
           value: s.id,
           label:
@@ -2939,8 +2944,10 @@ async function main(): Promise<void> {
               items: models.map((m) => ({
                 value: m.id,
                 label: m.name || m.id,
-                detail: m.id === config.qwen.model ? '← текущая' : m.id,
+                detail:
+                  m.id === config.qwen.model ? t('tui.list.current') : m.id,
               })),
+              locale: currentLocale,
             })
           } catch {
             picked = null

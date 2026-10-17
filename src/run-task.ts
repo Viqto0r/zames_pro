@@ -23,6 +23,7 @@ import type {
   SubagentResult,
 } from './agent-loop.js'
 import type { createSpinner } from './spinner.js'
+import { DEFAULT_LOCALE } from './i18n.js'
 import type { TranslateFn, Locale } from './i18n.js'
 import type { ZamesConfig } from './types.js'
 import { providerAskDeadlineMs } from './config.js'
@@ -123,6 +124,8 @@ export async function askOperatorConfirm(
   editor: UiEditor | null,
   question: string,
   t?: TranslateFn,
+  /** Language of the Ink dialog's key-hint bar (the labels use `t`). */
+  locale: Locale = DEFAULT_LOCALE,
 ): Promise<boolean> {
   if (!(process.stdin.isTTY && process.stdout.isTTY)) return false
   // Prefer the Ink modal when the TUI owns the terminal: it keeps the layout
@@ -137,6 +140,9 @@ export async function askOperatorConfirm(
         message: question,
         yesLabel: tr('confirm.yes'),
         noLabel: tr('confirm.no'),
+        // The dialog's key-hint bar is operator text: it must follow the SAME
+        // language as the labels above, not a hardcoded one.
+        locale,
       })
     } finally {
       if (editor.resume) editor.resume()
@@ -563,6 +569,7 @@ export async function runTask(
             editor || null,
             t('perm.confirm'),
             t,
+            locale,
           )
           ui.warning(ok ? t('perm.allowed') : t('perm.denied'))
           transcript?.log('permission_ask', {

@@ -115,6 +115,19 @@ export const deepseekMessages: Record<string, { ru: string; en: string }> = {
   'auth.form.hint_field': { ru: 'поле', en: 'field' },
   'auth.form.hint_submit': { ru: 'войти', en: 'sign in' },
   'auth.form.hint_cancel': { ru: 'отмена', en: 'cancel' },
+  // Key-hint labels of the Ink dialogs (SelectList / ConfigMenu /
+  // ConfirmDialog). They used to be hardcoded Russian, so an English UI
+  // still showed a Russian hint bar.
+  'tui.hint.select': { ru: 'выбор', en: 'select' },
+  'tui.hint.edit': { ru: 'правка', en: 'edit' },
+  'tui.hint.ok': { ru: 'ок', en: 'ok' },
+  'tui.hint.cancel': { ru: 'отмена', en: 'cancel' },
+  'tui.hint.search': { ru: 'поиск', en: 'search' },
+  'tui.hint.reset': { ru: 'сброс', en: 'reset' },
+  'tui.hint.quit': { ru: 'выход', en: 'quit' },
+  'tui.hint.change': { ru: 'изменить', en: 'change' },
+  // Marks the CURRENT entry in a list menu (e.g. the active Qwen model).
+  'tui.list.current': { ru: '← текущая', en: '← current' },
   'auth.form.note_saved': {
     ru: 'Enter — использовать сохранённые логин и пароль.',
     en: 'Enter — use the saved login and password.',
