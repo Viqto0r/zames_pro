@@ -172,8 +172,8 @@ export const selfReviewMessages: Record<string, { ru: string; en: string }> = {
     en: 'No saved sessions. They appear after the first task/chat.',
   },
   'sessions.restore_hint': {
-    ru: 'Восстановить: /resume-id <id>  (полный id) или /resume <n> после /chats.',
-    en: 'Restore: /resume-id <id> (full id) or /resume <n> after /chats.',
+    ru: 'Восстановить: /resume-id <id> (полный id) или выбери сессию в списке /sessions.',
+    en: 'Restore: /resume-id <id> (full id) or pick a session from the /sessions list.',
   },
   'sessions.pick_title': {
     ru: 'Выберите сессию (↑/↓, Enter — открыть, Esc — отмена)',

@@ -374,8 +374,8 @@ Codex CLI:
   runtime.
 - /add-dir <path> — validate an extra directory (the sandbox is fixed at
   startup; relaunch with --dir to write there).
-- /resume <n> (after /chats) and /resume-id <id> — open a chat and PRINT its
-  dialogue into the terminal, so the restored context is visible. Only the
+- /resume-id <id> (or picking a chat in the /chats list) — open a chat and
+  PRINT its dialogue into the terminal, so the restored context is visible. Only the
   last 20 messages are shown (`RESTORED_HISTORY_LIMIT`). /last reopens the last
   chat of the current directory with no lookup step; /sessions shows the saved
   sessions with their relative age.
@@ -959,8 +959,8 @@ zames --task "..." --output-format jsonl \
   модель Qwen на лету.
 - /add-dir <path> — проверить дополнительную директорию (песочница
   фиксируется при старте; для записи туда перезапустите с --dir).
-- /resume <n> (после /chats) и /resume-id <id> — открыть чат и НАПЕЧАТАТЬ его
-  диалог в терминал, чтобы восстановленный контекст был виден. Показываются
+- /resume-id <id> (или выбор чата в списке /chats) — открыть чат и
+  НАПЕЧАТАТЬ его диалог в терминал, чтобы восстановленный контекст был виден. Показываются
   только последние 20 сообщений (`RESTORED_HISTORY_LIMIT`). /last открывает
   последний чат текущей директории без поиска; /sessions показывает сохранённые
   сессии с их относительным возрастом.
