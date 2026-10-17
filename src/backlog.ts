@@ -72,6 +72,19 @@ function isDetailsOpen(line: string): boolean {
   return line.trim().startsWith('<details')
 }
 
+// An ARCHIVE block is a <details> that actually wraps the struck-through copy
+// of an item heading (`### X. ~~original~~`). A note that merely MENTIONS
+// `Use <details> in README:` must not be treated as an archive: collapsing it
+// deleted the note's own body (everything up to the next heading).
+function isArchiveBlock(lines: string[], from: number): boolean {
+  for (let j = from; j < lines.length; j++) {
+    const t = lines[j].trim()
+    if (isArchivedHeading(t)) return true
+    if (t.startsWith('</details>') || isRealBoundary(t)) return false
+  }
+  return false
+}
+
 function isArchivedHeading(line: string): boolean {
   return /^###\s+[A-Z]\d+[.]\s+~~/.test(line.trim())
 }
@@ -100,7 +113,8 @@ export function collapseBacklog(text: string): {
   let collapsed = 0
   let i = 0
   while (i < lines.length) {
-    if (isDetailsOpen(lines[i]) || isArchivedHeading(lines[i])) {
+    const archiveOpen = isDetailsOpen(lines[i]) && isArchiveBlock(lines, i + 1)
+    if (archiveOpen || isArchivedHeading(lines[i])) {
       // Skip to the end of the archive: the first `</details>` OR the first
       // real heading, whichever comes first (see the note above).
       let j = i + 1
