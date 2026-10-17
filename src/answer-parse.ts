@@ -45,10 +45,13 @@ export function responseLooksLikeToolCall(rawResponse: string): boolean {
   const raw = rawResponse || ''
   return (
     // Explicit tool-call format markers: the JSON key "tool", XML/DSML tags,
-    // function_call, etc.
-    /("tool"\s*:|\btool_calls?\b|\binvoke\b|\bparameter\b|DSML|function_call)/i.test(
-      raw,
-    ) ||
+    // function_call, etc. The BARE words `invoke`/`parameter` are deliberately
+    // NOT markers on their own: an ordinary final report can use them as
+    // English words ("a timeout parameter: …", "the invoke helper …"), and a
+    // false positive rejected a perfectly good answer and re-asked the model
+    // until the retry budget ended the task with an error. A real XML/DSML
+    // call is still caught by the tag pattern below.
+    /("tool"\s*:|\btool_calls?\b|DSML|function_call)/i.test(raw) ||
     // "tool" without an opening quote/bracket, with a junk prefix
     // (`<｜tool":`, `**tool**:`, `- tool:`): a call key, not prose.
     /(^|[^A-Za-z0-9_])(?:\*\*)?tool(?:\*\*)?["'`\u2018\u2019\u201c\u201d]*\s*:/.test(
