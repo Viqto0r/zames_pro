@@ -114,8 +114,11 @@ export function looksLikeUnfinishedWork(text: string): boolean {
   if (/\b(done|finished|completed|готово|выполнено|завершено)\b/i.test(t)) {
     return false
   }
+  // `update`/`summarize`/`explain` are REPORT verbs (`I will update you on the
+  // results: …`) — they do not promise a tool call. A colon anywhere in the
+  // gap also means the sentence is explaining a fact, not about to act.
   const en =
-    /\b(now|next|then|let me|let's|i will|i'll|i am going to|i'm going to|going to|about to|will now|time to)\b[^.!?\n]{0,120}\b(update|write|edit|read|run|check|add|fix|create|remove|delete|apply|test|commit|push|install|open|search|look|verify|change|modify|implement|review)\b/i
+    /\b(now|next|then|let me|let's|i will|i'll|i am going to|i'm going to|going to|about to|will now|time to)\b[^.!?\n:]{0,120}\b(write|edit|read|run|check|add|fix|create|remove|delete|apply|test|commit|push|install|open|search|look|verify|change|modify|implement|review)\b/i
   const ru =
     /(^|[^а-яё])(проверю|обновлю|исправлю|добавлю|запущу|выполню|посмотрю|прочитаю|изменю|попробую|сделаю)([^а-яё]|$)/i
   return en.test(t) || ru.test(t)
