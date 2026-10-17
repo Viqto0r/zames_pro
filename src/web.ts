@@ -94,6 +94,40 @@ export function htmlToText(html: string): string {
 // or localhost services. We resolve the hostname and refuse private / loopback
 // / link-local addresses. Best-effort: a DNS rebind between the check and the
 // fetch is out of scope for a CLI tool, but the common cases are covered.
+// Parse an inet_aton-style IPv4 literal (the form WHATWG URL and the OS also
+// accept) into a uint32, or null when it is not one. Rules: 1-4 parts; each
+// part may be hex (0x…), octal (leading 0) or decimal; the LAST part fills all
+// remaining bytes, so `127.1` == 127.0.0.1 and `2130706433` == 127.0.0.1.
+export function parseLegacyIpv4(host: string): number | null {
+  const h = String(host || '').trim()
+  if (!h) return null
+  const parts = h.split('.')
+  if (parts.length < 1 || parts.length > 4) return null
+  const nums: number[] = []
+  for (const p of parts) {
+    if (p === '') return null
+    let v: number
+    if (/^0[xX][0-9a-fA-F]+$/.test(p)) v = parseInt(p.slice(2), 16)
+    else if (/^0[0-7]+$/.test(p)) v = parseInt(p.slice(1), 8)
+    else if (/^\d+$/.test(p)) v = parseInt(p, 10)
+    else return null
+    if (!Number.isFinite(v) || v < 0) return null
+    nums.push(v)
+  }
+  // Every part except the last must fit one byte; the last fills the rest.
+  for (let i = 0; i < nums.length - 1; i++) {
+    if (nums[i] > 0xff) return null
+  }
+  const lastMax = Math.pow(256, 5 - nums.length) - 1
+  if (nums[nums.length - 1] > lastMax) return null
+  let n = 0
+  for (let i = 0; i < nums.length - 1; i++) {
+    n += nums[i] * Math.pow(256, 3 - i)
+  }
+  n += nums[nums.length - 1]
+  return n >>> 0
+}
+
 export function isPrivateIp(ip: string): boolean {
   const v4 = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
   if (v4) {
@@ -104,6 +138,24 @@ export function isPrivateIp(ip: string): boolean {
     if (a === 192 && b === 168) return true
     if (a === 100 && b >= 64 && b <= 127) return true // CGNAT
     return false
+  }
+  // A NON-canonical IPv4 literal is still a number: WHATWG URL and inet_aton
+  // accept 1-4 parts with decimal/octal/hex digits (`2130706433`,
+  // `0x7f.1`, `0177.0.0.1`, `127.1` all mean 127.0.0.1). Recognising only the
+  // dotted-quad form let those through the SSRF guard (a classic bypass).
+  if (/^[0-9a-fx.]+$/i.test(ip) && !ip.includes(':')) {
+    const n = parseLegacyIpv4(ip)
+    if (n !== null) {
+      return isPrivateIp(
+        ((n >>> 24) & 0xff) +
+          '.' +
+          ((n >>> 16) & 0xff) +
+          '.' +
+          ((n >>> 8) & 0xff) +
+          '.' +
+          (n & 0xff),
+      )
+    }
   }
   const low = ip.toLowerCase()
   if (low === '::1' || low === '::') return true
@@ -157,7 +209,10 @@ export async function assertPublicUrl(rawUrl: string): Promise<void> {
   if (u.protocol !== 'http:' && u.protocol !== 'https:') {
     throw new Error(`unsupported protocol: ${u.protocol}`)
   }
-  const host = u.hostname
+  // The URL API keeps the BRACKETS of an IPv6 literal (`[::ffff:7f00:1]`),
+  // and net.isIP() rejects a bracketed host — so the address fell through to
+  // the DNS lookup branch and the literal was never checked as an address.
+  const host = u.hostname.replace(/^\[(.*)\]$/, '$1')
   if (isPrivateHostname(host)) {
     throw new Error(`blocked private host: ${host}`)
   }

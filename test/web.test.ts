@@ -81,3 +81,18 @@ test('isBinaryContentType: textual types stay readable', () => {
   assert.equal(isBinaryContentType('application/javascript'), false)
   assert.equal(isBinaryContentType(''), false)
 })
+
+// A NON-canonical IPv4 literal is still parsed as a number by the URL parser
+// and by the OS resolver (WHATWG URL and inet_aton accept 1-4 parts, octal and
+// hex): http://2130706433/, http://0x7f.1/ and http://0177.0.0.1/ ALL resolve
+// to 127.0.0.1. The guard only recognised the dotted-quad form, so
+// assertPublicUrl let these through — a classic SSRF filter bypass.
+test('isPrivateIp: non-canonical IPv4 literals are private', () => {
+  assert.equal(isPrivateIp('2130706433'), true) // 127.0.0.1 as a single int
+  assert.equal(isPrivateIp('0x7f.1'), true) // 127.0.0.1 in hex/octal parts
+  assert.equal(isPrivateIp('0177.0.0.1'), true) // leading-zero octal
+  assert.equal(isPrivateIp('127.1'), true) // 127.0.0.1 short form
+  assert.equal(isPrivateIp('3232235521'), true) // 192.168.0.1
+  // A public literal must stay public.
+  assert.equal(isPrivateIp('134744072'), false) // 8.8.8.8
+})

@@ -71,3 +71,17 @@ test('assertPublicUrl rejects a private host directly', async () => {
   await assert.rejects(() => assertPublicUrl('http://localhost/'))
   await assert.rejects(() => assertPublicUrl('http://169.254.169.254/latest/'))
 })
+
+// The URL API keeps the BRACKETS of an IPv6 literal (`[::ffff:7f00:1]`) and
+// net.isIP() rejects a bracketed host, so the literal fell through to the DNS
+// branch and was never checked as an address — `http://[::ffff:127.0.0.1]/`
+// was approved and fetched loopback.
+test('assertPublicUrl blocks a bracketed IPv6 loopback literal', async () => {
+  await assert.rejects(
+    () => assertPublicUrl('http://[::ffff:127.0.0.1]/'),
+    /blocked/i,
+  )
+  await assert.rejects(() => assertPublicUrl('http://[::1]/'), /blocked/i)
+  // A public IPv6 literal is still allowed.
+  await assertPublicUrl('http://[2606:4700:4700::1111]/')
+})
