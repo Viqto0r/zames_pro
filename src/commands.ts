@@ -1170,8 +1170,21 @@ export interface BacklogItem {
 export function parseBacklogItems(text: string): BacklogItem[] {
   const out: BacklogItem[] = []
   let priority = ''
+  // A fenced code block in an item's body may contain a line that LOOKS like a
+  // heading (an example of the format, a pasted log). Those are not headings:
+  // counting them invented a phantom P0 item that `/improve` picked over the
+  // real backlog. Track the fence (``` or ~~~, at least three) and skip.
+  let fence = ''
   for (const raw of String(text ?? '').split(NL)) {
     const line = raw.trimEnd()
+    const fenceMatch = /^\s*(`{3,}|~{3,})/.exec(line)
+    if (fenceMatch) {
+      const mark = fenceMatch[1][0]
+      if (!fence) fence = mark
+      else if (mark === fence) fence = ''
+      continue
+    }
+    if (fence) continue
     const p = /^##\s+(P[0-3])\b/.exec(line)
     if (p) {
       priority = p[1]
