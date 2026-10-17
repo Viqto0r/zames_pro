@@ -177,3 +177,33 @@ test('parseInterval rejects an interval that overflows a 32-bit timer', () => {
   // The last representable value is still accepted.
   assert.equal(parseInterval('596h'), 596 * 3_600_000)
 })
+
+// A ranged field WITH a step must respect the step. `1-10/3` means
+// 1,4,7,10 — the classic cron trap is `*/2`-style patterns whose step is
+// silently ignored. `hi > max` in a step range is ALSO valid cron (`0-59/15`
+// is fine) but an out-of-range value without a step is not.
+test('parseCron: a step inside a range field is honoured', () => {
+  const c = parseCron('1-10/3 * * * *')
+  assert.ok(c)
+  assert.deepEqual(
+    [...c.minute].sort((a, b) => a - b),
+    [1, 4, 7, 10],
+  )
+})
+
+// `N/step` (a start with a step, no range) is valid cron: from N to the field
+// maximum. The parser required a range and rejected it, so a perfectly normal
+// `5/10 * * * *` expression was refused with the usage message.
+test('parseCron: N/step means from N to the field max', () => {
+  const c = parseCron('5/20 * * * *')
+  assert.ok(c, 'N/step must be accepted')
+  assert.deepEqual(
+    [...c.minute].sort((a, b) => a - b),
+    [5, 25, 45],
+  )
+})
+
+// An out-of-range endpoint inside a step range is still a typo: `0-70/5`.
+test('parseCron: an out-of-range step range is rejected', () => {
+  assert.equal(parseCron('0-70/5 * * * *'), null)
+})

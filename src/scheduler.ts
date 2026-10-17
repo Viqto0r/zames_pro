@@ -84,7 +84,10 @@ function parseCronField(
       hi = Number(b)
     } else {
       lo = Number(range)
-      hi = lo
+      // `N/step` (a start with a step, no range) is valid cron: it means from
+      // N up to the field maximum. Treating it as the single value N made a
+      // normal `5/20 * * * *` expression invalid.
+      hi = stepStr === undefined ? lo : max
     }
     if (!Number.isInteger(lo) || !Number.isInteger(hi)) return null
     if (lo < min || hi > max || lo > hi) return null
