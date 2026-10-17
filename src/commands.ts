@@ -37,6 +37,13 @@ export function diffGitArgs(staged = false): string[] {
   return staged ? ['diff', '--staged'] : ['diff']
 }
 
+// Git arguments for `/diffstat`. Same shape as diffGitArgs() so the two
+// commands stay symmetric: `/diffstat --staged` used to be impossible (the
+// command hardcoded `git diff --stat`), even though `/diff --staged` worked.
+export function diffStatGitArgs(staged = false): string[] {
+  return staged ? ['diff', '--staged', '--stat'] : ['diff', '--stat']
+}
+
 // ---------- /diffstat ----------
 
 /** Render `git diff --stat` output (a compact change summary) for display. */

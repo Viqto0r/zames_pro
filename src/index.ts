@@ -3777,7 +3777,8 @@ async function main(): Promise<void> {
       continue
     }
 
-    if (lower === '/diffstat') {
+    if (lower === '/diffstat' || lower.startsWith('/diffstat ')) {
+      const staged = lower.indexOf('--staged') !== -1
       const { runGitArgs } = await import('./gitTools.js')
       const probe = await runGitArgs(
         ['rev-parse', '--is-inside-work-tree'],
@@ -3788,7 +3789,11 @@ async function main(): Promise<void> {
         console.error(theme.error(t('diff.not_repo')))
         continue
       }
-      const out = await runGitArgs(['diff', '--stat'], currentWorkdir, 20_000)
+      const out = await runGitArgs(
+        mod.commands.diffStatGitArgs(staged),
+        currentWorkdir,
+        20_000,
+      )
       console.log(
         theme.system(mod.commands.formatDiffStat(out, { maxLines: 60 }, t)),
       )

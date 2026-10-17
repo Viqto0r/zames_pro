@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   formatDiff,
   diffGitArgs,
+  diffStatGitArgs,
   summarizeTranscript,
   parseTranscript,
   formatDuration,
@@ -635,4 +636,12 @@ test('resolveExtraDir expands a leading ~ to the home directory', () => {
   // A tilde in the MIDDLE is a literal character, not an expansion.
   const r3 = resolveExtraDir('a/~/b', '/w') as { path: string }
   assert.equal(r3.path, path.join('/w', 'a', '~', 'b'))
+})
+
+// /diffstat hardcoded `git diff --stat` in index.ts, so there was no way to
+// see the summary of STAGED changes even though /diff supports --staged.
+// The argument builder lives here now (pure) so the pair stays symmetric.
+test('diffStatGitArgs: mirrors diffGitArgs and honours --staged', () => {
+  assert.deepEqual(diffStatGitArgs(false), ['diff', '--stat'])
+  assert.deepEqual(diffStatGitArgs(true), ['diff', '--staged', '--stat'])
 })
