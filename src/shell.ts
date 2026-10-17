@@ -108,10 +108,19 @@ export function runShell(
   timeout = 30_000,
   signal?: AbortSignal,
 ): Promise<string> {
+  // The timeout arrives from the MODEL's tool arguments, and exec validates it
+  // SYNCHRONOUSLY: a negative, fractional or non-numeric value throws
+  // ERR_OUT_OF_RANGE out of runShell instead of becoming a tool error string.
+  // Normalize it to the unsigned-integer contract (falling back to the
+  // default) so a sloppy call cannot crash the Bash tool.
+  const safeTimeout =
+    typeof timeout === 'number' && Number.isFinite(timeout) && timeout >= 0
+      ? Math.floor(timeout)
+      : 30_000
   return new Promise((resolve) => {
     const options: ExecOptions = {
       cwd: workdir,
-      timeout,
+      timeout: safeTimeout,
       maxBuffer: 1024 * 1024 * 8,
       windowsHide: true,
       env: { ...process.env },
@@ -127,7 +136,7 @@ export function runShell(
     }
 
     exec(command, options, (err, stdout, stderr) => {
-      resolve(formatExecResult(err as never, stdout, stderr, timeout, []))
+      resolve(formatExecResult(err as never, stdout, stderr, safeTimeout, []))
     })
   })
 }
