@@ -73,6 +73,15 @@ export function runStatusLineCommand(
       clearTimeout(timer)
       finish()
     })
+    // 'end' on OUR stdout fires as soon as the writer closes the pipe. 'close'
+    // waits for the pipes to drain, so a command that backgrounds a daemon (a
+    // watcher, `npm run dev &`) — whose grandchild inherits the pipe — kept the
+    // promise pending until the 4s timeout on EVERY tick even though the line
+    // had already been printed.
+    child.stdout?.on('end', () => {
+      clearTimeout(timer)
+      finish()
+    })
     child.on('close', () => {
       clearTimeout(timer)
       finish()
