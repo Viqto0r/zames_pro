@@ -1743,3 +1743,32 @@ capped» (вывод остаётся, но ≤ 20000 символов для о
 
 - `src/hooks.ts` — вывод PostToolUse и lifecycle-хуков ограничен
   (2026-10-18).
+
+### Такт 57 (2026-10-18) — исправлено
+
+**Цель:** completion-goal — разбор вердикта оценщика (`parseGoalVerdict`,
+`src/goal.ts`).
+
+**Баг:** регекс принимал только `MET|NOT_MET|IMPOSSIBLE`, а модель часто пишет
+вердикт по-человечески: `VERDICT: NOT MET` / `NOT-MET`. Такой ответ давал
+`null`, а `null` в goal-лупе означает «продолжай» (fail closed): задача
+авто-продолжалась до исчерпания бюджета ходов, хотя оценщик уже сказал NOT_MET.
+Проверено запуском: `parseGoalVerdict('VERDICT: NOT MET')` → `null`.
+
+**Фикс:** альтернатива `NOT[_ -]?MET` идёт перед `MET` (MET последним, чтобы
+не поймать хвост `NOT MET`).
+
+**Тест:** `test/goal-eval-unparsable.test.ts` +1 — «parseGoalVerdict accepts
+the spaced and hyphenated NOT MET spellings». RED до фикса (`git stash` —
+падает), GREEN после.
+
+**Гейты:** `npm test` 1202 теста (1192 pass, 0 fail, 10 skip), `typecheck`,
+`lint`, `format:check`, `build`, `sched-smoke` — зелёные.
+
+**Коммит:** `390ff02`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- `src/goal.ts` — вердикт `NOT MET` / `NOT-MET` распознаётся (2026-10-18).
