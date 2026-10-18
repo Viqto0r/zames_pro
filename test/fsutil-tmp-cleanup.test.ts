@@ -21,3 +21,23 @@ test('a failed atomic write leaves no temp file behind', async () => {
   assert.deepEqual(leftovers, [])
   await fs.rm(dir, { recursive: true, force: true })
 })
+
+// A config/session path may legitimately BE a symlink (a dotfiles setup links
+// ~/.zames/config.json into a git repo, a project links .zamesrc.json). Writing
+// to `<file>.tmp-<pid>` and renaming over the LINK replaces the symlink with a
+// regular file: the real target keeps the OLD content and the next launch reads
+// the stale copy the operator never edited.
+test('writeJsonAtomic writes THROUGH a symlink instead of replacing it', async () => {
+  if (process.platform === 'win32') return
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-fsl-'))
+  const real = path.join(dir, 'real.json')
+  const link = path.join(dir, 'link.json')
+  await fs.writeFile(real, 'OLD')
+  await fs.symlink(real, link)
+
+  writeJsonAtomic(link, { fresh: true })
+
+  assert.equal(await fs.readFile(real, 'utf-8'), '{\n  "fresh": true\n}\n')
+  assert.ok((await fs.lstat(link)).isSymbolicLink(), 'the link must survive')
+  await fs.rm(dir, { recursive: true, force: true })
+})

@@ -17,7 +17,17 @@ import path from 'path'
 // multi-user machine. We also chmod the target after rename because a
 // pre-existing file keeps its old mode (rename does not change the inode).
 export function writeFileAtomic(file: string, data: string | Buffer): void {
-  const tmp = file + '.tmp-' + process.pid
+  // Follow a SYMLINK first: a dotfiles setup links ~/.zames/config.json into a
+  // git repo, and a project may link .zamesrc.json. Renaming a temp file over
+  // the link replaces the LINK with a regular file — the real target keeps the
+  // stale content and the next launch reads what the operator never edited.
+  let target = file
+  try {
+    target = fs.realpathSync(file)
+  } catch {
+    // Missing (first write) or broken link: write to the path itself.
+  }
+  const tmp = target + '.tmp-' + process.pid
   // fsync the file BEFORE rename: without it a power loss can leave the
   // renamed name pointing at an empty/partial inode (rename itself is atomic,
   // but the data blocks may not have reached the disk yet).
@@ -29,7 +39,7 @@ export function writeFileAtomic(file: string, data: string | Buffer): void {
     } finally {
       fs.closeSync(fd)
     }
-    fs.renameSync(tmp, file)
+    fs.renameSync(tmp, target)
   } catch (e) {
     // A failed write/fsync/rename (full disk, EIO, a directory in the way)
     // must not leave the temp file behind: every failure used to accumulate a
