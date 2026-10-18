@@ -17,6 +17,15 @@ export interface AtRefResult {
 // Resolve a pasted string into a path to an EXISTING file. Handles quoted
 // paths (drag&drop from some file managers adds quotes) and paths relative to
 // the working directory. Returns null when nothing matches.
+//
+// Every candidate is checked against the sandbox root (the REAL path, so
+// a symlink escape is refused too). The `..`/cwd candidates exist to help an
+// operator paste a path that LOOKS relative to the project, not to grant
+// access above it: without this guard a reference with a `..` inlined a file
+// outside the sandbox, while every other file tool rejects that path via
+// safePath(). The search continues past an escaping candidate (a regular
+// file inside the project must still resolve), but no candidate outside is
+// ever returned.
 export async function resolveAttachPath(
   workdir: string,
   raw: string,
@@ -45,9 +54,22 @@ export async function resolveAttachPath(
       ]
   for (const c of candidates) {
     const st = await fs.stat(c).catch(() => null)
-    if (st && st.isFile()) return c
+    if (!st || !st.isFile()) continue
+    if (await isInside(workdir, c)) return c
   }
   return null
+}
+
+// True when the REAL path of `target` stays under the REAL workdir root.
+// realpath (not the lexical path) is required here for the same reason as
+// safePath() in src/sandbox.ts: a symlink inside the project can point
+// outside it.
+async function isInside(workdir: string, target: string): Promise<boolean> {
+  const root = await fs.realpath(path.resolve(workdir)).catch(() => null)
+  const real = await fs.realpath(target).catch(() => null)
+  if (!root || !real) return false
+  const rel = path.relative(root, real)
+  return !rel.startsWith('..') && !path.isAbsolute(rel)
 }
 
 // Per-file and total caps for `@path` inlining (B5). A reference should SAVE
