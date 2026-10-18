@@ -104,27 +104,49 @@ export class UndoStore {
     const history = await this._readIndex()
     if (!history.length) return { ok: false, reason: 'empty' }
 
-    const record = history.pop()
-    if (!record) return { ok: false, reason: 'empty' }
-    const { originalPath, existed, backupFile } = record
-
-    try {
+    // Walk back from the newest record and SKIP a dead one (its .bak vanished,
+    // e.g. ~/.zames/undo was pruned or a crash left a record without the file).
+    // The old code popped the dead record, failed, and never rewrote the index —
+    // so every later /undo hit the same record again and the earlier backups
+    // stayed unreachable.
+    while (history.length) {
+      const record = history.pop()
+      if (!record) break
+      const { originalPath, existed, backupFile } = record
+      let data: Buffer | null = null
       if (existed && backupFile) {
-        const data = await fs.readFile(backupFile)
-        await fs.writeFile(originalPath, data)
         try {
-          await fs.unlink(backupFile)
-        } catch {}
-      } else {
-        try {
-          await fs.unlink(originalPath)
-        } catch {}
+          data = await fs.readFile(backupFile)
+        } catch (e) {
+          if ((e as NodeJS.ErrnoException).code === 'ENOENT') continue
+          return { ok: false, reason: (e as Error).message }
+        }
       }
-      await this._writeIndex(history)
-      return { ok: true, record }
-    } catch (e) {
-      return { ok: false, reason: (e as Error).message }
+      try {
+        if (data) {
+          await fs.writeFile(originalPath, data)
+          try {
+            await fs.unlink(backupFile as string)
+          } catch {}
+        } else {
+          // existed === false: the agent CREATED the file, so undoing removes
+          // it again. ENOENT is the expected case (it is already gone).
+          try {
+            await fs.unlink(originalPath)
+          } catch {}
+        }
+        await this._writeIndex(history)
+        return { ok: true, record }
+      } catch (e) {
+        // A real failure (permissions, a directory in place of the file): put
+        // the record back so a retry after fixing the cause still works.
+        history.push(record)
+        await this._writeIndex(history)
+        return { ok: false, reason: (e as Error).message }
+      }
     }
+    await this._writeIndex(history)
+    return { ok: false, reason: 'empty' }
   }
 
   async list(count = 10): Promise<UndoRecord[]> {
