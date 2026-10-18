@@ -2,6 +2,10 @@ import fs from 'fs'
 import path from 'path'
 import type { WriteStream } from 'fs'
 
+function transcriptErrorLine(e: unknown): string {
+  return `transcript: failed to create file: ${(e as Error).message}`
+}
+
 export interface TranscriptOptions {
   dir: string
   enabled?: boolean
@@ -38,7 +42,15 @@ export class Transcript {
     try {
       fs.mkdirSync(dir, { recursive: true })
       const stamp = new Date().toISOString().replace(/[:.]/g, '-')
-      this.file = path.join(dir, `${sessionName}-${stamp}.jsonl`)
+      // `sessionName` is the LABEL of the working directory (dirLabel), so a
+      // name like `a/b` or `C:\x` would nest a subdirectory or break the
+      // path outright: the stream then failed with ENOENT and no transcript
+      // at all was written. Keep the name a plain file-name fragment.
+      const safeName =
+        String(sessionName)
+          .replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_')
+          .trim() || 'session'
+      this.file = path.join(dir, `${safeName}-${stamp}.jsonl`)
       this.stream = fs.createWriteStream(this.file, { flags: 'a' })
       // Write errors (disk full, file deleted, etc.) arrive as an 'error'
       // event; without a listener this is an uncaught exception.
@@ -47,12 +59,13 @@ export class Transcript {
         this.enabled = false
       })
     } catch (e) {
-      console.error(
-        `transcript: failed to create file: ${(e as Error).message}`,
-      )
+      console.error(transcriptErrorLine(e))
       this.enabled = false
     }
   }
+
+  /** Number of writes that hit backpressure (write() === false). */
+  backpressure = 0
 
   log(type: string, data: Record<string, unknown> = {}): void {
     const entry = {
@@ -79,9 +92,6 @@ export class Transcript {
       if (!ok) this.backpressure++
     } catch {}
   }
-
-  /** Number of writes that hit backpressure (write() === false). */
-  backpressure = 0
 
   // Flush the stream and resolve once the data reached the file. The callers
   // run on process.exit paths (one-shot --task, browser error, clean exit), and
@@ -110,7 +120,7 @@ export class Transcript {
     return (
       'transcript: ' +
       this.backpressure +
-      ' write(s) hit backpressure (slow disk?) — events may be delayed'
+      ' write(s) hit backpressure (slow disk?)― events may be delayed'
     )
   }
 }
