@@ -66,6 +66,9 @@ const HOOK_MAX_BUFFER = 1024 * 1024
 // A PreToolUse denial becomes the tool result the model reads, so it is capped
 // like any other tool output.
 const HOOK_DENIAL_CAP = 4000
+// Combined stdout of a PostToolUse / lifecycle hook. It lands in a tool result
+// or in the chat, so it is a notice, not a log dump.
+const HOOK_OUTPUT_CAP = 8000
 
 export function hooksConfigPath(workdir: string): string {
   return path.join(workdir, '.zames', 'hooks.json')
@@ -272,11 +275,26 @@ async function runEventHooks(
 ): Promise<string> {
   const list = hooks?.[event as keyof HooksConfig] as HookEntry[] | undefined
   const parts: string[] = []
+  let total = 0
   for (const entry of list ?? []) {
     if (!matchesHook(entry, tool)) continue
     const r = await runHook(entry, event, tool, args, workdir, result)
     const out = r.stdout.trim()
-    if (out) parts.push(out)
+    if (!out) continue
+    // The combined output goes into a tool result (PostToolUse) or straight
+    // into the chat (SessionStart and the other lifecycle events), so it must
+    // stay a notice: a hook running `npm test` or dumping a log used to append
+    // hundreds of KB and flood the context.
+    if (total >= HOOK_OUTPUT_CAP) break
+    const piece = out.slice(0, HOOK_OUTPUT_CAP - total)
+    total += piece.length
+    parts.push(piece)
   }
-  return parts.join(String.fromCharCode(10))
+  const joined = parts.join(String.fromCharCode(10))
+  if (joined.length <= HOOK_OUTPUT_CAP) return joined
+  return (
+    joined.slice(0, HOOK_OUTPUT_CAP) +
+    String.fromCharCode(10) +
+    '… [hook output truncated]'
+  )
 }

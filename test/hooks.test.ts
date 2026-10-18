@@ -281,3 +281,32 @@ test('agent-loop: SessionStart hook fires on a fresh chat', async () => {
   })
   assert.ok(events.includes('hook_session_start'), events.join(','))
 })
+
+// A PreToolUse denial is capped (it becomes a tool result the model reads),
+// but the PostToolUse / lifecycle stdout was NOT: a hook running `npm test`,
+// `ls -R` or a log dump appended hundreds of KB to the tool result (and a
+// SessionStart hook pasted it straight into the chat).
+test('PostToolUse and lifecycle output is capped', async () => {
+  const { runPostToolUse, runLifecycleHooks } = await import('../src/hooks.ts')
+  const dir = fss.mkdtempSync(path.join(os.tmpdir(), 'zames-hkc-'))
+  const hooks = {
+    PostToolUse: [{ command: 'yes x | head -c 200000' }],
+    SessionStart: [{ command: 'yes y | head -c 300000' }],
+  }
+  try {
+    const post = await runPostToolUse(hooks, 'Edit', {}, 'ok', dir)
+    assert.ok(post.length > 0, 'the output is kept')
+    assert.ok(
+      post.length <= 20_000,
+      'PostToolUse output must stay small, got ' + post.length,
+    )
+    const life = await runLifecycleHooks(hooks, 'SessionStart', dir)
+    assert.ok(life.length > 0)
+    assert.ok(
+      life.length <= 20_000,
+      'lifecycle output must stay small, got ' + life.length,
+    )
+  } finally {
+    fss.rmSync(dir, { recursive: true, force: true })
+  }
+})
