@@ -2208,3 +2208,33 @@ line ending from the title» (CRLF-заметка и обычная LF). RED д�
 
 - `src/backlog.ts` — заголовок заметки `/backlog` без CR при CRLF-вводе
   (2026-10-18).
+
+### Такт 72 (2026-10-18) — исправлено
+
+**Цель:** транскрипт — имя файла сессии (`Transcript` constructor,
+`src/transcript.ts`).
+
+**Баг:** `sessionName` — это ЛЕЙБЛ рабочей директории (`dirLabel`, напр.
+`proj/sub`), и он подставлялся в имя файла как есть:
+`path.join(dir, '<sessionName>-<stamp>.jsonl')`. Для имени с разделителем
+(проект во вложенной папке, буква диска Windows) поток пытался открыть
+несуществующую поддиректорию, падал с ENOENT — и у прогона ВООБЩЕ не было
+транскрипта. Проверено запуском: `sessionName: 'a/b:c'` → файл не создан.
+
+**Фикс:** имя очищается до безопасного фрагмента имени файла
+(`[\\/:*?"<>|\u0000-\u001f]` → `_`, пустое → `session`).
+
+**Тест:** `test/transcript-prototype-keys.test.ts` +1 — «a session name with a
+path separator does not break the transcript file» (файл лежит прямо в dir и
+содержит записанное событие). RED до фикса, GREEN после.
+
+**Гейты:** `npm test` 1215 тестов (1205 pass, 0 fail, 10 skip), `typecheck`,
+`lint`, `format:check`, `build`, `sched-smoke` — зелёные.
+
+**Коммит:** `82bf46d`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- `src/transcript.ts` — имя файла сессии санитизируется (2026-10-18).
