@@ -104,6 +104,11 @@ function safeRegex(source: string): RegExp | null {
 // We collect them all and match the path regex against ANY of them.
 const PATH_KEYS = ['path', 'file_path', 'notebook_path', 'from', 'to']
 
+// The command may be named differently by an MCP tool (its JSON Schema picks
+// the field name) or invented by the model. Checking every plausible key keeps
+// a `command` rule from being bypassed just because the field is called `cmd`.
+const COMMAND_KEYS = ['command', 'cmd', 'shell_command', 'script', 'argv']
+
 // Best-effort check whether a string looks like a filesystem path. Used for
 // tools whose arguments are not covered by PATH_KEYS (MCP tools take arbitrary
 // arg names from their JSON Schema), so a `path` rule is not silently
@@ -153,8 +158,9 @@ export function decidePermission(
 ): PermissionDecision {
   if (!policy) return { action: 'allow', reason: 'no policy' }
   const a = (args ?? {}) as Record<string, unknown>
-  const command =
-    typeof a['command'] === 'string' ? (a['command'] as string) : ''
+  const commands = COMMAND_KEYS.filter((k) => typeof a[k] === 'string').map(
+    (k) => a[k] as string,
+  )
   const paths = collectPathCandidates(tool, args)
   for (const r of policy.rules) {
     if (r.tool) {
@@ -163,7 +169,7 @@ export function decidePermission(
     }
     if (r.command) {
       const re = safeRegex(r.command)
-      if (!re || !command || !re.test(command)) continue
+      if (!re || !commands.some((c) => re.test(c))) continue
     }
     if (r.path) {
       const re = safeRegex(r.path)
