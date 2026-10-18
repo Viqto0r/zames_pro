@@ -2085,3 +2085,35 @@ GREEN после.
 
 - `src/goal.ts` — `clampGoalCondition` не режет суррогатную пару
   (2026-10-18).
+
+### Такт 68 (2026-10-18) — релиз 2.78.2
+
+**Цель:** выпустить патч-версию после серии багфиксов (по вопросу
+оператора: «а почему не выпускаешь новые версии?»).
+
+**Что сделано:** `npm run changelog:sync` обновил Unreleased (20 фиксов после
+2.78.1: sandbox @file escape, sessions restore, undo dead record, checkpoint
+retention, provider handoff path, statusLine end-event, mcp name sanitizing,
+fsutil symlink, hooks output cap, goal NOT MET verdict, shell eval guard,
+bgTrim surrogate, tool-summary oneLine, Read clip, token counter top-level,
+Qwen guest limit, cron dom/dow OR, permissions argv, web IPv6 SSRF, goal
+clamp). Затем `npm run release patch -- --no-tests` — версия `2.78.1` →
+`2.78.2`, раздел `## [2.78.2]` в CHANGELOG.md, коммит
+`chore: release 2.78.2`, тег `v2.78.2`.
+
+**Пуш:** `master` (2cb8dfc) и тег `v2.78.2` отправлены; `git ls-remote
+--tags origin` подтверждает `refs/tags/v2.78.2`. GitHub Actions `publish.yml`
+запущен на `v*`.
+
+**Гейты** (прогоны тактов 48–67 на том же коде): `npm test` 1211 тестов
+(1201 pass, 0 fail, 10 skip), `typecheck`, `lint`, `format:check`, `build`,
+`sched-smoke` — зелёные.
+
+**Коммиты:** `cbd9210` (changelog sync), `2cb8dfc` (release 2.78.2), тег
+`v2.78.2`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- Релиз 2.78.2 (patch): 20 багфиксов тактов 48–67 (2026-10-18).
