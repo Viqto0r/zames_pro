@@ -2509,3 +2509,37 @@ now let me run lint.». Эвристика срабатывала, луп до 3
 
 - `src/answer-parse.ts` — отчёт с пересказом завершённых шагов не считается
   «незаконченной работой» (2026-10-18).
+
+### Такт 81 (2026-10-18) — релиз 2.78.3
+
+**Цель:** выпустить патч-версию по просьбе оператора («почему не выпускаешь
+версии? не поднимай слишком часто, но и не собирай кучу функционала»).
+
+**Что сделано:** после `v2.78.2` накопилось 21 изменение (такты 48–80):
+`@file`-escape, восстановление сессий, мёртвая запись undo, удержание
+checkpoint, provider-handoff по реальному пути, statusLine по `end`, mcp
+санитизация имён, симлинк в fsutil, лимиты вывода hooks, вердикт goal,
+страж eval в sandbox, суррогаты в bgTrim/oneLine/Read/clamp, счётчик
+токенов top-level, Qwen guest-limit, cron dom/dow OR, permissions argv,
+SSRF IPv6, склеенный `cd` в sandbox, sentinel в git-контексте, 1-based
+`Read offset`, короткий ответ в net-capture, нарративный отчёт в
+answer-parse. `npm run changelog:sync` обновил Unreleased, затем
+`npm run release patch -- --no-tests` — версия `2.78.2` → `2.78.3`, раздел
+`## [2.78.3]` в CHANGELOG.md, коммит `chore: release 2.78.3`, тег `v2.78.3`.
+
+**Пуш:** `master` (`b82f058`) и тег `v2.78.3` отправлены (`git ls-remote
+--tags origin` подтверждает `refs/tags/v2.78.3` → `b82f058`). GitHub Actions
+`publish.yml` запущен на `v*`.
+
+**Гейты** (прогоны тактов 76–80 на том же коде): `npm test` 1237 тестов
+(1227 pass, 0 fail, 10 skip), `typecheck`, `lint`, `format:check`, `build`,
+`sched-smoke` — зелёные.
+
+**Коммиты:** `02959b1` (changelog sync), `b82f058` (release 2.78.3), тег
+`v2.78.3`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- Релиз 2.78.3 (patch): 21 фикс тактов 48–80 (2026-10-18).
