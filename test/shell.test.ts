@@ -91,6 +91,26 @@ test('assertCommandInsideRoot blocks a cd with an unverifiable target', () => {
 // every chunk. A cut between the halves of a surrogate pair (an emoji or an
 // astral CJK char) leaves a LONE LOW SURROGATE at the head of the buffer that
 // pollBackground returns to the model as a tool result.
+// killBackground() sent SIGTERM and immediately FORGOT the id. A shell that
+// traps TERM (`trap '' TERM`) ignored it, and the operator was told "Killed"
+// while the process kept running as an orphan. Verify the SIGKILL escalation
+// actually removes the process group.
+test('killBackground escalates to SIGKILL when SIGTERM is trapped', async () => {
+  const { startBackground, killBackground } = await import('../src/shell.ts')
+  const id = startBackground(process.cwd(), "trap '' TERM; sleep 30")
+  const msg = killBackground(id)
+  assert.match(msg, /Killed background process/)
+  // Wait out the 1.5s grace period, then look for a surviving `sleep 30`
+  // child (ps is the portable probe).
+  await new Promise((r) => setTimeout(r, 2500))
+  const { execFileSync } = await import('node:child_process')
+  const ps = execFileSync('ps', ['-eo', 'pid,args'], { encoding: 'utf-8' })
+  const survivors = ps
+    .split(String.fromCharCode(10))
+    .filter((l) => l.includes('sleep 30') && !l.includes('ps -eo'))
+  assert.equal(survivors.length, 0, 'orphan left: ' + survivors.join(' | '))
+})
+
 test('a background trim never starts on a lone low surrogate', async () => {
   const { startBackground, pollBackground, killBackground } =
     await import('../src/shell.ts')

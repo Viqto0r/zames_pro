@@ -264,6 +264,20 @@ export function killBackground(id: string): string {
     return `Failed to kill ${id}: ${(e as Error).message}`
   }
   BG_PROCS.delete(id)
+  // SIGTERM is only a REQUEST. A shell that traps it (a wrapper script, a
+  // daemon that cleans up on TERM) ignores the signal, and the old code then
+  // forgot the id and reported "Killed" while the process kept running as an
+  // orphan. Give it a moment, then SIGKILL the group (the shell's own trap
+  // cannot block that). Detached from the caller so killBackground stays sync.
+  const pid = p.child.pid
+  if (process.platform !== 'win32' && pid) {
+    const t = setTimeout(() => {
+      try {
+        process.kill(-pid, 'SIGKILL')
+      } catch {}
+    }, 1500)
+    if (typeof t.unref === 'function') t.unref()
+  }
   return `Killed background process ${id}.`
 }
 
