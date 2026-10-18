@@ -152,3 +152,29 @@ test('assertCommandInsideRoot blocks chroot but not legitimate shells', () => {
   assert.doesNotThrow(() => assertCommandInsideRoot(root, 'node script.js'))
   assert.doesNotThrow(() => assertCommandInsideRoot(root, 'python build.py'))
 })
+
+// The eval+cd guard matched RAW SUBSTRINGS. A perfectly normal command that
+// merely CONTAINS the word `eval` somewhere (a test file named
+// `goal-eval-unparsable.test.ts`, a directory `eval/`) was rejected as
+// "eval with cd is forbidden" — even `npm test` when the run line had a `cd`.
+// eval only re-parses its argument when it is actually EXECUTED, so the guard
+// must look at command positions.
+test('the eval guard does not fire on the word eval inside a path', () => {
+  const root = path.join(os.tmpdir(), 'zames-sbx-eval')
+  assert.doesNotThrow(() =>
+    assertCommandInsideRoot(
+      root,
+      'cd sub && npx tsx --test test/goal-eval-unparsable.test.ts',
+    ),
+  )
+  assert.doesNotThrow(() => assertCommandInsideRoot(root, 'grep -rn eval src'))
+  // A REAL eval still hits the guard when a cd is present.
+  assert.throws(
+    () => assertCommandInsideRoot(root, "eval 'cd /etc'"),
+    /Sandbox/,
+  )
+  assert.throws(
+    () => assertCommandInsideRoot(root, 'cd sub && eval ls'),
+    /Sandbox/,
+  )
+})

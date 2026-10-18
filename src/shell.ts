@@ -15,7 +15,15 @@ export function assertCommandInsideRoot(root: string, command: string): void {
   // eval re-parses its argument, so a `cd` hidden inside a string is invisible
   // to the static scan; refusing eval together with cd is the honest answer
   // instead of pretending the barrier still holds.
-  if (/\beval\b/.test(cmd) && /\bcd\b/.test(cmd)) {
+  //
+  // The test is on COMMAND POSITIONS, not on raw substrings: a bare
+  // `/eval/`+/cd/ matched ordinary text like `npx tsx --test
+  // test/goal-eval-unparsable.test.ts` (which DOES contain `cd` elsewhere, e.g.
+  // `cd proj && …`), so a legitimate command — even `npm test` — was rejected
+  // with a sandbox error. eval only re-parses when it is RUN, i.e. at the start
+  // of a command or after a separator, optionally via `sh -c eval …`.
+  const evalAtCommand = /(?:^|[;&|(]\s*|\bsh\s+-c\s+['"]?)\s*eval\b/
+  if (evalAtCommand.test(cmd) && /\bcd\b/.test(cmd)) {
     throw new Error('Sandbox: eval with cd is forbidden')
   }
 
