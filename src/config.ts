@@ -582,6 +582,11 @@ function parseConfigValue(field: ConfigField, raw: string): unknown {
       throw new Error('boolean')
     }
     case 'number': {
+      // `Number('')` and `Number('   ')` are 0, NOT NaN: an empty value for a
+      // field with min 0 passed validation and silently BECAME 0 (an operator
+      // clearing the edit buffer turned retries/backups OFF instead of being
+      // told the value is invalid).
+      if (raw.trim() === '') throw new Error('number')
       const n = Number(raw)
       if (!Number.isFinite(n)) throw new Error('number')
       if (field.min !== undefined && n < field.min) throw new Error('number')
