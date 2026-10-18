@@ -89,7 +89,13 @@ export function parseGoalVerdict(text: string): GoalVerdict | null {
   // spaces (`**VERDICT:** MET`) — a markdown-model answer did exactly that and
   // the strict `VERDICT:` matcher returned null, so the goal never parsed and
   // the loop auto-continued until the turn budget.
-  const m = /VERDICT\s*[*_`]*\s*:\s*[*_`]*\s*(MET|NOT_MET|IMPOSSIBLE)/i.exec(t)
+  // The value itself may be written the human way (`NOT MET`, `NOT-MET`): a
+  // strict `NOT_MET` matcher returned null for those, and null means "continue"
+  // — the goal loop then auto-continued until the turn budget although the
+  // judge had already said NOT_MET. `MET` is tried LAST so it cannot match the
+  // tail of `NOT MET`.
+  const m =
+    /VERDICT\s*[*_`]*\s*:\s*[*_`]*\s*(IMPOSSIBLE|NOT[_ -]?MET|MET)/i.exec(t)
   if (!m) return null
   const raw = m[1].toUpperCase()
   const status: GoalVerdict['status'] =
