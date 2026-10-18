@@ -36,3 +36,45 @@ test('buildHandoffText trims the summary', () => {
   assert.ok(t.includes('padded'))
   assert.ok(!t.includes('  padded  '))
 })
+
+// The handoff is persisted with the working directory it belongs to and is
+// consumed by the NEXT launch in that same directory. The path there is not
+// guaranteed to be byte-identical: the operator may reach the project through
+// a symlink, or the stored path may carry a trailing separator (a `/cd sub/`
+// leaves one). A lexical `!==` comparison made the summary silently vanish.
+test('readProviderHandoff matches the same directory reached differently', async () => {
+  const fs = await import('node:fs')
+  const os = await import('node:os')
+  const path = await import('node:path')
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-ho-home-'))
+  const prevHome = process.env.HOME
+  const prevProfile = process.env.USERPROFILE
+  process.env.HOME = home
+  process.env.USERPROFILE = home
+  const { saveProviderHandoff, readProviderHandoff, clearProviderHandoff } =
+    await import('../src/provider-handoff.ts')
+  const wd = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-ho-wd-'))
+  try {
+    saveProviderHandoff({
+      provider: 'qwen',
+      workdir: wd + path.sep,
+      summary: 'carried over',
+      createdAt: new Date().toISOString(),
+    })
+    // Trailing separator on the STORED side.
+    assert.equal(readProviderHandoff('qwen', wd)?.summary, 'carried over')
+
+    // A symlink to the same directory must match too.
+    const link = path.join(home, 'link')
+    fs.symlinkSync(wd, link)
+    assert.equal(readProviderHandoff('qwen', link)?.summary, 'carried over')
+    // A different directory still must NOT match.
+    const other = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-ho-other-'))
+    assert.equal(readProviderHandoff('qwen', other), null)
+  } finally {
+    clearProviderHandoff()
+    process.env.HOME = prevHome
+    process.env.USERPROFILE = prevProfile
+    fs.rmSync(home, { recursive: true, force: true })
+  }
+})

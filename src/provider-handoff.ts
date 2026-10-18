@@ -79,11 +79,33 @@ export function readProviderHandoff(
       return null
     }
     if (raw.provider !== provider) return null
-    if ((raw.workdir || '') !== (workdir || '')) return null
+    if (!sameDir(raw.workdir, workdir)) return null
     return raw
   } catch {
     return null
   }
+}
+
+// Two paths that denote the SAME directory must match: the handoff is consumed
+// by the NEXT launch in that directory, and the path there is not guaranteed to
+// be byte-identical — a trailing separator (a `/cd sub/` leaves one) or a
+// symlinked route to the project used to make a lexical `!==` silently drop the
+// carried-over summary. realpath is the comparison; a missing dir falls back to
+// the resolved lexical path so a deleted project still matches its record.
+function sameDir(a: string | undefined, b: string | undefined): boolean {
+  const x = String(a ?? '')
+  const y = String(b ?? '')
+  if (x === y) return true
+  if (!x || !y) return false
+  const real = (p: string): string => {
+    const abs = path.resolve(p)
+    try {
+      return fs.realpathSync(abs)
+    } catch {
+      return abs
+    }
+  }
+  return real(x) === real(y)
 }
 
 /** Remove the handoff once it has been posted (or is stale). Best-effort. */
