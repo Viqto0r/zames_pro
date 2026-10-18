@@ -206,3 +206,15 @@ test('appendBacklogItem collapses whitespace in the title', () => {
   assert.ok(text.includes('### N1. a b'))
   assert.ok(!text.includes('### N1. a   b'))
 })
+
+// A `/backlog` note typed on Windows (or pasted) carries CRLF line endings.
+// The title kept the trailing `\r`, so the heading became `### N1. Fix it\r`
+// — a stray carriage return in the file and in every later render.
+test('parseBacklogNote strips a CRLF line ending from the title', () => {
+  const n = parseBacklogNote('P1 Fix the thing\r\nSecond line')
+  assert.equal(n.priority, 'P1')
+  assert.equal(n.title, 'Fix the thing')
+  assert.equal(n.note, 'Second line')
+  const m = parseBacklogNote('Fix it\nmore')
+  assert.equal(m.title, 'Fix it')
+})

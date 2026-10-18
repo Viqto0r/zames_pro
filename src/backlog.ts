@@ -39,7 +39,10 @@ export function parseBacklogNote(note: string): {
       break
     }
   }
-  const bodyLines = body.split(NL)
+  // A note typed on Windows (or pasted from one) carries CRLF line endings;
+  // the title would keep the trailing `\r` and the heading would get a stray
+  // carriage return.
+  const bodyLines = body.split(NL).map((l) => l.replace(/\r$/, ''))
   const title = bodyLines[0]
   const rest = bodyLines.slice(1).join(NL).trim()
   return { priority, title, note: rest || undefined }
