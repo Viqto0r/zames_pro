@@ -41,10 +41,17 @@ export function htmlToText(html: string): string {
   pendingHighSurrogate = null
   // Remove blocks we don't need
   let s = html
+    // A tag that never CLOSES (a truncated body, or HTML the regex cannot
+    // pair) used to leak its raw JS/CSS into the text: also drop everything
+    // from an unclosed opening tag to the end of the document.
     .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<script\b[\s\S]*$/i, '')
     .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<style\b[\s\S]*$/i, '')
     .replace(/<noscript[\s\S]*?<\/noscript>/gi, '')
+    .replace(/<noscript\b[\s\S]*$/i, '')
     .replace(/<svg[\s\S]*?<\/svg>/gi, '')
+    .replace(/<svg\b[\s\S]*$/i, '')
     .replace(/<!--[\s\S]*?-->/g, '')
 
   // Links: <a href="URL">text</a> → text (URL)

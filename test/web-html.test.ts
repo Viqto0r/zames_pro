@@ -158,3 +158,11 @@ test('htmlToText joins a numeric-reference surrogate pair', () => {
   })
   assert.equal(lone, false, 'a lone surrogate leaked into the text')
 })
+
+// The script/style/noscript/svg strips require a CLOSING tag. A page that ends
+// inside a <script> (a truncated body, or HTML the regex cannot pair) leaked
+// the raw JS/CSS into the text WebFetch hands to the model.
+test('htmlToText drops an UNCLOSED script/style body', () => {
+  assert.equal(htmlToText('<p>before</p><script>var x = 1; // code'), 'before')
+  assert.equal(htmlToText('<p>before</p><style>body{color:red}'), 'before')
+})
