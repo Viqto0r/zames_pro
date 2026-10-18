@@ -90,3 +90,14 @@ test('suggestRowCount: wraps a wide row on a narrow terminal', () => {
 test('suggestRowCount: no cols keeps one row per command (legacy)', () => {
   assert.equal(suggestRowCount('/', many(3)), 3)
 })
+
+// The longest-common-prefix loop starts from sugg[0].name and shrinks it until
+// it is a prefix of every match — so with an EMPTY buffer (the operator typed
+// nothing yet, the whole list matches) the "common prefix" is the slash itself
+// and Tab inserted a bare "/" into an empty input line. Completion must never
+// return something no LONGER than what was already typed.
+test('completeSlashCommand: an empty buffer is not completed to a bare slash', () => {
+  const list = cmds('/help', '/history')
+  assert.equal(completeSlashCommand('', list, -1), null)
+  assert.equal(completeSlashCommand('/', list, -1), null)
+})
