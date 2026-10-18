@@ -1899,3 +1899,34 @@ clipping a long line» (проверяет символ перед маркер�
 
 - `src/tools.ts` — `Read` не режет суррогатную пару при обрезке длинной
   строки (2026-10-18).
+
+### Такт 62 (2026-10-18) — исправлено
+
+**Цель:** net-capture — счётчик контекста (`extractTokenUsage`,
+`src/net-capture.ts`).
+
+**Баг:** функция читала пару `{"p":"accumulated_token_usage","v":N}` только
+внутри массива `v: [...]` и `v.response.accumulated_token_usage`. Если пара
+приходила на ВЕРХНЕМ уровне SSE-события (та же форма, что DeepSeek кладёт в
+массив), счётчик молча не обновлялся — `/cost`, `/status` и порог
+авто-компакта видели устаревшее число. Проверено запуском:
+`extractTokenUsage('data: {"p":"accumulated_token_usage","v":1234}')` → `null`.
+
+**Фикс:** добавлена проверка верхнего уровня `o.p === 'accumulated_token_usage'`
+→ `consider(o.v)`.
+
+**Тест:** `test/net-capture.test.ts` +1 — «extractTokenUsage reads a TOP-LEVEL
+p/v pair» (значение читается, чужая `p` остаётся null). RED до фикса, GREEN
+после.
+
+**Гейты:** `npm test` 1207 тестов (1197 pass, 0 fail, 10 skip), `typecheck`,
+`lint`, `format:check`, `build`, `sched-smoke` — зелёные.
+
+**Коммит:** `d5fc97e`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- `src/net-capture.ts` — верхнеуровневая пара `p/v` счётчика контекста
+  читается (2026-10-18).
