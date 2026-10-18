@@ -20,7 +20,13 @@ export const GOAL_MAX_TURNS = 25
 export function clampGoalCondition(condition: string): string {
   const g = String(condition ?? '').trim()
   if (g.length <= GOAL_CONDITION_CAP) return g
-  return g.slice(0, GOAL_CONDITION_CAP)
+  // Never cut a surrogate PAIR in half: the condition is injected into the
+  // evaluator prompt, and a lone high surrogate is a broken code point (same
+  // rule as truncateToolResult / capReport / clipLine / oneLine).
+  let cut = GOAL_CONDITION_CAP
+  const last = g.charCodeAt(cut - 1)
+  if (last >= 0xd800 && last <= 0xdbff) cut--
+  return g.slice(0, cut)
 }
 
 // The evaluator prompt is AGENT-facing (English), like the system prompt and

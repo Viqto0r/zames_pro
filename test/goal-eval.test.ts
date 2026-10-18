@@ -56,6 +56,20 @@ test('clampGoalCondition: trims and caps', () => {
   assert.equal(clampGoalCondition('  x  '), 'x')
   const long = 'a'.repeat(GOAL_CONDITION_CAP + 500)
   assert.equal(clampGoalCondition(long).length, GOAL_CONDITION_CAP)
+  // An emoji straddling the cap must not leave a lone high surrogate.
+  const emoji = String.fromCharCode(0xd83d, 0xde00)
+  const straddle = 'a'.repeat(GOAL_CONDITION_CAP - 1) + emoji + 'tail'
+  const clamped = clampGoalCondition(straddle)
+  for (let i = 0; i < clamped.length; i++) {
+    const c = clamped.charCodeAt(i)
+    if (c >= 0xd800 && c <= 0xdbff) {
+      const n = clamped.charCodeAt(i + 1)
+      assert.ok(
+        n >= 0xdc00 && n <= 0xdfff,
+        'clampGoalCondition left a lone high surrogate',
+      )
+    }
+  }
 })
 
 test('buildContinuationDirective: includes the reason when present', () => {
