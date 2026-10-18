@@ -1772,3 +1772,35 @@ the spaced and hyphenated NOT MET spellings». RED до фикса (`git stash` 
 ## Покрытые области (не повторять без причины)
 
 - `src/goal.ts` — вердикт `NOT MET` / `NOT-MET` распознаётся (2026-10-18).
+
+### Такт 58 (2026-10-18) — исправлено
+
+**Цель:** sandbox/shell — страж `assertCommandInsideRoot` (`src/shell.ts`).
+
+**Баг:** проверка «eval + cd» матчила ГОЛЫЕ ПОДСТРОКИ:
+`/\beval\b/.test(cmd) && /\bcd\b/.test(cmd)`. Любая нормальная команда, где
+где-то встречается слово `eval` (файл теста `goal-eval-unparsable.test.ts`,
+каталог `eval/`, `grep eval`), отвергалась сообщением «Sandbox: eval with cd
+is forbidden» — причём даже запуск `npm test`, если в строке был ещё и `cd`.
+Проверено вживую: этот самый цикл баг-хантинга не мог запустить
+`npx tsx --test test/goal-eval-unparsable.test.ts`.
+
+**Фикс:** eval ищется в ПОЗИЦИИ КОМАНДЫ (начало строки/после `; & | (`,
+либо `sh -c eval`), а не как слово внутри пути; при реальном `eval` вместе с
+`cd` страж по-прежнему срабатывает.
+
+**Тест:** `test/security-sandbox.test.ts` +1 — «the eval guard does not fire on
+the word eval inside a path» (путь с `eval` + `cd` разрешён; настоящий `eval`
+рядом с `cd` отвергается). RED до фикса, GREEN после.
+
+**Гейты:** `npm test` 1203 теста (1193 pass, 0 fail, 10 skip), `typecheck`,
+`lint`, `format:check`, `build`, `sched-smoke` — зелёные.
+
+**Коммит:** `1842120`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- `src/shell.ts` — страж eval+cd смотрит на позицию команды, а не на
+  подстроку (2026-10-18).
