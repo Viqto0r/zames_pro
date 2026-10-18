@@ -324,7 +324,7 @@ test('Read numbered с offset нумерует от реальной строк�
       numbered: true,
     }),
   )
-  assert.equal(out, '3\tl2' + NL + '4\tl3')
+  assert.equal(out, '2\tl1' + NL + '3\tl2')
   await fs.rm(dir, { recursive: true, force: true })
 })
 

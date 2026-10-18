@@ -105,7 +105,8 @@ export function createTools(
     {
       name: 'Read',
       description:
-        'Read a file. Optional: offset and limit (lines). ' +
+        'Read a file. Optional: offset and limit (lines, BOTH 1-BASED: ' +
+        'offset=5 starts at line 5, limit=10 reads ten lines). ' +
         'numbered=true adds cat -n style line numbers (1-based) for reference ' +
         'only — do NOT copy the numbers into Edit old_string. ' +
         'Lines longer than 2000 chars are truncated. ' +
@@ -154,8 +155,15 @@ export function createTools(
         const content = buf.toString('utf-8')
         if (content === '') return '(file is empty)'
         const lines = content.split('\n')
-        const start = (offset as number | undefined) ?? 0
-        const end = limit ? start + (limit as number) : lines.length
+        // `offset`/`limit` are 1-BASED, like sed / `git blame -L` and the
+        // `numbered=true` output this tool prints. Treating them as 0-based
+        // array slices silently shifted every window by one line and made
+        // `offset: 1` skip the first line. A non-positive or non-numeric
+        // offset means "from the start".
+        const off = Math.max(1, Math.floor(Number(offset) || 1))
+        const start = off - 1
+        const lim = Math.floor(Number(limit))
+        const end = Number.isFinite(lim) && lim > 0 ? start + lim : lines.length
         const slice = lines.slice(start, end)
         const clip = (l: string): string =>
           l.length > 2000 ? clipLine(l, 2000) + ' …[line truncated]' : l

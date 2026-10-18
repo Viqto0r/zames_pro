@@ -38,7 +38,8 @@ test('Read с offset/limit возвращает только запрошенн�
   const tools = createTools(dir, {})
   const out = await tool(tools, 'Read').fn({
     path: 'a.txt',
-    offset: 1,
+    // 1-based, like sed: line 2 onwards, two lines -> l1, l2.
+    offset: 2,
     limit: 2,
   })
   assert.equal(out, ['l1', 'l2'].join(NL))
