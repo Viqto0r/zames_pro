@@ -44,11 +44,14 @@ export function summarizeDiagnostics(
 ): string | null {
   const text = String(raw || '').trim()
   if (!text) return null
-  // tsc prints nothing on success; eslint prints nothing too. Guard against a
-  // benign banner that some tools emit.
-  if (/^(no errors?\.?|0 problems?.*)$/im.test(text) && text.length < 40) {
-    return null
-  }
+  // tsc prints nothing on success, but with `--watch` it prints a banner
+  // ("Found 0 errors. Watching for file changes.") that is longer than the
+  // old 40-char cutoff — so every edit in watch mode appended a pointless
+  // diagnostics block to the tool result. Treat a ZERO-count banner as clean
+  // however long it is; a non-zero count still falls through to the lines.
+  if (/^(?:found\s+)?0\s+errors?\b/im.test(text)) return null
+  if (/^no errors?\.?$/im.test(text)) return null
+  if (/^0 problems?\b/im.test(text)) return null
   // Keep only error-looking lines when we can recognise them, so a long build
   // log collapses to the actual problems. Fall back to the whole output.
   const lines = text.split(/\r?\n/)
