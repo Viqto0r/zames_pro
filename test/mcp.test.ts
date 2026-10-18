@@ -166,3 +166,20 @@ test('hardenPlaywrightArgs: playwright MCP всегда изолируется',
   // Не-playwright сервер не трогаем.
   assert.deepEqual(hardenPlaywrightArgs('node', ['server.js']), ['server.js'])
 })
+
+// The SERVER half of a qualified name was never sanitized: a server name with a
+// space ('my server') produced 'my server__tool', which the model cannot
+// reproduce in a JSON tool call (and which differs from the sanitized tool
+// half). It also made two DIFFERENT servers collide into distinct-but-unusable
+// names instead of the same one, so dedupeToolNames could not help.
+test('qualifyToolName sanitizes the server half too', () => {
+  const a = qualifyToolName('my server', 'do it')
+  assert.match(a, /^[A-Za-z0-9_]+$/, 'not a callable name: ' + a)
+  assert.equal(a, 'my_server__do_it')
+  // Two spellings of the same server must qualify to the SAME name so the
+  // duplicate guard can rename the second tool instead of leaving both broken.
+  assert.equal(
+    qualifyToolName('my server', 'do it'),
+    qualifyToolName('my_server', 'do it'),
+  )
+})

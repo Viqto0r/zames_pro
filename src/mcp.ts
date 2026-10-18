@@ -379,7 +379,14 @@ function safeJson(v: unknown): string {
 // servers cannot collide. The prefix uses __ (double underscore) because
 // the model must be able to reproduce it exactly.
 export function qualifyToolName(server: string, tool: string): string {
-  return server + '__' + tool.replace(/[^A-Za-z0-9_]/g, '_')
+  // BOTH halves must be sanitized: a server name with a space ('my server')
+  // produced 'my server__tool', which the model cannot reproduce in a JSON
+  // tool call. The same rule on both sides also makes two spellings of one
+  // server collide on ONE qualified name, so dedupeToolNames can rename the
+  // duplicate instead of leaving both tools unreachable.
+  const clean = (s: string): string =>
+    String(s || '').replace(/[^A-Za-z0-9_]/g, '_')
+  return clean(server) + '__' + clean(tool)
 }
 
 // Make every tool name unique IN PLACE. agent-loop resolves a call by name and
