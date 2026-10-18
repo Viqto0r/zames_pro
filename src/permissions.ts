@@ -158,9 +158,17 @@ export function decidePermission(
 ): PermissionDecision {
   if (!policy) return { action: 'allow', reason: 'no policy' }
   const a = (args ?? {}) as Record<string, unknown>
-  const commands = COMMAND_KEYS.filter((k) => typeof a[k] === 'string').map(
-    (k) => a[k] as string,
-  )
+  // A command may be a STRING (`command`, `cmd`, ...) or an ARRAY (`argv`,
+  // the natural shape for execFile-style MCP tools). Accepting only strings
+  // let a `command` deny be bypassed by passing the words as an array.
+  const commands: string[] = []
+  for (const k of COMMAND_KEYS) {
+    const v = a[k]
+    if (typeof v === 'string') commands.push(v)
+    else if (Array.isArray(v)) {
+      commands.push(v.filter((x) => typeof x === 'string').join(' '))
+    }
+  }
   const paths = collectPathCandidates(tool, args)
   for (const r of policy.rules) {
     if (r.tool) {

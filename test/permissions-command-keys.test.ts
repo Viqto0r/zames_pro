@@ -39,3 +39,23 @@ test('a command rule still allows a safe command', () => {
     'allow',
   )
 })
+
+// The comment above says `argv` is one of the names to cover, but the value
+// collector accepted only STRING fields — an array argv (the natural shape for
+// execFile-style MCP tools) was dropped, so a `command` deny was bypassed by
+// passing the command as an ARRAY.
+test('a command rule sees an argv ARRAY', () => {
+  const policy = parsePermissions({
+    default: 'allow',
+    rules: [{ command: 'rm\\s+-rf', action: 'deny' }],
+  })
+  assert.ok(policy)
+  assert.equal(
+    decidePermission(policy, 'srv__run', { argv: ['rm', '-rf', '/'] }).action,
+    'deny',
+  )
+  assert.equal(
+    decidePermission(policy, 'srv__run', { argv: ['ls', '-la'] }).action,
+    'allow',
+  )
+})
