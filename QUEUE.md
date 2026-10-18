@@ -1710,3 +1710,36 @@ RED до фикса, GREEN после.
 
 - `src/fsutil.ts` — атомарная запись идёт СКВОЗЬ симлинк, ссылка не
   подменяется файлом (2026-10-18).
+
+### Такт 56 (2026-10-18) — исправлено
+
+**Цель:** hooks — вывод PostToolUse и lifecycle-событий (`runEventHooks`,
+`src/hooks.ts`).
+
+**Баг:** у отказа PreToolUse лимит был (`HOOK_DENIAL_CAP`), а объединённый
+stdout PostToolUse и lifecycle-хуков (SessionStart, UserPromptSubmit,
+PreCompact, Stop, SubagentStop) не ограничивался ничем. Этот текст попадает в
+результат инструмента, который читает модель, а для lifecycle — прямо в чат:
+хук, запускающий `npm test`, `ls -R` или дамп лога, добавлял сотни килобайт
+одним вызовом. Проверено запуском: PostToolUse-хук `yes x | head -c 200000`
+дал результат длиной 199999 символов, SessionStart — 299999.
+
+**Фикс:** общий лимит `HOOK_OUTPUT_CAP = 8000` на склеенный вывод (обрезка по
+частям + пометка «hook output truncated»); обычные короткие уведомления не
+меняются.
+
+**Тест:** `test/hooks.test.ts` +1 — «PostToolUse and lifecycle output is
+capped» (вывод остаётся, но ≤ 20000 символов для обоих событий). RED до
+фикса (`git stash` — падает), GREEN после.
+
+**Гейты:** `npm test` 1201 тест (1191 pass, 0 fail, 10 skip), `typecheck`,
+`lint`, `format:check`, `build`, `sched-smoke` — зелёные.
+
+**Коммит:** `1a53449`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- `src/hooks.ts` — вывод PostToolUse и lifecycle-хуков ограничен
+  (2026-10-18).
