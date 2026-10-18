@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **answer-parse:** a report narrating completed steps is not unfinished work
+- **net-capture:** a short complete answer is not a finished-without-answer turn
+- **git:** keep the empty-output sentinel out of the git context
+- **tools:** make Read offset/limit 1-based like every line-numbered tool
+- **shell:** scan a glued cd target (cd../.. escaped the sandbox)
+- **web:** drop an unclosed script/style body in htmlToText
+- **diagnostics:** recognize a coloured/timestamped clean banner
+- **permissions:** fail closed on a rule with an invalid regex
+- **transcript:** sanitize the session name in the file name
+- **backlog:** strip a CR from a note title
+- **shell:** escalate to SIGKILL when a killed job traps SIGTERM
+- **input:** Tab on an empty buffer inserted a guessed command
+
 ## [2.78.2] - 2026-10-18
 
 ### Fixed
