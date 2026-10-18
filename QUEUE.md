@@ -1366,3 +1366,37 @@ stderr/stdout становится результатом инструмента
 ## Покрытые области (не повторять без причины)
 
 - `src/hooks.ts` — причина отказа PreToolUse ограничена (2026-10-18).
+
+### Такт 46 (2026-10-18) — исправлено
+
+**Цель:** permissions — сопоставление правила `command` (`decidePermission`,
+`src/permissions.ts`).
+
+**Баг:** правило с `command` проверялось ТОЛЬКО против поля `command`. У
+MCP-инструментов имя поля задаёт JSON Schema сервера (`cmd`, `shell_command`,
+`script`), а модель иногда придумывает синоним — тогда правило молча не
+срабатывало, и `deny` можно было обойти, вызвав инструмент с другим именем
+поля. Проверено запуском: политика с `{command: 'rm -rf', action: 'deny'}`
+давала `allow` на `{cmd: 'rm -rf /'}` и `deny` на `{command: 'rm -rf /'}`.
+
+**Фикс:** команда собирается из всех правдоподобных ключей
+(`command`, `cmd`, `shell_command`, `script`, `argv`), и правило матчится
+против любой из них — по аналогии с `PATH_KEYS` для путей.
+
+**Тест:** `test/permissions-command-keys.test.ts` (2 кейса: `command`/`cmd`/
+`shell_command`/`script` все попадают под правило; безопасная команда
+разрешается). RED до фикса (1 pass / 1 fail, подтверждено `git stash`), GREEN
+после; вместе с `permissions.test.ts` и `permissions-loop.test.ts` — 16 pass,
+0 fail.
+
+**Гейты:** `npm test` 1189 тестов (1179 pass, 0 fail, 10 skip), `typecheck`,
+`lint`, `format:check`, `build`, `sched-smoke` — зелёные.
+
+**Коммит:** `ab28c45`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- `src/permissions.ts` — правило `command` видит все правдоподобные имена поля
+  (2026-10-18).
