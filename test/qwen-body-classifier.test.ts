@@ -10,7 +10,12 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { isRateLimitText, isServerBusyText } from '../src/qwen-net-capture.ts'
+import {
+  isRateLimitText,
+  isServerBusyText,
+  isGuestLimitText,
+  extractAnswer,
+} from '../src/qwen-net-capture.ts'
 
 const NL = String.fromCharCode(10)
 
@@ -50,4 +55,27 @@ test('a real server-busy error payload is still detected', () => {
 
 test('quota_limit is still a rate limit', () => {
   assert.equal(isRateLimitText('data: {"code":"quota_limit"}'), true)
+})
+
+// isGuestLimitText() matches the RAW body, so a NORMAL answer that merely
+// MENTIONS the limit (the model explaining Qwen's guest mode, a pasted notice)
+// was flagged as the daily limit: ask() then failed fast with "log in" and the
+// real answer was thrown away. The other two classifiers already guard with
+// hasAnswerContent; this one must do the same.
+test('isGuestLimitText ignores a normal answer that mentions the limit', () => {
+  const body = answerChunk(
+    'Guest users hit the guest chat limit and must log in to continue.',
+  )
+  assert.equal(
+    extractAnswer(body),
+    'Guest users hit the guest chat limit and must log in to continue.',
+  )
+  assert.equal(isGuestLimitText(body), false)
+  // A REAL notice (no answer content) is still detected.
+  assert.equal(
+    isGuestLimitText(
+      '{"error":"RateLimited","message":"You reached the guest chat limit"}',
+    ),
+    true,
+  )
 })

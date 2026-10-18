@@ -241,6 +241,13 @@ function hasAnswerContent(body: string): boolean {
 export function isGuestLimitText(body: string): boolean {
   const b = String(body || '')
   if (!b) return false
+  // Same rule as isRateLimitText / isServerBusyText: a normal ANSWER may
+  // MENTION the guest limit (the model explaining Qwen's guest mode, a pasted
+  // notice). Only an error payload or a body with NO answer content can be the
+  // real notice; otherwise ask() would fail fast with "log in" and throw the
+  // answer away.
+  const errNotice = /event:\s*error|"type"\s*:\s*"error"|"error"\s*:/i.test(b)
+  if (!errNotice && hasAnswerContent(b)) return false
   return /guest chat limit|guest.*limit|log in to continue|гостевой лимит/i.test(
     b,
   )
