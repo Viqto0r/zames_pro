@@ -29,7 +29,12 @@ export function assertCommandInsideRoot(root: string, command: string): void {
 
   // `(` and backticks open a subshell / command substitution where a `cd` is
   // still executed; include them in the prefix so the scan sees it.
-  const cdRe = /(?:^|[;&|(\s`])(?:cd|pushd)\s+([^;&|)]+)/gi
+  //
+  // `\s*` (not `\s+`): a shell accepts `cd` GLUED to its target — `cd..`,
+  // `cd$HOME`, `cd../..` — and runs it as a real directory change. Requiring
+  // whitespace skipped those forms, so a glued `cd../..` walked out of the
+  // root with the guard never firing.
+  const cdRe = /(?:^|[;&|(\s`])(?:cd|pushd)\s*([^;&|)]+)/gi
   let m
   while ((m = cdRe.exec(cmd))) {
     const raw = m[1].trim().replace(/^["']|["']$/g, '')
