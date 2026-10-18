@@ -60,6 +60,21 @@ interface CronFields {
   dom: Set<number>
   month: Set<number>
   dow: Set<number>
+  /** True when the day-of-month field is restricted (not `*`). */
+  domRestricted: boolean
+  /** True when the day-of-week field is restricted (not `*`). */
+  dowRestricted: boolean
+}
+
+// The DAY rule of standard cron: when BOTH day-of-month and day-of-week are
+// restricted they are ORed (`0 9 1 * 1` = the 1st OR any Monday); otherwise
+// they are plain ANDed (an unrestricted field matches every day). ANDing a
+// restricted pair made the job fire only when the two coincided.
+function dayMatches(c: CronFields, date: Date): boolean {
+  const domOk = c.dom.has(date.getDate())
+  const dowOk = c.dow.has(date.getDay())
+  if (c.domRestricted && c.dowRestricted) return domOk || dowOk
+  return domOk && dowOk
 }
 
 // Parse one cron field ("*", "a-b", "*/n", "a,b", "a-b/n") into a value set.
@@ -112,20 +127,27 @@ export function parseCron(expr: string): CronFields | null {
   if (!minute || !hour || !dom || !month || !dowRaw) return null
   const dow = new Set<number>()
   for (const d of dowRaw) dow.add(d === 7 ? 0 : d)
-  return { minute, hour, dom, month, dow }
+  return {
+    minute,
+    hour,
+    dom,
+    month,
+    dow,
+    domRestricted: parts[2].trim() !== '*',
+    dowRestricted: parts[4].trim() !== '*',
+  }
 }
 
-// Does the given Date match the cron expression? dom and dow are ANDed (the
-// common, predictable behavior); to schedule "every day" use `*` for one.
+// Does the given Date match the cron expression? The day rule is standard
+// cron: dom/dow are ORed when BOTH are restricted, ANDed otherwise.
 export function cronMatches(expr: string, date: Date): boolean {
   const c = parseCron(expr)
   if (!c) return false
   return (
     c.minute.has(date.getMinutes()) &&
     c.hour.has(date.getHours()) &&
-    c.dom.has(date.getDate()) &&
     c.month.has(date.getMonth() + 1) &&
-    c.dow.has(date.getDay())
+    dayMatches(c, date)
   )
 }
 
@@ -145,9 +167,8 @@ export function nextCronTime(expr: string, fromMs: number): number | null {
     if (
       c.minute.has(d.getMinutes()) &&
       c.hour.has(d.getHours()) &&
-      c.dom.has(d.getDate()) &&
       c.month.has(d.getMonth() + 1) &&
-      c.dow.has(d.getDay())
+      dayMatches(c, d)
     ) {
       return d.getTime()
     }

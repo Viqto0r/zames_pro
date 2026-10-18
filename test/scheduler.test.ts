@@ -206,3 +206,21 @@ test('parseCron: N/step means from N to the field max', () => {
 test('parseCron: an out-of-range step range is rejected', () => {
   assert.equal(parseCron('0-70/5 * * * *'), null)
 })
+
+// Standard cron ORs day-of-month and day-of-week when BOTH are restricted:
+// `0 9 1 * 1` fires at 9:00 on the 1st of the month OR on any Monday. The
+// parser ANDed them, so the job fired only when the 1st happened to be a
+// Monday — the operator's "first of the month and every Monday" reminder
+// silently ran a few times a year.
+test('cronMatches ORs restricted day-of-month and day-of-week', () => {
+  // 2026-06-01 is a Monday; 2026-06-02 is a Tuesday (the 2nd).
+  assert.equal(cronMatches('0 9 1 * 1', new Date(2026, 5, 1, 9, 0)), true)
+  assert.equal(cronMatches('0 9 1 * 1', new Date(2026, 5, 2, 9, 0)), false)
+  // A Monday that is NOT the 1st must still fire.
+  const monday = new Date(2026, 5, 8, 9, 0)
+  assert.equal(monday.getDay(), 1)
+  assert.equal(monday.getDate(), 8)
+  assert.equal(cronMatches('0 9 1 * 1', monday), true)
+  // With BOTH fields unrestricted the rule is a plain AND (every day).
+  assert.equal(cronMatches('0 9 * * *', new Date(2026, 5, 2, 9, 0)), true)
+})
