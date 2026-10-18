@@ -172,9 +172,13 @@ export function extractAnswer(body: string): string {
 // isFinishedWithoutAnswer === false): the finish loop kept polling for a
 // complete answer and `ask()` gave up only at the askDeadlineMs watchdog — the
 // operator watched a spinner for ~4 minutes with no tool call.
-// A real answer (a tool-call JSON, prose, a `respond` call) is far longer, so
-// anything below this is treated as a truncated/empty turn and retried.
-const MIN_FINISHED_ANSWER_CHARS = 4
+// A real answer is anything non-empty. The one case that must NOT count is a
+// truncated RESPONSE head (an empty string or a bare `{`), which the measure
+// below excludes explicitly.
+const MIN_REAL_ANSWER_CHARS = 1
+
+/** A bare truncated head (whitespace or braces only) is not a real answer. */
+const TRUNCATED_HEAD_RE = /^[\s{[]*$/
 
 // How many chars of RESPONSE text the body carries, or -1 when there is NO
 // RESPONSE fragment at all. The fragment is SSE/JSON-encoded, so the content
@@ -187,7 +191,23 @@ const MIN_FINISHED_ANSWER_CHARS = 4
 function responseContentLength(body: string): number {
   const b = String(body || '')
   if (!/"type":"RESPONSE"/.test(b)) return -1
-  return extractFromSse(b).length
+  // `extractFromSse` reads only `data:` lines, so a plain-JSON body (or one
+  // captured without the SSE framing) measured as 0 even when it carried a
+  // real SHORT answer. Count the content strings from the raw body and decode
+  // them, so an escaped quote does not inflate the count.
+  let len = 0
+  const re = /"type":"RESPONSE"[^}]*?"content":"((?:[^"\\]|\\.)*)"/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(b)) !== null) {
+    let text = m[1]
+    try {
+      text = JSON.parse('"' + m[1] + '"') as string
+    } catch {}
+    // A bare truncated head (empty, or a lone `{`/`[`) is not an answer; any
+    // other non-empty text — however short — is.
+    if (!TRUNCATED_HEAD_RE.test(text)) len += text.length
+  }
+  return len
 }
 
 // True when the SSE body shows a turn that ENDED (`quasi_status: FINISHED`)
@@ -211,7 +231,7 @@ export function isFinishedWithoutAnswer(body: string): boolean {
   if (!finished) return false
   // A RESPONSE fragment with real content means the model DID answer.
   const len = responseContentLength(b)
-  if (len >= MIN_FINISHED_ANSWER_CHARS) return false
+  if (len >= MIN_REAL_ANSWER_CHARS) return false
   // No RESPONSE fragment at all (len === -1) or only a truncated head:
   // treat the absence of a real answer as "no answer produced".
   return true
@@ -234,7 +254,7 @@ export function isFinishedWithAnswer(body: string): boolean {
   // A truncated RESPONSE head (a lone `{`) is NOT a complete answer: the
   // finish loop would return it as the model's text and the tool-call parser
   // would fail on it. Require real content (see MIN_FINISHED_ANSWER_CHARS).
-  return responseContentLength(b) >= MIN_FINISHED_ANSWER_CHARS
+  return responseContentLength(b) >= MIN_REAL_ANSWER_CHARS
 }
 
 // The CONTEXT size (in tokens) DeepSeek reports for the current answer.
