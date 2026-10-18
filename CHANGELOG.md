@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.78.2] - 2026-10-18
+
 ### Fixed
 
 - **goal:** clampGoalCondition does not cut a surrogate pair
