@@ -2056,3 +2056,32 @@ literals» (развёрнутые `::1`, `::`, `::ffff:127.0.0.1` → true, п�
 
 - `src/web.ts` — SSRF-страж судит РАЗВЁРНУТУЮ форму IPv6 (loopback, fe80,
   fec0, fc00, multicast, IPv4-mapped) (2026-10-18).
+
+### Такт 67 (2026-10-18) — исправлено
+
+**Цель:** completion-goal — обрезка условия (`clampGoalCondition`,
+`src/goal.ts`).
+
+**Баг:** условие режется до 4000 UTF-16 единиц голым `slice(0, cap)` и
+подставляется в промпт оценщика. Если эмодзи/астральная CJK-графика стоит на
+границе, в промпт уходит lone high surrogate — битый code point. То же правило,
+что уже действует в `truncateToolResult`, `capReport`, `clipLine`, `oneLine`,
+`summarizeDiagnostics`, `bgTrim`.
+
+**Фикс:** при разрезе внутри пары отступаем на один юнит.
+
+**Тест:** `test/goal-eval.test.ts` — в «clampGoalCondition: trims and caps»
+добавлена проверка эмодзи на границе (все код-юниты результата). RED до фикса,
+GREEN после.
+
+**Гейты:** `npm test` 1211 тестов (1201 pass, 0 fail, 10 skip), `typecheck`,
+`lint`, `format:check`, `build`, `sched-smoke` — зелёные.
+
+**Коммит:** `f521de8`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- `src/goal.ts` — `clampGoalCondition` не режет суррогатную пару
+  (2026-10-18).
