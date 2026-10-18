@@ -86,3 +86,36 @@ test('assertCommandInsideRoot blocks a cd with an unverifiable target', () => {
   const inside = '$HOME/' + path.relative(os.homedir(), root)
   assert.doesNotThrow(() => assertCommandInsideRoot(root, 'cd ' + inside))
 })
+
+// The background buffer is trimmed to the last BG_MAX_BUFFER UTF-16 units on
+// every chunk. A cut between the halves of a surrogate pair (an emoji or an
+// astral CJK char) leaves a LONE LOW SURROGATE at the head of the buffer that
+// pollBackground returns to the model as a tool result.
+test('a background trim never starts on a lone low surrogate', async () => {
+  const { startBackground, pollBackground, killBackground } =
+    await import('../src/shell.ts')
+  // ~1.1M UTF-16 units with an odd prefix: the front cut lands on the LOW
+  // half of a surrogate pair (verified: the kept window starts with de00).
+  const id = startBackground(
+    process.cwd(),
+    "node -e \"process.stdout.write('a'.repeat(4990) + String.fromCharCode(55357,56832).repeat(524290) + 'x')\"",
+  )
+  try {
+    let out = ''
+    for (let k = 0; k < 12; k++) {
+      await new Promise((r) => setTimeout(r, 400))
+      out = pollBackground(id)
+      if (out.length >= 1_000_000) break
+    }
+    const marker = '[...earlier output trimmed]'
+    const m = out.indexOf(marker)
+    assert.ok(m >= 0, 'the buffer should have been trimmed')
+    const head = out.charCodeAt(m + marker.length + 1)
+    assert.ok(
+      !(head >= 0xdc00 && head <= 0xdfff),
+      'kept window starts with a lone low surrogate: ' + head.toString(16),
+    )
+  } finally {
+    killBackground(id)
+  }
+})

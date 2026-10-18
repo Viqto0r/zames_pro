@@ -173,10 +173,17 @@ const BG_MAX_BUFFER = 1024 * 1024
 
 function bgTrim(p: BgProc): void {
   if (p.out.length > BG_MAX_BUFFER) {
+    // Never START the kept window on a low surrogate: the cut slices a JS
+    // string, and an emoji / astral CJK char is TWO UTF-16 units, so a cut
+    // between them left a lone half at the head of the buffer that pollBackground
+    // hands to the model (same rule as truncateToolResult / capReport).
+    let start = p.out.length - BG_MAX_BUFFER
+    const first = p.out.charCodeAt(start)
+    if (first >= 0xdc00 && first <= 0xdfff) start++
     p.out =
       '[...earlier output trimmed]' +
       String.fromCharCode(10) +
-      p.out.slice(p.out.length - BG_MAX_BUFFER)
+      p.out.slice(start)
   }
 }
 
