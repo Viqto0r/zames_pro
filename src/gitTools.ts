@@ -3,6 +3,11 @@ import type { GitContext, ToolDef } from './types.js'
 
 const BS = String.fromCharCode(92)
 
+// What runGitArgs answers for an EMPTY successful run. Callers that parse the
+// output must not mistake it for real content (a clean tree is not "one
+// modified file whose name is this string").
+export const NO_OUTPUT_SENTINEL = '(command produced no output)'
+
 // Run git with an argument ARRAY (no shell). ALL git invocations go through
 // this: an argument from the model can never be seen by a shell, so $(...),
 // backticks and a leading `-` (option injection) cannot turn a read-only call
@@ -33,7 +38,7 @@ export function runGitArgs(
         const errStr = (stderr || '').toString()
         if (!err) {
           const combined = (out + errStr).trim()
-          resolve(combined || '(command produced no output)')
+          resolve(combined || NO_OUTPUT_SENTINEL)
           return
         }
         const parts: string[] = []
@@ -69,7 +74,11 @@ export async function getGitContext(
   )
 
   const branch = branchR.trim() || '(detached HEAD)'
-  const statusLines = statusR
+  // The shared runner answers an EMPTY successful run with a sentinel. Storing
+  // it verbatim told the model the tree had a modified "file" that is really
+  // an internal string — every task started with a false dirty-tree premise.
+  const statusText = statusR.trim() === NO_OUTPUT_SENTINEL ? '' : statusR
+  const statusLines = statusText
     .split(String.fromCharCode(10))
     .map((l) => l.trimEnd())
     .filter(Boolean)
@@ -109,7 +118,7 @@ export function formatGitContext(ctx: GitContext | null): string {
     s += '\n- Remote: (none)'
   }
 
-  if (ctx.changedFiles > 0) {
+  if (ctx.changedFiles > 0 && ctx.statusPreview.trim() !== NO_OUTPUT_SENTINEL) {
     s += `\n- Uncommitted changes: ${ctx.changedFiles} file(s)
 `
     // Choose a fence longer than any backtick run in the preview: a filename
@@ -286,8 +295,7 @@ export function createGitTools(workdir: string): ToolDef[] {
         )
         const stagedTrimmed = staged.trim()
         const hasStaged =
-          stagedTrimmed !== '' &&
-          stagedTrimmed !== '(command produced no output)'
+          stagedTrimmed !== '' && stagedTrimmed !== NO_OUTPUT_SENTINEL
         const addResult = hasStaged
           ? '(index is not empty — add -A skipped)'
           : await runGitArgs(['add', '-A'], workdir, 20_000)
