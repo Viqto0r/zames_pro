@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.78.1] - 2026-10-18
+
 ### Fixed
 
 - **permissions:** match a command rule against every plausible command key
