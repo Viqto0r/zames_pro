@@ -160,14 +160,19 @@ export function loadLastSession(
       fs.readFileSync(INDEX_FILE, 'utf-8'),
     )
     const byWorkdir = index && index.byWorkdir ? index.byWorkdir : {}
-    const candidates = [byWorkdir[workdir], index.last].filter(
-      (x): x is string => Boolean(x),
-    )
+    // A denylisted id is useless here: its subagent chat is never saved as a
+    // session, so a stale entry (recorded for a chat merely SEEN) would make the
+    // loop run out of candidates — even though the project's real session is
+    // right there on disk. Filter them out instead of `continue`-ing past them,
+    // then fall back to the newest saved session of this workdir so a stale
+    // index cannot make a saved chat unresumable.
     const internal = readInternal()
+    const candidates = [byWorkdir[workdir], index.last].filter(
+      (x): x is string => Boolean(x) && !internal.has(String(x)),
+    )
     for (const id of candidates) {
       // The session file may have been deleted — the index is then stale and
       // the session cannot be restored. We try the next candidate.
-      if (internal.has(id)) continue
       const s = readSession(id)
       if (!s) continue
       // Older files have no provider: treat them as deepseek (the only backend
@@ -175,7 +180,12 @@ export function loadLastSession(
       if (provider && (s.provider || 'deepseek') !== provider) continue
       return s
     }
-    return null
+    const fallback = listSessions().find(
+      (s) =>
+        (!workdir || s.workdir === workdir) &&
+        (!provider || (s.provider || 'deepseek') === provider),
+    )
+    return fallback || null
   } catch {
     return null
   }

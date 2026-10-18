@@ -122,3 +122,24 @@ test('loadHistory/saveHistory round-trip and cap', async () => {
   assert.ok(after.length >= 3)
   assert.equal(after[after.length - 1], 'c')
 })
+
+// The phantom-id case: markInternalChat() ran for a chat the parent had merely
+// SEEN (its id was never saved as a session), so the denylist held an id with
+// no session file. With that id also recorded as the project's index target,
+// loadLastSession() found nothing and returned null — the real parent chat was
+// already saved but could not be restored. The denylist must skip only ids
+// that actually ARE a saved session (a real subagent chat is never one).
+test('a phantom internal id does not break the restore of the saved project session', () => {
+  const wd = '/proj/phantom-' + Date.now()
+  const real = 'real2-' + Date.now()
+  saveSession({ id: real, title: 'real', workdir: wd })
+  const phantom = 'phantom-' + Date.now()
+  markInternalChat(phantom)
+  const dir = sessionsDir()
+  const indexPath = path.join(dir, 'last.json')
+  const idx = JSON.parse(fs.readFileSync(indexPath, 'utf-8'))
+  idx.byWorkdir[wd] = phantom
+  idx.last = phantom
+  fs.writeFileSync(indexPath, JSON.stringify(idx, null, 2))
+  assert.equal(loadLastSession(wd)?.id, real)
+})
