@@ -95,6 +95,28 @@ test('summarizeToolCall: null-ish аргументы не роняют', () => {
   assert.equal(summarizeToolCall('Read', null).detail, '')
 })
 
+// oneLine() clipped a JS string by UTF-16 UNITS, so a cut inside an emoji /
+// astral CJK pair left a lone surrogate at the end of the log line. The same
+// rule as truncateToolResult / capReport: never split a surrogate pair.
+test('oneLine does not cut a surrogate pair in half', () => {
+  const emoji = String.fromCharCode(55357, 56832)
+  // The emoji's HIGH half lands exactly on the clip boundary (verified: the
+  // old code kept the high surrogate and dropped the low one).
+  const r = summarizeToolCall('Read', {
+    path: 'a'.repeat(77) + emoji + '.ts',
+  })
+  for (let i = 0; i < r.detail.length; i++) {
+    const c = r.detail.charCodeAt(i)
+    if (c >= 0xd800 && c <= 0xdbff) {
+      const n = r.detail.charCodeAt(i + 1)
+      assert.ok(
+        n >= 0xdc00 && n <= 0xdfff,
+        'lone high surrogate at the end of the summary',
+      )
+    }
+  }
+})
+
 test('looksLikeToolError: flags Error/exit-code bodies, passes normal ones', () => {
   assert.equal(looksLikeToolError('Error: file not found'), true)
   assert.equal(looksLikeToolError('Missing required argument: path'), true)

@@ -15,7 +15,14 @@ export interface ToolSummary {
 /** Collapse whitespace and clip to `max` chars (single line). */
 function oneLine(s: string, max = 80): string {
   const t = String(s).replace(/\s+/g, ' ').trim()
-  return t.length > max ? t.slice(0, max - 1) + '…' : t
+  if (t.length <= max) return t
+  // Never cut a surrogate PAIR in half: the log line is shown to the operator
+  // (and captured in the transcript), and a lone high surrogate at the end is
+  // a broken code point. Same rule as truncateToolResult / capReport.
+  let cut = max - 1
+  const last = t.charCodeAt(cut - 1)
+  if (last >= 0xd800 && last <= 0xdbff) cut--
+  return t.slice(0, cut) + '…'
 }
 
 function str(v: unknown): string {
