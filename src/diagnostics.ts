@@ -49,9 +49,15 @@ export function summarizeDiagnostics(
   // old 40-char cutoff — so every edit in watch mode appended a pointless
   // diagnostics block to the tool result. Treat a ZERO-count banner as clean
   // however long it is; a non-zero count still falls through to the lines.
-  if (/^(?:found\s+)?0\s+errors?\b/im.test(text)) return null
-  if (/^no errors?\.?$/im.test(text)) return null
-  if (/^0 problems?\b/im.test(text)) return null
+  // Strip ANSI colour codes and a leading `[12:00:00]`-style timestamp before
+  // the clean checks: a watch-mode banner is usually coloured and/or
+  // prefixed, and the anchored regexes missed it — every edit then
+  // appended a pointless diagnostics block.
+  const plain = text.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
+  const cleanCheck = plain.replace(/^\[[^\]]*\]\s*/, '')
+  if (/^(?:found\s+)?0\s+errors?\b/im.test(cleanCheck)) return null
+  if (/^no errors?(?: found)?\.?$/im.test(cleanCheck)) return null
+  if (/^0 problems?\b/im.test(cleanCheck)) return null
   // Keep only error-looking lines when we can recognise them, so a long build
   // log collapses to the actual problems. Fall back to the whole output.
   const lines = text.split(/\r?\n/)

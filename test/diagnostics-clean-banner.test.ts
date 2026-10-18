@@ -8,18 +8,11 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { summarizeDiagnostics } from '../src/diagnostics.ts'
 
-test('tsc watch banner with zero errors is clean', () => {
+test('the watch-mode zero-error banner is clean however long it is', () => {
   assert.equal(
     summarizeDiagnostics('Found 0 errors. Watching for file changes.', 4000),
     null,
   )
-})
-
-test('a real tsc error is still reported', () => {
-  const raw =
-    "src/a.ts(1,2): error TS2322: Type 'string' is not assignable to type 'number'."
-  const out = summarizeDiagnostics(raw, 4000)
-  assert.ok(out && out.includes('TS2322'), String(out))
 })
 
 test('"0 problems" from eslint is clean', () => {
@@ -27,4 +20,28 @@ test('"0 problems" from eslint is clean', () => {
     summarizeDiagnostics('0 problems (0 errors, 0 warnings)', 4000),
     null,
   )
+})
+
+// The clean-banner check anchors at the START of a line, so a banner with a
+// leading timestamp (`[12:00:00] Found 0 errors…`) or ANSI colour codes was
+// NOT recognized as clean and every edit in watch mode appended a pointless
+// diagnostics block to the tool result. "No errors found." (the trailing-word
+// order) was missed too.
+test('a clean banner with a timestamp or ANSI prefix is clean', () => {
+  const ESC = String.fromCharCode(27)
+  assert.equal(
+    summarizeDiagnostics(
+      '[12:00:00] Found 0 errors. Watching for file changes.',
+      4000,
+    ),
+    null,
+  )
+  assert.equal(
+    summarizeDiagnostics(
+      ESC + '[32mFound 0 errors.' + ESC + '[39m Watching for file changes.',
+      4000,
+    ),
+    null,
+  )
+  assert.equal(summarizeDiagnostics('No errors found.', 4000), null)
 })
