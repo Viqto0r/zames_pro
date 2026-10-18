@@ -1995,3 +1995,33 @@ day-of-month and day-of-week» (1-е и понедельник не 1-го; не
 
 - `src/scheduler.ts` — ограниченные dom/dow объединяются по OR, как в
   стандартном cron (2026-10-18).
+
+### Такт 65 (2026-10-18) — исправлено
+
+**Цель:** permissions — сопоставление правила `command` с массивом (`argv`,
+`decidePermission`, `src/permissions.ts`).
+
+**Баг:** `COMMAND_KEYS` включает `argv` (естественная форма для execFile-style
+MCP-инструментов), но коллектор значений брал ТОЛЬКО строковые поля. Команда,
+переданная массивом (`{argv: ['rm','-rf','/']}`), не виделась правилом, и
+`deny` на `rm -rf` обходился массивной формой. Проверено запуском:
+`decidePermission(policy, 'Bash', {argv: ['rm','-rf','/']})` → `allow`.
+
+**Фикс:** массив в любом из ключей команды склеивается через пробел
+(`filter(string).join(' ')`) и участвует в матчинге наравне со строкой.
+
+**Тест:** `test/permissions-command-keys.test.ts` +1 — «a command rule sees an
+argv ARRAY» (массив с `rm -rf` даёт `deny`, безопасный массив — `allow`). RED
+до фикса, GREEN после.
+
+**Гейты:** `npm test` 1210 тестов (1200 pass, 0 fail, 10 skip), `typecheck`,
+`lint`, `format:check`, `build`, `sched-smoke` — зелёные.
+
+**Коммит:** `50d3215`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- `src/permissions.ts` — правило `command` видит и массив `argv`
+  (2026-10-18).
