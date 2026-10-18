@@ -100,12 +100,32 @@ export function parseGoalVerdict(text: string): GoalVerdict | null {
   // — the goal loop then auto-continued until the turn budget although the
   // judge had already said NOT_MET. `MET` is tried LAST so it cannot match the
   // tail of `NOT MET`.
-  const m =
-    /VERDICT\s*[*_`]*\s*:\s*[*_`]*\s*(IMPOSSIBLE|NOT[_ -]?MET|MET)/i.exec(t)
-  if (!m) return null
-  const raw = m[1].toUpperCase()
-  const status: GoalVerdict['status'] =
-    raw === 'MET' ? 'met' : raw === 'IMPOSSIBLE' ? 'impossible' : 'not_met'
+  //
+  // The evaluator sometimes ECHOES the requested label set before the real
+  // verdict (`VERDICT: MET | NOT_MET | IMPOSSIBLE`). Taking the FIRST match
+  // read the echo's `MET` as the verdict while REASON said the opposite, and
+  // MET CLEARS the goal — an unfinished task was silently accepted as done.
+  // A verdict line with a separator after the value is an echo, not a verdict;
+  // scan EVERY `VERDICT:` occurrence and take the first REAL one. The
+  // separator is checked on the character FOLLOWING the matched value (a
+  // lookahead INSIDE the value pattern was useless: the value alternatives
+  // always end on a word boundary of their own).
+  const label =
+    /VERDICT\s*[*_`]*\s*:\s*[*_`]*\s*(IMPOSSIBLE|NOT[_ -]?MET|MET)/gi
+  let m: RegExpExecArray | null
+  let status: GoalVerdict['status'] | null = null
+  while ((m = label.exec(t)) !== null) {
+    // Skip whitespace/backticks between the value and whatever follows.
+    let k = m.index + m[0].length
+    while (k < t.length && /[\s*_`]/.test(t.charAt(k))) k++
+    const after = t.charAt(k)
+    if (after === '|' || after === '/') continue
+    const raw = m[1].toUpperCase()
+    status =
+      raw === 'MET' ? 'met' : raw === 'IMPOSSIBLE' ? 'impossible' : 'not_met'
+    break
+  }
+  if (!status) return null
   const rm = /REASON\s*[*_`]*\s*:\s*(.+)/i.exec(t)
   const reason = rm
     ? rm[1]
