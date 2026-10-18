@@ -114,6 +114,67 @@ export function looksLikeUnfinishedWork(text: string): boolean {
   if (/\b(done|finished|completed|готово|выполнено|завершено)\b/i.test(t)) {
     return false
   }
+  // A report that NARRATES a completed step ("Tests pass. Now I will run
+  // the build.", "I have updated the README.", "Fixed the bug.") recounts
+  // work that is ALREADY done. The future-tense "now …" that follows must not
+  // turn such a report back into unfinished work: the loop re-asked the model
+  // up to 3 times on a complete answer. A bare promise ("Let me run the
+  // tests") has NO completed-step clause and is still caught below.
+  // The prefix and the verb are matched SEPARATELY (not as one combined
+  // regex): with a Cyrillic alternation glued to a `\b`-prefixed group, V8
+  // silently fails to find the match. A short English/Russian verb list is
+  // checked with plain `includes` on the lowercased text.
+  const lower = t.toLowerCase()
+  const completedWords = [
+    'passed',
+    'succeeded',
+    'failed',
+    'updated',
+    'fixed',
+    'added',
+    'removed',
+    'applied',
+    'committed',
+    'pushed',
+    'installed',
+    'verified',
+    'changed',
+    'modified',
+    'implemented',
+    'reviewed',
+    'created',
+    'built',
+    'pass.',
+    'pass,',
+    'pass ',
+    'have ',
+    'has ',
+    'проходят',
+    'прошёл',
+    'прошел',
+    'успешн',
+    'готов',
+  ]
+  const completedRu = [
+    'исправил',
+    'добавил',
+    'обновил',
+    'создал',
+    'удалил',
+    'применил',
+    'запустил',
+    'проверил',
+    'изменил',
+    'сделал',
+    'выполнил',
+  ]
+  if (
+    completedWords.some((w) => lower.includes(w)) ||
+    completedRu.some((w) => lower.includes(w))
+  ) {
+    return false
+  }
+
   // `update`/`summarize`/`explain` are REPORT verbs (`I will update you on the
   // results: …`) — they do not promise a tool call. A colon anywhere in the
   // gap also means the sentence is explaining a fact, not about to act.
