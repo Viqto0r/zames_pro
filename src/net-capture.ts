@@ -271,6 +271,12 @@ export function extractTokenUsage(body: string): number | null {
         : undefined
     if (resp) consider(resp.accumulated_token_usage)
 
+    // A BATCH update can also arrive with the pair at the TOP level:
+    // {"p":"accumulated_token_usage","v":N} (the same pair DeepSeek nests
+    // inside v: [...]). Reading only the nested form made the context counter
+    // silently stale for that stream shape.
+    if (o.p === 'accumulated_token_usage') consider(o.v)
+
     // A BATCH update: v is an array of {"p":"accumulated_token_usage","v":N}.
     if (Array.isArray(o.v)) {
       for (const item of o.v) {

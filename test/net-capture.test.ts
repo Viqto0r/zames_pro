@@ -143,3 +143,18 @@ test('extractTokenUsage: ignores non-numbers', () => {
   })
   assert.equal(extractTokenUsage(body), null)
 })
+
+// A BATCH-style update can also arrive with the pair at the TOP level
+// ({"p":"accumulated_token_usage","v":N}) — the same shape DeepSeek uses
+// inside v: [...]. Only the nested form was read, so the context counter
+// silently stopped updating for that stream shape.
+test('extractTokenUsage reads a TOP-LEVEL p/v pair', () => {
+  assert.equal(
+    extractTokenUsage('data: {"p":"accumulated_token_usage","v":4242}'),
+    4242,
+  )
+  assert.equal(
+    extractTokenUsage('data: {"p":"quasi_status","v":"FINISHED"}'),
+    null,
+  )
+})
