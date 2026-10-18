@@ -716,12 +716,23 @@ export function isUsableCompactSummary(text: string): boolean {
   if (!t) return false
   if (t.length < 40) return false
   if (/^\(прервано пользователем\)$/.test(t)) return false
+  // A tool call must be RECOGNIZED as one: a plain word `DSML` in prose (the
+  // summary describing the feature) is not noise. Requiring the tag/DSML
+  // syntax keeps the guard on real protocol output without rejecting a valid
+  // summary that merely mentions the feature (which made every retry fail and
+  // forced the local fallback).
   if (parseAssistantToolCall(t)) return false
-  if (/DSML/i.test(t)) return false
+  // A REAL DSML call carries the marker punctuation (`<｜DSML｜invoke`); a
+  // summary may MENTION the feature by name in prose. Matching the bare word
+  // rejected a perfectly good summary and every retry failed the same way.
+  if (/<\s*[\uFF5C|]\s*DSML/i.test(t)) return false
   // A tool-call body without a recognizable head (a cut-off stream) still
   // carries "args": { ... }.
   if (/"args"\s*:\s*\{/.test(t)) return false
-  if (/<ds_safety>/i.test(t)) return false
+  // A REAL safety block is the marker, not a sentence that mentions it: the
+  // closing form `</ds_safety>` is what a summary would NOT write in prose
+  // (a summary may say "no <ds_safety> marker appeared").
+  if (/<\/ds_safety\s*>/i.test(t)) return false
   return true
 }
 
