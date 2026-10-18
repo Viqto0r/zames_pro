@@ -1400,3 +1400,31 @@ MCP-инструментов имя поля задаёт JSON Schema серве
 
 - `src/permissions.ts` — правило `command` видит все правдоподобные имена поля
   (2026-10-18).
+
+### Такт 47 (2026-10-18) — релиз 2.78.1
+
+**Цель:** выпустить патч-версию после серии багфиксов.
+
+**Что сделано:** `npm run changelog:sync` обновил Unreleased (4 фикса после
+2.78.0: statusline cap, diagnostics watch-banner, hook denial cap, permissions
+command keys), затем `npm run release patch -- --no-tests` — версия
+`2.78.0` → `2.78.1`, раздел `## [2.78.1]` в CHANGELOG.md, коммит
+`chore: release 2.78.1`, тег `v2.78.1`.
+
+**Пуш:** `master` (f568368) и тег `v2.78.1` отправлены; `git ls-remote --tags
+origin` подтверждает `refs/tags/v2.78.1` → `f568368`. GitHub Actions
+`publish.yml` запущен на `v*`.
+
+**Гейты** (прогоны тактов 43–46 на том же коде): `npm test` 1189 тестов
+(1179 pass, 0 fail, 10 skip), `typecheck`, `lint`, `format:check`, `build`,
+`sched-smoke` — зелёные.
+
+**Коммиты:** `580ca65` (changelog sync), `f568368` (release 2.78.1), тег
+`v2.78.1`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- Релиз 2.78.1 (patch): statusline output cap, diagnostics zero-error banner,
+  hook denial cap, permission command keys (2026-10-18).
