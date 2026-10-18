@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **skills:** ship the methodology skills inside the package
+
+### Fixed
+
+- **fsutil:** remove the temp file when an atomic write fails
+
 ## [2.77.1] - 2026-10-17
 
 ### Fixed
