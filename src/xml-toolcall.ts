@@ -54,12 +54,29 @@ function readAllAttrs(attrs: string): ToolArgs {
 // (the agent then stalls). Here we look for the first JSON object inside the
 // attributes/body and parse it as args.
 function parseInlineJsonArgs(s: string): ToolArgs | null {
+  // Find the start of the inline JSON. The SPECIFIC `"args" {` marker wins:
+  // a generic `{` in the surrounding prose (`note {here}: {…}`) was taken as
+  // the object start, balance ended on its `}`, and the call reached the tool
+  // with EMPTY args. Fall back to a bare `{` only when the marker is absent.
+  const argsMarker = /["']args["']\s*[:=]?\s*\{/i.exec(s)
+  if (argsMarker)
+    return parseBalancedJson(s, argsMarker.index + argsMarker[0].length - 1)
+  // No explicit marker: try EVERY `{` and take the first one that actually
+  // parses as an object. Picking the first `{` blindly broke on a stray brace
+  // in the prose (`note {here}: {…}`): balance ended on its `}`, the fragment
+  // carried no arguments, and the tool ran with EMPTY args.
+  const re = /\{/g
+  let b: RegExpExecArray | null
+  while ((b = re.exec(s)) !== null) {
+    const parsed = parseBalancedJson(s, b.index)
+    if (parsed) return parsed
+  }
+  return null
+}
+
+/** Parse one balanced, string-aware `{...}` object that STARTS at `from`. */
+function parseBalancedJson(s: string, from: number): ToolArgs | null {
   const Q = String.fromCharCode(34)
-  // Find a plausible start of a JSON object: `{` or `"args" {`/`'args' {`.
-  const startRe = /\{|["']args["']\s*[:=]?\s*\{/i
-  const m = startRe.exec(s)
-  if (!m) return null
-  const from = m.index
   // Scan for a balanced {...} block (string-aware) and try to parse it.
   let depth = 0
   let inStr = false
