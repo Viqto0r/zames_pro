@@ -1930,3 +1930,37 @@ p/v pair» (значение читается, чужая `p` остаётся n
 
 - `src/net-capture.ts` — верхнеуровневая пара `p/v` счётчика контекста
   читается (2026-10-18).
+
+### Такт 63 (2026-10-18) — исправлено
+
+**Цель:** Qwen-провайдер — классификатор гостевого лимита
+(`isGuestLimitText`, `src/qwen-net-capture.ts`).
+
+**Баг:** функция матчила RAW-тело по фразам `guest chat limit|guest.*limit|
+log in to continue` без проверки, есть ли в теле ОТВЕТ модели. Нормальный ответ,
+где модель просто упоминает лимит (объясняет гостевой режим Qwen, цитирует
+уведомление), помечался как `_netGuestLimit`, и `ask()` падал сразу с «войдите в
+аккаунт», выбрасывая настоящий ответ. Проверено запуском: обычный SSE-ответ
+«Guest users hit the guest chat limit and must log in to continue.» →
+`isGuestLimitText` = `true`.
+
+**Фикс:** тот же страж, что у `isRateLimitText`/`isServerBusyText` — при
+отсутствии структурной ошибки (`event: error` / `"type":"error"` /
+`"error":`) и наличии контента ответа (`hasAnswerContent`) уведомлением тело НЕ
+считается.
+
+**Тест:** `test/qwen-body-classifier.test.ts` +1 — «isGuestLimitText ignores a
+normal answer that mentions the limit» (обычный ответ не флагуется, реальное
+уведомление без контента — флагуется). RED до фикса, GREEN после.
+
+**Гейты:** `npm test` 1208 тестов (1198 pass, 0 fail, 10 skip), `typecheck`,
+`lint`, `format:check`, `build`, `sched-smoke` — зелёные.
+
+**Коммит:** `1e48f7a`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- `src/qwen-net-capture.ts` — гостовый лимит не путается с упоминанием в
+  ответе (2026-10-18).
