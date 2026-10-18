@@ -2149,3 +2149,34 @@ RED до фикса, GREEN после.
 
 - `src/input/suggest.ts` — Tab не вставляет угаданную команду на пустом
   буфере (2026-10-18).
+
+### Такт 70 (2026-10-18) — исправлено
+
+**Цель:** sandbox/shell — остановка фонового процесса (`killBackground`,
+`src/shell.ts`).
+
+**Баг:** функция посылала SIGTERM группе и СРАЗУ удаляла запись из реестра,
+возвращая «Killed background process». SIGTERM — лишь просьба: обёртка с
+`trap '' TERM` (или демон, чистящийся по TERM) его игнорирует, и процесс
+продолжал работать сиротой, при этом id уже забыт — `BashOutput` отвечал «No
+background process», повторно убить нельзя. Проверено запуском:
+`startBackground("trap '' TERM; sleep 30")` + `killBackground` → процесс жив.
+
+**Фикс:** через 1.5 с после SIGTERM группа добивается SIGKILL (его trap не
+блокирует); таймер unref'нут, функция остаётся синхронной.
+
+**Тест:** `test/shell.test.ts` +1 — «killBackground escalates to SIGKILL when
+SIGTERM is trapped» (после убийства в `ps` не остаётся `sleep 30`). RED до
+фикса (сирота), GREEN после.
+
+**Гейты:** `npm test` 1213 тестов (1203 pass, 0 fail, 10 skip), `typecheck`,
+`lint`, `format:check`, `build`, `sched-smoke` — зелёные.
+
+**Коммит:** `bef0c86`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- `src/shell.ts` — убитый фоновый процесс добивается SIGKILL, сирот не
+  остаётся (2026-10-18).
