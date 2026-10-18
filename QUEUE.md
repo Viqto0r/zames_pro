@@ -2238,3 +2238,34 @@ path separator does not break the transcript file» (файл лежит пря�
 ## Покрытые области (не повторять без причины)
 
 - `src/transcript.ts` — имя файла сессии санитизируется (2026-10-18).
+
+### Такт 73 (2026-10-18) — исправлено
+
+**Цель:** permissions — правило с невалидным regex (`decidePermission`,
+`src/permissions.ts`).
+
+**Баг:** `safeRegex()` возвращает `null` на непарсящемся шаблоне, и правило
+молча ПРОПУСКАЛОСЬ (`continue`). Правило `deny` с опечаткой (`^(Bash$`)
+разрешало ровно то, что оператор хотел заблокировать — политика fail-OPEN.
+Проверено запуском: правило `{tool: "^(Bash$", action: "deny"}` + вызов
+Bash → `allow`.
+
+**Фикс:** невалидный regex в любом поле правила теперь блокирует вызов
+(`deny`, причина «rule has an invalid regex: …»).
+
+**Тест:** `test/permissions.test.ts` — «bad regex in a rule fails closed»
+(было «never matches», ожидание сменено на deny) + 2 новых кейса (tool и
+path с битым regex). RED до фикса, GREEN после; 19/19 в трёх
+permissions-файлах.
+
+**Гейты:** `npm test` 1217 тестов (1207 pass, 0 fail, 10 skip), `typecheck`,
+`lint`, `format:check`, `build`, `sched-smoke` — зелёные.
+
+**Коммит:** `563e809`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- `src/permissions.ts` — невалидный regex в правиле блокирует вызов (fail
+  closed) (2026-10-18).
