@@ -199,3 +199,40 @@ test('Read обычного текста не задет бинарной защ
   assert.equal(out, 'hello world')
   await fs.rm(dir, { recursive: true, force: true })
 })
+
+// Read clips a very long line at 2000 UTF-16 units. If an emoji / astral CJK
+// char sits on that boundary the clip kept its HIGH half and dropped the low
+// one, handing the model a lone surrogate. Same rule as truncateToolResult.
+test('Read does not cut a surrogate pair when clipping a long line', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-rclip-'))
+  // The HIGH half of the pair must land on the 2000-unit clip boundary:
+  // 1999 ASCII chars, then the two halves of U+1F600.
+  const emoji = String.fromCharCode(0xd83d, 0xde00)
+  await fs.writeFile(
+    path.join(dir, 'l.txt'),
+    'a'.repeat(1999) + emoji + 'b'.repeat(50),
+    'utf-8',
+  )
+  const tools = createTools(dir, {})
+  const out = String(await tool(tools, 'Read').fn({ path: 'l.txt' }))
+  assert.ok(out.includes('line truncated'), 'the line must be clipped')
+  const marker = out.indexOf(' \u2026[line truncated]')
+  assert.ok(marker > 0, 'marker must be present')
+  const beforeMarker = out.charCodeAt(marker - 1)
+  assert.ok(
+    !(beforeMarker >= 0xd800 && beforeMarker <= 0xdbff),
+    'the kept text ends with a lone high surrogate: ' +
+      beforeMarker.toString(16),
+  )
+  for (let i = 0; i < out.length; i++) {
+    const c = out.charCodeAt(i)
+    if (c >= 0xd800 && c <= 0xdbff) {
+      const n = out.charCodeAt(i + 1)
+      assert.ok(
+        n >= 0xdc00 && n <= 0xdfff,
+        'Read left a lone high surrogate at the clip boundary',
+      )
+    }
+  }
+  await fs.rm(dir, { recursive: true, force: true })
+})

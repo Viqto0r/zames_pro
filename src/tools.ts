@@ -21,6 +21,17 @@ import type { UndoStore } from './undo.js'
 // strings the OPERATOR sees (help, spinner, service messages) are localized —
 // those live in src/i18n.ts (CATALOG) and are picked by the locale setting.
 
+// Clip a long line without leaving a lone HIGH surrogate: the cut is in
+// UTF-16 units, so an emoji / astral CJK char on the boundary would lose its
+// low half and reach the model as a broken code point (same rule as
+// truncateToolResult / capReport / summarizeDiagnostics / bgTrim).
+function clipLine(l: string, max: number): string {
+  let cut = max
+  const last = l.charCodeAt(cut - 1)
+  if (last >= 0xd800 && last <= 0xdbff) cut--
+  return l.slice(0, cut)
+}
+
 export function createTools(
   workdir: string,
   {
@@ -147,7 +158,7 @@ export function createTools(
         const end = limit ? start + (limit as number) : lines.length
         const slice = lines.slice(start, end)
         const clip = (l: string): string =>
-          l.length > 2000 ? l.slice(0, 2000) + ' …[line truncated]' : l
+          l.length > 2000 ? clipLine(l, 2000) + ' …[line truncated]' : l
         if (!numbered) return slice.map(clip).join('\n')
         const width = String(start + slice.length).length
         return slice
