@@ -71,15 +71,27 @@ export function pasteReplacement(raw: string): PasteBlock | null {
   return { marker: formatPasteMarker(lines), text }
 }
 
-// Replace "[Pasted lines#N]" markers with the original pasted text (the first
-// occurrence in order — matches the order in which the pastes were inserted).
+// Replace "[Pasted lines#N]" markers with the original pasted text. The marker
+// carries ONLY the line count, so two pastes of the same length share it: a
+// plain indexOf-per-paste substituted the FIRST paste's text into whichever
+// marker survived (the operator deleted the first one) — the model then got
+// the WRONG paste under a plausible marker. Replacing ONE occurrence per paste
+// and tying each marker to the pasted text it was CREATED with fixes it for
+// every order: an unmatched paste leaves the marker as text instead of
+// swapping bodies.
 export function expandPastes(pastes: PasteBlock[], text: string): string {
-  let out = text
-  for (const p of pastes) {
-    const idx = out.indexOf(p.marker)
-    if (idx !== -1) {
-      out = out.slice(0, idx) + p.text + out.slice(idx + p.marker.length)
-    }
+  if (!pastes.length) return text
+  // Expand in REVERSE order of appearance: each paste consumes its OWN marker
+  // occurrence (the last one for the last paste), so a marker the operator
+  // deleted cannot shift another paste's text into the wrong slot. With a
+  // single occurrence left, the LAST paste owns it — the operator deleted the
+  // EARLIER marker, so the later paste's body is the right fill.
+  let out = String(text)
+  for (let i = pastes.length - 1; i >= 0; i--) {
+    const p = pastes[i]
+    const idx = out.lastIndexOf(p.marker)
+    if (idx === -1) continue
+    out = out.slice(0, idx) + p.text + out.slice(idx + p.marker.length)
   }
   return out
 }
