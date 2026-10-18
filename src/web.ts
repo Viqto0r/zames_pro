@@ -128,6 +128,46 @@ export function parseLegacyIpv4(host: string): number | null {
   return n >>> 0
 }
 
+// Collapse an IPv6 literal to the canonical `a:b:c:d:e:f:g:h` hex form so the
+// prefix checks below see the SAME address whether it was written short
+// (`::1`, `::ffff:7f00:1`) or fully expanded (`0:0:0:0:0:0:0:1`,
+// `0:0:0:0:0:ffff:7f00:1`). A text-prefix match treated the expanded form as
+// PUBLIC, which let the SSRF guard reach loopback. Returns null for a non-IPv6
+// string or a malformed literal.
+function expandIpv6(ip: string): number[] | null {
+  const s = ip.toLowerCase()
+  if (!s.includes(':')) return null
+  // An embedded dotted IPv4 tail (::ffff:127.0.0.1) is folded into two hex
+  // groups first, so the split below has a uniform shape.
+  const dotted = s.match(/^(.*:)(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+  let body = s
+  if (dotted) {
+    const [a, b, c, d] = dotted.slice(2).map(Number)
+    if ([a, b, c, d].some((n) => n > 255)) return null
+    const hi = ((a << 8) | b).toString(16)
+    const lo = ((c << 8) | d).toString(16)
+    body = dotted[1] + hi + ':' + lo
+  }
+  const halves = body.split('::')
+  if (halves.length > 2) return null
+  const head = halves[0] ? halves[0].split(':') : []
+  const tail = halves.length === 2 && halves[1] ? halves[1].split(':') : []
+  const groups: string[] = []
+  for (const g of [...head, ...tail]) {
+    if (!/^[0-9a-f]{1,4}$/.test(g)) return null
+    groups.push(g)
+  }
+  const missing = 8 - groups.length - (halves.length === 2 ? 0 : 0)
+  if (halves.length === 2) {
+    if (missing < 0) return null
+    return [...head, ...Array(missing).fill('0'), ...tail].map((g) =>
+      parseInt(g, 16),
+    )
+  }
+  if (groups.length !== 8) return null
+  return groups.map((g) => parseInt(g, 16))
+}
+
 export function isPrivateIp(ip: string): boolean {
   const v4 = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
   if (v4) {
@@ -158,6 +198,34 @@ export function isPrivateIp(ip: string): boolean {
     }
   }
   const low = ip.toLowerCase()
+  // Judge the EXPANDED form so `0:0:0:0:0:0:0:1` is treated exactly like
+  // `::1` (a text-prefix match called the expanded literal public).
+  const v6 = expandIpv6(ip)
+  if (v6) {
+    const allZero = v6.every((g) => g === 0)
+    const loopback = v6.slice(0, 7).every((g) => g === 0) && v6[7] === 1
+    if (allZero || loopback) return true
+    const g0 = v6[0]
+    // fe80::/10 link-local, fec0::/10 deprecated site-local.
+    if ((g0 & 0xffc0) === 0xfe80 || (g0 & 0xffc0) === 0xfec0) return true
+    // fc00::/7 unique-local.
+    if ((g0 & 0xfe00) === 0xfc00) return true
+    // ff00::/8 multicast is not a public unicast destination either.
+    if ((g0 & 0xff00) === 0xff00) return true
+    // IPv4-mapped ::ffff:a.b.c.d — judge the embedded address.
+    const mappedV4 = v6.slice(0, 5).every((g) => g === 0) && v6[5] === 0xffff
+    if (mappedV4) {
+      return isPrivateIp(
+        (v6[6] >> 8) +
+          '.' +
+          (v6[6] & 0xff) +
+          '.' +
+          (v6[7] >> 8) +
+          '.' +
+          (v6[7] & 0xff),
+      )
+    }
+  }
   if (low === '::1' || low === '::') return true
   // IPv6 link-local is fe80::/10, i.e. fe80..febf (the old `startsWith('fe80')`
   // missed fe90::, fea0:: and febf::). ULA is fc00::/7 (fc..fd). fec0::/10

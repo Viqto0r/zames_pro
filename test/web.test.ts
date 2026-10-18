@@ -6,6 +6,21 @@ import {
   isBinaryContentType,
 } from '../src/web.ts'
 
+// The IPv6 checks matched TEXT prefixes (`::1`, `fe80`, `fc`), so a fully
+// expanded literal of the SAME address slipped through: `0:0:0:0:0:0:0:1`
+// (= ::1) and `0:0:0:0:0:ffff:7f00:1` (= ::ffff:127.0.0.1) were reported as
+// PUBLIC, and the SSRF guard let WebFetch reach loopback.
+test('isPrivateIp normalizes fully expanded IPv6 literals', () => {
+  assert.equal(isPrivateIp('0:0:0:0:0:0:0:1'), true, 'expanded ::1')
+  assert.equal(isPrivateIp('0:0:0:0:0:0:0:0'), true, 'expanded ::')
+  assert.equal(
+    isPrivateIp('0:0:0:0:0:ffff:7f00:1'),
+    true,
+    'expanded ::ffff:127.0.0.1',
+  )
+  assert.equal(isPrivateIp('2001:0db8:0:0:0:0:0:1'), false)
+})
+
 test('isPrivateIp: IPv4 private/loopback/link-local ranges', () => {
   assert.equal(isPrivateIp('127.0.0.1'), true)
   assert.equal(isPrivateIp('10.1.2.3'), true)
