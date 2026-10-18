@@ -115,13 +115,45 @@ function parseInlineJsonArgs(s: string): ToolArgs | null {
 // parameter).
 function parseParameters(body: string): ToolArgs {
   const args: ToolArgs = {}
-  const paramRe = /<[^>]*?parameter([^>]*)>([\s\S]*?)<\/[^>]*?parameter[^>]*>/gi
-  let p: RegExpExecArray | null
-  while ((p = paramRe.exec(body)) !== null) {
-    const pname = readAttr(p[1] || '', 'name')
+  // The VALUE is arbitrary model text: a Write/Edit content may legitimately
+  // contain the literal `</parameter>` (writing an XML parser, a docs
+  // example). A plain non-greedy scan stops at that FIRST close tag and the
+  // rest of the content is silently lost — the file is written TRUNCATED.
+  // So: find every opening tag, then take as the value everything up to the
+  // LAST close tag of the same name that precedes the next opening tag (or the
+  // end of the body). A stray `</parameter>` inside a value is thus kept.
+  // An opening tag is `<parameter …>` / `<|DSML|parameter …>` — NOT the
+  // closing `</parameter>`, whose name ALSO matches this pattern (the prefix
+  // before `parameter` is not required to be empty). Treating a close tag as
+  // an open one shifted every limit by one element and cut the last value;
+  // a slash directly before `parameter` marks the close form.
+  const openRe = /<[^>]*?(?<!\/)parameter([^>]*)>/gi
+  const opens: Array<{ attrs: string; start: number; valueStart: number }> = []
+  let m: RegExpExecArray | null
+  while ((m = openRe.exec(body)) !== null) {
+    opens.push({
+      attrs: m[1] || '',
+      start: m.index,
+      valueStart: m.index + m[0].length,
+    })
+  }
+  const closeRe = /<\/[^>]*?parameter[^>]*>/gi
+  for (let i = 0; i < opens.length; i++) {
+    const o = opens[i]
+    const pname = readAttr(o.attrs, 'name')
     if (!pname) continue
-    const isString = /string[ ]*=[ ]*"?true"?/i.test(p[1] || '')
-    let value: unknown = unescapeXml(p[2])
+    const limit = i + 1 < opens.length ? opens[i + 1].start : body.length
+    // The LAST close tag before the next opening tag (or the end).
+    let valueEnd = limit
+    closeRe.lastIndex = o.valueStart
+    let c: RegExpExecArray | null
+    while ((c = closeRe.exec(body)) !== null) {
+      if (c.index >= limit) break
+      valueEnd = c.index
+    }
+    const raw = body.slice(o.valueStart, valueEnd)
+    const isString = /string[ ]*=[ ]*"?true"?/i.test(o.attrs)
+    let value: unknown = unescapeXml(raw)
     if (!isString) {
       try {
         value = JSON.parse(value as string)
