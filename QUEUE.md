@@ -1228,3 +1228,46 @@ origin` подтверждает `refs/tags/v2.77.1` → `cd444ed`), GitHub Acti
 
 - `src/fsutil.ts` — неудачная атомарная запись не оставляет tmp-файл
   (2026-10-17).
+
+### Такт 42 (2026-10-17) — исправлено + релиз 2.78.0
+
+**Цель:** навыки из `.zames/skills` не попадали в npm-пакет (жалоба оператора:
+«установлены только у меня из-за .gitignore»).
+
+**Баг:** каталог `.zames` целиком в `.gitignore`, а `package.json` → `files`
+не содержал навыков: пользователь, установивший zames, не получал ни одного
+методологического навыка (brainstorming, systematic-debugging,
+test-driven-development, verification-before-completion, writing-plans).
+
+**Фикс:**
+- 5 навыков скопированы в отслеживаемый `skills/` (с `SKILL.md`);
+- `package.json` → `files` += `skills` (проверено `npm pack --dry-run`:
+  `skills/brainstorming/SKILL.md` попадает в архив);
+- `src/context.ts` → `loadSkills()`: пакетный корень `skills/` рядом с `dist/`
+  (через `import.meta.url`), НИЖЕ проектных/глобальных по приоритету; в
+  dev-режиме (`src/`) каталог не добавляется, чтобы не перекрыть канонические
+  `BUILTIN_SKILLS` с инлайн-телом;
+- удалён устаревший `docs/NEXT-TASK.md` и его строка из `.gitignore`;
+- `BACKLOG.md` очищен от неактуальных пунктов.
+
+**Тесты:** `test/skills-shipped.test.ts` (навыки есть, frontmatter, `files`
+содержит `skills`, `.gitignore` не исключает), `test/skills-package-root.test.ts`
+(контракт поставки + проектное переопределение). RED на исходной версии
+(пакетный корень не читался), GREEN после.
+
+**Гейты:** `npm test` 1179 тестов (1169 pass, 0 fail, 10 skip), `typecheck`,
+`lint`, `format:check`, `build`, `sched-smoke`, `npm pack --dry-run` — зелёные.
+
+**Коммиты:** `63598ca` (feat skills), `aaf647a` (chore: drop NEXT-TASK),
+`e6f41a3` (changelog sync), `c4636f9` + тег `v2.78.0` (release minor).
+
+**Релиз:** 2.77.1 → **2.78.0** (minor: навыки теперь поставляются с пакетом).
+Тег `v2.78.0` отправлен (`git ls-remote` подтверждает `c4636f9`), GitHub
+Actions `publish.yml` запущен.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- `src/context.ts` + `skills/` + `package.json` — методологические навыки
+  поставляются в npm-пакете (2026-10-17).
