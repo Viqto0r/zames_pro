@@ -63,6 +63,9 @@ const LIFECYCLE_EVENTS: HookEvent[] = [
 // tool call must not be held hostage by it.
 const HOOK_TIMEOUT_MS = 10_000
 const HOOK_MAX_BUFFER = 1024 * 1024
+// A PreToolUse denial becomes the tool result the model reads, so it is capped
+// like any other tool output.
+const HOOK_DENIAL_CAP = 4000
 
 export function hooksConfigPath(workdir: string): string {
   return path.join(workdir, '.zames', 'hooks.json')
@@ -212,7 +215,16 @@ export async function runPreToolUse(
     const r = await runHook(entry, 'PreToolUse', tool, args, workdir)
     if (r.code !== 0) {
       const reason = (r.stderr || r.stdout).trim()
-      return reason || `hook exited with code ${r.code}`
+      // The denial text becomes a TOOL RESULT the model reads: a hook that
+      // dumps a log must not flood the context with one call.
+      const capped = reason.slice(0, HOOK_DENIAL_CAP)
+      const suffix =
+        reason.length > HOOK_DENIAL_CAP
+          ? '\n… [denial truncated: ' +
+            (reason.length - HOOK_DENIAL_CAP) +
+            ' chars omitted]'
+          : ''
+      return capped + suffix || `hook exited with code ${r.code}`
     }
   }
   return null
