@@ -2269,3 +2269,34 @@ permissions-файлах.
 
 - `src/permissions.ts` — невалидный regex в правиле блокирует вызов (fail
   closed) (2026-10-18).
+
+### Такт 74 (2026-10-18) — исправлено
+
+**Цель:** post-edit diagnostics — «чистый» баннер (`summarizeDiagnostics`,
+`src/diagnostics.ts`).
+
+**Баг:** проверки «нет ошибок» привязаны к НАЧАЛУ строки. Баннер tsc в
+режиме watch с ведущей меткой времени (`[12:00:00] Found 0 errors. …`) или с
+ANSI-цветом НЕ считался чистым, и каждая правка в watch-режиме добавляла
+бесполезный блок diagnostics к результату инструмента; форма
+`No errors found.` тоже не распознавалась. Проверено запуском: такой баннер
+возвращался как диагностика.
+
+**Фикс:** перед проверками снимаются ANSI-последовательности и ведущий
+префикс `[12:00:00] `; добавлена форма `No errors found.`.
+
+**Тест:** `test/diagnostics-clean-banner.test.ts` +1 — «a clean banner with a
+timestamp or ANSI prefix is clean» (метка времени, ANSI, `No errors found.`).
+RED до фикса, GREEN после.
+
+**Гейты:** `npm test` 1217 тестов (1207 pass, 0 fail, 10 skip), `typecheck`,
+`lint`, `format:check`, `build`, `sched-smoke` — зелёные.
+
+**Коммит:** `9c9f0fc`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- `src/diagnostics.ts` — цветной/с меткой времени чистый баннер считается
+  чистым (2026-10-18).
