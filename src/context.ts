@@ -2,6 +2,7 @@ import fs from 'fs/promises'
 import { statSync } from 'fs'
 import path from 'path'
 import os from 'os'
+import { fileURLToPath } from 'url'
 
 // ---------- Project context: AGENTS.md / MEMORY / skills ----------
 //
@@ -464,6 +465,20 @@ export async function loadSkills(workdir: string): Promise<SkillInfo[]> {
     dir: path.join(os.homedir(), '.claude', 'skills'),
     source: 'global',
   })
+  // The skills SHIPPED with the package. In the installed layout they sit next
+  // to `dist/`; in a development checkout that path resolves INSIDE the repo
+  // (`src/../skills`), where the same skills also exist as files. The built-in
+  // copies (BUILTIN_SKILLS, appended below with an inline body) are the
+  // canonical ones — adding the files here would override them and break
+  // `/skill-name` expansion and the offline docs. So only add the directory when
+  // the module runs from the built `dist/` layout.
+  const moduleDir = path.dirname(fileURLToPath(import.meta.url))
+  if (!moduleDir.endsWith(path.sep + 'src')) {
+    roots.push({
+      dir: path.join(moduleDir, '..', 'skills'),
+      source: 'global',
+    })
+  }
   for (const root of roots) {
     const files = await findSkillFiles(root.dir)
     for (const f of files) {
