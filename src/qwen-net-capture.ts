@@ -170,8 +170,11 @@ export function isFinishedWithoutAnswer(body: string): boolean {
     if (!Array.isArray(choices)) continue
     for (const ch of choices) {
       if (!ch || typeof ch !== 'object') continue
-      const delta = (ch as Record<string, unknown>).delta as
-        Record<string, unknown> | undefined
+      const c = ch as Record<string, unknown>
+      // The final chunk carries `status` on the CHOICE (see the format comment
+      // at the top of this file); older/other builds put it on `delta`.
+      if (c.status === 'finished') finished = true
+      const delta = c.delta as Record<string, unknown> | undefined
       if (delta && delta.status === 'finished') finished = true
     }
   }
