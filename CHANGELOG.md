@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **permissions:** match a command rule against every plausible command key
+- **hooks:** cap a PreToolUse denial so it cannot flood the tool result
+- **diagnostics:** treat a zero-error watch banner as clean
+- **statusline:** cap the hook output so a chatty command cannot flood the row
+
 ## [2.78.0] - 2026-10-18
 
 ### Added
