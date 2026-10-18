@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **goal:** clampGoalCondition does not cut a surrogate pair
+- **web:** judge the expanded IPv6 form in the SSRF guard
+- **permissions:** match a command rule against an avv array
+- **scheduler:** OR a restricted day-of-month and day-of-week
+- **qwen:** guest-limit classifier ignores a normal answer
+- **net-capture:** read a top-level accumulated_token_usage pair
+- **tools:** Read does not clip a surrogate pair in half
+- **tool-summary:** do not cut a surrogate pair in the log line
+- **shell:** do not start a background trim on a lone surrogate
+- **sandbox:** match eval at a command position, not as a substring
+- **goal:** parse the spaced and hyphenated NOT MET verdict
+- **hooks:** cap the combined PostToolUse and lifecycle output
+- **fsutil:** write atomic files through a symlink, not over it
+- **mcp:** sanitize the server half of a qualified tool name
+- **statusline:** settle on our own stdout end, not on the pipe closing
+- **provider:** match the handoff workdir by real path, not by string
+- **checkpoint:** retention deletes same-millisecond sibling archives
+- **undo:** a missing backup file no longer wedges the undo history
+- **sessions:** a stale internal id no longer hides the saved session
+- **attach:** keep @file references inside the sandbox root
+
 ## [2.78.1] - 2026-10-18
 
 ### Fixed
