@@ -112,12 +112,14 @@ test('decidePermission honors the default action', () => {
   assert.equal(decidePermission(policy, 'Read', {}).action, 'deny')
 })
 
-test('bad regex in a rule never matches', () => {
+// A rule with a bad regex FAILS CLOSED (deny): silently skipping it turned
+// a deny rule with a typo into 'allow everything it was meant to block'.
+test('bad regex in a rule fails closed', () => {
   const policy = parsePermissions({
     rules: [{ tool: '([', action: 'deny' }],
   })
   assert.ok(policy)
-  assert.equal(decidePermission(policy, 'Bash', {}).action, 'allow')
+  assert.equal(decidePermission(policy, 'Bash', {}).action, 'deny')
 })
 
 test('loadPermissions reads .zames/permissions.json', async () => {
@@ -138,4 +140,31 @@ test('loadPermissions returns null for a missing or broken file', async () => {
   await fs.mkdir(path.join(root, '.zames'), { recursive: true })
   await fs.writeFile(permissionsPath(root), '{ not json')
   assert.equal(loadPermissions(root), null)
+})
+
+// A rule with an INVALID regex was silently SKIPPED (`safeRegex` returns null,
+// the rule is `continue`d), so a `deny` rule with a typo (`(Bash$`) allowed
+// exactly what the operator meant to block — a fail-OPEN policy. An
+// unparsable rule must fail CLOSED: the call is blocked with a clear reason.
+test('a rule with an invalid regex blocks the call instead of being skipped', () => {
+  const policy = parsePermissions({
+    default: 'allow',
+    rules: [{ tool: '^(Bash$', action: 'deny' }],
+  })
+  assert.ok(policy)
+  const d = decidePermission(policy, 'Bash', { command: 'rm -rf /' })
+  assert.equal(d.action, 'deny')
+  assert.match(d.reason, /invalid/i)
+})
+
+test('an invalid path regex also fails closed', () => {
+  const policy = parsePermissions({
+    default: 'allow',
+    rules: [{ path: '^/etc/[', action: 'deny' }],
+  })
+  assert.ok(policy)
+  assert.equal(
+    decidePermission(policy, 'Read', { path: '/etc/passwd' }).action,
+    'deny',
+  )
 })

@@ -171,6 +171,15 @@ export function decidePermission(
   }
   const paths = collectPathCandidates(tool, args)
   for (const r of policy.rules) {
+    // An UNPARSABLE regex in any field of the rule makes the rule fail
+    // CLOSED: skipping it silently (the old behavior) turned a deny rule with
+    // a typo (`^(Bash$`) into "allow everything it was meant to block".
+    const bad = [r.tool, r.command, r.path].find(
+      (src) => src !== undefined && safeRegex(src) === null,
+    )
+    if (bad !== undefined) {
+      return { action: 'deny', reason: 'rule has an invalid regex: ' + bad }
+    }
     if (r.tool) {
       const re = safeRegex(r.tool)
       if (!re || !re.test(tool)) continue
