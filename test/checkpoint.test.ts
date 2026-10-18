@@ -164,3 +164,39 @@ test('restore: unknown selector / missing archive / disabled are coded', async (
   const off = new CheckpointStore({ dir: store, enabled: false })
   assert.equal((await off.restore('1')).reason, 'disabled')
 })
+
+// Retention used to key the kept archives by STAMP. The stamp is only
+// ms-precision, so two checkpoints of one workdir taken in the same millisecond
+// share it: the pruned record's stamp was still "kept" by its sibling, its
+// archive was never deleted and the orphan sat in ~/.zames/checkpoints forever.
+test('create: retention deletes the archive of a same-millisecond sibling', async () => {
+  const work = await tmpdir('zames-cp-work-')
+  const store = await tmpdir('zames-cp-store-')
+  await fs.writeFile(path.join(work, 'a.txt'), 'x')
+  const cp = new CheckpointStore({ dir: store, maxBackups: 2 })
+
+  // Pin the clock so both checkpoints share one stamp.
+  const realNow = Date.now
+  let fake = 1_700_000_000_000
+  Date.now = () => fake
+  let r1, r2, r3
+  try {
+    r1 = await cp.create(work, 'one')
+    r2 = await cp.create(work, 'two')
+    assert.equal(r1?.stamp, r2?.stamp, 'precondition: same stamp')
+    fake += 5
+    r3 = await cp.create(work, 'three')
+  } finally {
+    Date.now = realNow
+  }
+  assert.ok(r1 && r2 && r3)
+
+  const kept = await cp.list(10)
+  assert.equal(kept.length, 2)
+  const onDisk = (await fs.readdir(store)).filter((f) => f.endsWith('.tgz'))
+  assert.equal(onDisk.length, 2, 'pruned archives must be deleted')
+  assert.ok(
+    !onDisk.includes(path.basename(r1.file)),
+    'the oldest sibling archive must be gone',
+  )
+})

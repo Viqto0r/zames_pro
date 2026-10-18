@@ -235,11 +235,14 @@ export class CheckpointStore {
     const history = await this._readIndex()
     history.push(record)
     const kept = rotateRecords(history, this.maxBackups)
-    // Drop the archives that fell out of the retention window.
-    const keptStamps = new Set(kept.map((r) => r.stamp))
+    // Drop the archives that fell out of the retention window. Keyed by the
+    // RECORD, not by its stamp: the stamp is ms-precision, so two snapshots of
+    // one workdir taken in the same millisecond share it — the pruned record
+    // then looked "kept" thanks to its sibling and its archive stayed on disk
+    // as an orphan forever.
+    const keptSet = new Set(kept)
     for (const r of history) {
-      if (!keptStamps.has(r.stamp))
-        await fs.rm(r.file, { force: true }).catch(() => {})
+      if (!keptSet.has(r)) await fs.rm(r.file, { force: true }).catch(() => {})
     }
     writeJsonAtomic(this.indexFile, kept)
     return record
