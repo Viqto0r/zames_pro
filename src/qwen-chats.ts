@@ -197,12 +197,18 @@ export function parseQwenHistory(json: unknown): ChatMessage[] {
     // 1 = user, 2 = assistant (the `String(1) === '1'` form was ignored and
     // every user turn was attributed to the model).
     const roleStr = String(m.role ?? '').toLowerCase()
+    // `from` is matched case-insensitively and accepts Qwen's `human`
+    // spelling: the exact `from === 'user'` test read an uppercase/human
+    // turn as the ASSISTANT's answer, so the operator's own question was
+    // restored as the model's reply.
+    const fromStr = String(m.from ?? '').toLowerCase()
     const isUser =
       roleStr === 'user' ||
       roleStr === '1' ||
       roleStr === '0' ||
       m.is_user === true ||
-      m.from === 'user'
+      fromStr === 'user' ||
+      fromStr === 'human'
     const role: ChatMessage['role'] = isUser ? 'user' : 'assistant'
     let text = ''
     if (typeof m.content === 'string') text = m.content
