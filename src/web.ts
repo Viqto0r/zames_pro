@@ -219,6 +219,30 @@ export function isPrivateIp(ip: string): boolean {
     if ((g0 & 0xfe00) === 0xfc00) return true
     // ff00::/8 multicast is not a public unicast destination either.
     if ((g0 & 0xff00) === 0xff00) return true
+    // 6to4 (2002:AABB:CCDD::/48) embeds an IPv4 in groups 1-2, so
+    // `2002:7f00:0001::` IS 127.0.0.1 and `2002:a9fe:a9fe::` is the cloud
+    // metadata address. Judged by the embedded address, like the other
+    // transition prefixes.
+    if (v6[0] === 0x2002) {
+      return isPrivateIp(
+        (v6[1] >> 8) +
+          '.' +
+          (v6[1] & 0xff) +
+          '.' +
+          (v6[2] >> 8) +
+          '.' +
+          (v6[2] & 0xff),
+      )
+    }
+    // Teredo (2001:0000::/32): the CLIENT IPv4 is the last 32 bits XORed with
+    // 0xffffffff (the server IPv4 sits in groups 3-4 and is not the peer).
+    if (v6[0] === 0x2001 && v6[1] === 0x0000) {
+      const a = (v6[6] >> 8) ^ 0xff
+      const b = (v6[6] & 0xff) ^ 0xff
+      const c = (v6[7] >> 8) ^ 0xff
+      const d = (v6[7] & 0xff) ^ 0xff
+      return isPrivateIp(a + '.' + b + '.' + c + '.' + d)
+    }
     // IPv4-mapped ::ffff:a.b.c.d — judge the embedded address.
     const mappedV4 = v6.slice(0, 5).every((g) => g === 0) && v6[5] === 0xffff
     if (mappedV4) {
