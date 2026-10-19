@@ -126,8 +126,18 @@ export function collectPathCandidates(
 ): string[] {
   const a = (args ?? {}) as Record<string, unknown>
   const out: string[] = []
+  // A path may arrive as a STRING or as an ARRAY of strings (`files: [...]`,
+  // `path: [...]`), and MCP tools nest their args (`{file: {path}}`). Accepting
+  // only a top-level string let a `path` deny rule be bypassed by wrapping the
+  // same path one level deeper or in an array.
+  const addValue = (v: unknown): void => {
+    if (typeof v === 'string') out.push(v)
+    else if (Array.isArray(v)) {
+      for (const x of v) if (typeof x === 'string') out.push(x)
+    }
+  }
   for (const k of PATH_KEYS) {
-    if (typeof a[k] === 'string') out.push(a[k] as string)
+    if (k in a) addValue(a[k])
   }
   if (tool === 'ApplyPatch') {
     // Parse the patch and pull the file headers out of it.
@@ -141,12 +151,29 @@ export function collectPathCandidates(
     let m: RegExpExecArray | null
     while ((m = re.exec(text))) out.push(m[1])
   }
-  // MCP tools (and any unknown tool): scan the string values for path-looking
-  // entries. Conservative — only values that clearly look like paths.
+  // MCP tools (and any unknown tool): scan the values for path-looking
+  // entries — through ARRAYS and NESTED objects too, since an MCP schema is
+  // free to nest (`{file: {path}}`) or take `argv: ['cat', '/etc/x']`. Only
+  // values that clearly look like paths are taken (depth-bounded to avoid a
+  // pathological payload).
   if (tool.includes('__')) {
-    for (const v of Object.values(a)) {
-      if (typeof v === 'string' && looksLikePath(v)) out.push(v)
+    const walk = (v: unknown, depth: number): void => {
+      if (depth > 4 || v === null || v === undefined) return
+      if (typeof v === 'string') {
+        if (looksLikePath(v)) out.push(v)
+        return
+      }
+      if (Array.isArray(v)) {
+        for (const x of v) walk(x, depth + 1)
+        return
+      }
+      if (typeof v === 'object') {
+        for (const x of Object.values(v as Record<string, unknown>)) {
+          walk(x, depth + 1)
+        }
+      }
     }
+    for (const v of Object.values(a)) walk(v, 0)
   }
   return out
 }
