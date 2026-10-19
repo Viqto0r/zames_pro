@@ -708,7 +708,11 @@ export function parseDuckDuckGoResults(
     if (uddgMatch) href = decodeURIComponent(uddgMatch[1])
     const title = htmlToText(m[2] || '').trim()
     const snippet = htmlToText(m[3] || '').trim()
-    if (!title || !href) continue
+    // Only an absolute http(s) link is a real result. The page can carry a
+    // `javascript:`/`data:` href (malicious or broken markup) or a
+    // site-relative one; handing either to the model as a result URL is wrong
+    // (a `javascript:` URL looks fetchable, a relative one is not).
+    if (!title || !/^https?:\/\//i.test(href)) continue
     results.push({ title, url: href, snippet })
   }
   return results
