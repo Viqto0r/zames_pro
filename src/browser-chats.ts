@@ -47,8 +47,15 @@ export function parseHistoryMessages(messages: unknown): {
     if (raw && typeof raw.accumulated_token_usage === 'number') {
       usage = raw.accumulated_token_usage
     }
+    // Roles are matched case-insensitively, and a turn that is neither the
+    // operator nor the assistant (SYSTEM, TOOL, a future role) is DROPPED: the
+    // old `role === 'ASSISTANT'` fallback read every other turn as the
+    // operator's, so a lowercase assistant answer was printed as the operator's
+    // text in the restored dialogue.
+    const rawRole = String((raw && raw.role) || '').toUpperCase()
+    if (rawRole !== 'ASSISTANT' && rawRole !== 'USER') continue
     const role: ChatMessage['role'] =
-      raw && raw.role === 'ASSISTANT' ? 'assistant' : 'user'
+      rawRole === 'ASSISTANT' ? 'assistant' : 'user'
     const want = role === 'assistant' ? 'RESPONSE' : 'REQUEST'
     let text = ''
     for (const fr of (raw && raw.fragments) || []) {
