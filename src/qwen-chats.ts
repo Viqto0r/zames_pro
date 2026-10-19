@@ -117,17 +117,32 @@ export function parseQwenChatList(json: unknown): ChatInfo[] {
         (data as Record<string, unknown>).list ??
         (data as Record<string, unknown>).items)
       : null
-  if (!Array.isArray(arr)) return []
+  // The payload has also been seen as a MAP keyed by chat id (the same
+  // convention as the history shape); the key then IS the id. Without this a
+  // legitimate list was rejected by the array guard and /chats printed
+  // "(none)" with no error.
+  const keyed: Array<[string, unknown]> | null = Array.isArray(arr)
+    ? null
+    : arr && typeof arr === 'object'
+      ? Object.entries(arr as Record<string, unknown>)
+      : null
+  if (!Array.isArray(arr) && !keyed) return []
+  const entries: Array<[string, unknown]> = Array.isArray(arr)
+    ? arr.map((c) => ['', c] as [string, unknown])
+    : (keyed as Array<[string, unknown]>)
   const out: ChatInfo[] = []
-  for (const c of arr) {
+  for (const [key, c] of entries) {
     if (!c || typeof c !== 'object') continue
     const m = c as Record<string, unknown>
+    // A numeric id (`{id: 12345}`) used to be dropped as "no id"; it is a
+    // perfectly usable chat id once stringified.
+    const raw = m.id ?? m.chat_id
     const id =
-      typeof m.id === 'string'
-        ? m.id
-        : typeof m.chat_id === 'string'
-          ? m.chat_id
-          : ''
+      typeof raw === 'string'
+        ? raw
+        : typeof raw === 'number' && Number.isFinite(raw)
+          ? String(raw)
+          : key
     if (!id) continue
     const title =
       (typeof m.title === 'string' && m.title) ||
@@ -176,12 +191,15 @@ export function parseQwenHistory(json: unknown): ChatMessage[] {
   const out: ChatMessage[] = []
   for (const m of sorted) {
     // Role detection is DEFENSIVE: the field has been `role` (string,
-    // case-insensitive), a numeric flag, or `is_user`. Anything that is not
+    // case-insensitive), a NUMERIC flag, or `is_user`. Anything that is not
     // clearly the user is treated as the assistant (the restored dialogue
-    // cares about the distinction, not the exact enum).
+    // cares about the distinction, not the exact enum). A numeric flag uses
+    // 1 = user, 2 = assistant (the `String(1) === '1'` form was ignored and
+    // every user turn was attributed to the model).
     const roleStr = String(m.role ?? '').toLowerCase()
     const isUser =
       roleStr === 'user' ||
+      roleStr === '1' ||
       roleStr === '0' ||
       m.is_user === true ||
       m.from === 'user'
