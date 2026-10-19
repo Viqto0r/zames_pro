@@ -69,7 +69,10 @@ function safeName(id: string): string {
   const s = String(id)
   let out = ''
   for (const ch of s) {
-    if (/[a-zA-Z0-9.-]/.test(ch)) out += ch
+    // `_` ITSELF is the escape prefix: leaving a literal underscore in
+    // place made the encoding ambiguous (`a/b` -> `a_2fb` collided with the
+    // real id `a_2fb`), so one session silently overwrote the other.
+    if (/[a-zA-Z0-9.-]/.test(ch) && ch !== '_') out += ch
     else out += '_' + ch.codePointAt(0)!.toString(16).padStart(2, '0')
   }
   return out
