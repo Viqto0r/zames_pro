@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.79.0] - 2026-10-19
+
+### Fixed
+
+- **qwen:** match the history 'from' role case-insensitively and accept human
+- **browser-chats:** match the history role case-insensitively and drop service turns
+- **extratools:** apply multi-hunk ApplyPatch updates and honour @@ line numbers
+- **web:** drop non-http(s) links from WebSearch results
+- **web:** judge 6to4 and Teredo addresses by the embedded IPv4
+- **permissions:** match path rules against arrays and nested MCP args
+- **scheduler:** reject empty and malformed cron field tokens
+- **qwen:** read numeric and map-keyed ids in the chat list
+- **xml-toolcall:** a stray brace before inline JSON no longer eats the args
+- **xml-toolcall:** keep a </parameter> literal inside a parameter value
+- **qwen:** detect a finished status carried on the choice, not only the delta
+- **config:** reject an empty value for a number setting
+- **goal:** an echoed label set is not the evaluator verdict
+- **input:** expand each paste into its own marker occurrence
+- **compact:** a summary that mentions DSML in prose is usable
+
 ## [2.78.3] - 2026-10-18
 
 ### Fixed
