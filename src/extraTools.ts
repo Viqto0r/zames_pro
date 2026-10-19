@@ -149,7 +149,7 @@ export function parsePatch(text: string): { ops: PatchOp[]; error?: string } {
       ops.push(current)
       continue
     }
-    if (current) current.lines.push(line)
+    if (current) current.lines.push(line.replace(/\r$/, ''))
   }
 
   if (!ops.length)
@@ -157,78 +157,125 @@ export function parsePatch(text: string): { ops: PatchOp[]; error?: string } {
   return { ops }
 }
 
+interface HunkBlock {
+  /** Old-side start line from the `@@ -a,b +c,d @@` header (1-based), if any. */
+  oldStart: number | null
+  lines: string[]
+}
+
+/** Split a hunk list into per-`@@` blocks, remembering each header position. */
+function splitHunks(hunkLines: string[]): HunkBlock[] {
+  const blocks: HunkBlock[] = [{ oldStart: null, lines: [] }]
+  for (const l of hunkLines) {
+    if (l.startsWith('@@')) {
+      const m = l.match(/^@@\s*-(\d+)/)
+      blocks.push({ oldStart: m ? Number(m[1]) : null, lines: [] })
+      continue
+    }
+    blocks[blocks.length - 1].lines.push(l)
+  }
+  return blocks.filter((b) => b.lines.length > 0)
+}
+
+const hunkNorm = (s: string, mode: string): string => {
+  if (mode === 'exact') return s
+  if (mode === 'trim') return s.replace(/[ \t]+$/, '')
+  return s.replace(/\s+/g, '')
+}
+
+/**
+ * Find where a block's old side starts in `fileLines`.
+ * `from` is the lowest index allowed (hunks must not overlap / go backwards).
+ * When the header named a line, that position is preferred: repeated context
+ * is otherwise ambiguous and the wrong occurrence gets patched.
+ */
+function locateBlock(
+  fileLines: string[],
+  oldLines: string[],
+  oldStart: number | null,
+  from: number,
+): number {
+  const maxStart = fileLines.length - oldLines.length
+  if (maxStart < from) return -1
+  for (const mode of ['exact', 'trim', 'ws']) {
+    const anchor = oldLines.map((l) => hunkNorm(l, mode))
+    const matches = (i: number): boolean => {
+      for (let j = 0; j < anchor.length; j++) {
+        if (hunkNorm(fileLines[i + j], mode) !== anchor[j]) return false
+      }
+      return true
+    }
+    if (oldStart !== null) {
+      const hinted = oldStart - 1
+      if (hinted >= from && hinted <= maxStart && matches(hinted)) return hinted
+    }
+    for (let i = from; i <= maxStart; i++) {
+      if (matches(i)) return i
+    }
+  }
+  return -1
+}
+
 /**
  * Apply an update hunk to existing content using context matching.
  * The hunk is a list of lines prefixed with ' ' (context), '-' (remove),
- * '+' (add). We locate the context block by exact match, then by ignoring
- * trailing whitespace, then by ignoring all whitespace (like Codex).
+ * '+' (add). Several `@@` hunks for one file are applied in order, top to
+ * bottom. A block is located by exact match, then ignoring trailing
+ * whitespace, then ignoring all whitespace (like Codex).
  */
 export function applyUpdateHunk(
   content: string,
   hunkLines: string[],
 ): { ok: boolean; content?: string; error?: string } {
   const hasCRLF = content.includes('\r\n')
-  const fileLines = content.split(/\r?\n/)
+  const eol = hasCRLF ? '\r\n' : NL
+  let fileLines = content.split(/\r?\n/)
 
-  const oldLines: string[] = []
-  const newLines: string[] = []
-  for (const l of hunkLines) {
-    if (l.startsWith('@@')) continue
-    if (l.startsWith('+')) {
-      newLines.push(l.slice(1))
-    } else if (l.startsWith('-')) {
-      oldLines.push(l.slice(1))
-    } else if (l.startsWith(' ')) {
-      oldLines.push(l.slice(1))
-      newLines.push(l.slice(1))
-    } else if (l === '') {
-      oldLines.push('')
-      newLines.push('')
-    } else {
-      oldLines.push(l)
-      newLines.push(l)
-    }
-  }
-
-  if (!oldLines.length) {
-    return {
-      ok: false,
-      error: 'Hunk has no context or removed lines to anchor on.',
-    }
-  }
-
-  const norm = (s: string, mode: string): string => {
-    if (mode === 'exact') return s
-    if (mode === 'trim') return s.replace(/[ \t]+$/, '')
-    return s.replace(/\s+/g, '')
-  }
-
-  for (const mode of ['exact', 'trim', 'ws']) {
-    const anchor = oldLines.map((l) => norm(l, mode))
-    for (let i = 0; i + anchor.length <= fileLines.length; i++) {
-      let match = true
-      for (let j = 0; j < anchor.length; j++) {
-        if (norm(fileLines[i + j], mode) !== anchor[j]) {
-          match = false
-          break
-        }
+  for (const block of splitHunks(hunkLines)) {
+    const oldLines: string[] = []
+    const newLines: string[] = []
+    for (const l of block.lines) {
+      // A blank hunk line is the newline BEFORE "*** End Patch", not a
+      // context line: counting it as context demanded an extra blank file
+      // line and made every realistic multi-hunk patch fail.
+      if (l === '') continue
+      if (l.startsWith('+')) {
+        newLines.push(l.slice(1))
+      } else if (l.startsWith('-')) {
+        oldLines.push(l.slice(1))
+      } else if (l.startsWith(' ')) {
+        oldLines.push(l.slice(1))
+        newLines.push(l.slice(1))
+      } else {
+        oldLines.push(l)
+        newLines.push(l)
       }
-      if (!match) continue
-      const before = fileLines.slice(0, i)
-      const after = fileLines.slice(i + anchor.length)
-      const joined = [...before, ...newLines, ...after].join(
-        hasCRLF ? '\r\n' : NL,
-      )
-      return { ok: true, content: joined }
     }
+
+    if (!oldLines.length) {
+      return {
+        ok: false,
+        error: 'Hunk has no context or removed lines to anchor on.',
+      }
+    }
+
+    const at = locateBlock(fileLines, oldLines, block.oldStart, 0)
+    if (at === -1) {
+      return {
+        ok: false,
+        error:
+          'Context not found in the file (hunk did not match): ' +
+          oldLines[0].slice(0, 60),
+      }
+    }
+    fileLines = [
+      ...fileLines.slice(0, at),
+      ...newLines,
+      ...fileLines.slice(at + oldLines.length),
+    ]
   }
 
-  return {
-    ok: false,
-    error:
-      'Context not found in the file (hunk did not match): ' +
-      oldLines[0].slice(0, 60),
-  }
+  return { ok: true, content: fileLines.join(eol) }
 }
 
 // ---------- factory ----------

@@ -3006,3 +3006,11 @@ GREEN после; web-набор — 29 pass.
 
 - `src/web.ts` — WebSearch отдаёт только абсолютные http(s)-ссылки
   (2026-10-19).
+
+---
+
+### Такт 95 (2026-10-19) — в работе
+
+**Цель:** extra-инструменты — ApplyPatch (V4A subset, applyUpdateHunk в src/extraTools.ts).
+
+Проверка в процессе.
