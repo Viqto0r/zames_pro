@@ -3138,3 +3138,34 @@ id `a_2fb` и id `a/b` (который кодируется в `a_2fb`) дава
 
 - `src/sessions.ts` — `safeName` экранирует литеральный `_`, имена файлов
   сессий инъективны (2026-10-19).
+
+---
+
+### Такт 99 (2026-10-19) — исправлено
+
+**Цель:** hooks — обрезка текста отказа и уведомлений (`src/hooks.ts`).
+
+**Баг:** отказ PreToolUse (`reason.slice(0, HOOK_DENIAL_CAP)`) и вывод
+PostToolUse/lifecycle-хуков (`out.slice`, `joined.slice`) резались сырым
+смещением UTF-16. Хук, печатающий эмодзи/CJK, ставил суррогатную пару ровно на
+разрез — модель получала lone high surrogate (битый code point). Проверено
+запуском: оба сценария падали с «a lone surrogate leaked».
+
+**Фикс:** `cutHookText()` — при разрезе внутри пары отступает на один UTF-16
+юнит (то же правило, что в `truncateToolResult`/`capReport`/`summarizeDiagnostics`).
+
+**Тест:** `test/hooks-surrogate.test.ts` (2 кейса: отказ PreToolUse и
+lifecycle-уведомление; обход по code units). RED до фикса (оба падения), GREEN
+после; весь hooks-набор — 19 pass.
+
+**Гейты:** `npm test` 1298 тестов (1288 pass, 0 fail, 10 skip),
+`typecheck`, `lint`, `format:check`, `build`, `sched-smoke` — зелёные.
+
+**Коммит:** `4fc7f3b`.
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- `src/hooks.ts` — обрезка отказа/уведомлений хуков не рвёт суррогатную пару
+  (2026-10-19).
