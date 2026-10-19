@@ -85,7 +85,11 @@ function parseCronField(
 ): Set<number> | null {
   const out = new Set<number>()
   for (const part of field.split(',')) {
-    const [range, stepStr] = part.split('/')
+    // An empty list item (`1,,2`, a trailing comma) used to fall through
+    // Number('') === 0 and silently ADD minute 0 to the schedule.
+    if (!part) return null
+    const [range, stepStr, extra] = part.split('/')
+    if (extra !== undefined) return null
     const step = stepStr === undefined ? 1 : Number(stepStr)
     if (!Number.isInteger(step) || step <= 0) return null
     let lo: number
@@ -94,10 +98,18 @@ function parseCronField(
       lo = min
       hi = max
     } else if (range.includes('-')) {
-      const [a, b] = range.split('-')
+      // A bare number is required on BOTH sides: `split('-')` on `-5` gave
+      // ['', '5'] and Number('') === 0, so a typo `-5 * * * *` became the
+      // range 0-5 instead of being rejected. `1-2-3` was silently truncated
+      // to 1-2 the same way.
+      const segs = range.split('-')
+      if (segs.length !== 2) return null
+      const [a, b] = segs
+      if (!/^\d+$/.test(a) || !/^\d+$/.test(b)) return null
       lo = Number(a)
       hi = Number(b)
     } else {
+      if (!/^\d+$/.test(range)) return null
       lo = Number(range)
       // `N/step` (a start with a step, no range) is valid cron: it means from
       // N up to the field maximum. Treating it as the single value N made a
