@@ -70,6 +70,18 @@ const HOOK_DENIAL_CAP = 4000
 // or in the chat, so it is a notice, not a log dump.
 const HOOK_OUTPUT_CAP = 8000
 
+// Cut a hook string by UTF-16 units WITHOUT leaving a lone HIGH surrogate at
+// the end: the text becomes a tool result or a chat notice, and a broken code
+// point there is the same bug truncated elsewhere (same rule as
+// truncateToolResult / capReport / summarizeDiagnostics).
+function cutHookText(s: string, max: number): string {
+  if (s.length <= max) return s
+  let cut = Math.max(0, max)
+  const last = s.charCodeAt(cut - 1)
+  if (last >= 0xd800 && last <= 0xdbff) cut--
+  return s.slice(0, cut)
+}
+
 export function hooksConfigPath(workdir: string): string {
   return path.join(workdir, '.zames', 'hooks.json')
 }
@@ -220,7 +232,7 @@ export async function runPreToolUse(
       const reason = (r.stderr || r.stdout).trim()
       // The denial text becomes a TOOL RESULT the model reads: a hook that
       // dumps a log must not flood the context with one call.
-      const capped = reason.slice(0, HOOK_DENIAL_CAP)
+      const capped = cutHookText(reason, HOOK_DENIAL_CAP)
       const suffix =
         reason.length > HOOK_DENIAL_CAP
           ? '\n… [denial truncated: ' +
@@ -286,14 +298,14 @@ async function runEventHooks(
     // stay a notice: a hook running `npm test` or dumping a log used to append
     // hundreds of KB and flood the context.
     if (total >= HOOK_OUTPUT_CAP) break
-    const piece = out.slice(0, HOOK_OUTPUT_CAP - total)
+    const piece = cutHookText(out, HOOK_OUTPUT_CAP - total)
     total += piece.length
     parts.push(piece)
   }
   const joined = parts.join(String.fromCharCode(10))
   if (joined.length <= HOOK_OUTPUT_CAP) return joined
   return (
-    joined.slice(0, HOOK_OUTPUT_CAP) +
+    cutHookText(joined, HOOK_OUTPUT_CAP) +
     String.fromCharCode(10) +
     '… [hook output truncated]'
   )
