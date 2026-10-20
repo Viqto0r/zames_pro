@@ -55,7 +55,7 @@ const nodes: Node[] = [
   {
     x: PAD + NODE_W + GAP + 260 + GAP,
     w: 260,
-    lines: ['chat.deepseek.com', 'chat.qwen.ai'],
+    lines: ['chat.deepseek.com', 'chat.qwen.ai', 'chat.z.ai'],
   },
 ]
 
