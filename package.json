@@ -41,7 +41,8 @@
     "render-how": "tsx scripts/render-how-it-works.mts",
     "build:readme": "tsx scripts/build-readme.mts",
     "postinstall": "node scripts/postinstall.mjs",
-    "prepare": "husky"
+    "prepare": "husky",
+    "glm-smoke": "tsx scripts/glm-smoke.mts"
   },
   "keywords": [
     "agent",
