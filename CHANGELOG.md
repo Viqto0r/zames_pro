@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.80.4] - 2026-10-20
+
+### Fixed
+
+- parse a bare id-keyed Qwen chat list map
+
 ## [2.80.3] - 2026-10-20
 
 ### Fixed
