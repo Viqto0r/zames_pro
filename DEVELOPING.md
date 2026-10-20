@@ -294,6 +294,25 @@ but the send button was not pressed" regression), `listModels`, `tokenUsage`,
 `--headed`, `--no-reuse-profile`, `ZAMES_QWEN_SMOKE_KEEP=1` keeps the temp HOME.
 Exit codes match self-smoke (`0`/`1`/`2`).
 
+### GLM smoke
+
+`npm run glm-smoke` is the GLM counterpart: a REAL isolated `GlmBrowser` against
+live `chat.z.ai`. It copies `~/.zames/glm-profile` read-only into a throwaway
+`HOME` (`ZAMES_GLM_SMOKE_HOME`), sets `ZAMES_NONINTERACTIVE_LOGIN=1` (a fresh
+profile is gated by an Aliyun slider captcha a headless browser cannot pass, so
+a cold login must fail FAST with exit code `2`) and NEVER opens the live
+profile. Scenarios: `login`, `newChat`, `ask:simple`, `ask:second-send`,
+`listModels`, `tokenUsage`, `toolCall`, `history`. Flags: `--headed`,
+`--no-reuse-profile`, `ZAMES_GLM_SMOKE_KEEP=1`.
+
+### Browser login during development
+
+The interactive sign-in opens a VISIBLE window when the automatic paths fail
+(see DESIGN-NOTES "Browser-based login"). `--dev` / `--headed` keep it visible;
+a non-interactive run (or `ZAMES_NONINTERACTIVE_LOGIN=1`) never opens one.
+`src/browser-login.ts` is imported by the browser CLASSES, which `/reload` does
+NOT reload — a change there needs a process restart, like `browser.ts`.
+
 Coverage: `npx tsx --test --experimental-test-coverage test/*.test.ts` (this is
 also what CI runs).
 

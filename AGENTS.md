@@ -44,16 +44,25 @@ zames is a terminal coding agent. It does not use the model API directly; it
 drives a browser (Playwright) and talks to a chat web app like a regular user:
 it types the prompt into the input field and reads the answer from the page.
 
-Two chat backends are supported, selected with `/provider <deepseek|qwen>`:
+THREE chat backends are supported, selected with `/provider <deepseek|qwen|glm>`:
 
 - **DeepSeek** (`chat.deepseek.com`) — the original and the default; provider
   code in `src/browser.ts` + `src/deepseek-ui.ts` + `src/net-capture.ts`.
 - **Qwen** (`chat.qwen.ai`) — the second backend; provider code in
   `src/qwen-browser.ts` + `src/qwen-ui.ts` + `src/qwen-net-capture.ts`.
+- **GLM** (`chat.z.ai`) — the third backend; provider code in
+  `src/glm-browser.ts` + `src/glm-ui.ts` + `src/glm-net-capture.ts` +
+  `src/glm-chats.ts`. The recon facts live in `test/fixtures/glm/`.
 
-Both implement the `ChatProvider` interface (`src/types.ts`); everything above
+All implement the `ChatProvider` interface (`src/types.ts`); everything above
 the browser (agent loop, tools, parser, system-prompt) is provider-agnostic and
 only depends on `BrowserLike`.
+
+The provider registry (`src/providers.ts`) carries CAPABILITY FLAGS
+(`hasModelPicker`, `guestAllowed`, `profileDir`) instead of `=== 'qwen'`
+checks at a dozen call sites: `/model`, the context window, the answer timeout,
+handoff and the login wiring all read a capability, so adding a backend is a
+data entry plus its own modules.
 
 `/provider <id>` switches LIVE: it closes the current backend and builds +
 launches the other one IN PLACE (`createProviderBrowser()` in `index.ts`, the
@@ -134,6 +143,30 @@ When a change touches one concern, start in the module that owns it:
   password) on `chat.qwen.ai/auth`, attachments go through the mode menu's
   "Upload attachment" item (`_attachFiles`), and a guest gets a limited number
   of turns before `getstsToken` answers `RateLimited`.
+- `src/browser-login.ts` — the SHARED interactive sign-in
+  (`interactiveBrowserLogin`): an existing session, then the saved credentials,
+  then a HUMAN in a visible browser window (a captcha cannot be typed into a
+  terminal), then back to headless. PURE in the sense that it owns no
+  Playwright/disk: the provider injects probeLogin/relaunch/openLoginPage/...
+  and the sequence is unit-tested. `canShowWindow` / `loginIsInteractive` are
+  the pure gates; `ZAMES_NONINTERACTIVE_LOGIN=1` (one-shot, no TTY) makes a
+  cold login fail FAST instead of hanging. Each browser class implements
+  `relaunchSafe(headless)` (NOT `_launchOnce`: it keeps the profile, waits for
+  the Singleton lock and re-applies session-only cookies).
+- `src/send-telemetry.ts` / `src/send-throttle.ts` / `src/send-runtime.ts` —
+  the per-send JSONL telemetry (`~/.zames/logs/sends-<provider>.jsonl`: timing,
+  mode flags, outcome and the server error; NEVER the prompt/answer), the PURE
+  adaptive-throttle state machine (soft window budget, Retry-After, doubling
+  after a limit, halving after K successes) and the runtime that wires both
+  into a browser. `browser.sendTelemetry` (on by default) controls the file;
+  the adaptive mode is per provider (GLM: on). `/limits` shows the aggregate.
+- `src/glm-ui.ts`, `src/glm-net-capture.ts`, `src/glm-chats.ts`,
+  `src/glm-browser.ts` — the GLM provider, mirroring the Qwen split: PURE
+  selectors/protocol data, the phase-aware SSE parser (only `phase: 'answer'`
+  is the answer; `thinking`/`tool_call`/`tool_response` are skipped), the
+  chat-list/history parsers + DOM scrapers, and the Playwright facade. z.ai
+  gates the first message with an Aliyun slider captcha, so a real login is
+  mandatory for a long run.
 - `src/ui-health.ts` — PURE UI health probe (`probeUiHealth`): checks the
   ALWAYS-present controls (input/send/toggles/new-chat) via an injected page
   and reports the missing ones. The capability LIST is a parameter, so each
@@ -1076,7 +1109,10 @@ edit to `browser.ts` does NOT take effect until the process is RESTARTED — a
 fix can silently "not work" while an old copy runs in memory. To make this
 non-silent, dev mode watches `browser.ts`'s mtime and prints a ONE-TIME warning
 (`reload.browser_restart`) when it changes. `dist` does not need rebuilding for
-dev (tsx reads `src/`), but the process must be restarted.
+dev (tsx reads `src/`), but the process must be restarted. The SAME applies to
+`browser-login.ts` and the send-runtime modules (`send-telemetry`,
+`send-throttle`, `send-runtime`): the browser classes import them statically, so
+a change there is picked up only after a restart.
 
 Self-review looks for the directory with the `.ts` sources: in dev it is `src/`,
 in the built `dist/` — `../src` (`resolveSrcDir()` in self-review.ts). The

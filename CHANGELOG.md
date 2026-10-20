@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- send telemetry for all providers and adaptive throttle (enabled for GLM)
+- GLM (chat.z.ai) provider with anonymized recon fixtures
+- browser-based login (auto-login first, headed window fallback, headless after)
+
+### Fixed
+
+- handoff label and live config for more than two providers
+- per-provider auth marker, credentials and shared headless-UA cache
+
+### Changed
+
+- provider capabilities instead of qwen-only checks
+
 ## [2.80.8] - 2026-10-20
 
 ### Changed

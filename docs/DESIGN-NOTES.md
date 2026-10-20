@@ -571,7 +571,51 @@ entry's height at the terminal width (ANSI stripped, wide chars = 2) so a long
 wrapped answer cannot overflow the panel and a single oversized entry is kept
 (its tail shown) rather than dropped. `store.scroll` is measured in ROWS.
 
-### Login stays inside the TUI
+### Browser-based login is the PRIMARY path (the TUI form is the fallback)
+
+Updated with GLM: the operator's requirement is now "auto-login → a VISIBLE
+browser window when that fails → back to headless". The reason is concrete:
+z.ai (like DeepSeek at times) answers a headless submit with an Aliyun SLIDER
+CAPTCHA, which neither a terminal prompt nor a filled form can pass — a human
+has to drag the slider in a real window.
+
+The sequence lives in `src/browser-login.ts` (`interactiveBrowserLogin`),
+shared by all three providers:
+
+1. `probeLogin() === 'in'` → done, no window flashes;
+2. the EXISTING `_autoLogin()` with the saved credentials (they are permanent
+   in the config, so a logged-out profile signs in silently);
+3. a guest is allowed and no login was requested → work as a guest;
+4. non-interactive (`--task`, no TTY, a scheduler job,
+   `ZAMES_NONINTERACTIVE_LOGIN=1`) → `LoginRequiredError` FAST, no window;
+5. no display (`canShowWindow` is only a preliminary filter — WSL2 often
+   exports DISPLAY with a broken WSLg) → the in-TUI form below;
+6. headless → `relaunchSafe(headed)`, open the login page, prefill the saved
+   login, hook the form (`page.exposeFunction`) so the credentials the human
+   types are saved for the NEXT silent auto-login;
+7. poll `probeLogin()`; a CLOSED window counts as "done"; Esc cancels;
+8. not `stayHeaded` → `relaunchSafe(headless)`; if the session did not carry
+   over, go back to headed ONCE and stay there (never a loop).
+
+`stayHeaded` is true for `--headed`, `headless:false`, `--dev` and
+`hotReload`: an operator watching the window, or a developer, keeps it.
+
+**Session preservation across the relaunch.** `relaunchSafe()` reads
+`context.cookies()` BEFORE closing and re-applies the SESSION cookies
+(`expires === -1`) with `addCookies()` BEFORE the first `goto` — otherwise the
+SPA gets a 401 and may wipe its own token. A persistent cookie survives in the
+profile on its own. This was measured on a COPY of a profile: the GLM session
+is the `token` key in localStorage (plus a `token` cookie) and it does NOT
+survive closing the context without that step.
+
+**Browser fingerprint (measured).** Headed and headless run the SAME engine
+(`channel`), the sanitized UA is taken from the headed launch and cached per
+ENGINE (not per provider), and `navigator.webdriver` is false in both. A
+headless Chromium reports `plugins: 0` where a headed one reports 5 — a
+known, harmless difference that z.ai did not gate on (the captcha appeared in
+both). A `HeadlessChrome` UA is still stripped (DeepSeek's CDN 403s it).
+
+### Login stays inside the TUI (the fallback)
 
 `browser.ts` / `qwen-browser.ts` call an optional `onLoginPrompt` (and DeepSeek
 `onMfaPrompt`) instead of readline, which would pause Ink and fight it for
@@ -622,3 +666,72 @@ Deliberately NOT ported: parallel subagents (`dispatching-parallel-agents`),
 git worktrees, the full subagent-driven-development loop, and the plugin/
 telemetry infrastructure — all conflict with zames' single-browser,
 single-send-slot, single-workdir design.
+
+## GLM / chat.z.ai
+
+Recon was a LIVE signed-in session in an isolated profile (Chromium, October
+2026); the anonymized captures are in `test/fixtures/glm/`. Everything the
+provider implements is backed by one of them — a mechanism that did not appear
+in the dump is NOT implemented (see "not observed" below).
+
+### DOM (verified)
+
+- input: `textarea#chat-input` (a plain textarea, not contenteditable)
+- send: `button#send-message-button` (`type=submit`, `class sendMessageButton`)
+- new chat: `button#sidebar-new-chat-button` ("New Task");
+  `#new-chat-button` on mobile
+- model: `button#model-selector-<id>-button`, label = display name
+  (`GLM-5.3-Flash`), id = internal id (`x-preview-l`)
+- a chat URL: `https://chat.z.ai/c/<uuid>`
+- user turn: `div.chat-user`; assistant turn: `div.chat-assistant`
+  (`markdown-prose`); the wrapper carries `id="message-<uuid>"`
+- reasoning: `.thinking-chain-container` ("Thought Process") — NEVER the answer
+
+### Endpoints
+
+- `POST /api/v1/chats/new` — creates the chat, returns `{ id }`
+- `POST /api/v2/chat/completions?...` — SSE, the answer
+- `GET /api/v1/chats/?page=N` — a BARE ARRAY (not `{data}`)
+- `GET /api/v1/chats/<id>` — `{chat:{history:{messages:{<id>:{...}}}}}`
+- `GET /api/models` — OpenAI-style catalogue (`info.params.max_tokens`)
+- `GET /api/v1/auths/` — the user/guest record (`role: 'guest' | 'user'`)
+
+### Auth
+
+The bearer token is in localStorage (`token`) and a `token` cookie; the
+completions URL carries the same JWT as a query parameter. A GET from inside
+the page is repeatable for the list/history/models (no extra signature was
+needed), so `listChats`/`fetchChatMessages`/`listModels` use `fetch` from the
+page. A completions request ALSO carries `captcha_verify_param`, so it is
+driven through the UI, not replayed.
+
+### SSE (only what was observed)
+
+```
+data: {"type":"chat:completion","data":{"delta_content":"...","phase":"thinking"}}
+data: {"type":"chat:completion","data":{"phase":"other","usage":{prompt_tokens,...}}}
+data: {"type":"chat:completion","data":{"delta_content":"PONG","phase":"answer"}}
+data: {"type":"chat:completion","data":{"phase":"done","done":true}}
+```
+
+Tool traffic from z.ai's OWN runtime (`phase: tool_call` / `tool_response`,
+`delta_name`/`delta_arguments`) was observed too. It is NOT the zames protocol,
+so the parser skips it and the provider keeps that runtime OFF
+(`preview_mode:false`; the `general_agent` flag is z.ai's agent mode).
+
+### Captcha
+
+A FIRST message from a fresh profile is gated by an Aliyun slider
+("Please drag the slider to complete the puzzle", `CertifyId`). A headless
+browser cannot pass it; a signed-in session usually skips it, but a burst can
+trigger it again. That is exactly why login is browser-based.
+
+### Not observed (deliberately NOT implemented)
+
+- edit-patches / an `<details type="reasoning">` block
+- a guest-limit message with a specific wording (the captcha fires first)
+- a Continue button for a truncated turn
+- thinking / web-search UI toggles (the flags travel in the request body; no
+  stable control was seen) — part C verifies the body instead
+- "AI Slides" / "Full-Stack" / image generation as part of the answer protocol
+  (they change the format and would break the tool-call protocol)
