@@ -486,6 +486,29 @@ await reloadModules()
 // In normal mode (npm start, global zames) auto-reload is off.
 const devMode = hasFlag('--dev') || config.hotReload === true
 
+// The saved credentials of the ACTIVE provider: DeepSeek keeps the legacy
+// `browser.auth` (so an old config works), every other backend owns its own
+// section, so a DeepSeek login is never typed into a Qwen/GLM form.
+function activeAuth(): { username: string; password: string } {
+  const section = providerConfigSection(config.provider)
+  if (!section) {
+    return {
+      username: config.browser.auth.username,
+      password: config.browser.auth.password,
+    }
+  }
+  const sec = (
+    config as unknown as Record<
+      string,
+      { auth?: { username?: string; password?: string } }
+    >
+  )[section]
+  return {
+    username: (sec && sec.auth && sec.auth.username) || '',
+    password: (sec && sec.auth && sec.auth.password) || '',
+  }
+}
+
 // Safe auto-reload: on a load error we keep the previous working modules.
 async function autoReload(): Promise<void> {
   if (!devMode) return
@@ -1802,8 +1825,10 @@ async function main(): Promise<void> {
             const { runLoginForm } = await import('./tui/run-login.js')
             return await runLoginForm({
               t,
-              initialUsername: config.browser.auth.username,
-              initialPassword: config.browser.auth.password,
+              // The SAVED credentials of the ACTIVE provider (DeepSeek keeps
+              // browser.auth; Qwen/GLM own their section).
+              initialUsername: activeAuth().username,
+              initialPassword: activeAuth().password,
               note:
                 info.hasSavedPassword || info.savedUsername
                   ? t('auth.form.note_saved')
