@@ -200,40 +200,67 @@ export function wrapToWidth(s: string, maxCols: number): string {
       out.push('')
       continue
     }
-    let line = ''
-    let lineW = 0
-    for (const word of raw.split(' ')) {
+    // A line that already fits is returned VERBATIM: wrapping is a width
+    // operation, not a normalizer. Splitting on spaces and re-joining ate the
+    // leading indentation (and emptied a line of only spaces), so an indented
+    // warning / echoed operator line lost its layout.
+    if (visLen(raw) <= width) {
+      out.push(raw)
+      continue
+    }
+    // Wrapping is a WIDTH operation, not a normalizer: the spaces BETWEEN words
+    // (and the leading indentation) belong to the line and are reproduced
+    // verbatim. The old split(' ')/join(' ') glued the words back with ONE
+    // separator, so `'aaa bbb'` at width 7 became `'aaabbb'` and an indented
+    // warning lost its indent.
+    const words = raw.split(/ +/).filter((w) => w !== '')
+    const indent = raw.slice(0, raw.length - raw.trimStart().length)
+    let line = indent
+    let lineW = visLen(indent)
+    let first = true
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i]
       const w = visLen(word)
       // Hard-split a word longer than a whole line.
       if (w > width) {
-        if (line) {
+        if (!first) {
           out.push(line)
+          line = ''
+          lineW = 0
         }
         let piece = ''
         let pieceW = 0
         for (const ch of word) {
           const cw = charWidth(ch.codePointAt(0) as number)
           if (pieceW + cw > width) {
-            out.push(piece)
+            out.push(line + piece)
+            line = ''
+            lineW = 0
             piece = ''
             pieceW = 0
           }
           piece += ch
           pieceW += cw
         }
-        line = piece
-        lineW = pieceW
+        line += piece
+        lineW += pieceW
+        first = false
         continue
       }
-      const sep = line ? 1 : 0
-      if (lineW + sep + w > width) {
+      if (!first && lineW + 1 + w > width) {
         out.push(line)
         line = word
         lineW = w
-      } else {
-        line = line ? line + ' ' + word : word
-        lineW += sep + w
+        first = false
+        continue
       }
+      if (!first) {
+        line += ' '
+        lineW += 1
+      }
+      line += word
+      lineW += w
+      first = false
     }
     out.push(line)
   }
