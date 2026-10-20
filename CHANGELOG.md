@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.80.7] - 2026-10-20
+
+### Fixed
+
+- stop filling the disk with temp dirs, coverage dumps and unbounded logs
+- word delete and word-left stop at a newline
+
+## [2.80.6] - 2026-10-20
+
 ### Fixed
 
 - stop filling the disk with temp dirs, coverage dumps and unbounded logs
