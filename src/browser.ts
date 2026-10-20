@@ -982,11 +982,8 @@ export class DeepSeekBrowser {
       return
     }
 
-    // 2) Try to sign in automatically with the saved credentials. The
-    //    password lives in the config (~/.zames/config.json) and is only used
-    //    when the session is logged out — i.e. exactly the "re-login without
-    //    asking" case. If the login form is absent (e.g. DeepSeek uses a
-    //    captcha / another provider), this fails and we fall through.
+    // 2) The saved credentials. They are permanent, so a logged-out profile
+    //    signs in silently — this is the FIRST fallback.
     if (this.auth.username && this.auth.password) {
       console.log(theme.system(this._t('auth.auto_login')))
       const ok = await this._autoLogin().catch((e) => {
@@ -1003,25 +1000,24 @@ export class DeepSeekBrowser {
       }
     }
 
-    // 3) Ask the operator for credentials in the terminal, try them, and
-    //    only then fall back to the manual hint. Interactive only: in a
-    //    pipe/redirect (or headless without credentials) we print a hint.
+    // 3) A HUMAN signs in inside a VISIBLE browser window — DeepSeek shows a
+    //    captcha that neither a terminal prompt nor a filled form can pass.
+    //    The shared module decides whether a window can be shown, waits for
+    //    the sign-in and returns to headless afterwards. A visible window is
+    //    kept when the operator asked for it (--headed / --dev / hotReload).
+    if (this.canShowLoginWindow()) {
+      await this._browserLogin()
+      return
+    }
+
+    // 4) No window (no display / non-interactive): the in-terminal form is the
+    //    accepted fallback, then a manual hint.
     const asked = await this._promptAndLogin().catch((e) => {
       if (this.debug) console.error('auth: prompt error:', (e as Error).message)
       return false
     })
     if (asked) return
 
-    // 4) Last resort: a HUMAN signs in inside a visible browser window (a
-    //    captcha cannot be typed into a terminal). The shared module decides
-    //    whether a window can be shown, waits for the sign-in and returns to
-    //    headless afterwards. A visible window is kept when the operator asked
-    //    for it (--headed / --dev / hotReload).
-    if (this.canShowLoginWindow()) {
-      await this._browserLogin()
-      return
-    }
-    // 4) Last resort: manual sign-in in the browser window.
     console.log('\n' + theme.warn(this._t('auth.need_login')))
     if (this.headless) {
       console.log('   ' + this._t('auth.manual_hint_headless'))
