@@ -410,7 +410,13 @@ function parseFrontmatter(raw: string): FrontMatter {
 }
 
 export function skillBody(raw: string): string {
-  const norm = raw.replace(CRLF_RE, NL)
+  // A leading BOM (some Windows editors and generators write one) makes the
+  // text NOT start with `---`, so the frontmatter check below missed it and
+  // the model got the raw YAML mixed into the instructions. Drop it first.
+  const bom = String.fromCharCode(0xfeff)
+  const norm = String(raw ?? '')
+    .replace(new RegExp('^' + bom), '')
+    .replace(CRLF_RE, NL)
   if (!norm.startsWith('---')) return norm.trim()
   const end = norm.indexOf(NL + '---', 3)
   if (end === -1) return norm.trim()
