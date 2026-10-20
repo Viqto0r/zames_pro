@@ -116,8 +116,11 @@ export function del(s: EditState): EditState {
 export function deleteWordLeft(s: EditState): EditState {
   const chars = charsOf(s)
   let i = s.cursor
-  while (i > 0 && /\s/.test(chars[i - 1])) i--
-  while (i > 0 && !/\s/.test(chars[i - 1])) i--
+  // A NEWLINE is a hard boundary: at the start of a line the key does
+  // nothing instead of eating the break and the previous line's word
+  // (deleteWordRight and wordLeft already stop at a newline).
+  while (i > 0 && chars[i - 1] !== NL && /\s/.test(chars[i - 1])) i--
+  while (i > 0 && chars[i - 1] !== NL && !/\s/.test(chars[i - 1])) i--
   chars.splice(i, s.cursor - i)
   return { ...s, buf: chars.join(''), cursor: i }
 }
@@ -178,8 +181,10 @@ export function moveEnd(s: EditState): EditState {
 export function wordLeft(s: EditState): EditState {
   const chars = charsOf(s)
   let i = s.cursor
-  while (i > 0 && /\s/.test(chars[i - 1])) i--
-  while (i > 0 && !/\s/.test(chars[i - 1])) i--
+  // Stop at a newline (mirrors deleteWordLeft/deleteWordRight): the cursor
+  // must not jump to the previous LINE, only to the previous word.
+  while (i > 0 && chars[i - 1] !== NL && /\s/.test(chars[i - 1])) i--
+  while (i > 0 && chars[i - 1] !== NL && !/\s/.test(chars[i - 1])) i--
   return i === s.cursor ? s : { ...s, cursor: i }
 }
 
