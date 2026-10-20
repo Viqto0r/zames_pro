@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- DeepSeek signs in through the browser window before the terminal form
+- the TUI login fallback prefills the active provider's credentials
+- doctor renders the display row and the adaptive pause
 - **glm:** report the slider captcha instead of a silent no-answer
 - handoff label and live config for more than two providers
 - per-provider auth marker, credentials and shared headless-UA cache
