@@ -9,6 +9,21 @@ import { spawn } from 'node:child_process'
 // Best-effort: a missing/failing command yields an empty string (the badge is
 // hidden), never an error in the UI.
 
+// Longest status text that still fits a typical terminal row together with
+// the rest of the status bar.
+export const STATUS_BADGE_MAX = 80
+
+/** Clip a status badge to STATUS_BADGE_MAX with an ellipsis (never splits a
+ *  surrogate pair). */
+export function clipBadge(text: string, max = STATUS_BADGE_MAX): string {
+  const s = String(text ?? '')
+  if (s.length <= max) return s
+  let cut = max - 1
+  const c = s.charCodeAt(cut - 1)
+  if (c >= 0xd800 && c <= 0xdbff) cut--
+  return s.slice(0, cut) + '…'
+}
+
 export interface StatusLineInfo {
   chatId: string | null
   queueLength: number
@@ -47,7 +62,10 @@ export function runStatusLineCommand(
       if (done) return
       done = true
       const first = String(out).split(/\r?\n/)[0].trim()
-      resolve(first)
+      // The status line is rendered as ONE row, unwrapped. A command that
+      // prints a long single line must not push 400 raw columns into it
+      // (the row overflows and the cursor arithmetic drifts).
+      resolve(clipBadge(first))
     }
     // Only the FIRST LINE is shown, so there is no reason to keep collecting a
     // big blob: a chatty command (a JSON dump, `ls -R`) would grow `out`
