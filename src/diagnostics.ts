@@ -67,10 +67,14 @@ export function summarizeDiagnostics(
   const chosen = errLines.length ? errLines : lines
   let out = chosen.join('\n')
   if (out.length > maxChars) {
+    // The truncation MARKER is part of the cap, so the head must leave room
+    // for it (appending it to a maxChars-long head exceeded the budget).
+    const MARKER = '\n… [diagnostics truncated]'
+    const budget = Math.max(0, maxChars - MARKER.length)
     // Never split a surrogate PAIR (emoji / astral CJK): the high half alone
     // is a lone surrogate in the model's context. Same rule as
     // truncateToolResult (agent-loop) and capReport (subagent).
-    let cut = maxChars
+    let cut = budget
     const c = out.charCodeAt(cut - 1)
     if (c >= 0xd800 && c <= 0xdbff) cut--
     out = out.slice(0, cut) + '\n… [diagnostics truncated]'
