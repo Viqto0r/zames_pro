@@ -54,6 +54,36 @@ export function runGitArgs(
   })
 }
 
+// Split a `paths` argument into individual pathspecs. The parameter is
+// declared as a STRING, so models send "a.txt b.txt" or a quoted path with a
+// space ("my file.txt"); git needs each path as its OWN argument.
+export function splitPaths(input: string): string[] {
+  const out: string[] = []
+  const s = String(input || '')
+  let cur = ''
+  let quote: string | null = null
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i]
+    if (quote) {
+      if (ch === quote) quote = null
+      else cur += ch
+      continue
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch
+      continue
+    }
+    if (ch === ' ' || ch === '\t' || ch === '\n') {
+      if (cur) out.push(cur)
+      cur = ''
+      continue
+    }
+    cur += ch
+  }
+  if (cur) out.push(cur)
+  return out
+}
+
 export async function getGitContext(
   workdir: string,
 ): Promise<GitContext | null> {
@@ -261,15 +291,32 @@ export function createGitTools(workdir: string): ToolDef[] {
         const err = await ensureRepo()
         if (err) return err
         if (paths && String(paths).trim()) {
-          const list = (Array.isArray(paths) ? paths : [paths])
+          // `paths` is declared as a STRING, so the model sends
+          // "a.txt b.txt". Passing it as ONE pathspec made git answer
+          // `did not match any files` and staged nothing. Split on
+          // whitespace, honour quotes (a path may contain a space), and
+          // keep the array form working.
+          const list = (
+            Array.isArray(paths) ? paths : splitPaths(String(paths))
+          )
             .map((v) => String(v).trim())
             .filter(Boolean)
           for (const p of list) {
             if (p.startsWith('-')) return `Error: invalid path: ${p}`
           }
-          return runGitArgs(['add', '--', ...list], workdir, 20_000)
+          const staged = await runGitArgs(
+            ['add', '--', ...list],
+            workdir,
+            20_000,
+          )
+          // A successful `git add` prints NOTHING; the shared runner then
+          // answers the internal sentinel, which reads as a failure.
+          return staged.trim() === NO_OUTPUT_SENTINEL
+            ? 'Staged: ' + list.join(' ')
+            : staged
         }
-        return runGitArgs(['add', '-A'], workdir, 20_000)
+        const all = await runGitArgs(['add', '-A'], workdir, 20_000)
+        return all.trim() === NO_OUTPUT_SENTINEL ? 'Staged all changes.' : all
       },
     },
 
