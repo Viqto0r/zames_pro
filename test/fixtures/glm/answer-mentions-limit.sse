@@ -1,0 +1,4 @@
+data: {"type":"chat:completion","data":{"delta_content":"If the API answers \"please try again later\" you should back off; a rate limit usually resets.","phase":"answer"}}
+
+data: {"type":"chat:completion","data":{"phase":"done","done":true}}
+

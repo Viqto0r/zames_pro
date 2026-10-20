@@ -1,0 +1,4 @@
+data: {"type":"chat:completion","data":{"delta_content":"thinking only","phase":"thinking"}}
+
+data: {"type":"chat:completion","data":{"phase":"done","done":true}}
+

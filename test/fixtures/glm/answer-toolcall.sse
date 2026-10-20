@@ -1,0 +1,20 @@
+data: {"type":"chat:completion","data":{"delta_content":"Let me run it.","phase":"thinking"}}
+
+data: {"type":"chat:completion","data":{"phase":"tool_call","delta_name":"Bash","delta_arguments":"{\"","metadata":{"tool_call_id":"call_5b8f2aa7a5c141f8840d2592","type":"function"}}}
+
+data: {"type":"chat:completion","data":{"phase":"tool_call","delta_arguments":"command\":\"echo GLMTOOL\",\"description","metadata":{"type":"function"}}}
+
+data: {"type":"chat:completion","data":{"phase":"other","usage":{"prompt_tokens":21737,"completion_tokens":67,"total_tokens":21804}}}
+
+data: {"type":"chat:completion","data":{"phase":"tool_call","delta_arguments":"\":\"Echo GLMTOOL string\"}","metadata":{"type":"function"}}}
+
+data: {"type":"sandbox:status","data":{"state":"starting"}}
+
+data: {"type":"sandbox:status","data":{"state":"ready"}}
+
+data: {"type":"chat:completion","data":{"delta_content":"GLMTOOL","phase":"tool_response","tool_name":"Bash","status":"completed"}}
+
+data: {"type":"chat:completion","data":{"delta_content":"The command executed.","phase":"answer"}}
+
+data: {"type":"chat:completion","data":{"phase":"done","done":true}}
+

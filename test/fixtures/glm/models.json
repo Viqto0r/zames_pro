@@ -1,0 +1,81 @@
+{
+  "data": [
+    {
+      "id": "x-preview-l",
+      "name": "GLM-5.3-Flash",
+      "object": "model",
+      "owned_by": "openai",
+      "info": {
+        "id": "x-preview-l",
+        "name": "GLM-5.3-Flash",
+        "params": {
+          "max_tokens": 128000,
+          "temperature": 1,
+          "top_p": 0.95
+        },
+        "meta": {
+          "capabilities": {
+            "agent_mode": true,
+            "file_qa": true,
+            "reasoning_effort": true,
+            "think": true,
+            "vision": true,
+            "web_search": true
+          }
+        }
+      }
+    },
+    {
+      "id": "glm-5.3",
+      "name": "GLM-5.3",
+      "info": {
+        "id": "glm-5.3",
+        "name": "GLM-5.3",
+        "params": {
+          "max_tokens": 128000
+        },
+        "meta": {
+          "capabilities": {
+            "think": true,
+            "vision": false,
+            "web_search": true
+          }
+        }
+      }
+    },
+    {
+      "id": "glm-5.2",
+      "name": "GLM-5.2",
+      "info": {
+        "id": "glm-5.2",
+        "name": "GLM-5.2",
+        "params": {
+          "max_tokens": 64064
+        },
+        "meta": {
+          "capabilities": {
+            "think": true,
+            "vision": false
+          }
+        }
+      }
+    },
+    {
+      "id": "glm-4.6v",
+      "name": "GLM-4.6V",
+      "info": {
+        "id": "glm-4.6v",
+        "name": "GLM-4.6V",
+        "params": {
+          "max_tokens": 16000
+        },
+        "meta": {
+          "capabilities": {
+            "think": true,
+            "vision": true
+          }
+        }
+      }
+    }
+  ]
+}

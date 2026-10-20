@@ -1,0 +1,35 @@
+{
+  "id": "0e651f21-d9a3-4120-b700-98f423da8af7",
+  "title": "Exact Reply: PONG",
+  "chat": {
+    "id": "0e651f21-d9a3-4120-b700-98f423da8af7",
+    "models": [
+      "x-preview-l"
+    ],
+    "history": {
+      "messages": {
+        "0f2402f7-6ed2-440e-8191-85e7009f34fd": {
+          "id": "0f2402f7-6ed2-440e-8191-85e7009f34fd",
+          "parentId": "f7ff558a-c8e3-481f-85dd-84499b76002a",
+          "childrenIds": [],
+          "role": "assistant",
+          "timestamp": 1792522303
+        },
+        "f7ff558a-c8e3-481f-85dd-84499b76002a": {
+          "id": "f7ff558a-c8e3-481f-85dd-84499b76002a",
+          "parentId": null,
+          "childrenIds": [
+            "0f2402f7-6ed2-440e-8191-85e7009f34fd"
+          ],
+          "role": "user",
+          "timestamp": 1792522297,
+          "content": "Reply with exactly: PONG",
+          "models": [
+            "x-preview-l"
+          ]
+        }
+      },
+      "currentId": "0f2402f7-6ed2-440e-8191-85e7009f34fd"
+    }
+  }
+}

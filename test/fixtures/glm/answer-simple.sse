@@ -1,0 +1,12 @@
+data: {"type":"chat:completion","data":{"delta_content":"The user wants me to","phase":"thinking"}}
+
+data: {"type":"chat:completion","data":{"delta_content":" reply with exactly: P","phase":"thinking"}}
+
+data: {"type":"chat:completion","data":{"delta_content":"ONG","phase":"thinking"}}
+
+data: {"type":"chat:completion","data":{"phase":"other","usage":{"prompt_tokens":21683,"completion_tokens":38,"total_tokens":21721,"prompt_tokens_details":{"cached_tokens":21504}}}}
+
+data: {"type":"chat:completion","data":{"delta_content":"PONG","phase":"answer"}}
+
+data: {"type":"chat:completion","data":{"phase":"done","done":true}}
+

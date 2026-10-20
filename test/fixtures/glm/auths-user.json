@@ -1,0 +1,8 @@
+{
+  "id": "227e6a2f-7f6e-4b2a-8c71-72f112ab9c55",
+  "email": "user@example.com",
+  "name": "user",
+  "role": "user",
+  "idp": "z.ai",
+  "token_type": "Bearer"
+}

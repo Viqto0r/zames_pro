@@ -1,0 +1,20 @@
+[
+  {
+    "id": "0e651f21-d9a3-4120-b700-98f423da8af7",
+    "title": "Exact Reply: PONG",
+    "updated_at": 1792522305,
+    "created_at": 1792522301,
+    "type": "general_agent",
+    "im_context": {
+      "session_id": "web-785e8829",
+      "type": "general_agent"
+    }
+  },
+  {
+    "id": "6a9c0d8d-b61c-4ebe-878e-110604e995be",
+    "title": "New Chat",
+    "updated_at": 1792522266,
+    "created_at": 1792522266,
+    "type": "general_agent"
+  }
+]

@@ -1,0 +1,35 @@
+{
+  "stream": true,
+  "model": "x-preview-l",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Reply with exactly: PONG"
+    }
+  ],
+  "signature_prompt": "Reply with exactly: PONG",
+  "params": {},
+  "extra": {},
+  "features": {
+    "image_generation": false,
+    "web_search": false,
+    "auto_web_search": false,
+    "preview_mode": true,
+    "flags": [
+      "general_agent"
+    ],
+    "vlm_tools_enable": false,
+    "vlm_web_search_enable": false,
+    "vlm_website_mode": false,
+    "enable_thinking": true,
+    "reasoning_effort": "max"
+  },
+  "chat_id": "0e651f21-d9a3-4120-b700-98f423da8af7",
+  "id": "0f2402f7-6ed2-440e-8191-85e7009f34fd",
+  "current_user_message_id": "f7ff558a-c8e3-481f-85dd-84499b76002a",
+  "current_user_message_parent_id": null,
+  "background_tasks": {
+    "title_generation": true,
+    "tags_generation": true
+  }
+}
