@@ -104,7 +104,14 @@ export async function inlineAtRefs(
     let body = raw
     let note = ''
     if (body.length > AT_REF_FILE_CAP) {
-      body = body.slice(0, AT_REF_FILE_CAP)
+      let cut = AT_REF_FILE_CAP
+      // Never end the inlined block on a lone HIGH surrogate: the cut is in
+      // UTF-16 units, so an emoji / astral CJK char on the boundary would
+      // reach the model as a broken code point (same rule as
+      // truncateToolResult / capReport / cutHookText).
+      const last = body.charCodeAt(cut - 1)
+      if (last >= 0xd800 && last <= 0xdbff) cut--
+      body = body.slice(0, cut)
       note = NL + NL + '(truncated at ' + AT_REF_FILE_CAP + ' chars)'
     }
     total += body.length
