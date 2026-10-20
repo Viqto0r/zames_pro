@@ -3469,3 +3469,18 @@ offset, `moreCount`), `completeSlashCommand` (один матч, общий пр
 
 **Гейты:** `npm test`, `typecheck`, `lint`, `format:check`, `build` —
 зелёные (код не менялся).
+
+---
+
+### Такт 110 (2026-10-20) — чисто
+
+**Цель:** TUI/ввод — история и обратный поиск (`src/tui/edit.ts`:
+`historyUp/Down`, `searchStart/Refresh/Next/Accept/Cancel`, `recordHistory`).
+
+Проверено запуском: навигация по истории с восстановлением черновика,
+редактирование выбранной записи, повторный Up/Down, Ctrl+R с запросом,
+поведение `searchNext` при отсутствии более раннего совпадения, `searchAccept`.
+Поведение соответствует контракту Ink-редактора; дефекта не найдено.
+
+**Гейты:** `npm test` 1319 тестов (1309 pass, 0 fail), `typecheck`,
+`lint`, `format:check`, `build` — зелёные (код не менялся).
