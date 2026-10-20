@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.80.0] - 2026-10-20
+
+### Fixed
+
+- **commands:** keep an unsupplied  position as written in a custom command
+- **subagent:** count a subagent run only once it actually starts
+- **attach:** do not cut an inlined @file inside a surrogate pair
+- **checkpoint:** a bare out-of-range rewind index no longer matches a stamp prefix
+- **git:** split a space-separated paths argument in GitAdd
+- **mcp:** keep an MCP tool result inside its size cap
+- **hooks:** never cut a hook denial or notice inside a surrogate pair
+- **sessions:** escape a literal underscore in the session file name
+
 ## [2.79.0] - 2026-10-19
 
 ### Fixed
