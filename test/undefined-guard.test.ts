@@ -6,9 +6,10 @@ import os from 'os'
 import { createTools } from '../src/tools.ts'
 import { createExtraTools } from '../src/extraTools.ts'
 import type { ToolDef } from '../src/types.ts'
+import { makeTmpDir } from './tmp-dir.ts'
 
-function tmpDir(): Promise<string> {
-  return fs.mkdtemp(path.join(os.tmpdir(), 'zames-undef-'))
+function tmpDir(t: { after: (fn: () => unknown) => unknown }): Promise<string> {
+  return makeTmpDir(t, 'zames-undef-')
 }
 
 function tool(tools: ToolDef[], name: string): ToolDef {
@@ -26,8 +27,8 @@ async function noUndefinedFile(dir: string): Promise<boolean> {
 // literally named "undefined" in the working directory. That was the real
 // bug: String(undefined) === "undefined".
 
-test('Write without path does not create file "undefined"', async () => {
-  const dir = await tmpDir()
+test('Write without path does not create file "undefined"', async (t) => {
+  const dir = await tmpDir(t)
   const tools = createTools(dir, {})
   await assert.rejects(async () =>
     tool(tools, 'Write').fn({ content: 'x' } as never),
@@ -36,8 +37,8 @@ test('Write without path does not create file "undefined"', async () => {
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Write with path=null does not create file "undefined"', async () => {
-  const dir = await tmpDir()
+test('Write with path=null does not create file "undefined"', async (t) => {
+  const dir = await tmpDir(t)
   const tools = createTools(dir, {})
   await assert.rejects(async () =>
     tool(tools, 'Write').fn({ path: null, content: 'x' } as never),
@@ -46,8 +47,8 @@ test('Write with path=null does not create file "undefined"', async () => {
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Write with path="undefined" is rejected', async () => {
-  const dir = await tmpDir()
+test('Write with path="undefined" is rejected', async (t) => {
+  const dir = await tmpDir(t)
   const tools = createTools(dir, {})
   await assert.rejects(async () =>
     tool(tools, 'Write').fn({ path: 'undefined', content: 'x' } as never),
@@ -55,15 +56,15 @@ test('Write with path="undefined" is rejected', async () => {
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Read without path is rejected', async () => {
-  const dir = await tmpDir()
+test('Read without path is rejected', async (t) => {
+  const dir = await tmpDir(t)
   const tools = createTools(dir, {})
   await assert.rejects(async () => tool(tools, 'Read').fn({} as never))
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Edit without path is rejected', async () => {
-  const dir = await tmpDir()
+test('Edit without path is rejected', async (t) => {
+  const dir = await tmpDir(t)
   const tools = createTools(dir, {})
   await assert.rejects(async () =>
     tool(tools, 'Edit').fn({ old_string: 'a', new_string: 'b' } as never),
@@ -71,22 +72,22 @@ test('Edit without path is rejected', async () => {
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Bash without command is rejected', async () => {
-  const dir = await tmpDir()
+test('Bash without command is rejected', async (t) => {
+  const dir = await tmpDir(t)
   const tools = createTools(dir, {})
   await assert.rejects(async () => tool(tools, 'Bash').fn({} as never))
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Glob without pattern is rejected', async () => {
-  const dir = await tmpDir()
+test('Glob without pattern is rejected', async (t) => {
+  const dir = await tmpDir(t)
   const tools = createTools(dir, {})
   await assert.rejects(async () => tool(tools, 'Glob').fn({} as never))
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('MultiEdit without path does not create file "undefined"', async () => {
-  const dir = await tmpDir()
+test('MultiEdit without path does not create file "undefined"', async (t) => {
+  const dir = await tmpDir(t)
   const tools = createExtraTools(dir, {})
   await assert.rejects(async () =>
     tool(tools, 'MultiEdit').fn({
@@ -97,8 +98,8 @@ test('MultiEdit without path does not create file "undefined"', async () => {
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('ApplyPatch without patch is rejected', async () => {
-  const dir = await tmpDir()
+test('ApplyPatch without patch is rejected', async (t) => {
+  const dir = await tmpDir(t)
   const tools = createExtraTools(dir, {})
   await assert.rejects(async () => tool(tools, 'ApplyPatch').fn({} as never))
   assert.ok(await noUndefinedFile(dir))

@@ -4,6 +4,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
 import { applyUpdateHunk, createExtraTools } from '../src/extraTools.ts'
+import { makeTmpDir } from './tmp-dir.ts'
 
 const NL = String.fromCharCode(10)
 
@@ -42,8 +43,8 @@ test('applyUpdateHunk honours the @@ header line number for repeated context', (
 })
 
 // End-to-end: ApplyPatch must apply a realistic multi-hunk update.
-test('ApplyPatch applies a multi-hunk update to one file', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-aph-'))
+test('ApplyPatch applies a multi-hunk update to one file', async (t) => {
+  const dir = await makeTmpDir(t, 'zames-aph-')
   await fs.writeFile(
     path.join(dir, 'f.txt'),
     ['x', 'a', 'b', 'x', 'a', 'b', 'z'].join(NL),

@@ -10,6 +10,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { makeTmpDir } from './tmp-dir.ts'
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SHIPPED = [
@@ -45,9 +46,9 @@ test('the shipped directory sits next to dist in the installed layout', async ()
   assert.equal(st.isDirectory(), true)
 })
 
-test('a project skill of the same name overrides the shipped copy', async () => {
+test('a project skill of the same name overrides the shipped copy', async (t) => {
   const { loadSkills } = await import('../src/context.ts')
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-skill-'))
+  const root = await makeTmpDir(t, 'zames-skill-')
   try {
     const dir = path.join(root, '.zames', 'skills', 'brainstorming')
     await fs.mkdir(dir, { recursive: true })

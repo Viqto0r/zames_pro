@@ -16,11 +16,12 @@ import {
 } from '../src/extraTools.ts'
 import { createTools } from '../src/tools.ts'
 import type { ToolDef } from '../src/types.ts'
+import { makeTmpDir } from './tmp-dir.ts'
 
 const NL = String.fromCharCode(10)
 
-function tmpDir(): Promise<string> {
-  return fs.mkdtemp(path.join(os.tmpdir(), 'zames-extra-'))
+function tmpDir(t: { after: (fn: () => unknown) => unknown }): Promise<string> {
+  return makeTmpDir(t, 'zames-extra-')
 }
 
 function tool(tools: ToolDef[], name: string): ToolDef {
@@ -31,8 +32,8 @@ function tool(tools: ToolDef[], name: string): ToolDef {
 
 // ---------- LS ----------
 
-test('LS перечисляет файлы и директории, помечая папки', async () => {
-  const dir = await tmpDir()
+test('LS перечисляет файлы и директории, помечая папки', async (t) => {
+  const dir = await tmpDir(t)
   await fs.writeFile(path.join(dir, 'a.txt'), 'hello', 'utf-8')
   await fs.mkdir(path.join(dir, 'sub'))
   const tools = createExtraTools(dir, {})
@@ -42,8 +43,8 @@ test('LS перечисляет файлы и директории, помеча
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('LS пропускает ignore-имена', async () => {
-  const dir = await tmpDir()
+test('LS пропускает ignore-имена', async (t) => {
+  const dir = await tmpDir(t)
   await fs.writeFile(path.join(dir, 'keep.txt'), 'x', 'utf-8')
   await fs.writeFile(path.join(dir, 'skip.log'), 'x', 'utf-8')
   const tools = createExtraTools(dir, {})
@@ -53,8 +54,8 @@ test('LS пропускает ignore-имена', async () => {
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('LS не выходит за sandbox', async () => {
-  const dir = await tmpDir()
+test('LS не выходит за sandbox', async (t) => {
+  const dir = await tmpDir(t)
   const tools = createExtraTools(dir, {})
   await assert.rejects(async () => tool(tools, 'LS').fn({ path: '../../..' }))
   await fs.rm(dir, { recursive: true, force: true })
@@ -62,8 +63,8 @@ test('LS не выходит за sandbox', async () => {
 
 // ---------- MultiEdit ----------
 
-test('MultiEdit применяет несколько правок последовательно', async () => {
-  const dir = await tmpDir()
+test('MultiEdit применяет несколько правок последовательно', async (t) => {
+  const dir = await tmpDir(t)
   await fs.writeFile(path.join(dir, 'a.txt'), 'one two three', 'utf-8')
   const tools = createExtraTools(dir, {})
   await tool(tools, 'MultiEdit').fn({
@@ -77,8 +78,8 @@ test('MultiEdit применяет несколько правок послед�
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('MultiEdit атомарен: при ошибке файл не меняется', async () => {
-  const dir = await tmpDir()
+test('MultiEdit атомарен: при ошибке файл не меняется', async (t) => {
+  const dir = await tmpDir(t)
   const orig = 'alpha beta'
   await fs.writeFile(path.join(dir, 'a.txt'), orig, 'utf-8')
   const tools = createExtraTools(dir, {})
@@ -95,8 +96,8 @@ test('MultiEdit атомарен: при ошибке файл не меняет
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('MultiEdit: replace_all заменяет все вхождения', async () => {
-  const dir = await tmpDir()
+test('MultiEdit: replace_all заменяет все вхождения', async (t) => {
+  const dir = await tmpDir(t)
   await fs.writeFile(path.join(dir, 'a.txt'), 'x x x', 'utf-8')
   const tools = createExtraTools(dir, {})
   await tool(tools, 'MultiEdit').fn({
@@ -109,9 +110,9 @@ test('MultiEdit: replace_all заменяет все вхождения', async 
 
 // ---------- TodoWrite ----------
 
-test('TodoWrite сохраняет и рендерит список', async () => {
+test('TodoWrite сохраняет и рендерит список', async (t) => {
   resetTodos()
-  const dir = await tmpDir()
+  const dir = await tmpDir(t)
   const tools = createExtraTools(dir, {})
   const out = String(
     await tool(tools, 'TodoWrite').fn({
@@ -129,9 +130,9 @@ test('TodoWrite сохраняет и рендерит список', async () =
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('TodoWrite заменяет список целиком', async () => {
+test('TodoWrite заменяет список целиком', async (t) => {
   resetTodos()
-  const dir = await tmpDir()
+  const dir = await tmpDir(t)
   const tools = createExtraTools(dir, {})
   await tool(tools, 'TodoWrite').fn({
     todos: [{ content: 'a', status: 'pending' }],
@@ -220,8 +221,8 @@ test('applyUpdateHunk сообщает, если контекст не найд�
 
 // ---------- ApplyPatch end-to-end ----------
 
-test('ApplyPatch создаёт, правит и удаляет файлы', async () => {
-  const dir = await tmpDir()
+test('ApplyPatch создаёт, правит и удаляет файлы', async (t) => {
+  const dir = await tmpDir(t)
   await fs.writeFile(
     path.join(dir, 'old.txt'),
     'keep' + NL + 'old' + NL + 'tail',
@@ -254,8 +255,8 @@ test('ApplyPatch создаёт, правит и удаляет файлы', asy
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('ApplyPatch не пишет ни одного файла при ошибке в патче', async () => {
-  const dir = await tmpDir()
+test('ApplyPatch не пишет ни одного файла при ошибке в патче', async (t) => {
+  const dir = await tmpDir(t)
   await fs.writeFile(path.join(dir, 'a.txt'), 'x', 'utf-8')
   const tools = createExtraTools(dir, {})
   const patch = [
@@ -285,8 +286,8 @@ test('createTools включает новые инструменты', () => {
 
 // ---------- Read: numbered / clipping / empty ----------
 
-test('Read по умолчанию возвращает сырой контент (контракт Edit)', async () => {
-  const dir = await tmpDir()
+test('Read по умолчанию возвращает сырой контент (контракт Edit)', async (t) => {
+  const dir = await tmpDir(t)
   const body = ['alpha', 'beta', 'gamma'].join(NL)
   await fs.writeFile(path.join(dir, 'a.txt'), body, 'utf-8')
   const tools = createTools(dir, {})
@@ -295,8 +296,8 @@ test('Read по умолчанию возвращает сырой контен�
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Read numbered=true добавляет номера строк cat -n', async () => {
-  const dir = await tmpDir()
+test('Read numbered=true добавляет номера строк cat -n', async (t) => {
+  const dir = await tmpDir(t)
   await fs.writeFile(path.join(dir, 'a.txt'), ['x', 'y'].join(NL), 'utf-8')
   const tools = createTools(dir, {})
   const out = String(
@@ -308,8 +309,8 @@ test('Read numbered=true добавляет номера строк cat -n', asy
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Read numbered с offset нумерует от реальной строки', async () => {
-  const dir = await tmpDir()
+test('Read numbered с offset нумерует от реальной строки', async (t) => {
+  const dir = await tmpDir(t)
   await fs.writeFile(
     path.join(dir, 'a.txt'),
     ['l0', 'l1', 'l2', 'l3'].join(NL),
@@ -328,8 +329,8 @@ test('Read numbered с offset нумерует от реальной строк�
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Read обрезает очень длинные строки', async () => {
-  const dir = await tmpDir()
+test('Read обрезает очень длинные строки', async (t) => {
+  const dir = await tmpDir(t)
   const long = 'a'.repeat(5000)
   await fs.writeFile(path.join(dir, 'big.txt'), long, 'utf-8')
   const tools = createTools(dir, {})
@@ -339,8 +340,8 @@ test('Read обрезает очень длинные строки', async () =>
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Read пустого файла возвращает пояснение, не пустую строку', async () => {
-  const dir = await tmpDir()
+test('Read пустого файла возвращает пояснение, не пустую строку', async (t) => {
+  const dir = await tmpDir(t)
   await fs.writeFile(path.join(dir, 'empty.txt'), '', 'utf-8')
   const tools = createTools(dir, {})
   const out = String(await tool(tools, 'Read').fn({ path: 'empty.txt' }))
@@ -351,8 +352,8 @@ test('Read пустого файла возвращает пояснение, н
 
 // Numbered output must NOT be fed back into Edit as-is; verify the raw
 // (non-numbered) output is what Edit expects.
-test('Read сырой вывод подходит для Edit old_string', async () => {
-  const dir = await tmpDir()
+test('Read сырой вывод подходит для Edit old_string', async (t) => {
+  const dir = await tmpDir(t)
   await fs.writeFile(path.join(dir, 'a.txt'), 'foo bar baz', 'utf-8')
   const tools = createTools(dir, {})
   const raw = String(await tool(tools, 'Read').fn({ path: 'a.txt' }))
@@ -371,9 +372,9 @@ test('Read сырой вывод подходит для Edit old_string', async
 
 // ---------- TodoStore (I2: per-session, persisted checklist) ----------
 
-test('TodoStore: изменения идут в переданный store, а не в модульный', async () => {
+test('TodoStore: изменения идут в переданный store, а не в модульный', async (t) => {
   resetTodos()
-  const dir = await tmpDir()
+  const dir = await tmpDir(t)
   const store = createTodoStore()
   const tools = createExtraTools(dir, { todos: store })
   await tool(tools, 'TodoWrite').fn({
@@ -385,8 +386,8 @@ test('TodoStore: изменения идут в переданный store, а �
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('TodoWrite вызывает onChange, чтобы список можно было сохранить', async () => {
-  const dir = await tmpDir()
+test('TodoWrite вызывает onChange, чтобы список можно было сохранить', async (t) => {
+  const dir = await tmpDir(t)
   let saved: Array<{ content: string; status: string }> | null = null
   const store = createTodoStore((items) => {
     saved = items
@@ -400,8 +401,8 @@ test('TodoWrite вызывает onChange, чтобы список можно б
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('setTodos нормализует и заменяет список целиком', async () => {
-  const dir = await tmpDir()
+test('setTodos нормализует и заменяет список целиком', async (t) => {
+  const dir = await tmpDir(t)
   const store = createTodoStore()
   const tools = createExtraTools(dir, { todos: store })
   await tool(tools, 'TodoWrite').fn({

@@ -11,6 +11,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { summarizeTranscript } from '../src/commands.ts'
 import { Transcript } from '../src/transcript.ts'
+import { makeTmpDirSync } from './tmp-dir.ts'
 
 const own = (o: object, k: string): boolean =>
   Object.prototype.hasOwnProperty.call(o, k)
@@ -68,16 +69,15 @@ test('a tool named constructor gets a numeric count', () => {
 // went into the file name as-is: `path.join` then nested a subdirectory that
 // does not exist and the stream failed with ENOENT — the run had NO
 // transcript at all.
-test('a session name with a path separator does not break the transcript file', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-trname-'))
-  const t = new Transcript({ dir, enabled: true, sessionName: 'a/b:c' })
-  t.log('x')
-  await t.close()
-  assert.ok(t.file, 'a file path must be set')
-  assert.equal(path.dirname(t.file as string), dir)
-  assert.ok(fs.existsSync(t.file as string), 'the transcript file must exist')
+test('a session name with a path separator does not break the transcript file', async (t) => {
+  const dir = makeTmpDirSync(t, 'zames-trname-')
+  const tr = new Transcript({ dir, enabled: true, sessionName: 'a/b:c' })
+  tr.log('x')
+  await tr.close()
+  assert.ok(tr.file, 'a file path must be set')
+  assert.equal(path.dirname(tr.file as string), dir)
+  assert.ok(fs.existsSync(tr.file as string), 'the transcript file must exist')
   assert.ok(
-    (fs.readFileSync(t.file as string, 'utf-8') || '').includes('"type":"x"'),
+    (fs.readFileSync(tr.file as string, 'utf-8') || '').includes('"type":"x"'),
   )
-  fs.rmSync(dir, { recursive: true, force: true })
 })

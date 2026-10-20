@@ -5,6 +5,7 @@ import path from 'path'
 import os from 'os'
 import { runAgentLoop } from '../src/agent-loop.ts'
 import type { ToolDef, BrowserLike } from '../src/types.ts'
+import { makeTmpDir } from './tmp-dir.ts'
 
 function makeBrowser(script: string[]): BrowserLike {
   let i = 0
@@ -37,8 +38,8 @@ function jsonCall(tool: string, args: Record<string, unknown>): string {
   return JSON.stringify({ tool, args })
 }
 
-test('onSendStart is wired to onThinking and cleared after the loop', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-spinner'))
+test('onSendStart is wired to onThinking and cleared after the loop', async (t) => {
+  const dir = await makeTmpDir(t, 'zames-spinner-')
   const tools: ToolDef[] = [
     {
       name: 'respond',
@@ -64,8 +65,8 @@ test('onSendStart is wired to onThinking and cleared after the loop', async () =
   assert.ok(thinkingCalls >= 1, 'onThinking must have fired at least once')
 })
 
-test('onSendPause is forwarded to the UI callback', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-spinner'))
+test('onSendPause is forwarded to the UI callback', async (t) => {
+  const dir = await makeTmpDir(t, 'zames-spinner-')
   const tools: ToolDef[] = [
     {
       name: 'respond',

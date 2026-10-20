@@ -5,6 +5,7 @@ import path from 'path'
 import os from 'os'
 import { createTools } from '../src/tools.ts'
 import type { ToolDef } from '../src/types.ts'
+import { makeTmpDir } from './tmp-dir.ts'
 
 // Read's `offset`/`limit` are 1-BASED, like every other line-numbered tool
 // (sed, awk, `git blame -L`, the `numbered=true` output this very tool prints).
@@ -23,15 +24,17 @@ function tool(tools: ToolDef[], name: string): ToolDef {
   return t
 }
 
-async function setup(): Promise<{ dir: string; tools: ToolDef[] }> {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-offset-'))
+async function setup(t: {
+  after: (fn: () => unknown) => unknown
+}): Promise<{ dir: string; tools: ToolDef[] }> {
+  const dir = await makeTmpDir(t, 'zames-offset-')
   const lines = Array.from({ length: 10 }, (_, i) => 'line' + (i + 1))
   await fs.writeFile(path.join(dir, 'f.txt'), lines.join(NL), 'utf-8')
   return { dir, tools: createTools(dir) }
 }
 
-test('Read: offset is 1-based (offset 5 starts at line 5)', async () => {
-  const { dir, tools } = await setup()
+test('Read: offset is 1-based (offset 5 starts at line 5)', async (t) => {
+  const { dir, tools } = await setup(t)
   const out = String(
     await tool(tools, 'Read').fn({ path: 'f.txt', offset: 5, limit: 2 }),
   )
@@ -39,8 +42,8 @@ test('Read: offset is 1-based (offset 5 starts at line 5)', async () => {
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Read: offset 1 returns the first line', async () => {
-  const { dir, tools } = await setup()
+test('Read: offset 1 returns the first line', async (t) => {
+  const { dir, tools } = await setup(t)
   const out = String(
     await tool(tools, 'Read').fn({ path: 'f.txt', offset: 1, limit: 1 }),
   )
@@ -48,15 +51,15 @@ test('Read: offset 1 returns the first line', async () => {
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Read: limit alone reads the first lines', async () => {
-  const { dir, tools } = await setup()
+test('Read: limit alone reads the first lines', async (t) => {
+  const { dir, tools } = await setup(t)
   const out = String(await tool(tools, 'Read').fn({ path: 'f.txt', limit: 2 }))
   assert.equal(out, ['line1', 'line2'].join(NL))
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Read: numbered output numbers the REAL lines', async () => {
-  const { dir, tools } = await setup()
+test('Read: numbered output numbers the REAL lines', async (t) => {
+  const { dir, tools } = await setup(t)
   const out = String(
     await tool(tools, 'Read').fn({
       path: 'f.txt',
@@ -69,8 +72,8 @@ test('Read: numbered output numbers the REAL lines', async () => {
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Read: offset past the end returns an empty string', async () => {
-  const { dir, tools } = await setup()
+test('Read: offset past the end returns an empty string', async (t) => {
+  const { dir, tools } = await setup(t)
   const out = String(
     await tool(tools, 'Read').fn({ path: 'f.txt', offset: 100, limit: 5 }),
   )

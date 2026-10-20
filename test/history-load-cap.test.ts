@@ -9,11 +9,13 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { makeTmpDir } from './tmp-dir.ts'
 
 async function withFreshSessions(
+  t: { after: (fn: () => unknown) => unknown },
   fn: (mod: typeof import('../src/sessions.ts')) => Promise<void>,
 ): Promise<void> {
-  const home = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-hist-'))
+  const home = await makeTmpDir(t, 'zames-hist-')
   const prev = process.env.HOME
   process.env.HOME = home
   try {
@@ -23,12 +25,11 @@ async function withFreshSessions(
     await fn(mod)
   } finally {
     process.env.HOME = prev
-    await fs.rm(home, { recursive: true, force: true })
   }
 }
 
-test('loadHistory caps an oversized history file', async () => {
-  await withFreshSessions(async (mod) => {
+test('loadHistory caps an oversized history file', async (t) => {
+  await withFreshSessions(t, async (mod) => {
     const dir = path.join(process.env.HOME as string, '.zames')
     await fs.mkdir(dir, { recursive: true })
     const big = Array.from({ length: 5000 }, (_, i) => 'cmd' + i)
@@ -41,8 +42,8 @@ test('loadHistory caps an oversized history file', async () => {
   })
 })
 
-test('loadHistory still drops non-string entries', async () => {
-  await withFreshSessions(async (mod) => {
+test('loadHistory still drops non-string entries', async (t) => {
+  await withFreshSessions(t, async (mod) => {
     const dir = path.join(process.env.HOME as string, '.zames')
     await fs.mkdir(dir, { recursive: true })
     await fs.writeFile(

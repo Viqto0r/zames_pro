@@ -4,13 +4,14 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { listTsFiles } from '../src/self-review.ts'
+import { makeTmpDir } from './tmp-dir.ts'
 
 // Regression: self-review used to walk only the TOP level of src/ and take
 // files ending in .ts, so src/i18n/*.ts and src/input/*.ts never entered a
 // snapshot and /self-diff /self-apply silently ignored them (N4).
 
-test('listTsFiles recurses into subdirectories', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-sr-'))
+test('listTsFiles recurses into subdirectories', async (t) => {
+  const dir = await makeTmpDir(t, 'zames-sr-')
   await fs.mkdir(path.join(dir, 'i18n'), { recursive: true })
   await fs.mkdir(path.join(dir, 'input'), { recursive: true })
   await fs.writeFile(path.join(dir, 'top.ts'), '1', 'utf-8')
@@ -23,8 +24,8 @@ test('listTsFiles recurses into subdirectories', async () => {
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('listTsFiles skips the read-only _context folder', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-sr2-'))
+test('listTsFiles skips the read-only _context folder', async (t) => {
+  const dir = await makeTmpDir(t, 'zames-sr2-')
   await fs.mkdir(path.join(dir, '_context', 'scripts'), { recursive: true })
   await fs.writeFile(path.join(dir, 'a.ts'), '1', 'utf-8')
   await fs.writeFile(

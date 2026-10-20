@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import { makeTmpDirSync } from './tmp-dir.ts'
 
 // config.ts fixes the paths (HOME_CONFIG/PROJECT_CONFIG) at import time,
 // so to test the project config we re-read the module dynamically with a
@@ -11,10 +12,10 @@ async function freshConfig(): Promise<typeof import('../src/config.ts')> {
   return import('../src/config.ts?t=' + Date.now())
 }
 
-test('loadConfig без файлов возвращает дефолты', async () => {
+test('loadConfig без файлов возвращает дефолты', async (t) => {
   // Run in a clean temp directory: the project's own .zamesrc.json (if any)
   // must not leak into the "no config files" case.
-  const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-proj-'))
+  const proj = makeTmpDirSync(t, 'zames-proj-')
   const origCwd = process.cwd()
   process.chdir(proj)
   try {
@@ -31,8 +32,8 @@ test('loadConfig без файлов возвращает дефолты', async
   }
 })
 
-test('локальный .zamesrc.json переопределяет дефолты', async () => {
-  const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-proj-'))
+test('локальный .zamesrc.json переопределяет дефолты', async (t) => {
+  const proj = makeTmpDirSync(t, 'zames-proj-')
   fs.writeFileSync(
     path.join(proj, '.zamesrc.json'),
     JSON.stringify({ maxIterations: 7, browser: { minSendIntervalMs: 999 } }),
@@ -50,8 +51,8 @@ test('локальный .zamesrc.json переопределяет дефолт
   }
 })
 
-test('прототип-загрязнение через .zamesrc.json не проходит', async () => {
-  const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-proj-'))
+test('прототип-загрязнение через .zamesrc.json не проходит', async (t) => {
+  const proj = makeTmpDirSync(t, 'zames-proj-')
   fs.writeFileSync(
     path.join(proj, '.zamesrc.json'),
     JSON.stringify({ __proto__: { polluted: 'yes' }, constructor: { x: 1 } }),
@@ -72,8 +73,8 @@ test('прототип-загрязнение через .zamesrc.json не пр
   }
 })
 
-test('битый конфиг не роняет loadConfig', async () => {
-  const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-proj-'))
+test('битый конфиг не роняет loadConfig', async (t) => {
+  const proj = makeTmpDirSync(t, 'zames-proj-')
   fs.writeFileSync(path.join(proj, '.zamesrc.json'), '{ not valid json')
   const origCwd = process.cwd()
   process.chdir(proj)

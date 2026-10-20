@@ -1,12 +1,20 @@
-import { test } from 'node:test'
+import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import { makeTmpDirSync } from './tmp-dir.ts'
 
 // sessions/undo/config write to ~/.zames. We swap HOME to a temp folder
 // BEFORE importing the modules, so the tests don't touch the user's real data.
-const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-home-'))
+const fakeHome = makeTmpDirSync(
+  {
+    on: (e: string, fn: () => unknown) => {
+      if (e === 'end') after(fn)
+    },
+  },
+  'zames-home-',
+)
 process.env.HOME = fakeHome
 process.env.USERPROFILE = fakeHome
 

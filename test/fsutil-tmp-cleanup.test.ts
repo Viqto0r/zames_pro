@@ -10,9 +10,10 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { writeJsonAtomic } from '../src/fsutil.ts'
+import { makeTmpDir } from './tmp-dir.ts'
 
-test('a failed atomic write leaves no temp file behind', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-fsu-'))
+test('a failed atomic write leaves no temp file behind', async (t) => {
+  const dir = await makeTmpDir(t, 'zames-fsu-')
   const target = path.join(dir, 'c.json')
   // A directory at the target makes rename() fail on POSIX.
   await fs.mkdir(target)
@@ -27,9 +28,9 @@ test('a failed atomic write leaves no temp file behind', async () => {
 // to `<file>.tmp-<pid>` and renaming over the LINK replaces the symlink with a
 // regular file: the real target keeps the OLD content and the next launch reads
 // the stale copy the operator never edited.
-test('writeJsonAtomic writes THROUGH a symlink instead of replacing it', async () => {
+test('writeJsonAtomic writes THROUGH a symlink instead of replacing it', async (t) => {
   if (process.platform === 'win32') return
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-fsl-'))
+  const dir = await makeTmpDir(t, 'zames-fsl-')
   const real = path.join(dir, 'real.json')
   const link = path.join(dir, 'link.json')
   await fs.writeFile(real, 'OLD')

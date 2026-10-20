@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import { makeTmpDirSync } from './tmp-dir.ts'
 
 async function freshConfig(): Promise<typeof import('../src/config.ts')> {
   return import('../src/config.ts?t=' + Date.now())
@@ -45,8 +46,8 @@ test('validateConfigValue приводит типы и отвергает мус
   assert.throws(() => validateConfigValue(enF, 'de'))
 })
 
-test('writeConfigValue/resetConfigValue пишут в проектный конфиг', async () => {
-  const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-cfg-'))
+test('writeConfigValue/resetConfigValue пишут в проектный конфиг', async (t) => {
+  const proj = makeTmpDirSync(t, 'zames-cfg-')
   const origCwd = process.cwd()
   process.chdir(proj)
   try {

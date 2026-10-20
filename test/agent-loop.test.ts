@@ -5,6 +5,7 @@ import path from 'path'
 import os from 'os'
 import { runAgentLoop } from '../src/agent-loop.ts'
 import type { ToolDef, BrowserLike } from '../src/types.ts'
+import { makeTmpDir } from './tmp-dir.ts'
 
 const Q = String.fromCharCode(34)
 
@@ -46,8 +47,8 @@ function jsonCall(tool: string, args: Record<string, unknown>): string {
   return JSON.stringify({ tool, args })
 }
 
-test('агент выполняет tool-call и передаёт результат модели', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-loop-'))
+test('агент выполняет tool-call и передаёт результат модели', async (t) => {
+  const dir = await makeTmpDir(t, 'zames-loop-')
   await fs.writeFile(path.join(dir, 'a.txt'), 'file-content', 'utf-8')
 
   const tools: ToolDef[] = [
@@ -81,7 +82,6 @@ test('агент выполняет tool-call и передаёт результ
   assert.equal(result, 'готово')
   // the second request to the model must contain the file read result
   assert.ok(asks[1].includes('file-content'), asks[1])
-  await fs.rm(dir, { recursive: true, force: true })
 })
 
 test('respond завершает задачу и возвращает сообщение оператору', async () => {
@@ -204,8 +204,8 @@ test('маркер прерывания не считается ответом �
   assert.equal(toolCalls, 0)
 })
 
-test('первое сообщение идёт без agent, последующие (tool-result) — с agent', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-loop-'))
+test('первое сообщение идёт без agent, последующие (tool-result) — с agent', async (t) => {
+  const dir = await makeTmpDir(t, 'zames-loop-')
   await fs.writeFile(path.join(dir, 'a.txt'), 'x', 'utf-8')
   const calls: Array<{ prompt: string; opts?: { agent?: boolean } }> = []
   let i = 0
@@ -260,8 +260,8 @@ test('первое сообщение идёт без agent, последующ�
   assert.equal(calls[1].opts?.agent, true)
 })
 
-test('N34: несколько read-only вызовов в батче идут параллельно', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-par-'))
+test('N34: несколько read-only вызовов в батче идут параллельно', async (t) => {
+  const dir = await makeTmpDir(t, 'zames-par-')
   let concurrent = 0
   let maxConcurrent = 0
   const order: string[] = []
@@ -302,11 +302,10 @@ test('N34: несколько read-only вызовов в батче идут п
   const res = await runAgentLoop({ browser, tools, task: 'x', workdir: dir })
   assert.equal(res, 'done')
   assert.equal(maxConcurrent, 2, 'read-only calls must overlap')
-  await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('N34: abort during a parallel read-only batch does not send results', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-par-abort-'))
+test('N34: abort during a parallel read-only batch does not send results', async (t) => {
+  const dir = await makeTmpDir(t, 'zames-par-abort-')
   let runs = 0
   const readTool: ToolDef = {
     name: 'Read',
@@ -368,5 +367,4 @@ test('N34: abort during a parallel read-only batch does not send results', async
   assert.ok(runs >= 1, 'the read-only tool ran')
   // Only the initial send happened; the batch results were not sent back.
   assert.equal(asks.length, 1, 'ask calls: ' + asks.length)
-  await fs.rm(dir, { recursive: true, force: true })
 })

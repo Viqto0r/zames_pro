@@ -11,9 +11,13 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { createSubagentRunner } from '../src/subagent.ts'
+import { makeTmpDir } from './tmp-dir.ts'
 
-async function mkWorkdirWithHook(command: string): Promise<string> {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-sub-'))
+async function mkWorkdirWithHook(
+  t: { after: (fn: () => unknown) => unknown },
+  command: string,
+): Promise<string> {
+  const root = await makeTmpDir(t, 'zames-sub-')
   await fs.mkdir(path.join(root, '.zames'), { recursive: true })
   await fs.writeFile(
     path.join(root, '.zames', 'hooks.json'),
@@ -22,8 +26,8 @@ async function mkWorkdirWithHook(command: string): Promise<string> {
   return root
 }
 
-test('a failing subagent keeps the SubagentStop hook output', async () => {
-  const workdir = await mkWorkdirWithHook('printf HOOK_DIAGNOSTIC')
+test('a failing subagent keeps the SubagentStop hook output', async (t) => {
+  const workdir = await mkWorkdirWithHook(t, 'printf HOOK_DIAGNOSTIC')
   const runner = createSubagentRunner({
     browser: {
       _stopped: false,

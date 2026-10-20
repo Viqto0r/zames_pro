@@ -12,6 +12,7 @@ import {
 } from '../src/tools.ts'
 import { floatingVersionWarnings, hardenPlaywrightArgs } from '../src/mcp.ts'
 import { summarizeTranscript, parseTranscript } from '../src/commands.ts'
+import { makeTmpDirSync } from './tmp-dir.ts'
 
 // ---------- Transcript jsonl mirror ----------
 
@@ -32,8 +33,8 @@ test('Transcript onLine mirrors events even when the file is disabled', () => {
   assert.equal(second.type, 'assistant_final')
 })
 
-test('Transcript without onLine still writes the file', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-tr-'))
+test('Transcript without onLine still writes the file', async (t) => {
+  const dir = makeTmpDirSync(t, 'zames-tr-')
   const tr = new Transcript({ dir, enabled: true, sessionName: 't' })
   tr.log('tool_call', { tool: 'Bash' })
   await tr.close()
@@ -44,11 +45,11 @@ test('Transcript without onLine still writes the file', async () => {
   assert.equal(entries[0].type, 'tool_call')
 })
 
-test('Transcript.close flushes synchronously before resolving', async () => {
+test('Transcript.close flushes synchronously before resolving', async (t) => {
   // N9: the one-shot/exit paths used to call end() without waiting for the
   // flush, so the last events could be lost when the process exited. close()
   // now resolves only after the data reached the file.
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-tr2-'))
+  const dir = makeTmpDirSync(t, 'zames-tr2-')
   const tr = new Transcript({ dir, enabled: true, sessionName: 't' })
   tr.log('assistant_final', { message: 'done' })
   await tr.close()
@@ -64,8 +65,8 @@ test('Transcript.close on a disabled transcript resolves without a stream', asyn
   await assert.doesNotReject(() => tr.close())
 })
 
-test('Transcript.close is idempotent', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-tr3-'))
+test('Transcript.close is idempotent', async (t) => {
+  const dir = makeTmpDirSync(t, 'zames-tr3-')
   const tr = new Transcript({ dir, enabled: true, sessionName: 't' })
   tr.log('tool_call', { tool: 'Read' })
   await tr.close()

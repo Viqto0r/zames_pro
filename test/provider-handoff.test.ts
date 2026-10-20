@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { buildHandoffText } from '../src/provider-handoff.ts'
+import { makeTmpDirSync } from './tmp-dir.ts'
 
 // Provider-switch carry-over: the summary crosses a provider boundary, so the
 // wording must tell the NEW model this is history from ANOTHER assistant, not a
@@ -42,18 +43,18 @@ test('buildHandoffText trims the summary', () => {
 // guaranteed to be byte-identical: the operator may reach the project through
 // a symlink, or the stored path may carry a trailing separator (a `/cd sub/`
 // leaves one). A lexical `!==` comparison made the summary silently vanish.
-test('readProviderHandoff matches the same directory reached differently', async () => {
+test('readProviderHandoff matches the same directory reached differently', async (t) => {
   const fs = await import('node:fs')
   const os = await import('node:os')
   const path = await import('node:path')
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-ho-home-'))
+  const home = makeTmpDirSync(t, 'zames-ho-home-')
   const prevHome = process.env.HOME
   const prevProfile = process.env.USERPROFILE
   process.env.HOME = home
   process.env.USERPROFILE = home
   const { saveProviderHandoff, readProviderHandoff, clearProviderHandoff } =
     await import('../src/provider-handoff.ts')
-  const wd = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-ho-wd-'))
+  const wd = makeTmpDirSync(t, 'zames-ho-wd-')
   try {
     saveProviderHandoff({
       provider: 'qwen',
@@ -69,12 +70,11 @@ test('readProviderHandoff matches the same directory reached differently', async
     fs.symlinkSync(wd, link)
     assert.equal(readProviderHandoff('qwen', link)?.summary, 'carried over')
     // A different directory still must NOT match.
-    const other = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-ho-other-'))
+    const other = makeTmpDirSync(t, 'zames-ho-other-')
     assert.equal(readProviderHandoff('qwen', other), null)
   } finally {
     clearProviderHandoff()
     process.env.HOME = prevHome
     process.env.USERPROFILE = prevProfile
-    fs.rmSync(home, { recursive: true, force: true })
   }
 })

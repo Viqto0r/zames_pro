@@ -7,6 +7,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { createGitTools, NO_OUTPUT_SENTINEL } from '../src/gitTools.ts'
 import type { ToolDef } from '../src/types.ts'
+import { makeTmpDir } from './tmp-dir.ts'
 
 const run = promisify(execFile)
 
@@ -16,8 +17,10 @@ function tool(tools: ToolDef[], name: string): ToolDef {
   return t
 }
 
-async function repo(): Promise<string> {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-git-'))
+async function repo(t: {
+  after: (fn: () => unknown) => unknown
+}): Promise<string> {
+  const dir = await makeTmpDir(t, 'zames-git-')
   await run('git', ['init', '-q'], { cwd: dir })
   await run('git', ['config', 'user.email', 'a@b.c'], { cwd: dir })
   await run('git', ['config', 'user.name', 't'], { cwd: dir })
@@ -30,8 +33,8 @@ async function repo(): Promise<string> {
 // `fatal: pathspec 'a.txt b.txt' did not match any files` and nothing was
 // staged. GitStatus advertised the parameters as a string, so this is the
 // documented shape, not a malformed call.
-test('GitAdd stages several space-separated paths', async () => {
-  const dir = await repo()
+test('GitAdd stages several space-separated paths', async (t) => {
+  const dir = await repo(t)
   await fs.writeFile(path.join(dir, 'a.txt'), 'a', 'utf-8')
   await fs.writeFile(path.join(dir, 'b.txt'), 'b', 'utf-8')
   const tools = createGitTools(dir)
@@ -49,8 +52,8 @@ test('GitAdd stages several space-separated paths', async () => {
 })
 
 // A single path with a SPACE in its name must still work (quoting).
-test('GitAdd stages one quoted path containing a space', async () => {
-  const dir = await repo()
+test('GitAdd stages one quoted path containing a space', async (t) => {
+  const dir = await repo(t)
   await fs.writeFile(path.join(dir, 'my file.txt'), 'a', 'utf-8')
   const tools = createGitTools(dir)
   const out = await tool(tools, 'GitAdd').fn({ paths: '"my file.txt"' })
@@ -66,8 +69,8 @@ test('GitAdd stages one quoted path containing a space', async () => {
 })
 
 // An array (some models send one despite the declared type) still works.
-test('GitAdd accepts an array of paths', async () => {
-  const dir = await repo()
+test('GitAdd accepts an array of paths', async (t) => {
+  const dir = await repo(t)
   await fs.writeFile(path.join(dir, 'a.txt'), 'a', 'utf-8')
   const tools = createGitTools(dir)
   await tool(tools, 'GitAdd').fn({ paths: ['a.txt'] })
@@ -78,8 +81,8 @@ test('GitAdd accepts an array of paths', async () => {
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('GitAdd with no paths stages everything (sentinel not mistaken for output)', async () => {
-  const dir = await repo()
+test('GitAdd with no paths stages everything (sentinel not mistaken for output)', async (t) => {
+  const dir = await repo(t)
   await fs.writeFile(path.join(dir, 'a.txt'), 'a', 'utf-8')
   const tools = createGitTools(dir)
   const out = await tool(tools, 'GitAdd').fn({})

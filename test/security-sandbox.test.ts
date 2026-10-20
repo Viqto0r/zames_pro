@@ -10,6 +10,7 @@ import { createExtraTools } from '../src/extraTools.ts'
 import { createGitTools } from '../src/gitTools.ts'
 import { assertCommandInsideRoot } from '../src/shell.ts'
 import type { ToolDef } from '../src/types.ts'
+import { makeTmpDir } from './tmp-dir.ts'
 
 // P0 regression tests: each one failed before the matching fix (a shell
 // injection, a symlink escape, or a silent $-pattern corruption in Edit).
@@ -24,16 +25,19 @@ function tool(tools: ToolDef[], name: string): ToolDef {
   return t
 }
 
-function tmpDir(prefix: string): Promise<string> {
-  return fs.mkdtemp(path.join(os.tmpdir(), prefix))
+function tmpDir(
+  t: { after: (fn: () => unknown) => unknown },
+  prefix: string,
+): Promise<string> {
+  return makeTmpDir(t, prefix)
 }
 
 async function rm(dir: string): Promise<void> {
   await fs.rm(dir, { recursive: true, force: true })
 }
 
-test('Edit writes $-patterns in new_string literally', async () => {
-  const dir = await tmpDir('zames-n1-')
+test('Edit writes $-patterns in new_string literally', async (t) => {
+  const dir = await tmpDir(t, 'zames-n1-')
   await fs.writeFile(path.join(dir, 'a.txt'), 'abc', 'utf-8')
   const tools = createTools(dir, {})
   await tool(tools, 'Edit').fn({
@@ -43,11 +47,10 @@ test('Edit writes $-patterns in new_string literally', async () => {
   })
   const data = await fs.readFile(path.join(dir, 'a.txt'), 'utf-8')
   assert.equal(data, 'a' + SPECIAL + 'c')
-  await rm(dir)
 })
 
-test('MultiEdit writes $-patterns in new_string literally', async () => {
-  const dir = await tmpDir('zames-n1m-')
+test('MultiEdit writes $-patterns in new_string literally', async (t) => {
+  const dir = await tmpDir(t, 'zames-n1m-')
   await fs.writeFile(path.join(dir, 'a.txt'), 'abc', 'utf-8')
   const tools = createExtraTools(dir, {})
   await tool(tools, 'MultiEdit').fn({
@@ -56,18 +59,16 @@ test('MultiEdit writes $-patterns in new_string literally', async () => {
   })
   const data = await fs.readFile(path.join(dir, 'a.txt'), 'utf-8')
   assert.equal(data, 'a' + SPECIAL + 'c')
-  await rm(dir)
 })
 
-test('Grep does not execute a $(...) pattern as a command', async () => {
+test('Grep does not execute a $(...) pattern as a command', async (t) => {
   if (process.platform === 'win32') return
-  const dir = await tmpDir('zames-n2-')
+  const dir = await tmpDir(t, 'zames-n2-')
   await fs.writeFile(path.join(dir, 'a.txt'), 'hello', 'utf-8')
   await fs.mkdir(path.join(dir, 'tmp'), { recursive: true })
   const tools = createTools(dir, {})
   await tool(tools, 'Grep').fn({ pattern: 'x' + D + '(touch tmp/PWNED)y' })
   assert.equal(fsSync.existsSync(path.join(dir, 'tmp', 'PWNED')), false)
-  await rm(dir)
 })
 
 test('assertCommandInsideRoot blocks cd ~ / $HOME / subshell / eval', () => {
@@ -91,10 +92,10 @@ test('assertCommandInsideRoot blocks cd ~ / $HOME / subshell / eval', () => {
   )
 })
 
-test('file tools reject a symlink pointing outside the root', async () => {
+test('file tools reject a symlink pointing outside the root', async (t) => {
   if (process.platform === 'win32') return
-  const dir = await tmpDir('zames-n19-')
-  const outside = await tmpDir('zames-n19-out-')
+  const dir = await tmpDir(t, 'zames-n19-')
+  const outside = await tmpDir(t, 'zames-n19-out-')
   const secret = path.join(outside, 'secret.txt')
   await fs.writeFile(secret, 'TOP SECRET', 'utf-8')
   fsSync.symlinkSync(secret, path.join(dir, 'link'))
@@ -111,12 +112,10 @@ test('file tools reject a symlink pointing outside the root', async () => {
     /outside the working directory/,
   )
   assert.equal(fsSync.existsSync(path.join(outside, 'evil.txt')), false)
-  await rm(dir)
-  await rm(outside)
 })
 
-test('GitShow rejects a ref that could inject shell/options', async () => {
-  const dir = await tmpDir('zames-n17-')
+test('GitShow rejects a ref that could inject shell/options', async (t) => {
+  const dir = await tmpDir(t, 'zames-n17-')
   execFileSync('git', ['init', '-q'], { cwd: dir })
   const tools = createGitTools(dir)
   const out = String(
@@ -124,17 +123,15 @@ test('GitShow rejects a ref that could inject shell/options', async () => {
   )
   assert.match(out, /invalid ref/)
   assert.equal(fsSync.existsSync(path.join(dir, 'tmp', 'PWNED')), false)
-  await rm(dir)
 })
 
-test('GitDiff does not execute a $(...) path', async () => {
+test('GitDiff does not execute a $(...) path', async (t) => {
   if (process.platform === 'win32') return
-  const dir = await tmpDir('zames-n18-')
+  const dir = await tmpDir(t, 'zames-n18-')
   execFileSync('git', ['init', '-q'], { cwd: dir })
   const tools = createGitTools(dir)
   await tool(tools, 'GitDiff').fn({ path: 'x' + D + '(touch tmp/PWNED)y' })
   assert.equal(fsSync.existsSync(path.join(dir, 'tmp', 'PWNED')), false)
-  await rm(dir)
 })
 
 test('assertCommandInsideRoot blocks chroot but not legitimate shells', () => {

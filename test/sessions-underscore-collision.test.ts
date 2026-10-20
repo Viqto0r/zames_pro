@@ -9,11 +9,13 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { makeTmpDir } from './tmp-dir.ts'
 
 async function withFreshSessions(
+  t: { after: (fn: () => unknown) => unknown },
   fn: (mod: typeof import('../src/sessions.ts')) => Promise<void>,
 ): Promise<void> {
-  const home = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-sess-'))
+  const home = await makeTmpDir(t, 'zames-sess-')
   const prevHome = process.env.HOME
   process.env.HOME = home
   try {
@@ -23,12 +25,11 @@ async function withFreshSessions(
     await fn(mod)
   } finally {
     process.env.HOME = prevHome
-    await fs.rm(home, { recursive: true, force: true })
   }
 }
 
-test('an underscore in a chat id does not collide with an encoded one', async () => {
-  await withFreshSessions(async (mod) => {
+test('an underscore in a chat id does not collide with an encoded one', async (t) => {
+  await withFreshSessions(t, async (mod) => {
     // `a_b` keeps its underscore; `a/b` encodes `/` as `_2f`. With the
     // underscore left unescaped the FIRST would be written to `a_b.json` and
     // the SECOND to `a_2fb.json` -- no collision there, so pick the pair that

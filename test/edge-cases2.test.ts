@@ -5,6 +5,7 @@ import path from 'path'
 import os from 'os'
 import { createTools } from '../src/tools.ts'
 import type { ToolDef } from '../src/types.ts'
+import { makeTmpDir } from './tmp-dir.ts'
 
 const NL = String.fromCharCode(10)
 
@@ -14,8 +15,8 @@ function tool(tools: ToolDef[], name: string): ToolDef {
   return t
 }
 
-test('Edit корректно заменяет многострочный фрагмент', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-ml-'))
+test('Edit корректно заменяет многострочный фрагмент', async (t) => {
+  const dir = await makeTmpDir(t, 'zames-ml-')
   const orig = ['a', 'b', 'c', 'd'].join(NL)
   await fs.writeFile(path.join(dir, 'f.txt'), orig, 'utf-8')
   const tools = createTools(dir, {})
@@ -31,8 +32,8 @@ test('Edit корректно заменяет многострочный фра
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Read с offset за пределами файла возвращает пустую строку, не падает', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-off-'))
+test('Read с offset за пределами файла возвращает пустую строку, не падает', async (t) => {
+  const dir = await makeTmpDir(t, 'zames-off-')
   await fs.writeFile(path.join(dir, 'f.txt'), 'a' + NL + 'b', 'utf-8')
   const tools = createTools(dir, {})
   const out = String(
@@ -42,8 +43,8 @@ test('Read с offset за пределами файла возвращает п�
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Glob не возвращает файлы выше рабочей директории', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-glob-'))
+test('Glob не возвращает файлы выше рабочей директории', async (t) => {
+  const dir = await makeTmpDir(t, 'zames-glob-')
   const sub = path.join(dir, 'sub')
   await fs.mkdir(sub, { recursive: true })
   await fs.writeFile(path.join(dir, 'top.txt'), 'x', 'utf-8')

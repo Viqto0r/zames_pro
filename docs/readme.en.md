@@ -122,6 +122,10 @@ Key pieces:
 
 ## Why zames?
 
+- **Built with itself** — `zames_pro` is developed by `zames_pro`. No other
+  coding agent is used on this repository: the agent in this very terminal
+  reads the sources, runs the tests, fixes the bugs and commits the result.
+  That is the daily proof that it works and is actually used.
 - **No API key, no per-token bill** — it uses your own DeepSeek or Qwen chat
   account, not the paid API. Good for long, tool-heavy tasks.
 - **Same workflow as Claude Code / Codex** — tools, `AGENTS.md`, skills, MCP

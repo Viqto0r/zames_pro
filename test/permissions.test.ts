@@ -9,9 +9,12 @@ import {
   loadPermissions,
   permissionsPath,
 } from '../src/permissions.ts'
+import { makeTmpDir } from './tmp-dir.ts'
 
-async function mkTmp(): Promise<string> {
-  return await fs.mkdtemp(path.join(os.tmpdir(), 'zames-perm-'))
+async function mkTmp(t: {
+  after: (fn: () => unknown) => unknown
+}): Promise<string> {
+  return await makeTmpDir(t, 'zames-perm-')
 }
 
 test('parsePermissions defaults to allow with no rules', () => {
@@ -122,8 +125,8 @@ test('bad regex in a rule fails closed', () => {
   assert.equal(decidePermission(policy, 'Bash', {}).action, 'deny')
 })
 
-test('loadPermissions reads .zames/permissions.json', async () => {
-  const root = await mkTmp()
+test('loadPermissions reads .zames/permissions.json', async (t) => {
+  const root = await mkTmp(t)
   await fs.mkdir(path.join(root, '.zames'), { recursive: true })
   await fs.writeFile(
     permissionsPath(root),
@@ -134,8 +137,8 @@ test('loadPermissions reads .zames/permissions.json', async () => {
   assert.equal(decidePermission(p, 'Bash', {}).action, 'deny')
 })
 
-test('loadPermissions returns null for a missing or broken file', async () => {
-  const root = await mkTmp()
+test('loadPermissions returns null for a missing or broken file', async (t) => {
+  const root = await mkTmp(t)
   assert.equal(loadPermissions(root), null)
   await fs.mkdir(path.join(root, '.zames'), { recursive: true })
   await fs.writeFile(permissionsPath(root), '{ not json')

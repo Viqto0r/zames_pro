@@ -333,7 +333,12 @@ answer (markdown+LaTeX) and distorts the arguments: the dollar sign in formulas
 is lost, escaped newlines become real, names are auto-linked. The interception
 returns the raw text from SSE/JSON. Answers are written to ~/.zames/net-log
 ONLY when the debug env flag `ZAMES_NET_DEBUG=1` is set (`dumpNetBody`); by
-default nothing is dumped (thousands of files / tens of MB otherwise).
+default nothing is dumped. The dump is ROTATED (`rotateNetLog`): only the
+newest `NET_LOG_KEEP` (200) files survive, otherwise an unattended
+`npm run dev` (which sets the flag) grew the dir without bound — 77k files /
+800 MB, and on WSL that space never returns to the Windows host.
+Transcripts in ~/.zames/logs are rotated the same way (`rotateTranscripts`,
+keep the newest 200 `.jsonl`).
 Additionally the interception yields the chat id earlier than it appears in the
 URL (browser._netChatId is used in getCurrentChatId as a fallback).
 Details — in the comments of src/net-capture.ts and src/browser.ts.
@@ -1035,6 +1040,11 @@ When you touch QwenBrowser, run it before a commit.
 - Run (dev, no build): `npm run dev` (tsx src/index.ts, HEADED by default
   so the DeepSeek window is visible while developing)
 - Test framework: the built-in `node:test` + `tsx` (see `test/*.test.ts`).
+  A temp dir MUST be created through `test/tmp-dir.ts` (`makeTmpDir(t, prefix)`
+  / `makeTmpDirSync`), which registers `t.after` cleanup: on WSL os.tmpdir()
+  lives inside ext4.vhdx, thousands of abandoned `zames-*` dirs fragment it and
+  the freed space never returns to C:. The same rule applies to scripts/*.mts
+  and to a temp file written by src/ (clean it in a `finally`).
 
 ## TypeScript
 

@@ -5,11 +5,12 @@ import path from 'path'
 import os from 'os'
 import { createTools } from '../src/tools.ts'
 import type { ToolDef } from '../src/types.ts'
+import { makeTmpDir } from './tmp-dir.ts'
 
 const NL = String.fromCharCode(10)
 
-function tmpDir(): Promise<string> {
-  return fs.mkdtemp(path.join(os.tmpdir(), 'zames-tools-'))
+function tmpDir(t: { after: (fn: () => unknown) => unknown }): Promise<string> {
+  return makeTmpDir(t, 'zames-tools-')
 }
 
 function tool(tools: ToolDef[], name: string): ToolDef {
@@ -18,8 +19,8 @@ function tool(tools: ToolDef[], name: string): ToolDef {
   return t
 }
 
-test('Read возвращает файл целиком', async () => {
-  const dir = await tmpDir()
+test('Read возвращает файл целиком', async (t) => {
+  const dir = await tmpDir(t)
   const content = ['line1', 'line2', 'line3'].join(NL)
   await fs.writeFile(path.join(dir, 'a.txt'), content, 'utf-8')
   const tools = createTools(dir, {})
@@ -28,8 +29,8 @@ test('Read возвращает файл целиком', async () => {
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Read с offset/limit возвращает только запрошенные строки', async () => {
-  const dir = await tmpDir()
+test('Read с offset/limit возвращает только запрошенные строки', async (t) => {
+  const dir = await tmpDir(t)
   await fs.writeFile(
     path.join(dir, 'a.txt'),
     ['l0', 'l1', 'l2', 'l3', 'l4'].join(NL),
@@ -46,8 +47,8 @@ test('Read с offset/limit возвращает только запрошенн�
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Write создаёт файл и родительские директории', async () => {
-  const dir = await tmpDir()
+test('Write создаёт файл и родительские директории', async (t) => {
+  const dir = await tmpDir(t)
   const tools = createTools(dir, {})
   await tool(tools, 'Write').fn({ path: 'sub/deep/b.txt', content: 'hello' })
   const data = await fs.readFile(path.join(dir, 'sub/deep/b.txt'), 'utf-8')
@@ -55,8 +56,8 @@ test('Write создаёт файл и родительские директор
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Edit заменяет единственное вхождение', async () => {
-  const dir = await tmpDir()
+test('Edit заменяет единственное вхождение', async (t) => {
+  const dir = await tmpDir(t)
   await fs.writeFile(path.join(dir, 'a.txt'), 'foo bar baz', 'utf-8')
   const tools = createTools(dir, {})
   await tool(tools, 'Edit').fn({
@@ -69,8 +70,8 @@ test('Edit заменяет единственное вхождение', async 
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Edit падает, если строка не найдена', async () => {
-  const dir = await tmpDir()
+test('Edit падает, если строка не найдена', async (t) => {
+  const dir = await tmpDir(t)
   await fs.writeFile(path.join(dir, 'a.txt'), 'foo', 'utf-8')
   const tools = createTools(dir, {})
   await assert.rejects(async () =>
@@ -83,8 +84,8 @@ test('Edit падает, если строка не найдена', async () =>
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Edit падает при нескольких вхождениях (требует уникальности)', async () => {
-  const dir = await tmpDir()
+test('Edit падает при нескольких вхождениях (требует уникальности)', async (t) => {
+  const dir = await tmpDir(t)
   await fs.writeFile(path.join(dir, 'a.txt'), 'a a a', 'utf-8')
   const tools = createTools(dir, {})
   await assert.rejects(async () =>
@@ -93,8 +94,8 @@ test('Edit падает при нескольких вхождениях (тре
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Edit с пустым old_string отвергается', async () => {
-  const dir = await tmpDir()
+test('Edit с пустым old_string отвергается', async (t) => {
+  const dir = await tmpDir(t)
   await fs.writeFile(path.join(dir, 'a.txt'), 'foo', 'utf-8')
   const tools = createTools(dir, {})
   await assert.rejects(async () =>
@@ -103,8 +104,8 @@ test('Edit с пустым old_string отвергается', async () => {
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('инструменты не читают выше рабочей директории (sandbox)', async () => {
-  const dir = await tmpDir()
+test('инструменты не читают выше рабочей директории (sandbox)', async (t) => {
+  const dir = await tmpDir(t)
   const tools = createTools(dir, {})
   await assert.rejects(async () =>
     tool(tools, 'Read').fn({ path: '../../../etc/passwd' }),
@@ -112,8 +113,8 @@ test('инструменты не читают выше рабочей дире�
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Glob находит файлы по паттерну и не выходит за sandbox', async () => {
-  const dir = await tmpDir()
+test('Glob находит файлы по паттерну и не выходит за sandbox', async (t) => {
+  const dir = await tmpDir(t)
   await fs.writeFile(path.join(dir, 'x.ts'), '1', 'utf-8')
   await fs.writeFile(path.join(dir, 'y.js'), '2', 'utf-8')
   const tools = createTools(dir, {})
@@ -123,24 +124,24 @@ test('Glob находит файлы по паттерну и не выходи�
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Bash выполняет команду в рабочей директории и возвращает вывод', async () => {
-  const dir = await tmpDir()
+test('Bash выполняет команду в рабочей директории и возвращает вывод', async (t) => {
+  const dir = await tmpDir(t)
   const tools = createTools(dir, {})
   const out = String(await tool(tools, 'Bash').fn({ command: 'echo hello' }))
   assert.ok(out.includes('hello'))
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Bash сообщает exit code при ошибке', async () => {
-  const dir = await tmpDir()
+test('Bash сообщает exit code при ошибке', async (t) => {
+  const dir = await tmpDir(t)
   const tools = createTools(dir, {})
   const out = String(await tool(tools, 'Bash').fn({ command: 'exit 3' }))
   assert.ok(/Exit code: 3/.test(out), out)
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Bash блокирует cd выше рабочей директории', async () => {
-  const dir = await tmpDir()
+test('Bash блокирует cd выше рабочей директории', async (t) => {
+  const dir = await tmpDir(t)
   const tools = createTools(dir, {})
   await assert.rejects(async () =>
     tool(tools, 'Bash').fn({ command: 'cd ../../.. && pwd' }),
@@ -148,8 +149,8 @@ test('Bash блокирует cd выше рабочей директории', 
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Write делает backup перед перезаписью (undo)', async () => {
-  const dir = await tmpDir()
+test('Write делает backup перед перезаписью (undo)', async (t) => {
+  const dir = await tmpDir(t)
   const backups: string[] = []
   const fakeUndo = {
     async backup(p: string) {
@@ -164,8 +165,8 @@ test('Write делает backup перед перезаписью (undo)', async
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Read на картинке возвращает маркер, а не utf-8 мусор (N35)', async () => {
-  const dir = await tmpDir()
+test('Read на картинке возвращает маркер, а не utf-8 мусор (N35)', async (t) => {
+  const dir = await tmpDir(t)
   // A minimal valid PNG header; content is binary, not decodable text.
   const png = Buffer.from([
     0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
@@ -179,8 +180,8 @@ test('Read на картинке возвращает маркер, а не utf-
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Read на произвольном бинарнике даёт hex-заголовок, а не мусор (N35)', async () => {
-  const dir = await tmpDir()
+test('Read на произвольном бинарнике даёт hex-заголовок, а не мусор (N35)', async (t) => {
+  const dir = await tmpDir(t)
   await fs.writeFile(
     path.join(dir, 'blob.bin'),
     Buffer.from([0x00, 0x01, 0x02, 0xff, 0xfe]),
@@ -192,8 +193,8 @@ test('Read на произвольном бинарнике даёт hex-заг�
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Read обычного текста не задет бинарной защитой (N35)', async () => {
-  const dir = await tmpDir()
+test('Read обычного текста не задет бинарной защитой (N35)', async (t) => {
+  const dir = await tmpDir(t)
   await fs.writeFile(path.join(dir, 't.txt'), 'hello world', 'utf-8')
   const tools = createTools(dir, {})
   const out = await tool(tools, 'Read').fn({ path: 't.txt' })
@@ -204,8 +205,8 @@ test('Read обычного текста не задет бинарной защ
 // Read clips a very long line at 2000 UTF-16 units. If an emoji / astral CJK
 // char sits on that boundary the clip kept its HIGH half and dropped the low
 // one, handing the model a lone surrogate. Same rule as truncateToolResult.
-test('Read does not cut a surrogate pair when clipping a long line', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-rclip-'))
+test('Read does not cut a surrogate pair when clipping a long line', async (t) => {
+  const dir = await makeTmpDir(t, 'zames-rclip-')
   // The HIGH half of the pair must land on the 2000-unit clip boundary:
   // 1999 ASCII chars, then the two halves of U+1F600.
   const emoji = String.fromCharCode(0xd83d, 0xde00)

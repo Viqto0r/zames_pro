@@ -6,6 +6,7 @@ import os from 'os'
 import { parseToolCall } from '../src/answer-parse.ts'
 import { createTools } from '../src/tools.ts'
 import type { ToolDef } from '../src/types.ts'
+import { makeTmpDir } from './tmp-dir.ts'
 
 const Q = String.fromCharCode(34)
 const NL = String.fromCharCode(10)
@@ -60,8 +61,8 @@ test('Edit с $ и обратными слэшами в new_string распоз�
 
 // --- The Grep tool (was not covered before) ---
 
-test('Grep находит совпадения по регулярному выражению', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-grep-'))
+test('Grep находит совпадения по регулярному выражению', async (t) => {
+  const dir = await makeTmpDir(t, 'zames-grep-')
   await fs.writeFile(path.join(dir, 'a.txt'), 'hello world', 'utf-8')
   const tools = createTools(dir, {})
   const out = String(await tool(tools, 'Grep').fn({ pattern: 'world' }))
@@ -69,8 +70,8 @@ test('Grep находит совпадения по регулярному вы�
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Grep возвращает понятный результат при отсутствии совпадений', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-grep-'))
+test('Grep возвращает понятный результат при отсутствии совпадений', async (t) => {
+  const dir = await makeTmpDir(t, 'zames-grep-')
   await fs.writeFile(path.join(dir, 'a.txt'), 'hello', 'utf-8')
   const tools = createTools(dir, {})
   const out = String(await tool(tools, 'Grep').fn({ pattern: 'zzz_no_match' }))

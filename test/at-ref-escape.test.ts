@@ -10,13 +10,17 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { inlineAtRefs } from '../src/attach-refs.ts'
+import { makeTmpDir } from './tmp-dir.ts'
 
-async function tmp(prefix: string): Promise<string> {
-  return fs.mkdtemp(path.join(os.tmpdir(), prefix))
+async function tmp(
+  t: { after: (fn: () => unknown) => unknown },
+  prefix: string,
+): Promise<string> {
+  return makeTmpDir(t, prefix)
 }
 
-test('inlineAtRefs does not read a file above the working directory', async () => {
-  const parent = await tmp('zames-atref-parent-')
+test('inlineAtRefs does not read a file above the working directory', async (t) => {
+  const parent = await tmp(t, 'zames-atref-parent-')
   const workdir = path.join(parent, 'proj')
   await fs.mkdir(workdir, { recursive: true })
   await fs.writeFile(path.join(parent, 'secret.txt'), 'TOP SECRET', 'utf-8')
@@ -25,24 +29,20 @@ test('inlineAtRefs does not read a file above the working directory', async () =
   assert.equal(res.inlined.length, 0)
   assert.ok(!res.text.includes('TOP SECRET'))
   assert.ok(res.text.includes('@../secret.txt'), 'the text is left as-is')
-
-  await fs.rm(parent, { recursive: true, force: true })
 })
 
-test('inlineAtRefs still inlines a file inside the working directory', async () => {
-  const workdir = await tmp('zames-atref-inside-')
+test('inlineAtRefs still inlines a file inside the working directory', async (t) => {
+  const workdir = await tmp(t, 'zames-atref-inside-')
   await fs.writeFile(path.join(workdir, 'a.txt'), 'inside', 'utf-8')
 
   const res = await inlineAtRefs(workdir, 'read @a.txt')
   assert.deepEqual(res.inlined, ['a.txt'])
   assert.ok(res.text.includes('inside'))
-
-  await fs.rm(workdir, { recursive: true, force: true })
 })
 
-test('a symlink inside the project pointing outside is refused', async () => {
+test('a symlink inside the project pointing outside is refused', async (t) => {
   if (process.platform === 'win32') return
-  const parent = await tmp('zames-atref-link-')
+  const parent = await tmp(t, 'zames-atref-link-')
   const workdir = path.join(parent, 'proj')
   await fs.mkdir(workdir, { recursive: true })
   await fs.writeFile(path.join(parent, 'secret.txt'), 'TOP SECRET', 'utf-8')
@@ -51,15 +51,13 @@ test('a symlink inside the project pointing outside is refused', async () => {
   const res = await inlineAtRefs(workdir, 'read @l.txt')
   assert.deepEqual(res.inlined, [])
   assert.ok(!res.text.includes('TOP SECRET'))
-
-  await fs.rm(parent, { recursive: true, force: true })
 })
 
-test('an escaping candidate does not hide a sibling inside the project', async () => {
+test('an escaping candidate does not hide a sibling inside the project', async (t) => {
   // process.cwd() is the zames repo while workdir is a temp dir: the cwd
   // candidate `process.cwd()/<name>` may exist and must not shadow the real
   // file inside workdir (the old code returned the escaping candidate first).
-  const workdir = await tmp('zames-atref-sibling-')
+  const workdir = await tmp(t, 'zames-atref-sibling-')
   await fs.writeFile(
     path.join(workdir, 'package.json'),
     '{"inside":true}',
@@ -69,6 +67,4 @@ test('an escaping candidate does not hide a sibling inside the project', async (
   const res = await inlineAtRefs(workdir, 'read @package.json')
   assert.deepEqual(res.inlined, ['package.json'])
   assert.ok(res.text.includes('"inside":true'))
-
-  await fs.rm(workdir, { recursive: true, force: true })
 })

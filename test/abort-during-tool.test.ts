@@ -5,6 +5,7 @@ import path from 'path'
 import os from 'os'
 import { runAgentLoop } from '../src/agent-loop.ts'
 import type { ToolDef, BrowserLike } from '../src/types.ts'
+import { makeTmpDir } from './tmp-dir.ts'
 
 function jsonCall(tool: string, args: Record<string, unknown>): string {
   return JSON.stringify({ tool, args })
@@ -14,8 +15,8 @@ function jsonCall(tool: string, args: Record<string, unknown>): string {
 // kill an arbitrary child process), but the agent must NOT send its result
 // back to the model and must NOT continue the batch — otherwise "stop" does
 // nothing until the whole task is done.
-test('abort during a tool stops the loop and does not send the result', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-abort-'))
+test('abort during a tool stops the loop and does not send the result', async (t) => {
+  const dir = await makeTmpDir(t, 'zames-abort-')
   const asks: string[] = []
   let toolRan = false
 

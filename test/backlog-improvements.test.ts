@@ -12,9 +12,10 @@ import {
 } from '../src/tools.ts'
 import { createGitTools } from '../src/gitTools.ts'
 import type { ToolDef } from '../src/types.ts'
+import { makeTmpDirSync } from './tmp-dir.ts'
 
-function tmpDir(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'zames-fsutil-'))
+function tmpDir(t: { after: (fn: () => unknown) => unknown }): string {
+  return makeTmpDirSync(t, 'zames-fsutil-')
 }
 
 function tool(tools: ToolDef[], name: string): ToolDef {
@@ -25,8 +26,8 @@ function tool(tools: ToolDef[], name: string): ToolDef {
 
 // ---------- fsutil ----------
 
-test('writeFileAtomic создаёт файл и не оставляет tmp', () => {
-  const dir = tmpDir()
+test('writeFileAtomic создаёт файл и не оставляет tmp', async (t) => {
+  const dir = tmpDir(t)
   const file = path.join(dir, 'x.json')
   writeFileAtomic(file, 'hello')
   assert.equal(fs.readFileSync(file, 'utf-8'), 'hello')
@@ -34,16 +35,16 @@ test('writeFileAtomic создаёт файл и не оставляет tmp', (
   assert.equal(leftovers.length, 0)
 })
 
-test('writeFileAtomic перезаписывает существующий файл', () => {
-  const dir = tmpDir()
+test('writeFileAtomic перезаписывает существующий файл', async (t) => {
+  const dir = tmpDir(t)
   const file = path.join(dir, 'x.json')
   writeFileAtomic(file, 'a')
   writeFileAtomic(file, 'b')
   assert.equal(fs.readFileSync(file, 'utf-8'), 'b')
 })
 
-test('writeJsonAtomic пишет валидный JSON с переводом строки', () => {
-  const dir = tmpDir()
+test('writeJsonAtomic пишет валидный JSON с переводом строки', async (t) => {
+  const dir = tmpDir(t)
   const file = path.join(dir, 'c.json')
   writeJsonAtomic(file, { a: 1 })
   const raw = fs.readFileSync(file, 'utf-8')
@@ -51,22 +52,22 @@ test('writeJsonAtomic пишет валидный JSON с переводом с�
   assert.deepEqual(JSON.parse(raw), { a: 1 })
 })
 
-test('writeFileAtomic creates the file with 0o600 permissions', () => {
+test('writeFileAtomic creates the file with 0o600 permissions', async (t) => {
   // N22: config.json holds the browser password in clear text, so the file
   // must not be world-readable (default umask would give 0644).
   if (process.platform === 'win32') return
-  const dir = tmpDir()
+  const dir = tmpDir(t)
   const file = path.join(dir, 'secret.json')
   writeFileAtomic(file, 'sensitive')
   const mode = fs.statSync(file).mode & 0o777
   assert.equal(mode, 0o600)
 })
 
-test('writeFileAtomic tightens the mode of a pre-existing file', () => {
+test('writeFileAtomic tightens the mode of a pre-existing file', async (t) => {
   // rename() keeps the old inode, so a file created earlier with 0644 would
   // stay world-readable without an explicit chmod after rename.
   if (process.platform === 'win32') return
-  const dir = tmpDir()
+  const dir = tmpDir(t)
   const file = path.join(dir, 'old.json')
   fs.writeFileSync(file, 'old', { mode: 0o644 })
   writeFileAtomic(file, 'new')
@@ -75,8 +76,8 @@ test('writeFileAtomic tightens the mode of a pre-existing file', () => {
 
 // ---------- plan mode (read-only tools) ----------
 
-test('filterToolsForReadOnly убирает все мутирующие инструменты', () => {
-  const dir = tmpDir()
+test('filterToolsForReadOnly убирает все мутирующие инструменты', async (t) => {
+  const dir = tmpDir(t)
   const all = createTools(dir, {})
   const ro = filterToolsForReadOnly(all)
   for (const name of MUTATING_TOOLS) {
@@ -91,8 +92,8 @@ test('filterToolsForReadOnly убирает все мутирующие инст
   }
 })
 
-test('createTools({readOnly:true}) отдаёт тот же набор, что filterToolsForReadOnly', () => {
-  const dir = tmpDir()
+test('createTools({readOnly:true}) отдаёт тот же набор, что filterToolsForReadOnly', async (t) => {
+  const dir = tmpDir(t)
   const all = createTools(dir, {})
   const roDirect = createTools(dir, { readOnly: true })
   assert.deepEqual(
@@ -105,8 +106,8 @@ test('createTools({readOnly:true}) отдаёт тот же набор, что f
 
 // A skill's allowed-tools frontmatter narrows the tool set to that list, but
 // respond is always kept so the run can still finish.
-test('filterToolsByAllowList оставляет только разрешённые + respond', () => {
-  const dir = tmpDir()
+test('filterToolsByAllowList оставляет только разрешённые + respond', async (t) => {
+  const dir = tmpDir(t)
   const all = createTools(dir, {})
   const narrow = filterToolsByAllowList(all, ['Read', 'Grep'])
   const names = narrow.map((t) => t.name).sort()
@@ -138,8 +139,8 @@ test('GitPush отклоняет ветку, начинающуюся с деф�
 
 // ---------- atomic config write keeps the merge intact ----------
 
-test('writeJsonAtomic поверх битого файла даёт валидный JSON', () => {
-  const dir = tmpDir()
+test('writeJsonAtomic поверх битого файла даёт валидный JSON', async (t) => {
+  const dir = tmpDir(t)
   const file = path.join(dir, 'cfg.json')
   fs.writeFileSync(file, '{ broken')
   writeJsonAtomic(file, { ok: true })

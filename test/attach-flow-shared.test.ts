@@ -4,14 +4,15 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { readAttachBuffers, awaitUploadPreview } from '../src/attach-flow.ts'
+import { makeTmpDirSync } from './tmp-dir.ts'
 
 // The SHARED attachment plumbing (src/attach-flow.ts): file reading (with a
 // per-file failed list) and the upload-preview wait. Both providers delegate
 // here so their `_attachFiles` implementations cannot drift apart.
 // (The AttachmentStore/temp-file tests live in test/attach-flow.test.ts.)
 
-test('readAttachBuffers reads files and reports failures without throwing', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-af-'))
+test('readAttachBuffers reads files and reports failures without throwing', async (t) => {
+  const dir = makeTmpDirSync(t, 'zames-af-')
   const okPath = path.join(dir, 'ok.txt')
   fs.writeFileSync(okPath, 'hello')
   const errors: string[] = []
@@ -34,7 +35,6 @@ test('readAttachBuffers reads files and reports failures without throwing', asyn
   ])
   assert.equal(errors.length, 1)
   assert.ok(errors[0].startsWith('missing.txt:'))
-  fs.rmSync(dir, { recursive: true, force: true })
 })
 
 test('readAttachBuffers with no files returns empty structures', async () => {

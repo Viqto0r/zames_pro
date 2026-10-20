@@ -2,6 +2,39 @@ import fs from 'fs'
 import path from 'path'
 import type { WriteStream } from 'fs'
 
+// A transcript file is appended per RUN and never deleted, so ~/.zames/logs
+// grew without bound (177 files / 138 MB observed). On WSL the directory sits
+// inside ext4.vhdx: the space of deleted files is not returned to the Windows
+// host, so a big log dir is also a host-disk problem. Rotate on start-up: keep
+// the newest MAX_TRANSCRIPT_FILES and drop the rest.
+const MAX_TRANSCRIPT_FILES = 200
+
+// The constructor is SYNCHRONOUS (it opens the stream right away), so the
+// rotation that must happen before the create has to be sync as well.
+export function rotateTranscripts(
+  dir: string,
+  keep = MAX_TRANSCRIPT_FILES,
+): number {
+  let names: string[]
+  try {
+    names = fs.readdirSync(dir).filter((n) => n.endsWith('.jsonl'))
+  } catch {
+    // A missing/unreadable dir must not break the run: the transcript is
+    // created right after and mkdirSync has its own error handling.
+    return 0
+  }
+  if (names.length <= keep) return 0
+  names.sort()
+  let removed = 0
+  for (const n of names.slice(0, names.length - keep)) {
+    try {
+      fs.rmSync(path.join(dir, n), { force: true })
+      removed++
+    } catch {}
+  }
+  return removed
+}
+
 function transcriptErrorLine(e: unknown): string {
   return `transcript: failed to create file: ${(e as Error).message}`
 }
@@ -50,6 +83,9 @@ export class Transcript {
         String(sessionName)
           .replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_')
           .trim() || 'session'
+      // Rotation BEFORE the create: the new file then has the newest stamp,
+      // so the current run's transcript is never a deletion candidate.
+      rotateTranscripts(dir)
       this.file = path.join(dir, `${safeName}-${stamp}.jsonl`)
       this.stream = fs.createWriteStream(this.file, { flags: 'a' })
       // Write errors (disk full, file deleted, etc.) arrive as an 'error'

@@ -61,6 +61,22 @@ const browser = new QwenBrowser({
 })
 browser.onNotice = (t: string) => console.log('  [notice] ' + t)
 
+// See qwen-smoke: the temp HOME must be removed on EVERY exit path,
+// including the early login-timeout exit.
+function cleanupSmokeHome(): void {
+  if (process.env.ZAMES_QWEN_MODELS_KEEP) return
+  try {
+    fs.rmSync(process.env.ZAMES_QWEN_MODELS_HOME as string, {
+      recursive: true,
+      force: true,
+    })
+  } catch {}
+}
+process.on('SIGINT', () => {
+  cleanupSmokeHome()
+  process.exit(130)
+})
+
 async function main(): Promise<void> {
   await browser.launch()
   const timedOut = await Promise.race([
@@ -70,6 +86,7 @@ async function main(): Promise<void> {
   if (timedOut) {
     record('login', false, 'timed out')
     await browser.close().catch(() => {})
+    cleanupSmokeHome()
     process.exit(2)
   }
   record('login', true)
@@ -105,12 +122,7 @@ async function main(): Promise<void> {
       results.length +
       ' passed',
   )
-  if (!process.env.ZAMES_QWEN_MODELS_KEEP) {
-    fs.rmSync(process.env.ZAMES_QWEN_MODELS_HOME as string, {
-      recursive: true,
-      force: true,
-    })
-  }
+  cleanupSmokeHome()
   process.exit(failed.length ? 1 : 0)
 }
 

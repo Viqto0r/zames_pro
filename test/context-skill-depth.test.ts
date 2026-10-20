@@ -4,6 +4,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { loadSkills } from '../src/context.ts'
+import { makeTmpDir } from './tmp-dir.ts'
 
 // Regression: AGENTS.md promises "SKILL.md files, discovered up to 3 levels
 // deep under <workdir>/.zames/skills/...", but findSkillFiles() started the
@@ -11,8 +12,10 @@ import { loadSkills } from '../src/context.ts'
 // the THIRD level (`skills/a/b/three/SKILL.md`, the very shape
 // `.zames/skills/<category>/<group>/<skill>/SKILL.md`) was never found.
 
-async function tmpRoot(): Promise<string> {
-  return fs.mkdtemp(path.join(os.tmpdir(), 'zames-skilldepth-'))
+async function tmpRoot(t: {
+  after: (fn: () => unknown) => unknown
+}): Promise<string> {
+  return makeTmpDir(t, 'zames-skilldepth-')
 }
 
 async function mkSkill(root: string, rel: string): Promise<void> {
@@ -33,8 +36,8 @@ async function projectSkills(root: string): Promise<string[]> {
     .map((s) => path.relative(root, s.path).split(path.sep).join('/'))
 }
 
-test('a skill at depth 1 and 2 is discovered', async () => {
-  const root = await tmpRoot()
+test('a skill at depth 1 and 2 is discovered', async (t) => {
+  const root = await tmpRoot(t)
   await mkSkill(root, '.zames/skills/one')
   await mkSkill(root, '.zames/skills/a/two')
   const found = await projectSkills(root)
@@ -42,8 +45,8 @@ test('a skill at depth 1 and 2 is discovered', async () => {
   assert.ok(found.includes('.zames/skills/a/two/SKILL.md'), found.join(','))
 })
 
-test('a skill at depth 3 IS discovered (up to 3 levels deep)', async () => {
-  const root = await tmpRoot()
+test('a skill at depth 3 IS discovered (up to 3 levels deep)', async (t) => {
+  const root = await tmpRoot(t)
   await mkSkill(root, '.zames/skills/a/b/three')
   const found = await projectSkills(root)
   assert.ok(
@@ -52,8 +55,8 @@ test('a skill at depth 3 IS discovered (up to 3 levels deep)', async () => {
   )
 })
 
-test('a skill deeper than 3 levels is NOT discovered (bounded walk)', async () => {
-  const root = await tmpRoot()
+test('a skill deeper than 3 levels is NOT discovered (bounded walk)', async (t) => {
+  const root = await tmpRoot(t)
   await mkSkill(root, '.zames/skills/a/b/c/four')
   const found = await projectSkills(root)
   assert.deepEqual(found, [])

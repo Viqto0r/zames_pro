@@ -13,6 +13,7 @@ import {
   runLifecycleHooks,
 } from '../src/hooks.ts'
 import type { ToolDef, BrowserLike } from '../src/types.ts'
+import { makeTmpDir, makeTmpDirSync } from './tmp-dir.ts'
 
 function makeBrowser(script: string[]): BrowserLike {
   let i = 0
@@ -53,8 +54,10 @@ function call(tool: string, args: Record<string, unknown>): string {
   return JSON.stringify({ tool, args })
 }
 
-async function tmpdir(): Promise<string> {
-  return fs.mkdtemp(path.join(os.tmpdir(), 'zames-hooks-'))
+async function tmpdir(t: {
+  after: (fn: () => unknown) => unknown
+}): Promise<string> {
+  return makeTmpDir(t, 'zames-hooks-')
 }
 
 async function writeHooks(dir: string, cfg: unknown): Promise<void> {
@@ -66,16 +69,16 @@ async function writeHooks(dir: string, cfg: unknown): Promise<void> {
   )
 }
 
-test('loadHooks: missing/malformed file yields empty config', async () => {
-  const dir = await tmpdir()
+test('loadHooks: missing/malformed file yields empty config', async (t) => {
+  const dir = await tmpdir(t)
   assert.deepEqual(loadHooks(dir), {})
   await fs.mkdir(path.join(dir, '.zames'), { recursive: true })
   await fs.writeFile(path.join(dir, '.zames', 'hooks.json'), '{not json')
   assert.deepEqual(loadHooks(dir), {})
 })
 
-test('loadHooks: parses matcher/command and skips bad entries', async () => {
-  const dir = await tmpdir()
+test('loadHooks: parses matcher/command and skips bad entries', async (t) => {
+  const dir = await tmpdir(t)
   await writeHooks(dir, {
     PreToolUse: [
       { matcher: '^Bash$', command: 'true' },
@@ -98,8 +101,8 @@ test('matchesHook: empty matcher matches all, bad regex matches none', () => {
   assert.equal(matchesHook({ matcher: '([', command: 'x' }, 'Bash'), false)
 })
 
-test('runPreToolUse: non-zero exit blocks and returns stderr', async () => {
-  const dir = await tmpdir()
+test('runPreToolUse: non-zero exit blocks and returns stderr', async (t) => {
+  const dir = await tmpdir(t)
   const cfg = {
     PreToolUse: [{ matcher: '^Bash$', command: 'echo nope 1>&2; exit 3' }],
   }
@@ -107,8 +110,8 @@ test('runPreToolUse: non-zero exit blocks and returns stderr', async () => {
   assert.equal(reason, 'nope')
 })
 
-test('runPreToolUse: exit 0 allows; non-matching matcher is skipped', async () => {
-  const dir = await tmpdir()
+test('runPreToolUse: exit 0 allows; non-matching matcher is skipped', async (t) => {
+  const dir = await tmpdir(t)
   const cfg = {
     PreToolUse: [{ matcher: '^Bash$', command: 'exit 9' }],
   }
@@ -117,8 +120,8 @@ test('runPreToolUse: exit 0 allows; non-matching matcher is skipped', async () =
   assert.equal(await runPreToolUse(null, 'Bash', {}, dir), null)
 })
 
-test('runPreToolUse: hook receives call JSON on stdin', async () => {
-  const dir = await tmpdir()
+test('runPreToolUse: hook receives call JSON on stdin', async (t) => {
+  const dir = await tmpdir(t)
   const out = path.join(dir, 'seen.json')
   const cfg = {
     PreToolUse: [
@@ -132,8 +135,8 @@ test('runPreToolUse: hook receives call JSON on stdin', async () => {
   assert.deepEqual(seen.args, { path: 'a.txt' })
 })
 
-test('runPostToolUse: stdout collected, failure ignored', async () => {
-  const dir = await tmpdir()
+test('runPostToolUse: stdout collected, failure ignored', async (t) => {
+  const dir = await tmpdir(t)
   const cfg = {
     PostToolUse: [
       { matcher: '^Edit$', command: 'echo formatted' },
@@ -145,8 +148,8 @@ test('runPostToolUse: stdout collected, failure ignored', async () => {
   assert.equal(await runPostToolUse(cfg, 'Read', {}, 'ok', dir), '')
 })
 
-test('agent-loop: PreToolUse hook blocks a tool call', async () => {
-  const dir = await tmpdir()
+test('agent-loop: PreToolUse hook blocks a tool call', async (t) => {
+  const dir = await tmpdir(t)
   await writeHooks(dir, {
     PreToolUse: [{ matcher: '^Write$', command: 'echo denied 1>&2; exit 1' }],
   })
@@ -177,8 +180,8 @@ test('agent-loop: PreToolUse hook blocks a tool call', async () => {
   assert.equal(out, 'done')
 })
 
-test('agent-loop: PostToolUse stdout appended to result', async () => {
-  const dir = await tmpdir()
+test('agent-loop: PostToolUse stdout appended to result', async (t) => {
+  const dir = await tmpdir(t)
   await writeHooks(dir, {
     PostToolUse: [{ matcher: '^Echo$', command: 'echo post-says-hi' }],
   })
@@ -205,8 +208,8 @@ test('agent-loop: PostToolUse stdout appended to result', async () => {
   assert.match(String(seen[0]), /post-says-hi/)
 })
 
-test('agent-loop: explicit null disables hooks', async () => {
-  const dir = await tmpdir()
+test('agent-loop: explicit null disables hooks', async (t) => {
+  const dir = await tmpdir(t)
   await writeHooks(dir, {
     PreToolUse: [{ matcher: '^Write$', command: 'exit 1' }],
   })
@@ -234,8 +237,8 @@ test('agent-loop: explicit null disables hooks', async () => {
   assert.equal(ran, true)
 })
 
-test('loadHooks: parses the N32 lifecycle events', async () => {
-  const dir = await tmpdir()
+test('loadHooks: parses the N32 lifecycle events', async (t) => {
+  const dir = await tmpdir(t)
   await writeHooks(dir, {
     SessionStart: [{ command: 'echo hi' }],
     UserPromptSubmit: [{ command: 'echo p' }],
@@ -251,8 +254,8 @@ test('loadHooks: parses the N32 lifecycle events', async () => {
   assert.equal(cfg.SubagentStop?.length, 1)
 })
 
-test('runLifecycleHooks: collects stdout, ignores tool-only events', async () => {
-  const dir = await tmpdir()
+test('runLifecycleHooks: collects stdout, ignores tool-only events', async (t) => {
+  const dir = await tmpdir(t)
   await writeHooks(dir, {
     Stop: [{ command: 'echo stopped' }],
   })
@@ -265,8 +268,8 @@ test('runLifecycleHooks: collects stdout, ignores tool-only events', async () =>
   assert.equal(out2, '')
 })
 
-test('agent-loop: SessionStart hook fires on a fresh chat', async () => {
-  const dir = await tmpdir()
+test('agent-loop: SessionStart hook fires on a fresh chat', async (t) => {
+  const dir = await tmpdir(t)
   await writeHooks(dir, { SessionStart: [{ command: 'echo session-began' }] })
   const events: string[] = []
   await runAgentLoop({
@@ -286,9 +289,9 @@ test('agent-loop: SessionStart hook fires on a fresh chat', async () => {
 // but the PostToolUse / lifecycle stdout was NOT: a hook running `npm test`,
 // `ls -R` or a log dump appended hundreds of KB to the tool result (and a
 // SessionStart hook pasted it straight into the chat).
-test('PostToolUse and lifecycle output is capped', async () => {
+test('PostToolUse and lifecycle output is capped', async (t) => {
   const { runPostToolUse, runLifecycleHooks } = await import('../src/hooks.ts')
-  const dir = fss.mkdtempSync(path.join(os.tmpdir(), 'zames-hkc-'))
+  const dir = makeTmpDirSync(t, 'zames-hkc-')
   const hooks = {
     PostToolUse: [{ command: 'yes x | head -c 200000' }],
     SessionStart: [{ command: 'yes y | head -c 300000' }],

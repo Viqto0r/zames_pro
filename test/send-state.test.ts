@@ -6,6 +6,7 @@ import os from 'os'
 import { runAgentLoop } from '../src/agent-loop.ts'
 import { LineEditor } from '../src/input.ts'
 import type { ToolDef, BrowserLike } from '../src/types.ts'
+import { makeTmpDir } from './tmp-dir.ts'
 
 function jsonCall(tool: string, args: Record<string, unknown>): string {
   return JSON.stringify({ tool, args })
@@ -39,8 +40,8 @@ function makeBrowser(script: string[]): BrowserLike {
 
 // The lifecycle hook must be wired to the agent loop and forwarded, so the
 // status line can show an explicit phase without touching send timings.
-test('onSendState is wired and forwarded to the UI callback', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-sendstate'))
+test('onSendState is wired and forwarded to the UI callback', async (t) => {
+  const dir = await makeTmpDir(t, 'zames-sendstate-')
   const tools: ToolDef[] = [
     {
       name: 'respond',

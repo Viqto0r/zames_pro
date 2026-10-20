@@ -12,9 +12,13 @@ import {
   pickRecord,
   type CheckpointRecord,
 } from '../src/checkpoint.ts'
+import { makeTmpDir } from './tmp-dir.ts'
 
-async function tmpdir(prefix: string): Promise<string> {
-  return fs.mkdtemp(path.join(os.tmpdir(), prefix))
+async function tmpdir(
+  t: { after: (fn: () => unknown) => unknown },
+  prefix: string,
+): Promise<string> {
+  return makeTmpDir(t, prefix)
 }
 
 function rec(stamp: number, workdir = '/w'): CheckpointRecord {
@@ -70,9 +74,9 @@ test('pickRecord: 1-based index, stamp prefix, and misses', () => {
   assert.equal(pickRecord(newestFirst, ''), null)
 })
 
-test('create: snapshots the tree and skips heavy dirs', async () => {
-  const work = await tmpdir('zames-cp-work-')
-  const store = await tmpdir('zames-cp-store-')
+test('create: snapshots the tree and skips heavy dirs', async (t) => {
+  const work = await tmpdir(t, 'zames-cp-work-')
+  const store = await tmpdir(t, 'zames-cp-store-')
   await fs.writeFile(path.join(work, 'a.txt'), 'hello')
   await fs.mkdir(path.join(work, 'sub'))
   await fs.writeFile(path.join(work, 'sub', 'b.txt'), 'nested')
@@ -91,17 +95,17 @@ test('create: snapshots the tree and skips heavy dirs', async () => {
   assert.equal(list.length, 1)
 })
 
-test('create: disabled store returns null', async () => {
-  const work = await tmpdir('zames-cp-work-')
-  const store = await tmpdir('zames-cp-store-')
+test('create: disabled store returns null', async (t) => {
+  const work = await tmpdir(t, 'zames-cp-work-')
+  const store = await tmpdir(t, 'zames-cp-store-')
   const cp = new CheckpointStore({ dir: store, enabled: false })
   assert.equal(await cp.create(work), null)
   assert.deepEqual(await cp.list(), [])
 })
 
-test('create: retention drops old archives from disk', async () => {
-  const work = await tmpdir('zames-cp-work-')
-  const store = await tmpdir('zames-cp-store-')
+test('create: retention drops old archives from disk', async (t) => {
+  const work = await tmpdir(t, 'zames-cp-work-')
+  const store = await tmpdir(t, 'zames-cp-store-')
   await fs.writeFile(path.join(work, 'a.txt'), 'x')
   const cp = new CheckpointStore({ dir: store, maxBackups: 2 })
   const r1 = await cp.create(work)
@@ -120,9 +124,9 @@ test('create: retention drops old archives from disk', async () => {
   assert.ok(gone, 'oldest archive should be deleted')
 })
 
-test('restore: rolls the tree back and backs up the current state', async () => {
-  const work = await tmpdir('zames-cp-work-')
-  const store = await tmpdir('zames-cp-store-')
+test('restore: rolls the tree back and backs up the current state', async (t) => {
+  const work = await tmpdir(t, 'zames-cp-work-')
+  const store = await tmpdir(t, 'zames-cp-store-')
   await fs.writeFile(path.join(work, 'keep.txt'), 'v1')
   const cp = new CheckpointStore({ dir: store })
   const snap = await cp.create(work)
@@ -149,9 +153,9 @@ test('restore: rolls the tree back and backs up the current state', async () => 
   assert.ok((await fs.stat(backupFile)).size > 0)
 })
 
-test('restore: unknown selector / missing archive / disabled are coded', async () => {
-  const work = await tmpdir('zames-cp-work-')
-  const store = await tmpdir('zames-cp-store-')
+test('restore: unknown selector / missing archive / disabled are coded', async (t) => {
+  const work = await tmpdir(t, 'zames-cp-work-')
+  const store = await tmpdir(t, 'zames-cp-store-')
   await fs.writeFile(path.join(work, 'a.txt'), 'x')
   const cp = new CheckpointStore({ dir: store })
 
@@ -169,9 +173,9 @@ test('restore: unknown selector / missing archive / disabled are coded', async (
 // ms-precision, so two checkpoints of one workdir taken in the same millisecond
 // share it: the pruned record's stamp was still "kept" by its sibling, its
 // archive was never deleted and the orphan sat in ~/.zames/checkpoints forever.
-test('create: retention deletes the archive of a same-millisecond sibling', async () => {
-  const work = await tmpdir('zames-cp-work-')
-  const store = await tmpdir('zames-cp-store-')
+test('create: retention deletes the archive of a same-millisecond sibling', async (t) => {
+  const work = await tmpdir(t, 'zames-cp-work-')
+  const store = await tmpdir(t, 'zames-cp-store-')
   await fs.writeFile(path.join(work, 'a.txt'), 'x')
   const cp = new CheckpointStore({ dir: store, maxBackups: 2 })
 

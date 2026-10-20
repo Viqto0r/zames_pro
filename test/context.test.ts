@@ -11,13 +11,16 @@ import {
   MAX_FILE_BASE,
   MAX_MEMORY_FILE,
 } from '../src/context.ts'
+import { makeTmpDir } from './tmp-dir.ts'
 
-async function mkTmp(): Promise<string> {
-  return await fs.mkdtemp(path.join(os.tmpdir(), 'zames-ctx-'))
+async function mkTmp(t: {
+  after: (fn: () => unknown) => unknown
+}): Promise<string> {
+  return await makeTmpDir(t, 'zames-ctx-')
 }
 
-test('loadSkills finds project skills and parses frontmatter', async () => {
-  const root = await mkTmp()
+test('loadSkills finds project skills and parses frontmatter', async (t) => {
+  const root = await mkTmp(t)
   const dir = path.join(root, '.zames', 'skills', 'my-skill')
   await fs.mkdir(dir, { recursive: true })
   await fs.writeFile(
@@ -33,8 +36,8 @@ test('loadSkills finds project skills and parses frontmatter', async () => {
   assert.equal(s!.userInvokable, true)
 })
 
-test('loadSkills parses allowed-tools and user-invokable', async () => {
-  const root = await mkTmp()
+test('loadSkills parses allowed-tools and user-invokable', async (t) => {
+  const root = await mkTmp(t)
   const dir = path.join(root, '.claude', 'skills', 'ro')
   await fs.mkdir(dir, { recursive: true })
   await fs.writeFile(
@@ -49,8 +52,8 @@ test('loadSkills parses allowed-tools and user-invokable', async () => {
   assert.equal(s!.userInvokable, false)
 })
 
-test('loadSkills includes built-in skills with an inline body', async () => {
-  const root = await mkTmp()
+test('loadSkills includes built-in skills with an inline body', async (t) => {
+  const root = await mkTmp(t)
   const skills = await loadSkills(root)
   const commit = skills.find((x) => x.name === 'commit')
   assert.ok(commit, 'built-in commit skill should be present')
@@ -63,8 +66,8 @@ test('loadSkills includes built-in skills with an inline body', async () => {
 // .zames/skills/*/SKILL.md files, which never reach the npm package), so a
 // fresh install has them. Guard against them being dropped: each must appear
 // as a built-in with an inline body and a non-empty description.
-test('the methodology skills are built in (superpowers port)', async () => {
-  const root = await mkTmp()
+test('the methodology skills are built in (superpowers port)', async (t) => {
+  const root = await mkTmp(t)
   const skills = await loadSkills(root)
   const methodology = [
     'brainstorming',
@@ -88,8 +91,8 @@ test('the methodology skills are built in (superpowers port)', async () => {
   }
 })
 
-test('a project skill overrides a built-in with the same name', async () => {
-  const root = await mkTmp()
+test('a project skill overrides a built-in with the same name', async (t) => {
+  const root = await mkTmp(t)
   const dir = path.join(root, '.zames', 'skills', 'commit')
   await fs.mkdir(dir, { recursive: true })
   await fs.writeFile(
@@ -105,8 +108,8 @@ test('a project skill overrides a built-in with the same name', async () => {
   assert.equal(commit!.builtinBody, undefined)
 })
 
-test('loadCommands reads .zames/commands/*.md', async () => {
-  const root = await mkTmp()
+test('loadCommands reads .zames/commands/*.md', async (t) => {
+  const root = await mkTmp(t)
   const dir = path.join(root, '.zames', 'commands')
   await fs.mkdir(dir, { recursive: true })
   await fs.writeFile(
@@ -121,8 +124,8 @@ test('loadCommands reads .zames/commands/*.md', async () => {
   assert.match(c!.body, /Review \$ARGUMENTS carefully/)
 })
 
-test('loadProjectContext picks up AGENTS.md and MEMORY.md', async () => {
-  const root = await mkTmp()
+test('loadProjectContext picks up AGENTS.md and MEMORY.md', async (t) => {
+  const root = await mkTmp(t)
   await fs.writeFile(
     path.join(root, 'AGENTS.md'),
     '# Rules\n\n- be nice',
@@ -137,8 +140,8 @@ test('loadProjectContext picks up AGENTS.md and MEMORY.md', async () => {
 
 // An EXISTING but 0-byte AGENTS.md was dropped by a truthiness check,
 // so the prompt lost the file entirely. It must appear as an (empty) section.
-test('an empty AGENTS.md is still injected as an (empty) section', async () => {
-  const root = await mkTmp()
+test('an empty AGENTS.md is still injected as an (empty) section', async (t) => {
+  const root = await mkTmp(t)
   await fs.writeFile(path.join(root, 'AGENTS.md'), '', 'utf-8')
   const ctx = await loadProjectContext(root)
   const f = ctx.agents.find((x) => x.path.endsWith('AGENTS.md'))
@@ -165,8 +168,8 @@ test('skillBody: closing --- at EOF without a trailing newline', () => {
 // MEMORY.md is appended to over time, so its newest notes live at the TAIL.
 // A file over the per-file budget must keep the tail (the newest notes), not
 // clip them away with a head slice.
-test('an oversized MEMORY.md keeps its newest (tail) notes', async () => {
-  const root = await mkTmp()
+test('an oversized MEMORY.md keeps its newest (tail) notes', async (t) => {
+  const root = await mkTmp(t)
   const head = 'OLD-'.repeat(60000) // ~240k of stale notes at the top
   const tail = '\n- NEWEST-FACT-KEEP-ME\n'
   await fs.writeFile(path.join(root, 'MEMORY.md'), head + tail, 'utf-8')
@@ -182,8 +185,8 @@ test('an oversized MEMORY.md keeps its newest (tail) notes', async () => {
 
 // The tail clip must not cut a note in half: it starts at a bullet/heading
 // boundary so the kept text is a sequence of whole notes.
-test('a tail clip starts at a note boundary, not mid-note', async () => {
-  const root = await mkTmp()
+test('a tail clip starts at a note boundary, not mid-note', async (t) => {
+  const root = await mkTmp(t)
   const filler = ('x'.repeat(79) + '\n').repeat(3000) // ~240k
   // Newest notes are clearly delimited bullets.
   const notes = '\n- NOTE-A\n- NOTE-B\n- NOTE-C\n'
@@ -203,8 +206,8 @@ test('a tail clip starts at a note boundary, not mid-note', async () => {
 })
 
 // A big AGENTS.md must NOT starve MEMORY.md: they have separate pools now.
-test('a large AGENTS.md does not drop MEMORY.md from the prompt', async () => {
-  const root = await mkTmp()
+test('a large AGENTS.md does not drop MEMORY.md from the prompt', async (t) => {
+  const root = await mkTmp(t)
   await fs.writeFile(
     path.join(root, 'AGENTS.md'),
     'A'.repeat(MAX_FILE_BASE),
@@ -219,8 +222,8 @@ test('a large AGENTS.md does not drop MEMORY.md from the prompt', async () => {
 })
 
 // B6: a nested AGENTS.md is pulled in only when the task touches its directory.
-test('loadProjectContext includes scoped AGENTS.md for touched dirs', async () => {
-  const root = await mkTmp()
+test('loadProjectContext includes scoped AGENTS.md for touched dirs', async (t) => {
+  const root = await mkTmp(t)
   await fs.mkdir(path.join(root, 'src', 'deep'), { recursive: true })
   await fs.writeFile(
     path.join(root, 'src', 'deep', 'AGENTS.md'),
@@ -286,8 +289,8 @@ test('buildSystemPrompt includes context sections', async () => {
   assert.match(sp, /\/review/)
 })
 
-test('loadCommands parses argument-hint and arguments frontmatter (B7)', async () => {
-  const root = await mkTmp()
+test('loadCommands parses argument-hint and arguments frontmatter (B7)', async (t) => {
+  const root = await mkTmp(t)
   const dir = path.join(root, '.zames', 'commands')
   await fs.mkdir(dir, { recursive: true })
   await fs.writeFile(

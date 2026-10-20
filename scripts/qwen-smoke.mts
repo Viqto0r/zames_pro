@@ -75,6 +75,23 @@ const browser = new QwenBrowser({
 })
 browser.onNotice = (t: string) => console.log('  [notice] ' + t)
 
+// The throwaway HOME is deleted on EVERY exit path (success, a failed
+// scenario, a crash). A smoke that dies half-way used to leave zames-* dirs
+// in /tmp forever - on WSL their space never returns to the Windows host.
+function cleanupSmokeHome(): void {
+  if (process.env.ZAMES_QWEN_SMOKE_KEEP) {
+    console.log('kept HOME: ' + SMOKE_HOME)
+    return
+  }
+  try {
+    fs.rmSync(SMOKE_HOME, { recursive: true, force: true })
+  } catch {}
+}
+process.on('SIGINT', () => {
+  cleanupSmokeHome()
+  process.exit(130)
+})
+
 async function main() {
   console.log(
     'qwen-smoke: HOME=' +
@@ -207,15 +224,12 @@ async function main() {
       results.length +
       ' passed',
   )
-  if (!process.env.ZAMES_QWEN_SMOKE_KEEP) {
-    fs.rmSync(SMOKE_HOME, { recursive: true, force: true })
-  } else {
-    console.log('kept HOME: ' + SMOKE_HOME)
-  }
+  cleanupSmokeHome()
   process.exit(loginFailed ? 2 : failed.length ? 1 : 0)
 }
 
 main().catch((e) => {
   console.error('qwen-smoke crashed:', (e as Error).message)
+  cleanupSmokeHome()
   process.exit(1)
 })

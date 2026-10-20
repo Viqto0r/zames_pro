@@ -344,21 +344,84 @@ export function extractTokenUsage(body: string): number | null {
 }
 
 // Saves the DeepSeek network response body to disk for post-mortem analysis.
-// The files live in ~/.zames/net-log — from them the real answer format is visible.
-// DEBUG ONLY: disabled unless ZAMES_NET_DEBUG=1. It writes a file per network
-// response (thousands of files / tens of MB) and is not needed for the agent
-// to work — the answer is taken from extractAnswer() in memory.
+// DEBUG ONLY: disabled unless ZAMES_NET_DEBUG=1.
+//
+// The dumps live in ~/.zames/net-log and one file PER RESPONSE is written, so
+// an unattended `npm run dev` (which sets ZAMES_NET_DEBUG=1) used to grow the
+// directory without bound: 77k files / 800 MB after a few days. On WSL that
+// directory sits inside ext4.vhdx, and the space of thousands of tiny deleted
+// files is never returned to Windows — the host disk fills up. So the log is
+// ROTATED here: `NET_LOG_KEEP` newest dumps are kept and a rotation runs at
+// most once every `NET_LOG_ROTATE_MS` (listing the dir on every response would
+// itself cost time on a huge directory).
+const NET_LOG_KEEP = 200
+const NET_LOG_ROTATE_MS = 5 * 60_000
+const NET_LOG_MAX_BYTES = 32 * 1024 * 1024
+
+let netLogDir: string | null = null
+let netLogLastRotate = 0
+
+function netLogDirectory(): string {
+  if (netLogDir === null) {
+    netLogDir = path.join(os.homedir(), '.zames', 'net-log')
+  }
+  return netLogDir
+}
+
+/** A stamp prefix (`YYYY-MM-DDTHH-MM-SS-mmmZ_`) sorts chronologically. */
+function netLogStamp(): string {
+  return new Date().toISOString().replace(/[:.]/g, '-')
+}
+
 export async function dumpNetBody(url: string, body: string): Promise<void> {
   if (!process.env.ZAMES_NET_DEBUG) return
   try {
-    const dir = path.join(os.homedir(), '.zames', 'net-log')
+    const dir = netLogDirectory()
     await fs.mkdir(dir, { recursive: true })
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
     const safe = url.replace(/[^a-zA-Z0-9_.-]/g, '_').slice(0, 80)
     await fs.writeFile(
-      path.join(dir, stamp + '_' + safe + '.txt'),
-      body,
+      path.join(dir, netLogStamp() + '_' + safe + '.txt'),
+      body.slice(0, NET_LOG_MAX_BYTES),
       'utf-8',
     )
+    await rotateNetLogThrottled(dir)
   } catch {}
+}
+
+/**
+ * Keeps only the newest `NET_LOG_KEEP` dumps. Exported for the test: the
+ * rotation is the only thing standing between `ZAMES_NET_DEBUG=1` and an
+ * unbounded directory, so it is checked directly.
+ */
+export async function rotateNetLog(
+  dir: string,
+  keep = NET_LOG_KEEP,
+  now = Date.now(),
+): Promise<number> {
+  // The stamp prefix sorts the names chronologically, so a plain sort is
+  // enough — no stat() per file (a directory with 77k entries would make
+  // 77k syscalls on every response).
+  const names = (await fs.readdir(dir).catch(() => [] as string[])).filter(
+    (n) => n.endsWith('.txt'),
+  )
+  if (names.length <= keep) return 0
+  names.sort()
+  const stale = names.slice(0, names.length - keep)
+  let removed = 0
+  for (const n of stale) {
+    await fs
+      .rm(path.join(dir, n), { force: true })
+      .then(() => removed++)
+      .catch(() => {})
+  }
+  netLogLastRotate = now
+  return removed
+}
+
+/** Throttled rotation used by dumpNetBody (at most once per interval). */
+async function rotateNetLogThrottled(dir: string): Promise<void> {
+  const now = Date.now()
+  if (now - netLogLastRotate < NET_LOG_ROTATE_MS) return
+  netLogLastRotate = now
+  await rotateNetLog(dir, NET_LOG_KEEP, now)
 }

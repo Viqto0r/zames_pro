@@ -5,6 +5,7 @@ import path from 'path'
 import os from 'os'
 import { runAgentLoop, type SubagentRequest } from '../src/agent-loop.ts'
 import type { ToolDef, BrowserLike } from '../src/types.ts'
+import { makeTmpDir } from './tmp-dir.ts'
 
 // N36: `Task` is a SEAM, not an ordinary tool. The agent loop must route it
 // through onSubagent (a separate chat with an isolated context) and feed the
@@ -46,8 +47,8 @@ function jsonCall(tool: string, args: Record<string, unknown>): string {
   return JSON.stringify({ tool, args })
 }
 
-test('Task делегируется в onSubagent и его отчёт возвращается модели', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-sub-'))
+test('Task делегируется в onSubagent и его отчёт возвращается модели', async (t) => {
+  const dir = await makeTmpDir(t, 'zames-sub-')
   const requests: SubagentRequest[] = []
   const tools: ToolDef[] = []
 
@@ -83,8 +84,8 @@ test('Task делегируется в onSubagent и его отчёт возв�
   assert.equal(final, 'the entry point is src/index.ts')
 })
 
-test('Task без onSubagent возвращает честную ошибку, не падая', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-sub-'))
+test('Task без onSubagent возвращает честную ошибку, не падая', async (t) => {
+  const dir = await makeTmpDir(t, 'zames-sub-')
   const { browser, asks } = makeBrowser([
     jsonCall('Task', { prompt: 'do something' }),
     jsonCall('respond', { message: 'ok' }),
@@ -105,8 +106,8 @@ test('Task без onSubagent возвращает честную ошибку, �
   assert.equal(final, 'ok')
 })
 
-test('Task с пустым prompt не вызывает onSubagent', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-sub-'))
+test('Task с пустым prompt не вызывает onSubagent', async (t) => {
+  const dir = await makeTmpDir(t, 'zames-sub-')
   let called = 0
   const { browser, asks } = makeBrowser([
     jsonCall('Task', { prompt: '   ' }),
@@ -128,8 +129,8 @@ test('Task с пустым prompt не вызывает onSubagent', async () =>
   assert.ok(asks[1].includes('non-empty'))
 })
 
-test('subagent_type по умолчанию general', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-sub-'))
+test('subagent_type по умолчанию general', async (t) => {
+  const dir = await makeTmpDir(t, 'zames-sub-')
   const seen: string[] = []
   const { browser } = makeBrowser([
     jsonCall('Task', { prompt: 'x' }),

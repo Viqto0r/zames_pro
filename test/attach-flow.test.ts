@@ -11,12 +11,13 @@ import {
   guessMime,
   isImageName,
 } from '../src/attachments.ts'
+import { makeTmpDir } from './tmp-dir.ts'
 
 const PNG_B64 =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
 
-test('saveToTemp кладёт файл в tmp и не перезаписывает существующие', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-tmp-'))
+test('saveToTemp кладёт файл в tmp и не перезаписывает существующие', async (t) => {
+  const dir = await makeTmpDir(t, 'zames-tmp-')
   const data = Buffer.from('hello')
   const p1 = await saveToTemp(dir, 'x.txt', data)
   const p2 = await saveToTemp(dir, 'x.txt', data)
@@ -27,8 +28,8 @@ test('saveToTemp кладёт файл в tmp и не перезаписывае
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('saveToTemp санитизирует имя', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-tmp-'))
+test('saveToTemp санитизирует имя', async (t) => {
+  const dir = await makeTmpDir(t, 'zames-tmp-')
   const p = await saveToTemp(dir, '../../etc/passwd', Buffer.from('x'))
   // Slashes are replaced, so the file stays inside the temp dir.
   assert.ok(path.resolve(p).startsWith(path.resolve(dir)))
@@ -44,8 +45,8 @@ test('looksLikeFilePath распознаёт пути и имена файлов
   assert.equal(looksLikeFilePath(''), false)
 })
 
-test('маркеры image/file попадают в текст сообщения (сквозной сценарий)', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-flow-'))
+test('маркеры image/file попадают в текст сообщения (сквозной сценарий)', async (t) => {
+  const dir = await makeTmpDir(t, 'zames-flow-')
   const store = new AttachmentStore()
   const img = parseImagePaste(PNG_B64)
   assert.ok(img)

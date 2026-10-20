@@ -1,25 +1,36 @@
-import { test } from 'node:test'
+import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'fs/promises'
 import fsSync from 'fs'
 import path from 'path'
 import os from 'os'
+import { makeTmpDir, makeTmpDirSync } from './tmp-dir.ts'
 
-const fakeHome = fsSync.mkdtempSync(path.join(os.tmpdir(), 'zames-home-'))
+const fakeHome = makeTmpDirSync(
+  {
+    on: (e: string, fn: () => unknown) => {
+      if (e === 'end') after(fn)
+    },
+  },
+  'zames-home-',
+)
 process.env.HOME = fakeHome
 process.env.USERPROFILE = fakeHome
 
 const { UndoStore } = await import('../src/undo.ts')
 
-async function tmpFile(content?: string): Promise<string> {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-undo-'))
+async function tmpFile(
+  t: { after: (fn: () => unknown) => unknown },
+  content?: string,
+): Promise<string> {
+  const dir = await makeTmpDir(t, 'zames-undo-')
   const f = path.join(dir, 'f.txt')
   if (content !== undefined) await fs.writeFile(f, content, 'utf-8')
   return f
 }
 
-test('backup + undoLast восстанавливает исходное содержимое', async () => {
-  const f = await tmpFile('original')
+test('backup + undoLast восстанавливает исходное содержимое', async (t) => {
+  const f = await tmpFile(t, 'original')
   const undo = new UndoStore()
   await undo.backup(f)
   await fs.writeFile(f, 'changed', 'utf-8')
@@ -28,8 +39,8 @@ test('backup + undoLast восстанавливает исходное соде
   assert.equal(await fs.readFile(f, 'utf-8'), 'original')
 })
 
-test('undoLast удаляет файл, которого не было при backup', async () => {
-  const f = await tmpFile() // does not exist
+test('undoLast удаляет файл, которого не было при backup', async (t) => {
+  const f = await tmpFile(t) // does not exist
   const undo = new UndoStore()
   await undo.backup(f)
   await fs.writeFile(f, 'created later', 'utf-8')
@@ -44,15 +55,15 @@ test('undoLast на пустой истории возвращает ошибк�
   assert.equal(res.ok, false)
 })
 
-test('undo отключён в конфиге — backup ничего не делает', async () => {
-  const f = await tmpFile('x')
+test('undo отключён в конфиге — backup ничего не делает', async (t) => {
+  const f = await tmpFile(t, 'x')
   const undo = new UndoStore({ enabled: false })
   const r = await undo.backup(f)
   assert.equal(r, null)
 })
 
-test('list показывает последние записи', async () => {
-  const f = await tmpFile('a')
+test('list показывает последние записи', async (t) => {
+  const f = await tmpFile(t, 'a')
   const undo = new UndoStore()
   await undo.backup(f)
   const items = await undo.list(5)
@@ -66,8 +77,8 @@ test('list показывает последние записи', async () => {
 // re-failing on the same dead record — the earlier backups became unreachable.
 // A dead record must be dropped and the undo must fall through to the previous
 // one.
-test('undoLast skips a record whose backup file is gone', async () => {
-  const f = await tmpFile('original')
+test('undoLast skips a record whose backup file is gone', async (t) => {
+  const f = await tmpFile(t, 'original')
   const undo = new UndoStore()
   await undo.backup(f) // backup #1: 'original'
   await fs.writeFile(f, 'changed', 'utf-8')

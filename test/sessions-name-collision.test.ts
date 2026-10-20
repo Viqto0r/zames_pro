@@ -9,13 +9,15 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { makeTmpDir } from './tmp-dir.ts'
 
 // The module resolves ~/.zames/.sessions at import time from HOME, so each test
 // gets its own HOME and a FRESH module instance.
 async function withFreshSessions(
+  t: { after: (fn: () => unknown) => unknown },
   fn: (mod: typeof import('../src/sessions.ts')) => Promise<void>,
 ): Promise<void> {
-  const home = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-sess-'))
+  const home = await makeTmpDir(t, 'zames-sess-')
   const prevHome = process.env.HOME
   process.env.HOME = home
   try {
@@ -25,12 +27,11 @@ async function withFreshSessions(
     await fn(mod)
   } finally {
     process.env.HOME = prevHome
-    await fs.rm(home, { recursive: true, force: true })
   }
 }
 
-test('two ids that sanitize alike are stored separately', async () => {
-  await withFreshSessions(async (mod) => {
+test('two ids that sanitize alike are stored separately', async (t) => {
+  await withFreshSessions(t, async (mod) => {
     mod.saveSession({ id: 'a/b', title: 'first', workdir: '/w' })
     mod.saveSession({ id: 'a_b', title: 'second', workdir: '/w' })
     const ids = mod
@@ -43,8 +44,8 @@ test('two ids that sanitize alike are stored separately', async () => {
   })
 })
 
-test('the same id always maps to the same file', async () => {
-  await withFreshSessions(async (mod) => {
+test('the same id always maps to the same file', async (t) => {
+  await withFreshSessions(t, async (mod) => {
     mod.saveSession({ id: 'x:y', title: 'one', workdir: '/w' })
     mod.saveSession({ id: 'x:y', title: 'two', workdir: '/w' })
     assert.equal(mod.listSessions().length, 1)
