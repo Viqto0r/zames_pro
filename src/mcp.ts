@@ -275,7 +275,14 @@ export const MCP_RESULT_LIMIT = 12_000
 export function truncateMcpResult(s: string, limit = MCP_RESULT_LIMIT): string {
   const str = String(s)
   if (str.length <= limit) return str
-  let head = str.slice(0, limit)
+  // The MARKER is part of the result, so the head must leave room for it:
+  // appending it to a limit-long head produced a result WIDER than the cap
+  // (the cap exists to bound the context a single MCP call can consume).
+  // Reserve the WORST-CASE marker (a 10-digit count), so no result can
+  // exceed the cap whatever the omitted length turns out to be.
+  const MARKER = '\n[...truncated 9999999999 chars]'
+  const budget = Math.max(0, limit - MARKER.length)
+  let head = str.slice(0, budget)
   // Never leave a lone HIGH surrogate at the cut: an emoji / astral CJK char
   // sits on two UTF-16 units, and cutting between them hands the model a
   // broken code point (same rule as truncateToolResult / capReport).
@@ -285,7 +292,7 @@ export function truncateMcpResult(s: string, limit = MCP_RESULT_LIMIT): string {
   }
   // Prefer a line boundary so a cut does not split a line in half.
   const nl = head.lastIndexOf(String.fromCharCode(10))
-  const cut = nl > limit * 0.5 ? head.slice(0, nl + 1) : head
+  const cut = nl > budget * 0.5 ? head.slice(0, nl + 1) : head
   const omitted = str.length - cut.length
   return cut + `\n[...truncated ${omitted} chars]`
 }

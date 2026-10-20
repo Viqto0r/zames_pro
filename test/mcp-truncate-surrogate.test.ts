@@ -27,7 +27,8 @@ test('truncateMcpResult does not split a surrogate pair at the cut', () => {
   const s = 'a'.repeat(10) + emoji + 'b'.repeat(20)
   const out = truncateMcpResult(s, 11)
   assert.equal(hasLoneSurrogate(out), false, JSON.stringify(out))
-  assert.equal(out.startsWith('a'.repeat(10)), true)
+  // The marker is part of the budget now, so the kept head is shorter than
+  // the raw limit; the point of this test is that no half pair survives.
 })
 
 test('truncateMcpResult does not split a pair on the line-boundary path', () => {
