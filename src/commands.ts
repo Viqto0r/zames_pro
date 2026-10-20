@@ -184,7 +184,10 @@ export function parseTranscript(body: string): TranscriptEntry[] {
     if (!t) continue
     try {
       const v = JSON.parse(t)
-      if (v && typeof v === 'object') out.push(v as TranscriptEntry)
+      // Only a plain OBJECT is an event: an ARRAY (a stray JSON array line in
+      // a hand-edited/merged transcript) must not be treated as one.
+      if (v && typeof v === 'object' && !Array.isArray(v))
+        out.push(v as TranscriptEntry)
     } catch {
       // skip malformed lines
     }
