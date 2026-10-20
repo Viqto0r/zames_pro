@@ -46,6 +46,11 @@ export const doctorMessages: Record<string, { ru: string; en: string }> = {
     ru: 'часть элементов не найдена: {v} (агент может работать некорректно)',
     en: 'some elements not found: {v} (the agent may misbehave)',
   },
+  'doctor.display': { ru: '{v}', en: '{v}' },
+  'doctor.adaptive_pause': {
+    ru: 'адаптивная пауза, текущий интервал {n}с',
+    en: 'adaptive pause, current interval {n}s',
+  },
   'doctor.ui_broken': {
     ru: 'НЕ найдено критичное: {v} — {provider} сменил вёрстку, задачи не будут отправляться. Запусти /debug-dom.',
     en: 'MISSING critical: {v} — {provider} changed the markup, tasks will not send. Run /debug-dom.',

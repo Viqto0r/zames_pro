@@ -472,12 +472,18 @@ export function renderDoctor(
     )
   }
   if (typeof d.minSendIntervalMs === 'number') {
+    // An adaptive provider legitimately sits at 0 (it backs off only after a
+    // REAL limit), so 0 must not be a WARN there.
     row(
       d.minSendIntervalMs > 0 || !!d.adaptiveThrottle,
       'send pause',
-      t('doctor.send_pause', {
-        n: String(Math.round(d.minSendIntervalMs / 1000)),
-      }),
+      d.adaptiveThrottle
+        ? t('doctor.adaptive_pause', {
+            n: String(Math.round(d.minSendIntervalMs / 1000)),
+          })
+        : t('doctor.send_pause', {
+            n: String(Math.round(d.minSendIntervalMs / 1000)),
+          }),
     )
   }
   if (typeof d.displayAvailable === 'boolean') {

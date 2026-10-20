@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **glm:** report the slider captcha instead of a silent no-answer
 - handoff label and live config for more than two providers
 - per-provider auth marker, credentials and shared headless-UA cache
 
