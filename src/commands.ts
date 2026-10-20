@@ -1026,7 +1026,11 @@ function replaceDollarTokens(
       continue
     }
     if (isAllDigits(tok)) {
-      res += parts[Number(tok) - 1] ?? ''
+      const idx = Number(tok) - 1
+      // A position that was NOT supplied stays as written: `$100` in prose
+      // is a PRICE, not "position 100", and replacing it with an empty
+      // string silently deleted the number from the prompt.
+      res += idx >= 0 && idx < parts.length ? parts[idx] : '$' + tok
     } else {
       const idx = names.indexOf(tok)
       res += idx >= 0 ? (parts[idx] ?? '') : '$' + tok
