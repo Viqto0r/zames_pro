@@ -1637,6 +1637,9 @@ export class GlmBrowser {
     while (Date.now() < startDeadline) {
       if (this._abort || this._askCancelled) return '(прервано пользователем)'
       const pageText = await this._readPageText()
+      if (await this._captchaVisible().catch(() => false)) {
+        throw new GlmCaptchaError('captcha blocks the answer')
+      }
       if (isRateLimitText(pageText)) {
         throw new GlmRateLimitError(pageText.slice(0, 300))
       }
@@ -1669,6 +1672,9 @@ export class GlmBrowser {
     while (Date.now() < deadline) {
       if (this._abort || this._askCancelled) return '(прервано пользователем)'
       const pageText = await this._readPageText()
+      if (await this._captchaVisible().catch(() => false)) {
+        throw new GlmCaptchaError('captcha blocks the answer')
+      }
       if (isRateLimitText(pageText)) {
         throw new GlmRateLimitError(pageText.slice(0, 300))
       }
