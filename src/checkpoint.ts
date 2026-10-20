@@ -82,9 +82,13 @@ export function pickRecord(
   if (!sel) return null
   if (/^\d+$/.test(sel)) {
     const n = Number(sel)
-    // A small number is an index (1 = newest). An out-of-range number is
-    // still tried as a stamp prefix below, so `/rewind 1730000` works.
+    // A small number is an index (1 = newest).
     if (n >= 1 && n <= records.length) return records[n - 1]
+    // A stamp is epoch-ms (~13 digits), but older files and tests may hold
+    // a SHORT one, so the prefix form stays. What must NOT happen is a bare
+    // out-of-range INDEX matching a stamp by its first digit (`/rewind 9`
+    // with 5 checkpoints): the prefix form therefore needs TWO digits.
+    if (sel.length < 2) return null
   }
   return records.find((r) => String(r.stamp).startsWith(sel)) || null
 }
