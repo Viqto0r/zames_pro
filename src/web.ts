@@ -705,7 +705,16 @@ export function parseDuckDuckGoResults(
   while ((m = re.exec(body)) && results.length < limit) {
     let href = m[1]
     const uddgMatch = href.match(/[?&]uddg=([^&]+)/)
-    if (uddgMatch) href = decodeURIComponent(uddgMatch[1])
+    if (uddgMatch) {
+      // decodeURIComponent THROWS on a malformed percent escape (`%ZZ`, a lone
+      // `%`). One broken href in the page must not abort the whole search: keep
+      // the raw href, which the http(s) check below then rejects.
+      try {
+        href = decodeURIComponent(uddgMatch[1])
+      } catch {
+        href = uddgMatch[1]
+      }
+    }
     const title = htmlToText(m[2] || '').trim()
     const snippet = htmlToText(m[3] || '').trim()
     // Only an absolute http(s) link is a real result. The page can carry a
