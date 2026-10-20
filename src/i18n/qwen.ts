@@ -35,29 +35,53 @@ export const qwenMessages: Record<string, { ru: string; en: string }> = {
     ru: '⚠ Qwen: не удалось перезапустить браузер: {error}',
     en: '⚠ Qwen: could not restart the browser: {error}',
   },
-  'qwen.model_set': {
-    ru: 'Модель Qwen: {v}',
-    en: 'Qwen model: {v}',
+  // Generic model-picker wording shared by every provider that HAS a picker
+  // (Qwen, GLM). The old `qwen.model_*` keys hardcoded "Qwen" and made the
+  // command look Qwen-only.
+  'model.set': {
+    ru: 'Модель {provider}: {v}',
+    en: '{provider} model: {v}',
   },
-  'qwen.model_list': {
-    ru: 'Доступные модели Qwen:\n{v}',
-    en: 'Available Qwen models:\n{v}',
+  'model.list': {
+    ru: 'Доступные модели:\n{v}',
+    en: 'Available models:\n{v}',
   },
-  'qwen.model_pick_title': {
-    ru: 'Выбор модели Qwen',
-    en: 'Select a Qwen model',
+  'model.pick_title': {
+    ru: 'Выбор модели {provider}',
+    en: 'Select a {provider} model',
+  },
+  'model.unsupported': {
+    ru: '/model недоступен для {provider}: у этого провайдера нет выбора модели в zames (она задаётся в его веб-UI).',
+    en: '/model is not available for {provider}: this provider has no model selection in zames (choose it in its web UI).',
   },
   'qwen.model_error': {
     ru: 'Не удалось получить список моделей Qwen: {v}',
     en: 'Failed to fetch the Qwen model list: {v}',
   },
-  'qwen.model_deepseek_only': {
-    ru: '/model доступен только для провайдера Qwen. Сейчас активен DeepSeek (модель выбирается в веб-UI). Переключиться: /provider qwen',
-    en: '/model is only available for the Qwen provider. DeepSeek is active (its model is chosen in the web UI). Switch with: /provider qwen',
-  },
   'qwen.age_gate_block': {
     ru: '✖ Qwen показывает окно "Confirm your age" (гостевой режим) и не даёт отправить сообщение. Войдите в аккаунт Qwen (команда /provider login) — в гостевом режиме первое сообщение блокируется.',
     en: '✖ Qwen shows the "Confirm your age" dialog (guest mode) and blocks the send. Sign in to Qwen (/provider login) — in guest mode the first message is blocked.',
+  },
+  'limits.title': {
+    ru: 'Телеметрия отправок ({provider}):',
+    en: 'Send telemetry ({provider}):',
+  },
+  'limits.window': {
+    ru: '{label}: {n} отправок',
+    en: '{label}: {n} sends',
+  },
+  'limits.rate': {
+    ru: 'лимитов: {n}, средняя блокировка: {sec}с',
+    en: 'rate limits: {n}, average block: {sec}s',
+  },
+  'limits.interval': {
+    ru: 'текущая пауза: {sec}с{adaptive}',
+    en: 'current pause: {sec}s{adaptive}',
+  },
+  'limits.adaptive_on': { ru: ' (адаптивная)', en: ' (adaptive)' },
+  'limits.none': {
+    ru: 'Файл телеметрии пока пуст ({path}).',
+    en: 'The telemetry file is empty so far ({path}).',
   },
   'provider.switched': {
     ru: 'Провайдер чата: {v}.',
@@ -72,8 +96,8 @@ export const qwenMessages: Record<string, { ru: string; en: string }> = {
     en: '✖ Could not open the {v} browser: {error}. Staying on the previous provider; check the login and retry.',
   },
   'provider.usage': {
-    ru: 'Использование: /provider <deepseek|qwen> | /provider login | /provider status',
-    en: 'Usage: /provider <deepseek|qwen> | /provider login | /provider status',
+    ru: 'Использование: /provider <{providers}> | /provider login | /provider status',
+    en: 'Usage: /provider <{providers}> | /provider login | /provider status',
   },
   'provider.handoff_saved': {
     ru: 'Контекст текущего чата сжат и сохранён для {v}. Он подхватится в следующей задаче.',

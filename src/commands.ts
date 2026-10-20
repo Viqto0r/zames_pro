@@ -1,4 +1,4 @@
-import { providerLabel } from './providers.js'
+import { providerLabel, providerHasModelPicker } from './providers.js'
 import path from 'path'
 import os from 'os'
 import { isImageName } from './attachments.js'
@@ -371,6 +371,10 @@ export interface DoctorInput {
   hasOrigin?: boolean
   /** Configured minimum pause between agent sends (ms). */
   minSendIntervalMs?: number
+  /** The provider uses an ADAPTIVE throttle (0 interval is then normal). */
+  adaptiveThrottle?: boolean
+  /** A display is available for the interactive sign-in window. */
+  displayAvailable?: boolean
   /** Running over an SSH connection (SSH_CONNECTION / SSH_TTY set). */
   sshRemote?: boolean
   /** Headless is the default: is a sanitized (non-Headless) UA cached? A
@@ -469,10 +473,19 @@ export function renderDoctor(
   }
   if (typeof d.minSendIntervalMs === 'number') {
     row(
-      d.minSendIntervalMs > 0,
+      d.minSendIntervalMs > 0 || !!d.adaptiveThrottle,
       'send pause',
       t('doctor.send_pause', {
         n: String(Math.round(d.minSendIntervalMs / 1000)),
+      }),
+    )
+  }
+  if (typeof d.displayAvailable === 'boolean') {
+    row(
+      d.displayAvailable,
+      'display',
+      t('doctor.display', {
+        v: d.displayAvailable ? t('common.on') : t('common.off'),
       }),
     )
   }
@@ -497,9 +510,16 @@ export function renderDoctor(
       missing.length === 0
         ? t('doctor.ui_ok')
         : missingCritical.length > 0
-          ? t('doctor.ui_broken', { v: missingCritical.join(', ') })
+          ? t('doctor.ui_broken', {
+              v: missingCritical.join(', '),
+              provider: providerLabel(d.provider || 'deepseek'),
+            })
           : t('doctor.ui_degraded', { v: missing.join(', ') })
-    row(missing.length === 0, 'deepseek ui', summary)
+    row(
+      missing.length === 0,
+      providerLabel(d.provider || 'deepseek').toLowerCase() + ' ui',
+      summary,
+    )
   }
   return t('doctor.title') + NL + rows.join(NL)
 }
@@ -1415,9 +1435,12 @@ export function buildSlashCommandHints(opts: {
 }): SlashHint[] {
   const { devMode, t } = opts
   const table = opts.commands ?? SLASH_COMMANDS
-  // `/model` picks a QWEN model; DeepSeek has no such command. Hide it unless
-  // the Qwen provider is active (or the caller did not pass a provider).
-  const hideModel = opts.provider !== undefined && opts.provider !== 'qwen'
+  // `/model` needs a provider with a MODEL PICKER (Qwen, GLM); DeepSeek has
+  // none. The capability flag is the registry's, so a new backend only
+  // declares it once. Hide it unless such a provider is active (or the caller
+  // did not pass a provider).
+  const hideModel =
+    opts.provider !== undefined && !providerHasModelPicker(opts.provider)
   const base: SlashHint[] = table
     .filter((c) => devMode || !isDevOnlyCommand(c.name))
     .filter((c) => !(hideModel && c.name === '/model'))

@@ -92,8 +92,24 @@ export const commonMessages: Record<string, { ru: string; en: string }> = {
     en: 'Interactive mode. Enter a task. Commands — /help. Exit — /exit.',
   },
   'msg.first_login_hint': {
-    ru: 'Сохранённой сессии DeepSeek нет — при первом запросе потребуется вход (логин/пароль спросят в терминале или открой --headed).',
-    en: 'No saved DeepSeek session — the first task will need a sign-in (login/password are asked in the terminal, or use --headed).',
+    ru: 'Сохранённой сессии {provider} нет — при первом запросе потребуется вход: откроется окно браузера, войдите в нём (капчу решает человек), затем zames вернётся в headless.',
+    en: 'No saved {provider} session — the first task will need a sign-in: a browser window opens, sign in there (a human solves the captcha), then zames returns to headless.',
+  },
+  'login.browser_prompt': {
+    ru: '🔐 {provider}: войдите в открывшемся окне браузера. Как только вход завершится, zames продолжит сам (Esc — отмена).',
+    en: '🔐 {provider}: sign in in the opened browser window. As soon as the sign-in completes, zames continues on its own (Esc — cancel).',
+  },
+  'login.window_closed': {
+    ru: 'Окно входа закрыто — продолжаю.',
+    en: 'The login window was closed — continuing.',
+  },
+  'login.timeout': {
+    ru: 'Вход через окно браузера не завершился за отведённое время. Войдите вручную и повторите /provider login.',
+    en: 'The browser-window sign-in did not complete in time. Sign in manually and retry /provider login.',
+  },
+  'login.headless_failed': {
+    ru: 'Вход не перенёсся в headless-режим — остаюсь в видимом окне (его можно свернуть).',
+    en: 'The sign-in did not carry over to headless — staying in the visible window (it can be minimised).',
   },
   'msg.first_hint': {
     ru: 'Подсказка: «/» — список команд, Ctrl+R — поиск по истории, картинку можно вставить через Ctrl+Shift+V.',

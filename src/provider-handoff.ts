@@ -12,7 +12,7 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import { writeJsonAtomic } from './fsutil.js'
-import type { ProviderId } from './providers.js'
+import { providerLabel, type ProviderId } from './providers.js'
 
 const ZAMES_HOME = path.join(os.homedir(), '.zames')
 const HANDOFF_FILE = path.join(ZAMES_HOME, 'provider-handoff.json')
@@ -22,6 +22,13 @@ const NL = String.fromCharCode(10)
 export interface ProviderHandoff {
   /** The provider the summary is FOR (the one being switched TO). */
   provider: ProviderId
+  /**
+   * The provider the summary came FROM. Optional: a handoff file written
+   * before a THIRD backend existed has no such field, so the reader falls back
+   * to "the other one of the two" (see handoffFromLabel). Without this a
+   * three-provider switch labelled a GLM summary as coming from DeepSeek.
+   */
+  from?: ProviderId
   /** The working directory the handoff belongs to. */
   workdir: string
   /** The summary of the previous provider's chat. */
@@ -29,6 +36,16 @@ export interface ProviderHandoff {
   /** The operator's original goal, carried along so it is not lost. */
   task?: string
   createdAt: string
+}
+
+/**
+ * The DISPLAY label of the provider a handoff came from. Prefers the explicit
+ * `from` field; a legacy file (written when exactly two backends existed) has
+ * none, and there "the other one" is the only correct answer. PURE.
+ */
+export function handoffFromLabel(h: ProviderHandoff): string {
+  if (h.from) return providerLabel(h.from)
+  return h.provider === 'qwen' ? 'DeepSeek' : 'Qwen'
 }
 
 /**

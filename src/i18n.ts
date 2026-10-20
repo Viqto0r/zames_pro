@@ -18,6 +18,7 @@ import { mcpMessages } from './i18n/mcp.js'
 import { configMessages } from './i18n/config.js'
 import { promptMessages } from './i18n/prompt.js'
 import { qwenMessages } from './i18n/qwen.js'
+import { glmMessages } from './i18n/glm.js'
 
 export type Locale = 'ru' | 'en'
 
@@ -62,6 +63,7 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
   ...configMessages,
   ...promptMessages,
   ...qwenMessages,
+  ...glmMessages,
 }
 
 export type TranslateFn = (key: string, params?: TranslateParams) => string

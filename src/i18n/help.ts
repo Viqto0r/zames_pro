@@ -39,8 +39,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: 'show the browser window (debug/sign-in)',
   },
   'help.opt.provider': {
-    ru: 'выбрать провайдера чата (deepseek | qwen) на этот запуск',
-    en: 'select the chat provider (deepseek | qwen) for this run',
+    ru: 'выбрать провайдера чата (deepseek | qwen | glm) на этот запуск',
+    en: 'select the chat provider (deepseek | qwen | glm) for this run',
   },
   'help.opt.debug': { ru: 'подробный лог', en: 'verbose log' },
   'help.opt.dev': {
@@ -130,8 +130,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/resume-id <id>          resume a session by full id',
   },
   'help.cmd.chats': {
-    ru: '/chats [фильтр]          список последних чатов DeepSeek',
-    en: '/chats [filter]          recent DeepSeek chats',
+    ru: '/chats [фильтр]          список последних чатов провайдера',
+    en: '/chats [filter]          recent chats of the active provider',
   },
   'help.cmd.last': {
     ru: '/last                    открыть последний чат этого каталога',
@@ -202,6 +202,10 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/copy copy the last answer to the clipboard',
   },
   'help.cmd.cost': { ru: '/cost статистика сессии', en: '/cost session stats' },
+  'help.cmd.limits': {
+    ru: '/limits                  телеметрия отправок и текущая пауза',
+    en: '/limits                  send telemetry and the current pause',
+  },
   'help.cmd.export': {
     ru: '/export [file] выгрузить сессию в Markdown',
     en: '/export [file] export the session to Markdown',
@@ -407,8 +411,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '🗜️ Compaction did not open a fresh chat (same id) — disabling auto-compact for the rest of the task to avoid a loop.',
   },
   'compact.start': {
-    ru: '🗜️ Сжимаю историю чата (DeepSeek)...',
-    en: '🗜️ Compacting the chat history (DeepSeek)...',
+    ru: '🗜️ Сжимаю историю чата ({provider})...',
+    en: '🗜️ Compacting the chat history ({provider})...',
   },
   'compact.summary_failed': {
     ru: 'Не удалось получить резюме от модели: {v}',
@@ -457,12 +461,12 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/config lang <ru|en>     switch UI and agent language',
   },
   'help.cmd.provider': {
-    ru: '/provider <deepseek|qwen> переключить провайдера чата',
-    en: '/provider <deepseek|qwen> switch the chat provider',
+    ru: '/provider <id>          переключить провайдера чата',
+    en: '/provider <id>           switch the chat provider',
   },
   'help.cmd.model': {
-    ru: '/model [id]              показать/выбрать модель Qwen',
-    en: '/model [id]              show/pick the Qwen model',
+    ru: '/model [id]              показать/выбрать модель провайдера',
+    en: '/model [id]              show/pick the provider model',
   },
   'help.cmd.debug_dom': {
     ru: '/debug-dom               сохранить HTML страницы (для отладки)',

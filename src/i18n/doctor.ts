@@ -47,16 +47,16 @@ export const doctorMessages: Record<string, { ru: string; en: string }> = {
     en: 'some elements not found: {v} (the agent may misbehave)',
   },
   'doctor.ui_broken': {
-    ru: 'НЕ найдено критичное: {v} — DeepSeek сменил вёрстку, задачи не будут отправляться. Запусти /debug-dom.',
-    en: 'MISSING critical: {v} — DeepSeek changed the markup, tasks will not send. Run /debug-dom.',
+    ru: 'НЕ найдено критичное: {v} — {provider} сменил вёрстку, задачи не будут отправляться. Запусти /debug-dom.',
+    en: 'MISSING critical: {v} — {provider} changed the markup, tasks will not send. Run /debug-dom.',
   },
   'ui.probe_failed': {
-    ru: '⚠ DeepSeek UI: не найдено критичное ({v}) — возможно, сменилась вёрстка chat.deepseek.com. Задачи могут не отправляться; проверь /doctor и /debug-dom.',
-    en: '⚠ DeepSeek UI: missing critical element(s) ({v}) — chat.deepseek.com markup may have changed. Tasks may not send; check /doctor and /debug-dom.',
+    ru: '⚠ {provider} UI: не найдено критичное ({v}) — возможно, сменилась вёрстка. Задачи могут не отправляться; проверь /doctor и /debug-dom.',
+    en: '⚠ {provider} UI: missing critical element(s) ({v}) — the page markup may have changed. Tasks may not send; check /doctor and /debug-dom.',
   },
   'ui.probe_degraded': {
-    ru: '⚠ DeepSeek UI: не найдено ({v}) — часть возможностей (тумблеры/новый чат) может не работать.',
-    en: '⚠ DeepSeek UI: not found ({v}) — some features (toggles/new chat) may not work.',
+    ru: '⚠ {provider} UI: не найдено ({v}) — часть возможностей (тумблеры/новый чат) может не работать.',
+    en: '⚠ {provider} UI: not found ({v}) — some features (toggles/new chat) may not work.',
   },
 
   'adddir.usage': {

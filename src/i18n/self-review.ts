@@ -106,8 +106,8 @@ export const selfReviewMessages: Record<string, { ru: string; en: string }> = {
   },
 
   'chats.recent': {
-    ru: 'Последние чаты DeepSeek:',
-    en: 'Recent DeepSeek chats:',
+    ru: 'Последние чаты:',
+    en: 'Recent chats:',
   },
   'chats.pick_title': {
     ru: 'Выберите чат (↑/↓, Enter — открыть, Esc — отмена)',
