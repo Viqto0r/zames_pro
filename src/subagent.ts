@@ -139,7 +139,6 @@ export function createSubagentRunner(
           ' per task). Do the remaining work yourself with the other tools.',
       }
     }
-    used++
 
     // Resolve the parent chat id BEFORE anything else. The runner restores the
     // parent chat in its finally block, and that restore is what keeps the
@@ -162,6 +161,11 @@ export function createSubagentRunner(
           'would be lost). Do the work yourself with the other tools.',
       }
     }
+
+    // Count the run only NOW: every early exit above (budget, unknown
+    // parent chat id) returned BEFORE anything ran, and charging those
+    // attempts burned the whole budget on runs that never started.
+    used++
 
     const subTools = buildTools(req.type === 'explore')
 
