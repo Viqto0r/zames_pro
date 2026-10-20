@@ -113,14 +113,14 @@ export function parseQwenChatList(json: unknown): ChatInfo[] {
   const arr: unknown = Array.isArray(data)
     ? data
     : data && typeof data === 'object'
-      ? ((data as Record<string, unknown>).chats ??
+      ? // A bare map keyed by chat id (the same convention as the history
+        // shape) has no `chats`/`list`/`items` wrapper: without this fallback
+        // a legitimate list was rejected and /chats printed "(none)".
+        ((data as Record<string, unknown>).chats ??
         (data as Record<string, unknown>).list ??
-        (data as Record<string, unknown>).items)
+        (data as Record<string, unknown>).items ??
+        data)
       : null
-  // The payload has also been seen as a MAP keyed by chat id (the same
-  // convention as the history shape); the key then IS the id. Without this a
-  // legitimate list was rejected by the array guard and /chats printed
-  // "(none)" with no error.
   const keyed: Array<[string, unknown]> | null = Array.isArray(arr)
     ? null
     : arr && typeof arr === 'object'
