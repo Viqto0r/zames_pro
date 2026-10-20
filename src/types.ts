@@ -85,6 +85,11 @@ export interface BrowserConfig {
    */
   continueMinGapMs: number
   /**
+   * How long the interactive sign-in window waits for the operator before it
+   * gives up (ms). A captcha is solved by hand, so this is generous.
+   */
+  loginTimeoutMs: number
+  /**
    * Watchdog deadline for ONE browser.ask() (ms). If the model does not come
    * back in time the agent-loop cancels the in-flight ask and retries. Default
    * 240s. This is NOT a send-to-send pause, so tuning it is safe.
@@ -126,6 +131,12 @@ export interface BrowserConfig {
   deepThinking: boolean
   /** DeepSeek Smart search (web search) toggle. */
   webSearch: boolean
+  /**
+   * Write one JSONL line per send to ~/.zames/logs/sends-<provider>.jsonl
+   * (timing, mode flags, the outcome and the server error; never the prompt
+   * or the answer). On by default; turn it off to keep the logs quiet.
+   */
+  sendTelemetry: boolean
   /** Credentials for automatic login when the session is logged out. */
   auth: BrowserAuthConfig
 }
@@ -136,6 +147,32 @@ import type { ProviderId } from './providers.js'
 
 // Qwen Chat (chat.qwen.ai) provider settings. The shared timings (timeouts,
 // throttle, retries) live in `browser`; only Qwen-only knobs are here.
+// Per-provider credentials. DeepSeek keeps `browser.auth` (so an old config
+// keeps working); every other backend owns its own section, because a shared
+// pair meant a DeepSeek login was typed into the Qwen form.
+export interface ProviderAuthConfig {
+  username: string
+  password: string
+  saveSession: boolean
+}
+
+// GLM (chat.z.ai) provider settings. Same shape as Qwen's: the shared timings
+// live in `browser`, only GLM's own knobs are here.
+export interface GlmConfig {
+  /** Model id sent with each completion (from GET /api/models). */
+  model: string
+  /** GLM context window (tokens); windows are PER-MODEL. */
+  contextLimit: number
+  /** Minimum pause between agent sends (ms); 0 for GLM by decision. */
+  minSendIntervalMs: number
+  /** Answer timeout (ms): a thinking turn on a large prompt is slow. */
+  answerTimeoutMs: number
+  /** Saved GLM credentials (separate from the other providers'). */
+  auth: ProviderAuthConfig
+  /** Adaptive send throttle (on by default for GLM). */
+  adaptiveThrottle: boolean
+}
+
 export interface QwenConfig {
   /** Model id sent with each completion (from GET /api/v2/models/). */
   model: string
@@ -159,6 +196,14 @@ export interface QwenConfig {
   /** Qwen answer timeout (ms). The first send after a cold load is slow
    *  ("Model loading…" + thinking), so it gets more room than DeepSeek. */
   answerTimeoutMs: number
+  /** Saved Qwen credentials (separate from DeepSeek's `browser.auth`). */
+  auth: ProviderAuthConfig
+  /**
+   * Adaptive send throttle: derive the pause from the observed rate limits
+   * instead of a fixed interval. Off for Qwen (its fixed 4 s gap works); the
+   * telemetry is still recorded so a value can be tuned later.
+   */
+  adaptiveThrottle: boolean
 }
 
 export interface UiConfig {
@@ -212,6 +257,8 @@ export interface ZamesConfig {
   provider: ProviderId
   /** Qwen-specific settings (the shared timings live in `browser`). */
   qwen: QwenConfig
+  /** GLM-specific settings (the shared timings live in `browser`). */
+  glm: GlmConfig
   headless: boolean
   debug: boolean
   browserChannel: string | null

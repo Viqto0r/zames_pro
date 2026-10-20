@@ -2,17 +2,22 @@
 import './color.js'
 import path from 'path'
 import fs from 'fs/promises'
-import { existsSync, statSync } from 'fs'
+import { readFileSync, statSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { theme } from './theme.js'
 
 import { DeepSeekBrowser, headlessUACacheReady } from './browser.js'
 import { QwenBrowser } from './qwen-browser.js'
+import { GlmBrowser } from './glm-browser.js'
+import { authMarkerHas } from './browser-pure.js'
+import { canShowWindow } from './browser-login.js'
 import {
   isProviderId,
   asProviderId,
   providerChatUrlPrefix,
   providerLabel,
+  providerHasModelPicker,
+  providerConfigSection,
   PROVIDER_IDS,
   type ProviderId,
 } from './providers.js'
@@ -86,6 +91,7 @@ import {
   buildHandoffText,
   saveProviderHandoff,
   readProviderHandoff,
+  handoffFromLabel,
   clearProviderHandoff,
 } from './provider-handoff.js'
 import {
@@ -97,6 +103,7 @@ import {
 } from './scheduler.js'
 import { createCliArgs } from './cli-args.js'
 import { qwenContextWindow } from './qwen-ui.js'
+import { glmContextWindow } from './glm-ui.js'
 import { renderMarkdown, setAnswerWidth } from './markdown.js'
 import { contentWidth } from './width.js'
 import { renderStartupBanner } from './banner.js'
@@ -145,11 +152,13 @@ let lastAssistantMessage = ''
 // it. It does NOT touch the throttle itself.
 const MIN_LOOP_MS = 15_000
 
-// True when a DeepSeek session/credentials were stored earlier (auth.json).
-// Used by /doctor to report that auto re-login is ready.
-function authMarkerExists(): boolean {
+// True when a session/credentials for `provider` were stored earlier
+// (auth.json). Used by /doctor and the startup banner to report that auto
+// re-login is ready. The marker is PER PROVIDER (see authMarkerHas).
+function authMarkerExists(provider: ProviderId = config.provider): boolean {
   try {
-    return existsSync(path.join(ZAMES_HOME, 'auth.json'))
+    const raw = readFileSync(path.join(ZAMES_HOME, 'auth.json'), 'utf-8')
+    return authMarkerHas(raw, provider)
   } catch {
     return false
   }
@@ -171,7 +180,17 @@ const COMPACT_FALLBACK_LIMIT = 40
 
 const config = loadConfig()
 
-// A `--provider <deepseek|qwen>` CLI flag selects the backend for THIS run,
+/**
+ * Keep the legacy `qwen.enabled` mirror in sync with the ACTIVE provider. The
+ * field is written in one place (it used to be set from three call sites) and
+ * is no longer READ by the code — it survives only so an old config keeps its
+ * meaning. PURE state change on the live config object.
+ */
+function setProviderEnabledFlag(provider: ProviderId): void {
+  config.qwen.enabled = provider === 'qwen'
+}
+
+// A `--provider <id>` CLI flag selects the backend for THIS run,
 // mirroring the /provider command (which changes it live). Without this an
 // operator who typed `--provider qwen` got the DEFAULT backend — the flag was
 // silently treated as free-form task text and DeepSeek opened instead of Qwen.
@@ -179,7 +198,7 @@ const providerArg = getArg('--provider', null)
 if (providerArg !== null) {
   if (isProviderId(providerArg)) {
     config.provider = providerArg
-    config.qwen.enabled = providerArg === 'qwen'
+    setProviderEnabledFlag(providerArg)
   } else {
     console.error(
       theme.warn(
@@ -638,7 +657,9 @@ ${theme.bold(t('help.sec.context'))}
 
 ${theme.bold(t('help.sec.provider'))}
   ${t('help.cmd.provider')}${
-    config.provider === 'qwen' ? '\n  ' + t('help.cmd.model') : ''
+    providerHasModelPicker(config.provider)
+      ? '\n  ' + t('help.cmd.model')
+      : ''
   }
 
 ${theme.bold(t('help.sec.files'))}
@@ -649,6 +670,7 @@ ${theme.bold(t('help.sec.files'))}
   ${t('help.cmd.rewind_list')}
   ${t('help.cmd.export')}
   ${t('help.cmd.cost')}
+  ${t('help.cmd.limits')}
   ${t('help.cmd.copy')}
   ${t('help.cmd.doctor')}
   ${t('help.cmd.add_dir')}
@@ -833,10 +855,58 @@ async function resolveWorkdir(): Promise<string> {
  * config.browser.answerTimeoutMs there cut them off; pick the active
  * provider's own value.
  */
+/** True when the ACTIVE provider derives its pause adaptively (see part C). */
+function providerAdaptiveThrottle(provider: ProviderId): boolean {
+  const section = providerConfigSection(provider)
+  if (!section) return false
+  const sec = (config as unknown as Record<string, Record<string, unknown>>)[
+    section
+  ]
+  return !!sec && sec.adaptiveThrottle === true
+}
+
+/** The configured model id of a provider ('n/a' when it has no model picker). */
+function providerModelOf(provider: ProviderId): string {
+  const section = providerConfigSection(provider)
+  if (!section) return 'n/a'
+  const sec = (config as unknown as Record<string, Record<string, unknown>>)[
+    section
+  ]
+  const m = sec ? sec.model : ''
+  return typeof m === 'string' ? m : ''
+}
+
 function providerAnswerTimeoutMs(): number {
-  return config.provider === 'qwen'
-    ? config.qwen.answerTimeoutMs
-    : config.browser.answerTimeoutMs
+  return providerSectionNumber('answerTimeoutMs', config.browser.answerTimeoutMs)
+}
+
+/**
+ * Read a number from the ACTIVE provider's own config section (`qwen.*`,
+ * `glm.*`), or the shared fallback for DeepSeek (whose section is `browser`).
+ * This replaced `provider === 'qwen' ? config.qwen.x : shared`, which silently
+ * gave every NEW provider the DeepSeek timing.
+ */
+function providerSectionNumber(
+  field: 'answerTimeoutMs' | 'contextLimit' | 'minSendIntervalMs',
+  fallback: number,
+): number {
+  const section = providerConfigSection(config.provider)
+  if (!section) return fallback
+  const s = (config as unknown as Record<string, Record<string, number>>)[
+    section
+  ]
+  const v = s ? s[field] : undefined
+  return typeof v === 'number' ? v : fallback
+}
+
+/** The per-provider config section object, or null for DeepSeek. */
+function activeProviderSection(): Record<string, unknown> | null {
+  const section = providerConfigSection(config.provider)
+  if (!section) return null
+  return (
+    (config as unknown as Record<string, Record<string, unknown>>)[section] ||
+    null
+  )
 }
 
 /** The provider's base chat URL, used by /chat to build the right link. */
@@ -845,59 +915,81 @@ function browserProviderUrl(): string {
 }
 
 /**
- * The context window (tokens) for the ACTIVE provider. The two backends
- * advertise different windows and Qwen's is PER-MODEL, so a single global
- * number would either overstate Qwen's (258K models) or understate the 1M
- * builds — and the number is the denominator of the auto-compact threshold,
+ * The context window (tokens) for the ACTIVE provider. The backends advertise
+ * different windows and a provider's window may be PER-MODEL (Qwen), so a
+ * single global number would either overstate a small model or understate a
+ * 1M build — and the number is the denominator of the auto-compact threshold,
  * so an error directly delays (or prematurely fires) compaction.
  *
- * `config.qwen.contextLimit` / `ui.contextLimit` are the operator-tunable
- * values; `/model` rewrites the Qwen one from the picked model id.
+ * The provider's own `contextLimit` wins; DeepSeek (which has no section)
+ * falls back to `ui.contextLimit`.
  */
 function effectiveContextLimit(): number {
-  if (config.provider === 'qwen') {
-    return config.qwen.contextLimit > 0
-      ? config.qwen.contextLimit
-      : config.ui.contextLimit
-  }
+  const own = providerSectionNumber('contextLimit', 0)
+  if (own > 0) return own
   return config.ui.contextLimit
 }
 
 /**
- * Re-derive `qwen.contextLimit` from a picked model id and persist it. Called
- * by `/model` on an explicit pick (never on startup), so a manual
- * `/config set qwen.contextLimit` survives until the operator switches model
- * again. An UNKNOWN model id leaves the limit alone: guessing would either
- * fire auto-compact too early or too late. The live editor is repainted by
- * the caller (it owns the `editor` reference); this only touches config.
+ * Re-derive the ACTIVE provider's `contextLimit` from a picked model id and
+ * persist it. Called by `/model` on an explicit pick (never on startup), so a
+ * manual `/config set <provider>.contextLimit` survives until the operator
+ * switches model again. An UNKNOWN model id leaves the limit alone: guessing
+ * would either fire auto-compact too early or too late. The live editor is
+ * repainted by the caller (it owns the `editor` reference); this only touches
+ * config.
  */
 function applyModelContextLimit(model: string): void {
-  const window = qwenContextWindow(model)
+  const section = providerConfigSection(config.provider)
+  if (!section) return
+  const window =
+    config.provider === 'qwen' ? qwenContextWindow(model) : glmContextWindow(model)
   if (window === null) return
-  config.qwen.contextLimit = window
+  const sec = activeProviderSection()
+  if (!sec) return
+  sec.contextLimit = window
   try {
-    writeConfigValue('home', 'qwen.contextLimit', String(window))
+    writeConfigValue('home', `${section}.contextLimit`, String(window))
   } catch {}
 }
 
 /**
  * Build the browser for a provider. Called at startup AND on a live
  * `/provider` switch, so both paths construct the class the same way. The
- * two backends differ in every layer (selectors, SSE format, chat-id scheme),
- * so the choice is a class, not a flag; the shared timings live in
- * config.browser and only Qwen-only knobs are overridden.
+ * backends differ in every layer (selectors, SSE format, chat-id scheme), so
+ * the choice is a class, not a flag; the shared timings live in
+ * config.browser and only the provider's own section is overridden.
  */
 function createProviderBrowser(provider: ProviderId): ChatProvider {
+  // Saved credentials go into the ACTIVE provider's section: browser.auth
+  // belongs to DeepSeek (so old configs keep working), qwen.auth / glm.auth
+  // are their own. Sharing one pair meant a DeepSeek login was typed into the
+  // Qwen form.
   const persistAuth = (username: string, password: string): void => {
-    config.browser.auth.username = username
-    config.browser.auth.password = password
+    const section = providerConfigSection(provider)
+    const prefix = section ? section + '.auth' : 'browser.auth'
+    const target = section
+      ? (config as unknown as Record<string, { auth?: Record<string, string> }>)[
+          section
+        ]
+      : null
+    if (target) {
+      if (!target.auth) target.auth = { username: '', password: '' }
+      target.auth.username = username
+      target.auth.password = password
+    } else {
+      config.browser.auth.username = username
+      config.browser.auth.password = password
+    }
     try {
-      writeConfigValue('home', 'browser.auth.username', username)
-      writeConfigValue('home', 'browser.auth.password', password)
+      writeConfigValue('home', prefix + '.username', username)
+      writeConfigValue('home', prefix + '.password', password)
     } catch {}
   }
-  return provider === 'qwen'
-    ? new QwenBrowser({
+
+  switch (provider) {
+    case 'qwen':
+      return new QwenBrowser({
         headless,
         debug,
         channel: config.browserChannel,
@@ -907,10 +999,30 @@ function createProviderBrowser(provider: ProviderId): ChatProvider {
         minSendIntervalMs: config.qwen.minSendIntervalMs,
         answerTimeoutMs: config.qwen.answerTimeoutMs,
         model: config.qwen.model,
+        auth: config.qwen.auth,
+        loginTimeoutMs: config.browser.loginTimeoutMs,
         locale: currentLocale,
         onAuthSave: persistAuth,
       })
-    : new DeepSeekBrowser({
+    case 'glm':
+      return new GlmBrowser({
+        headless,
+        debug,
+        channel: config.browserChannel,
+        ...config.browser,
+        minSendIntervalMs: config.glm.minSendIntervalMs,
+        answerTimeoutMs: config.glm.answerTimeoutMs,
+        model: config.glm.model,
+        auth: config.glm.auth,
+        sendTelemetry: config.browser.sendTelemetry,
+        logsDir: config.transcript.dir,
+        loginTimeoutMs: config.browser.loginTimeoutMs,
+        locale: currentLocale,
+        onAuthSave: persistAuth,
+      })
+    case 'deepseek':
+    default:
+      return new DeepSeekBrowser({
         headless,
         debug,
         channel: config.browserChannel,
@@ -918,6 +1030,7 @@ function createProviderBrowser(provider: ProviderId): ChatProvider {
         locale: currentLocale,
         onAuthSave: persistAuth,
       })
+  }
 }
 
 /**
@@ -1177,11 +1290,21 @@ async function main(): Promise<void> {
   }): void => {
     if (h.missingCritical.length) {
       console.error(
-        theme.warn(t('ui.probe_failed', { v: h.missingCritical.join(', ') })),
+        theme.warn(
+          t('ui.probe_failed', {
+            v: h.missingCritical.join(', '),
+            provider: providerLabel(config.provider),
+          }),
+        ),
       )
     } else if (h.missing.length) {
       console.error(
-        theme.warn(t('ui.probe_degraded', { v: h.missing.join(', ') })),
+        theme.warn(
+          t('ui.probe_degraded', {
+            v: h.missing.join(', '),
+            provider: providerLabel(config.provider),
+          }),
+        ),
       )
     }
   }
@@ -1257,11 +1380,18 @@ async function main(): Promise<void> {
   console.log(theme.system(t('msg.interactive')))
   console.log(theme.system(t('msg.queue_hint')))
   console.log(theme.dim(t('msg.first_hint')))
-  // No stored session yet (auth.json absent): DeepSeek will ask for a sign-in.
-  // The auto-login handles it, but a heads-up in the banner saves the operator
-  // from wondering why the first task pauses on a login form.
+  // No stored session yet (auth.json absent for THIS provider): the first
+  // task will need a sign-in. The auto-login handles it, but a heads-up in
+  // the banner saves the operator from wondering why the first task pauses.
+  // The hint text describes the browser-based flow (see src/browser-login.ts);
+  // the old wording promised a terminal prompt, which is no longer the main
+  // path.
   if (!authMarkerExists()) {
-    console.log(theme.warn(t('msg.first_login_hint')))
+    console.log(
+      theme.warn(
+        t('msg.first_login_hint', { provider: providerLabel(config.provider) }),
+      ),
+    )
   }
   // Nudge when BACKLOG.md has grown large: /improve reads the whole file, so a
   // bloated backlog costs tokens on every self-improvement run. Best-effort.
@@ -2049,11 +2179,12 @@ async function main(): Promise<void> {
     }
     // The context window size feeds the status-bar percentage and its color.
     // Apply it to the live editor immediately (the value is a plain number,
-    // no restart needed). A change to EITHER provider's limit matters: the
-    // Qwen one is what a /model pick rewrites, and the active provider is
-    // what decides which value the editor shows.
+    // no restart needed). ANY provider's limit matters: a /model pick rewrites
+    // the active provider's own value, and a manual /config set on a non-active
+    // provider must not leave the editor showing the old denominator when the
+    // operator switches to it.
     if (
-      (path === 'ui.contextLimit' || path === 'qwen.contextLimit') &&
+      (path === 'ui.contextLimit' || /\.contextLimit$/.test(path)) &&
       typeof value === 'number'
     ) {
       if (editor) {
@@ -2065,9 +2196,18 @@ async function main(): Promise<void> {
     // by the browser at construction, so push them onto the live instance.
     // (deepThinking/webSearch are handled above because they also repaint the
     // status icons.)
+    //
+    // `browser.*` knobs belong to DEEPSEEK. Each other backend copies its
+    // timings from its OWN section, so applying a `browser.*` value to the
+    // live Qwen/GLM instance would clobber its interval with DeepSeek's
+    // 15s (the real bug: /config set browser.minSendIntervalMs rewrote the
+    // Qwen send interval).
     if (path.startsWith('browser.')) {
       const b = browser as unknown as Record<string, unknown>
-      if (applyBrowserLiveConfig(path, value, b)) {
+      if (
+        config.provider === 'deepseek' &&
+        applyBrowserLiveConfig(path, value, b)
+      ) {
         // minSendIntervalMs feeds the send countdown the UI renders.
         if (editor) editor.refreshStatus()
       }
@@ -2077,16 +2217,17 @@ async function main(): Promise<void> {
       undo: undo as unknown as Record<string, unknown>,
       checkpoints: checkpoints as unknown as Record<string, unknown>,
     })
-    // Qwen timing knobs feed the QwenBrowser constructor. Its LIVE fields use
-    // the SAME names, so push them there when the active backend is Qwen (a
-    // no-op on DeepSeek, which has no qwen-only knobs).
-    if (path === 'qwen.minSendIntervalMs' || path === 'qwen.answerTimeoutMs') {
+    // A provider's OWN timing knobs feed its browser constructor. The LIVE
+    // fields use the SAME names, so push them there when that backend is
+    // active (a no-op otherwise). Generalized from the two hardcoded qwen.*
+    // paths so a new backend needs no new branch here.
+    const timingMatch = path.match(
+      /^(qwen|glm)\.(minSendIntervalMs|answerTimeoutMs)$/,
+    )
+    if (timingMatch) {
       const b = browser as unknown as Record<string, unknown>
-      if (config.provider === 'qwen') {
-        const field =
-          path === 'qwen.minSendIntervalMs'
-            ? 'minSendIntervalMs'
-            : 'answerTimeoutMs'
+      if (config.provider === timingMatch[1]) {
+        const field = timingMatch[2]
         if (field in b) {
           b[field] = value
           if (editor) editor.refreshStatus()
@@ -2750,7 +2891,7 @@ async function main(): Promise<void> {
       const arg = trimmed.slice('/provider'.length).trim().toLowerCase()
       if (!arg || arg === 'status') {
         const model =
-          config.provider === 'qwen' ? config.qwen.model || '(default)' : 'n/a'
+          providerModelOf(config.provider) || '(default)'
         console.log(
           theme.system(
             t('provider.status', {
@@ -2834,6 +2975,7 @@ async function main(): Promise<void> {
             if (summary) {
               saveProviderHandoff({
                 provider: arg,
+                from,
                 workdir: currentWorkdir,
                 summary,
                 task: lastTaskText || undefined,
@@ -2853,7 +2995,7 @@ async function main(): Promise<void> {
 
         // Persist the choice FIRST so a crash mid-switch still remembers it.
         config.provider = arg
-        config.qwen.enabled = arg === 'qwen'
+        setProviderEnabledFlag(arg)
         try {
           writeConfigValue('home', 'provider', arg)
         } catch {}
@@ -2883,6 +3025,9 @@ async function main(): Promise<void> {
           currentChatId = await browser.getCurrentChatId().catch(() => null)
           if (editor) {
             editor.setProvider(providerLabel(arg))
+            // The context window is provider-specific: without this the status
+            // bar kept showing the OLD backend's denominator after a switch.
+            editor.setContextLimit(effectiveContextLimit())
           }
           try {
             warnUiHealth(await browser.probeUiHealth())
@@ -2892,7 +3037,7 @@ async function main(): Promise<void> {
           // The new backend did not come up: keep the OLD one active so the
           // session keeps working, and roll the persisted choice back.
           config.provider = from
-          config.qwen.enabled = from === 'qwen'
+          setProviderEnabledFlag(from)
           try {
             writeConfigValue('home', 'provider', from)
           } catch {}
@@ -2909,19 +3054,29 @@ async function main(): Promise<void> {
         }
         continue
       }
-      console.error(theme.warn(t('provider.usage')))
+      console.error(
+        theme.warn(t('provider.usage', { providers: PROVIDER_IDS.join('|') })),
+      )
       continue
     }
 
     if (lower === '/model' || lower.startsWith('/model ')) {
       const arg = trimmed.slice('/model'.length).trim()
-      if (config.provider !== 'qwen') {
-        // `/model` is Qwen-only: it picks a model in Qwen's header dropdown.
-        // DeepSeek exposes no model selection from zames, so the command is
-        // hidden from the hints and only explains itself when typed by hand.
-        console.log(theme.system(t('qwen.model_deepseek_only')))
+      // `/model` is available to ANY provider that exposes a model picker
+      // (Qwen, GLM). DeepSeek has none, so the command is hidden from the
+      // hints there and only explains itself when typed by hand.
+      if (!providerHasModelPicker(config.provider)) {
+        console.log(
+          theme.system(
+            t('model.unsupported', { provider: providerLabel(config.provider) }),
+          ),
+        )
         continue
       }
+      const section = providerConfigSection(config.provider)
+      const sectionObj = activeProviderSection()
+      if (!section || !sectionObj) continue
+      const curModel = String(sectionObj.model || '')
       const qb = browser as unknown as {
         listModels?: () => Promise<Array<{ id: string; name: string }>>
         model?: string
@@ -2929,7 +3084,7 @@ async function main(): Promise<void> {
       if (!arg) {
         const models = qb.listModels ? await qb.listModels() : []
         if (!models.length) {
-          console.log(theme.system(t('qwen.model_list', { v: '(none)' })))
+          console.log(theme.system(t('model.list', { v: '(none)' })))
           continue
         }
         // In the TUI, open a proper SELECT LIST instead of dumping text.
@@ -2939,13 +3094,14 @@ async function main(): Promise<void> {
           try {
             const { selectListInk } = await import('./tui/run-select.js')
             picked = await selectListInk({
-              title: t('qwen.model_pick_title'),
-              initial: config.qwen.model || models[0].id,
+              title: t('model.pick_title', {
+                provider: providerLabel(config.provider),
+              }),
+              initial: curModel || models[0].id,
               items: models.map((m) => ({
                 value: m.id,
                 label: m.name || m.id,
-                detail:
-                  m.id === config.qwen.model ? t('tui.list.current') : m.id,
+                detail: m.id === curModel ? t('tui.list.current') : m.id,
               })),
               locale: currentLocale,
             })
@@ -2955,30 +3111,37 @@ async function main(): Promise<void> {
             if (editor.resume) editor.resume()
           }
           if (picked) {
-            config.qwen.model = picked
+            sectionObj.model = picked
             if (typeof qb.model === 'string') qb.model = picked
-            // Derive the context window from the picked model: Qwen windows
-            // are per-model (258K vs 1M), and this number is the denominator
-            // of the auto-compact threshold. The operator's manual
-            // `/config set qwen.contextLimit` still wins afterwards (this
-            // only runs on an explicit pick).
+            // Derive the context window from the picked model: windows are
+            // per-model, and this number is the denominator of the
+            // auto-compact threshold. The operator's manual
+            // `/config set <provider>.contextLimit` still wins afterwards
+            // (this only runs on an explicit pick).
             applyModelContextLimit(picked)
             if (editor) {
               editor.setContextLimit(effectiveContextLimit())
               editor.refreshStatus()
             }
             try {
-              writeConfigValue('home', 'qwen.model', picked)
+              writeConfigValue('home', section + '.model', picked)
             } catch {}
-            console.log(theme.system(t('qwen.model_set', { v: picked })))
+            console.log(
+              theme.system(
+                t('model.set', {
+                  provider: providerLabel(config.provider),
+                  v: picked,
+                }),
+              ),
+            )
           }
           continue
         }
         const lines = models.map((m) => `  ${m.id}  —  ${m.name}`).join(NL)
-        console.log(theme.system(t('qwen.model_list', { v: lines })))
+        console.log(theme.system(t('model.list', { v: lines })))
         continue
       }
-      config.qwen.model = arg
+      sectionObj.model = arg
       if (typeof qb.model === 'string') qb.model = arg
       applyModelContextLimit(arg)
       if (editor) {
@@ -2986,9 +3149,13 @@ async function main(): Promise<void> {
         editor.refreshStatus()
       }
       try {
-        writeConfigValue('home', 'qwen.model', arg)
+        writeConfigValue('home', section + '.model', arg)
       } catch {}
-      console.log(theme.system(t('qwen.model_set', { v: arg })))
+      console.log(
+        theme.system(
+          t('model.set', { provider: providerLabel(config.provider), v: arg }),
+        ),
+      )
       continue
     }
 
@@ -3800,6 +3967,47 @@ async function main(): Promise<void> {
       continue
     }
 
+    if (lower === '/limits') {
+      const { readSendEvents, summarizeSends, sendLogPath } = await import(
+        './send-telemetry.js'
+      )
+      const logsDir = config.transcript.dir
+      const events = readSendEvents(logsDir, config.provider)
+      if (!events.length) {
+        console.log(
+          theme.system(t('limits.none', { path: sendLogPath(logsDir, config.provider) })),
+        )
+      } else {
+        const st = summarizeSends(events)
+        console.log(
+          theme.system(t('limits.title', { provider: providerLabel(config.provider) })),
+        )
+        for (const [label, n] of [
+          ['10m', st.last10m],
+          ['30m', st.last30m],
+          ['60m', st.last60m],
+        ] as Array<[string, number]>) {
+          console.log('  ' + t('limits.window', { label, n: String(n) }))
+        }
+        console.log(
+          '  ' +
+            t('limits.rate', {
+              n: String(st.rateLimits),
+              sec: String(Math.round(st.avgBlockMs / 1000)),
+            }),
+        )
+        const adaptive = providerAdaptiveThrottle(config.provider)
+        console.log(
+          '  ' +
+            t('limits.interval', {
+              sec: String(Math.round(browser.sendIntervalMs() / 1000)),
+              adaptive: adaptive ? t('limits.adaptive_on') : '',
+            }),
+        )
+      }
+      continue
+    }
+
     if (lower === '/cost' || lower === '/usage') {
       let stats = mod.commands.summarizeTranscript([])
       if (transcript.file) {
@@ -3907,7 +4115,14 @@ async function main(): Promise<void> {
                     'origin',
                   )
                 : undefined,
-              minSendIntervalMs: config.browser.minSendIntervalMs,
+              // The ACTIVE browser's own interval: a per-provider timing
+              // (Qwen 4s, GLM 0) used to be reported as DeepSeek's 15s.
+              minSendIntervalMs: browser.sendIntervalMs(),
+              adaptiveThrottle: providerAdaptiveThrottle(config.provider),
+              displayAvailable: canShowWindow(
+                process.env as Record<string, string | undefined>,
+                process.platform,
+              ),
               sshRemote: !!(process.env.SSH_CONNECTION || process.env.SSH_TTY),
               headless: !!headless,
               headlessUaCached: await headlessUACacheReady().catch(() => false),
@@ -3915,8 +4130,9 @@ async function main(): Promise<void> {
               uiMissing: uiHealth?.missing,
               uiMissingCritical: uiHealth?.missingCritical,
               provider: config.provider,
-              providerModel:
-                config.provider === 'qwen' ? config.qwen.model : undefined,
+              providerModel: providerConfigSection(config.provider)
+                ? providerModelOf(config.provider)
+                : undefined,
             },
             t,
           ),
@@ -4379,7 +4595,7 @@ async function main(): Promise<void> {
       if (handoff) {
         finalTaskText =
           buildHandoffText({
-            from: handoff.provider === 'qwen' ? 'DeepSeek' : 'Qwen',
+            from: handoffFromLabel(handoff),
             to: providerLabel(config.provider),
             summary: handoff.summary,
             task: handoff.task,

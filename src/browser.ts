@@ -5,6 +5,12 @@ import {
   type Locator,
 } from 'playwright'
 import {
+  interactiveBrowserLogin,
+  loginIsInteractive,
+  canShowWindow,
+  type ProbeResult,
+} from './browser-login.js'
+import {
   extractAnswer,
   extractTokenUsage,
   dumpNetBody,
@@ -110,7 +116,7 @@ import {
   writeCachedHeadlessUA,
   headlessUACacheReady,
   sanitizeHeadlessUA,
-  AUTH_MARKER_FILE,
+  writeAuthMarker,
   isGenerationIncompleteText,
   isRateLimitText,
   isServerBusyText,
@@ -162,6 +168,8 @@ export interface DeepSeekBrowserOptions {
   autoContinue?: boolean
   /** Min gap between Continue clicks in thinking mode (ms). */
   continueMinGapMs?: number
+  /** How long the interactive sign-in window waits for the operator (ms). */
+  loginTimeoutMs?: number
   /** Enable DeepSeek's "Deep thinking" toggle (reasoning; slow). */
   deepThinking?: boolean
   /** Enable DeepSeek's "Smart search" (web search) toggle. */
@@ -352,6 +360,12 @@ export class DeepSeekBrowser {
   // must be stripped (DeepSeek's CDN answers 403 to it); computed in the
   // constructor, overridable by an explicit UA in the options/config.
   userAgent: string
+  /** Login-window timeout (ms) from browser.loginTimeoutMs. */
+  loginTimeoutMs: number
+  /** True once the operator closed the browser window (counts as "done"). */
+  _windowClosed: boolean
+  /** Session cookies captured before a relaunch (no `expires` -> in-memory). */
+  _carryCookies: unknown[] | null
 
   constructor({
     headless = false,
@@ -371,6 +385,7 @@ export class DeepSeekBrowser {
     incompleteWaitMs = 2000,
     autoContinue = true,
     continueMinGapMs = 1500,
+    loginTimeoutMs = 600000,
     deepThinking = false,
     webSearch = true,
     auth,
@@ -397,6 +412,9 @@ export class DeepSeekBrowser {
     this.incompleteWaitMs = incompleteWaitMs
     this.autoContinue = autoContinue
     this.continueMinGapMs = continueMinGapMs
+    this.loginTimeoutMs = loginTimeoutMs
+    this._windowClosed = false
+    this._carryCookies = null
     this.deepThinking = deepThinking
     this.webSearch = webSearch
     this.auth = {
@@ -734,6 +752,229 @@ export class DeepSeekBrowser {
     await this._fixHeadlessUserAgent()
   }
 
+
+  /**
+   * PURE-ish gate: may the login open a visible window? False for --task, a
+   * scheduler job, a non-TTY or ZAMES_NONINTERACTIVE_LOGIN=1 (the smoke
+   * scripts set it so a cold login fails fast instead of hanging), and when no
+   * display is available at all.
+   */
+  canShowLoginWindow(): boolean {
+    const interactive = loginIsInteractive({
+      isTTY: !!(process.stdin.isTTY && process.stdout.isTTY),
+      oneShot: false,
+      scheduled: false,
+      env: process.env,
+    })
+    if (!interactive) return false
+    return canShowWindow(
+      process.env as Record<string, string | undefined>,
+      process.platform,
+    )
+  }
+
+  /**
+   * The human-in-the-window fallback: DeepSeek shows a captcha often enough
+   * that a terminal prompt cannot pass it, so the operator signs in inside a
+   * VISIBLE browser window and zames then returns to headless. The decision
+   * sequence is the shared interactiveBrowserLogin; this method only supplies
+   * the DeepSeek-specific callbacks.
+   */
+  async _browserLogin(): Promise<void> {
+    const stayHeaded = !this.headless
+    const interactive = loginIsInteractive({
+      isTTY: !!(process.stdin.isTTY && process.stdout.isTTY),
+      oneShot: false,
+      scheduled: false,
+      env: process.env,
+    })
+    await interactiveBrowserLogin({
+      provider: 'DeepSeek',
+      probeLogin: () => this.probeLogin(),
+      autoLogin: () => this._autoLogin(),
+      relaunch: (h) => this.relaunchSafe(h),
+      openLoginPage: () => this._openLoginPage(),
+      gotoChat: async () => {
+        await this.page
+          .goto('https://chat.deepseek.com/', {
+            waitUntil: 'domcontentloaded',
+            timeout: 30000,
+          })
+          .catch(() => {})
+      },
+      prefill: async () => {
+        try {
+          if (!this.auth.username) return
+          const u = await this._findVisible(LOGIN_SELECTORS, 1500)
+          if (u) await u.fill(this.auth.username).catch(() => {})
+        } catch {}
+      },
+      captureCredentials: async () => {
+        try {
+          await this.page.exposeFunction(
+            '__zamesDsCreds',
+            (u: string, p: string) => {
+              const user = String(u || '').trim()
+              const pass = String(p || '')
+              if (!user) return
+              this.auth.username = user
+              if (pass) this.auth.password = pass
+              try {
+                this.onAuthSave?.(user, pass)
+              } catch {}
+            },
+          )
+          await this.page.evaluate(() => {
+            const w = window as unknown as { __zamesDsHooked?: boolean }
+            if (w.__zamesDsHooked) return
+            w.__zamesDsHooked = true
+            document.addEventListener(
+              'submit',
+              (ev) => {
+                try {
+                  const form = ev.target as HTMLElement | null
+                  if (!form) return
+                  const u = form.querySelector('input') as HTMLInputElement | null
+                  const p = form.querySelector(
+                    'input[type="password"]',
+                  ) as HTMLInputElement | null
+                  const fn = (window as unknown as {
+                    __zamesDsCreds?: (a: string, b: string) => void
+                  }).__zamesDsCreds
+                  if (fn) fn(u ? u.value || '' : '', p ? p.value || '' : '')
+                } catch {}
+              },
+              true,
+            )
+          })
+        } catch {}
+      },
+      persistSession: () => this._persistSessionIfNeeded(),
+      notice: (key) => console.log(theme.system(this._t(key))),
+      isAborted: () => this._abort,
+      windowClosed: () => this._windowClosed,
+      sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+      now: () => Date.now(),
+      interactive,
+      stayHeaded,
+      guestAllowed: false,
+      canShowWindow: true,
+      timeoutMs: this.loginTimeoutMs,
+    })
+  }
+
+  /**
+   * A FAST login probe (no long waits). The old isLoggedIn() waited 2 s for
+   * the input to appear, which is a false "logged out" on a slow network.
+   * The signal is a storage token plus a cheap API answer; the DOM is a
+   * fallback only.
+   */
+  async probeLogin(): Promise<ProbeResult> {
+    if (!this.page) return 'unknown'
+    try {
+      const r = await this.page.evaluate(async () => {
+        const hasToken = (() => {
+          try {
+            return (
+              !!localStorage.getItem('userToken') ||
+              !!localStorage.getItem('token')
+            )
+          } catch {
+            return false
+          }
+        })()
+        let api = false
+        try {
+          const res = await fetch('/api/v0/users/current', {
+            credentials: 'include',
+            headers: { accept: 'application/json' },
+          })
+          api = res.ok
+        } catch {}
+        const body = document.body ? document.body.innerText : ''
+        const signInVisible = /log ?in|sign ?in|войти/i.test(body)
+        return { hasToken, api, signInVisible }
+      })
+      if (r.hasToken && r.api) return 'in'
+      if (r.hasToken) return 'in'
+      if (r.signInVisible) return 'out'
+      return 'unknown'
+    } catch {
+      return 'unknown'
+    }
+  }
+
+  /**
+   * Relaunch the persistent context in another headless mode. A SEPARATE path
+   * from _launchOnce: it must not clean the Singleton files or nuke the
+   * profile, it waits for the previous context to release the lock and it
+   * re-applies session-only cookies (a cookie with no `expires` is dropped on
+   * close and the SPA would answer 401).
+   */
+  async relaunchSafe(headless: boolean): Promise<void> {
+    try {
+      const cookies = await this.context.cookies()
+      const session = cookies.filter((c) => c.expires === -1 || c.expires < 0)
+      if (session.length) this._carryCookies = session as never
+    } catch {}
+    try {
+      if (this.context) await this.context.close()
+    } catch {}
+    const deadline = Date.now() + 15000
+    while (Date.now() < deadline) {
+      if (!(await profileLooksLocked())) break
+      await new Promise((r) => setTimeout(r, 200))
+    }
+    this.headless = headless
+    this.userAgent = this.userAgent || ''
+    const options: Parameters<typeof chromium.launchPersistentContext>[1] = {
+      headless,
+      slowMo: 10,
+      args: ['--disable-blink-features=AutomationControlled'],
+    }
+    if (this.channel) options.channel = this.channel
+    if (this.userAgent) options.userAgent = this.userAgent
+    try {
+      this.context = await chromium.launchPersistentContext(
+        USER_DATA_DIR,
+        options,
+      )
+    } catch (e) {
+      throw new Error(
+        'deepseek: the browser profile is busy (' + (e as Error).message + ')',
+      )
+    }
+    if (this._carryCookies && this._carryCookies.length) {
+      await this.context.addCookies(this._carryCookies as never).catch(() => {})
+    }
+    this.page = this.context.pages()[0] || (await this.context.newPage())
+    this._windowClosed = false
+    this.page.on('close', () => {
+      this._windowClosed = true
+    })
+    this.context.on('close', () => {
+      this._windowClosed = true
+    })
+    this._netHookInstalled = false
+    this._netHookPage = null
+    this._installNetHook()
+  }
+
+  /** Open DeepSeek's sign-in page (it is the same origin). */
+  async _openLoginPage(): Promise<void> {
+    try {
+      if (!/sign_in|login/i.test(this.page.url())) {
+        const btn = this.page
+          .getByRole('button', { name: /log ?in|sign ?in|войти/i })
+          .first()
+        if (await btn.count().catch(() => 0)) {
+          await btn.click({ timeout: 3000 }).catch(() => {})
+          await this.page.waitForTimeout(1500)
+        }
+      }
+    } catch {}
+  }
+
   async waitForLogin(): Promise<void> {
     // 1) Already signed in (session cookie in the persistent profile)?
     if (await this.isLoggedIn()) {
@@ -771,6 +1012,15 @@ export class DeepSeekBrowser {
     })
     if (asked) return
 
+    // 4) Last resort: a HUMAN signs in inside a visible browser window (a
+    //    captcha cannot be typed into a terminal). The shared module decides
+    //    whether a window can be shown, waits for the sign-in and returns to
+    //    headless afterwards. A visible window is kept when the operator asked
+    //    for it (--headed / --dev / hotReload).
+    if (this.canShowLoginWindow()) {
+      await this._browserLogin()
+      return
+    }
     // 4) Last resort: manual sign-in in the browser window.
     console.log('\n' + theme.warn(this._t('auth.need_login')))
     if (this.headless) {
@@ -1178,14 +1428,7 @@ export class DeepSeekBrowser {
   async _persistSessionIfNeeded(): Promise<void> {
     if (!this.auth.saveSession) return
     if (!(await this.isLoggedIn().catch(() => false))) return
-    try {
-      await fs.mkdir(path.join(os.homedir(), '.zames'), { recursive: true })
-      await fs.writeFile(
-        AUTH_MARKER_FILE,
-        JSON.stringify({ at: new Date().toISOString() }, null, 2),
-        'utf-8',
-      )
-    } catch {}
+    await writeAuthMarker('deepseek')
   }
 
   async isLoggedIn(): Promise<boolean> {

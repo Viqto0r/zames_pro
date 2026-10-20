@@ -24,6 +24,12 @@ import type { BrowserContext, Locator, Page } from 'playwright'
 import { translate, DEFAULT_LOCALE } from './i18n.js'
 import type { Locale } from './i18n.js'
 import { rewriteFailedAttachments } from './commands.js'
+import {
+  interactiveBrowserLogin,
+  loginIsInteractive,
+  canShowWindow,
+  type ProbeResult,
+} from './browser-login.js'
 import { awaitUploadPreview, readAttachBuffers } from './attach-flow.js'
 import { theme } from './theme.js'
 import type { ChatInfo, ChatMessage } from './types.js'
@@ -42,7 +48,7 @@ import {
   cleanSingletonFiles,
   profileLooksLocked,
   nukeProfile,
-  AUTH_MARKER_FILE,
+  writeAuthMarker,
 } from './browser-pure.js'
 import {
   chatSignalInDom,
@@ -179,6 +185,8 @@ export interface QwenBrowserOptions {
     savedUsername: string
     step: 'email' | 'code'
   }) => Promise<string | null>
+  /** How long the interactive sign-in window waits for the operator (ms). */
+  loginTimeoutMs?: number
   userAgent?: string
 }
 
@@ -256,6 +264,9 @@ export class QwenBrowser {
   onSendState: ((state: 'generating' | 'paused' | 'settled') => void) | null
   onNotice: ((text: string) => void) | null
   userAgent: string
+  loginTimeoutMs: number
+  _windowClosed: boolean
+  _carryCookies: unknown[] | null
 
   constructor({
     headless = false,
@@ -281,6 +292,7 @@ export class QwenBrowser {
     locale,
     onAuthSave,
     onLoginPrompt,
+    loginTimeoutMs = 600000,
     userAgent,
   }: QwenBrowserOptions = {}) {
     this.headless = headless
@@ -338,6 +350,9 @@ export class QwenBrowser {
     this.onSendState = null
     this.onNotice = null
     this.userAgent = userAgent || ''
+    this.loginTimeoutMs = loginTimeoutMs
+    this._windowClosed = false
+    this._carryCookies = null
   }
 
   _t(key: string, params?: Record<string, string | number>): string {
@@ -384,7 +399,7 @@ export class QwenBrowser {
       await cleanSingletonFiles(QWEN_USER_DATA_DIR)
     }
     if (this.headless && !this.userAgent) {
-      const cached = await readCachedHeadlessUA(headlessEngineKey() + ':qwen')
+      const cached = await readCachedHeadlessUA(headlessEngineKey())
       if (cached) this.userAgent = cached
     }
     await this._launchOnce()
@@ -402,7 +417,7 @@ export class QwenBrowser {
       const fixed = sanitizeHeadlessUA(ua)
       if (fixed === ua) return
       this.userAgent = fixed
-      void writeCachedHeadlessUA(headlessEngineKey() + ':qwen', fixed)
+      void writeCachedHeadlessUA(headlessEngineKey(), fixed)
       if (this.debug)
         console.error(
           'qwen profile: headless UA -> relaunching plain Chrome UA',
@@ -643,41 +658,243 @@ export class QwenBrowser {
     return false
   }
 
+
+  /**
+   * A FAST login probe: Qwen's own `auths/refresh` API needs the app's header,
+   * so it cannot be replayed from a bare fetch. Instead the page reports
+   * whether a token is in storage and whether a sign-in control is visible. A
+   * guest ALSO sees the input, so the input alone must never mean "signed in".
+   */
+  async probeLogin(): Promise<ProbeResult> {
+    if (!this.page) return 'unknown'
+    try {
+      const r = await this.page.evaluate(() => {
+        const hasToken = (() => {
+          try {
+            return !!localStorage.getItem('token')
+          } catch {
+            return false
+          }
+        })()
+        const body = document.body ? document.body.innerText : ''
+        const signInVisible = /\b(log ?in|sign ?in)\b/i.test(body)
+        return { hasToken, signInVisible }
+      })
+      if (r.hasToken) return 'in'
+      if (r.signInVisible) return 'out'
+      return 'unknown'
+    } catch {
+      return 'unknown'
+    }
+  }
+
+  /**
+   * A human signs in inside a VISIBLE window (a one-time code cannot be typed
+   * into a terminal), then zames returns to headless. The decision sequence is
+   * the shared interactiveBrowserLogin.
+   */
+  async _browserLogin(): Promise<void> {
+    const interactive = loginIsInteractive({
+      isTTY: !!(process.stdin.isTTY && process.stdout.isTTY),
+      oneShot: false,
+      scheduled: false,
+      env: process.env,
+    })
+    await interactiveBrowserLogin({
+      provider: 'Qwen',
+      probeLogin: () => this.probeLogin(),
+      autoLogin: () => this._autoLogin(),
+      relaunch: (h) => this.relaunchSafe(h),
+      openLoginPage: () => this._openLoginPage(),
+      gotoChat: async () => {
+        await this.page
+          .goto(CHAT_URL, { waitUntil: 'domcontentloaded', timeout: 30000 })
+          .catch(() => {})
+      },
+      prefill: async () => {
+        try {
+          if (!this.auth.username) return
+          const email = this.page
+            .locator('input[name="email"], input[type="email"]')
+            .first()
+          if ((await email.count().catch(() => 0)) === 0) return
+          if (await email.isVisible().catch(() => false)) {
+            await email
+              .fill(this.auth.username, { timeout: 2000 })
+              .catch(() => {})
+          }
+        } catch {}
+      },
+      captureCredentials: async () => {
+        try {
+          await this.page.exposeFunction(
+            '__zamesQwenCreds',
+            (u: string) => {
+              const user = String(u || '').trim()
+              if (!user) return
+              this.auth.username = user
+              try {
+                this.onAuthSave?.(user, '')
+              } catch {}
+            },
+          )
+          await this.page.evaluate(() => {
+            const w = window as unknown as { __zamesQwenHooked?: boolean }
+            if (w.__zamesQwenHooked) return
+            w.__zamesQwenHooked = true
+            document.addEventListener(
+              'submit',
+              (ev) => {
+                try {
+                  const form = ev.target as HTMLElement | null
+                  if (!form) return
+                  const e = form.querySelector(
+                    'input[type="email"], input[name="email"]',
+                  ) as HTMLInputElement | null
+                  const fn = (window as unknown as {
+                    __zamesQwenCreds?: (a: string) => void
+                  }).__zamesQwenCreds
+                  if (fn && e) fn(e.value || '')
+                } catch {}
+              },
+              true,
+            )
+          })
+        } catch {}
+      },
+      persistSession: () => this._persistSessionIfNeeded(),
+      notice: (key) => this._notice(this._t(key)),
+      isAborted: () => this._abort,
+      windowClosed: () => this._windowClosed,
+      sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+      now: () => Date.now(),
+      interactive,
+      stayHeaded: !this.headless,
+      guestAllowed: true,
+      canShowWindow: canShowWindow(
+        process.env as Record<string, string | undefined>,
+        process.platform,
+      ),
+      tuiLogin: this.onLoginPrompt
+        ? async () => {
+            return await this._promptAndLogin()
+          }
+        : undefined,
+      timeoutMs: this.loginTimeoutMs,
+    })
+  }
+
+  /** Relaunch in another headless mode (login flow), keeping session cookies. */
+  async relaunchSafe(headless: boolean): Promise<void> {
+    try {
+      const cookies = await this.context.cookies()
+      const session = cookies.filter((c) => c.expires === -1 || c.expires < 0)
+      if (session.length) this._carryCookies = session as never
+    } catch {}
+    try {
+      if (this.context) await this.context.close()
+    } catch {}
+    const deadline = Date.now() + 15000
+    while (Date.now() < deadline) {
+      if (!(await profileLooksLocked(QWEN_USER_DATA_DIR))) break
+      await new Promise((r) => setTimeout(r, 200))
+    }
+    this.headless = headless
+    const options: Parameters<typeof chromium.launchPersistentContext>[1] = {
+      headless,
+      slowMo: 10,
+      args: ['--disable-blink-features=AutomationControlled'],
+    }
+    if (this.channel) options.channel = this.channel
+    if (this.userAgent) options.userAgent = this.userAgent
+    try {
+      this.context = await chromium.launchPersistentContext(
+        QWEN_USER_DATA_DIR,
+        options,
+      )
+    } catch (e) {
+      throw new Error(
+        'qwen: the browser profile is busy (' + (e as Error).message + ')',
+      )
+    }
+    if (this._carryCookies && this._carryCookies.length) {
+      await this.context.addCookies(this._carryCookies as never).catch(() => {})
+    }
+    this.page = this.context.pages()[0] || (await this.context.newPage())
+    this._windowClosed = false
+    this.page.on('close', () => {
+      this._windowClosed = true
+    })
+    this.context.on('close', () => {
+      this._windowClosed = true
+    })
+    this._netHookInstalled = false
+    this._netHookPage = null
+    this._installNetHook()
+  }
+
   async waitForLogin(): Promise<void> {
-    if (await this.isLoggedIn()) {
-      if (this.debug) console.error('qwen auth: session already active')
-      await this._persistSessionIfNeeded()
-      return
-    }
-    // No stored session: Qwen still answers a GUEST for a limited number of
-    // turns, but the agent is multi-turn by nature, so a real login is
-    // strongly recommended. Try the saved credentials first, then ask the
-    // operator in a TTY.
-    if (this.auth.username) {
-      if (await this._autoLogin()) {
-        await this._persistSessionIfNeeded()
-        return
-      }
-    }
-    if (process.stdin.isTTY) {
-      await this._promptAndLogin()
-    } else {
-      this._notice(this._t('qwen.guest_mode'))
-    }
-    await this._persistSessionIfNeeded()
+    // An existing session, then the saved credentials, then (Qwen allows a
+    // guest, so no error) the guest notice. The visible window and the return
+    // to headless are the SHARED interactiveBrowserLogin path.
+    const interactive = loginIsInteractive({
+      isTTY: !!(process.stdin.isTTY && process.stdout.isTTY),
+      oneShot: false,
+      scheduled: false,
+      env: process.env,
+    })
+    const outcome = await interactiveBrowserLogin({
+      provider: 'Qwen',
+      probeLogin: () => this.probeLogin(),
+      autoLogin: () => this._autoLogin(),
+      relaunch: (h) => this.relaunchSafe(h),
+      openLoginPage: () => this._openLoginPage(),
+      gotoChat: async () => {
+        await this.page
+          .goto(CHAT_URL, { waitUntil: 'domcontentloaded', timeout: 30000 })
+          .catch(() => {})
+      },
+      prefill: async () => {
+        try {
+          if (!this.auth.username) return
+          const email = this.page
+            .locator('input[name="email"], input[type="email"]')
+            .first()
+          if ((await email.count().catch(() => 0)) === 0) return
+          if (await email.isVisible().catch(() => false)) {
+            await email.fill(this.auth.username).catch(() => {})
+          }
+        } catch {}
+      },
+      captureCredentials: async () => {},
+      persistSession: () => this._persistSessionIfNeeded(),
+      notice: (key) => this._notice(this._t(key)),
+      isAborted: () => this._abort,
+      windowClosed: () => this._windowClosed,
+      sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+      now: () => Date.now(),
+      interactive,
+      stayHeaded: !this.headless,
+      // A guest is usable, but a real session is strongly recommended; the
+      // notice tells the operator why.
+      guestAllowed: true,
+      canShowWindow: canShowWindow(
+        process.env as Record<string, string | undefined>,
+        process.platform,
+      ),
+      tuiLogin: this.onLoginPrompt
+        ? async () => await this._promptAndLogin()
+        : undefined,
+      timeoutMs: this.loginTimeoutMs,
+    })
+    if (outcome === 'guest') this._notice(this._t('qwen.guest_mode'))
+    await this._persistSessionIfNeeded().catch(() => {})
   }
 
   async _persistSessionIfNeeded(): Promise<void> {
     if (!this.auth.saveSession) return
     if (!(await this.isLoggedIn())) return
-    try {
-      await fs.mkdir(path.dirname(AUTH_MARKER_FILE), { recursive: true })
-      await fs.writeFile(
-        AUTH_MARKER_FILE,
-        JSON.stringify({ provider: 'qwen', at: new Date().toISOString() }),
-        'utf-8',
-      )
-    } catch {}
+    await writeAuthMarker('qwen')
   }
 
   // Best-effort PASSWORD login for the saved credentials. Qwen's default form

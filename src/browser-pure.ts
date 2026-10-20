@@ -119,7 +119,16 @@ export const USER_DATA_DIR = path.join(os.homedir(), '.zames', 'profile')
 // relaunch" dance happens only once (it otherwise doubled every headless
 // start). Keying by the executable path means a Playwright update (new engine
 // path) invalidates the cache and we re-derive the UA once for the new build.
+//
+// The cache holds ONE entry PER ENGINE, not per provider: the UA depends on
+// the browser build, not on the site. It used to be a single {engine,ua}
+// record with providers appending a suffix (`engine:qwen`), so each provider
+// overwrote the other's entry and a /provider switch relaunched the browser
+// once per side. The file now maps engine key -> UA; a legacy single record is
+// still read.
 const HEADLESS_UA_CACHE = path.join(os.homedir(), '.zames', 'headless-ua.json')
+
+type UaCacheFile = { engines?: Record<string, string>; engine?: string; ua?: string }
 
 // Pure: pick a reusable UA from the cache file's text for the given engine, or
 // null. Exported so the policy is unit-tested without touching ~/.zames.
@@ -128,18 +137,36 @@ export function parseHeadlessUACache(
   engine: string,
 ): string | null {
   try {
-    const j = JSON.parse(raw)
-    if (
-      j &&
-      j.engine === engine &&
-      typeof j.ua === 'string' &&
-      j.ua &&
-      !/Headless/i.test(j.ua)
-    ) {
-      return j.ua
-    }
+    const j = JSON.parse(raw) as UaCacheFile
+    if (!j || typeof j !== 'object') return null
+    const fromMap =
+      j.engines && typeof j.engines === 'object' ? j.engines[engine] : ''
+    const legacy = j.engine === engine ? j.ua : ''
+    const ua = fromMap || legacy
+    if (typeof ua === 'string' && ua && !/Headless/i.test(ua)) return ua
   } catch {}
   return null
+}
+
+// Pure: merge a UA into the cache file's text, keeping every OTHER engine's
+// entry. Exported so the multi-engine contract is unit-tested.
+export function mergeHeadlessUACache(
+  raw: string,
+  engine: string,
+  ua: string,
+): string {
+  let engines: Record<string, string> = {}
+  try {
+    const j = JSON.parse(raw) as UaCacheFile
+    if (j && j.engines && typeof j.engines === 'object') {
+      engines = { ...j.engines }
+    } else if (j && typeof j.engine === 'string' && typeof j.ua === 'string') {
+      // Migrate a legacy single record into the map.
+      engines[j.engine] = j.ua
+    }
+  } catch {}
+  if (engine) engines[engine] = ua
+  return JSON.stringify({ engines }, null, 2)
 }
 
 export function headlessEngineKey(): string {
@@ -169,9 +196,13 @@ export async function writeCachedHeadlessUA(
   if (!engine || !ua) return
   try {
     await fs.mkdir(path.dirname(HEADLESS_UA_CACHE), { recursive: true })
+    let prev = ''
+    try {
+      prev = await fs.readFile(HEADLESS_UA_CACHE, 'utf-8')
+    } catch {}
     await fs.writeFile(
       HEADLESS_UA_CACHE,
-      JSON.stringify({ engine, ua }, null, 2),
+      mergeHeadlessUACache(prev, engine, ua),
       'utf-8',
     )
   } catch {}
@@ -196,7 +227,94 @@ export function sanitizeHeadlessUA(ua: string): string {
 }
 // Written after a successful sign-in so the next launch knows a session was
 // stored in the persistent profile (used by /doctor and diagnostics).
+//
+// The marker is PER PROVIDER (`{ providers: { deepseek: {at}, qwen: {at} } }`).
+// It used to be one shared file: Qwen wrote `{provider:'qwen'}` and DeepSeek a
+// bare `{at}`, each overwriting the other, so /doctor and the startup banner
+// reported "no session" for whichever provider had signed in second. A legacy
+// record without `providers` still reads: `{provider:'qwen'}` means Qwen and a
+// bare `{at}` means DeepSeek (the only writer before the second backend).
 export const AUTH_MARKER_FILE = path.join(os.homedir(), '.zames', 'auth.json')
+
+export type AuthMarkerProvider = 'deepseek' | 'qwen' | 'glm'
+
+interface AuthMarkerFile {
+  providers?: Record<string, { at?: string }>
+  provider?: string
+  at?: string
+}
+
+/**
+ * PURE: does the marker text say `provider` has a stored session? Legacy
+ * shapes are honored (see the comment above AUTH_MARKER_FILE).
+ */
+export function authMarkerHas(
+  raw: string,
+  provider: AuthMarkerProvider,
+): boolean {
+  if (!raw) return false
+  let j: AuthMarkerFile
+  try {
+    j = JSON.parse(raw) as AuthMarkerFile
+  } catch {
+    return false
+  }
+  if (!j || typeof j !== 'object') return false
+  if (j.providers && typeof j.providers === 'object') {
+    return !!j.providers[provider]
+  }
+  if (typeof j.provider === 'string') return j.provider === provider
+  // Legacy DeepSeek marker: a bare `{at}` with no provider field.
+  return provider === 'deepseek' && typeof j.at === 'string'
+}
+
+/**
+ * PURE: merge a "signed in at" timestamp for `provider` into the marker text,
+ * KEEPING every other provider's entry. A legacy record is migrated.
+ */
+export function mergeAuthMarker(
+  raw: string,
+  provider: AuthMarkerProvider,
+  at: string,
+): string {
+  const providers: Record<string, { at?: string }> = {}
+  try {
+    const j = JSON.parse(raw) as AuthMarkerFile
+    if (j && j.providers && typeof j.providers === 'object') {
+      for (const [k, v] of Object.entries(j.providers)) providers[k] = v || {}
+    } else if (j && typeof j === 'object') {
+      if (j.provider === 'qwen') providers.qwen = { at: j.at }
+      else if (typeof j.at === 'string') providers.deepseek = { at: j.at }
+    }
+  } catch {}
+  providers[provider] = { at }
+  return JSON.stringify({ providers }, null, 2)
+}
+
+// Best-effort: read the marker text from disk ('' when absent/unreadable).
+export async function readAuthMarker(): Promise<string> {
+  try {
+    return await fs.readFile(AUTH_MARKER_FILE, 'utf-8')
+  } catch {
+    return ''
+  }
+}
+
+// Best-effort: mark `provider` as signed in, keeping the other providers'
+// entries. Never throws (a marker is informational, not load-bearing).
+export async function writeAuthMarker(
+  provider: AuthMarkerProvider,
+): Promise<void> {
+  try {
+    await fs.mkdir(path.dirname(AUTH_MARKER_FILE), { recursive: true })
+    const prev = await readAuthMarker()
+    await fs.writeFile(
+      AUTH_MARKER_FILE,
+      mergeAuthMarker(prev, provider, new Date().toISOString()),
+      'utf-8',
+    )
+  } catch {}
+}
 
 export function isGenerationIncompleteText(text: string): boolean {
   const t = String(text || '')

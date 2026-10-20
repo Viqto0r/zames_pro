@@ -42,6 +42,24 @@ export const DEFAULTS: ZamesConfig = {
     // give it generous room. A signed-in session answers in seconds; this only
     // bounds the worst case.
     answerTimeoutMs: 900000,
+    // Qwen's credentials live HERE, not in browser.auth: sharing one pair
+    // meant a DeepSeek login was typed into the Qwen form.
+    auth: { username: '', password: '', saveSession: true },
+    // Adaptive throttling is a later step for Qwen (its fixed 4 s gap is
+    // measured and works); telemetry is still recorded.
+    adaptiveThrottle: false,
+  },
+  glm: {
+    model: '',
+    // GLM windows are per-model; the default matches GLM-5.3-Flash (128K).
+    // `/model` re-derives it from the picked id (glmContextWindow).
+    contextLimit: 128_000,
+    // The operator's decision: no fixed pause for GLM. The adaptive throttle
+    // (on by default) reacts to a REAL rate limit instead.
+    minSendIntervalMs: 0,
+    answerTimeoutMs: 300000,
+    auth: { username: '', password: '', saveSession: true },
+    adaptiveThrottle: true,
   },
   // Headless by default: the browser runs without a visible window. Set
   // headless: false (or pass --headed) to watch/debug the page.
@@ -78,6 +96,9 @@ export const DEFAULTS: ZamesConfig = {
     maxIncompleteRetries: 4,
     incompleteWaitMs: 2000,
     autoContinue: true,
+    // How long the interactive sign-in window waits for the operator before it
+    // gives up (a captcha is solved by hand, so this is generous).
+    loginTimeoutMs: 600000,
     continueMinGapMs: 1500,
     // The agent-loop watchdog for ONE ask(). It only bounds a SILENT send:
     // a turn the server already ENDED with no answer (FINISHED + truncated
@@ -94,6 +115,7 @@ export const DEFAULTS: ZamesConfig = {
     maxSubagents: 3,
     deepThinking: false,
     webSearch: true,
+    sendTelemetry: true,
     auth: {
       username: '',
       password: '',
@@ -159,6 +181,7 @@ export function loadConfig(): ZamesConfig {
 // there is headroom. DeepSeek keeps browser.askDeadlineMs (the loop default).
 export function providerAskDeadlineMs(cfg: ZamesConfig): number {
   if (cfg.provider === 'qwen') return cfg.qwen.answerTimeoutMs + 120_000
+  if (cfg.provider === 'glm') return cfg.glm.answerTimeoutMs + 120_000
   return cfg.browser.askDeadlineMs
 }
 
@@ -323,6 +346,36 @@ export const CONFIG_SCHEMA: ConfigField[] = [
     groupKey: 'cfg.group.browser',
   },
   {
+    path: 'glm.model',
+    type: 'string',
+    labelKey: 'cfg.f.glm_model',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'glm.contextLimit',
+    type: 'number',
+    min: 10_000,
+    max: 10_000_000,
+    labelKey: 'cfg.f.glm_contextLimit',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'glm.minSendIntervalMs',
+    type: 'number',
+    min: 0,
+    max: 600000,
+    labelKey: 'cfg.f.glm_minSendIntervalMs',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'glm.answerTimeoutMs',
+    type: 'number',
+    min: 1000,
+    max: 3600000,
+    labelKey: 'cfg.f.glm_answerTimeoutMs',
+    groupKey: 'cfg.group.browser',
+  },
+  {
     path: 'debug',
     type: 'boolean',
     labelKey: 'cfg.f.debug',
@@ -452,6 +505,20 @@ export const CONFIG_SCHEMA: ConfigField[] = [
     path: 'browser.autoContinue',
     type: 'boolean',
     labelKey: 'cfg.f.browser_autoContinue',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'browser.sendTelemetry',
+    type: 'boolean',
+    labelKey: 'cfg.f.browser_sendTelemetry',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'browser.loginTimeoutMs',
+    type: 'number',
+    min: 30_000,
+    max: 3_600_000,
+    labelKey: 'cfg.f.browser_loginTimeoutMs',
     groupKey: 'cfg.group.browser',
   },
   {
