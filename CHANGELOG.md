@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.80.5] - 2026-10-20
+
+### Fixed
+
+- a JSON array line in a transcript is not an event
+
 ## [2.80.4] - 2026-10-20
 
 ### Fixed
