@@ -1,7 +1,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
-import { randomBytes } from 'crypto'
+import { randomBytes, createHash } from 'crypto'
 import { writeJsonAtomic } from './fsutil.js'
 
 const UNDO_DIR = path.join(os.homedir(), '.zames', 'undo')
@@ -65,14 +65,18 @@ export class UndoStore {
     }
 
     const stamp = Date.now()
-    const hash = Buffer.from(filePath).toString('hex').slice(0, 16)
+    // The name only needs to be SHORT and unique; the backup name also
+    // carries a random suffix. A 16-hex prefix of the hex-encoded path is
+    // the first 8 BYTES of the path, which for files in one directory is
+    // the SAME string (and identical without the random part).
+    const hash = createHash('sha1').update(filePath).digest('hex').slice(0, 16)
 
     let backupFile: string | null = null
     if (existed) {
-      // The stamp is only ms-precision and the hash is the first 8 bytes of
-      // the path, so two SIBLING files edited in the same millisecond would
-      // collide and the second write would clobber the first (losing the
-      // backup). Add a random suffix so a backup name is unique.
+      // The stamp is only ms-precision, so two edits in the same
+      // millisecond would share a backup name and the second write would
+      // clobber the first (losing the backup). Add a random suffix so a
+      // backup name is unique.
       const uniq = randomBytes(4).toString('hex')
       backupFile = path.join(UNDO_DIR, `${stamp}-${hash}-${uniq}.bak`)
       await fs.writeFile(backupFile, content as Buffer)
