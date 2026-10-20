@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.80.1] - 2026-10-20
+
+### Fixed
+
+- **context:** strip a leading BOM before the SKILL.md frontmatter
+- **statusline:** clip a long status badge to one short row
+- **diagnostics:** keep the summary inside maxChars
+
 ## [2.80.0] - 2026-10-20
 
 ### Fixed
