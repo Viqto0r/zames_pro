@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.80.2] - 2026-10-20
+
+### Fixed
+
+- wrapToWidth keeps the indentation and inner spaces of a line
+- **undo:** derive the backup name hash with sha1 instead of a path prefix
+
 ## [2.80.1] - 2026-10-20
 
 ### Fixed
