@@ -3513,3 +3513,20 @@ undo-набор — 6 pass.
 ## Покрытые области (не повторять без причины)
 
 - `src/undo.ts` — имя бэкапа строится по sha1 от пути (2026-10-20).
+
+---
+
+### Такт 112 (2026-10-20) — чисто
+
+**Цель:** net-capture и детекторы DeepSeek — ответ, состоящий только из
+скобок (`isFinishedWithoutAnswer` / `isFinishedWithAnswer` / `extractAnswer`,
+`src/net-capture.ts`).
+
+Проверено запуском: ход `FINISHED` с `RESPONSE: "{}"` и `"[]"` (реальный
+ответ-фрагмент кода/JSON) распознаётся как ответ (`isFinishedWithAnswer` — true,
+`isFinishedWithoutAnswer` — false, `extractAnswer` возвращает текст), а
+обрезанная голова `"{"` по-прежнему считается «без ответа». Дефекта нет:
+текущее поведение соответствует задуманному контракту.
+
+**Гейты:** `npm test` 1319 тестов (1309 pass, 0 fail, 10 skip),
+`typecheck`, `lint`, `format:check`, `build` — зелёные (код не менялся).
