@@ -27,3 +27,7 @@ BACKLOG.md
 scripts/dev-probes/
 
 # Local draft of the next TUI work plan — a scratchpad, not part of the repo.
+
+# The agent's own bug-hunting journal (like BACKLOG.md): rewritten during
+# development cycles, must never ship with a release.
+QUEUE.md
