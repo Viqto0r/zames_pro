@@ -123,7 +123,11 @@ export const DEFAULTS: ZamesConfig = {
     maxSubagents: 3,
     deepThinking: false,
     webSearch: true,
-    sendTelemetry: true,
+    // OFF by default: the telemetry file only serves diagnosis and manual
+    // calibration of the send pauses (the adaptive throttle needs the EVENTS,
+    // not the file, and keeps working). A regular user gains nothing from it,
+    // so it is opted into with `/config set browser.sendTelemetry true`.
+    sendTelemetry: false,
     auth: {
       username: '',
       password: '',

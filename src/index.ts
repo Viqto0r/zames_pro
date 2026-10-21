@@ -1047,7 +1047,11 @@ function createProviderBrowser(provider: ProviderId): ChatProvider {
         answerTimeoutMs: config.glm.answerTimeoutMs,
         model: config.glm.model,
         auth: config.glm.auth,
-        sendTelemetry: config.browser.sendTelemetry,
+        // Dev runs (`npm run dev`, i.e. `--dev`) record the telemetry
+        // automatically: it is a diagnostic for the developer. For a regular
+        // user it stays OFF by default (see DEFAULTS in config.ts) and is
+        // opted into with `/config set browser.sendTelemetry true`.
+        sendTelemetry: config.browser.sendTelemetry || devMode,
         logsDir: config.transcript.dir,
         loginTimeoutMs: config.browser.loginTimeoutMs,
         locale: currentLocale,

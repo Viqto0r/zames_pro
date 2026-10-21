@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- apply prettier to the GLM provider and send runtime
+- send telemetry is OFF by default (diagnostic only; on automatically in `--dev`)
+
 ## [2.81.0] - 2026-10-21
 
 ### Added
