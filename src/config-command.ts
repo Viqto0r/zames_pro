@@ -159,7 +159,11 @@ export async function handleConfigCommand(
       theme.assistant(
         t('cfg.saved', {
           v: key,
-          value: JSON.stringify(getValue(key)),
+          // Mask a SECRET here too: this line goes to the terminal scrollback,
+          // the transcript and screenshots. `configGetValue` already masks the
+          // password for /config get and the list, but the save confirmation
+          // echoed it in the clear.
+          value: configGetValue(key, getValue(key), t),
           file: homeConfigPath,
         }),
       ),
