@@ -380,8 +380,12 @@ function parseFrontmatter(raw: string): FrontMatter {
   }
   const allowedTools =
     typeof out['allowed-tools'] === 'string'
-      ? out['allowed-tools']
-          .split(/,/)
+      ? // A comma list is the documented form, but a hand-written SKILL.md
+        // often uses plain spaces (`allowed-tools: Read Bash Grep`). Splitting
+        // on commas alone made that ONE name, no tool matched, and the skill
+        // could only call respond.
+        out['allowed-tools']
+          .split(/[,\s]+/)
           .map((s) => s.trim())
           .filter(Boolean)
       : undefined
