@@ -966,7 +966,15 @@ export function rewriteFailedAttachments(
   let out = String(text ?? '')
   for (const f of failed || []) {
     if (!f || !f.path) continue
-    out = out.split(f.path).join('[attach-failed: ' + f.name + ']')
+    // Replace only a WHOLE path: a bare split/join also matched a failed path
+    // INSIDE a longer, healthy one (`/p/a.ts` in `/p/a.tsx`), and the model
+    // was told a file it actually has is missing. A path character must not
+    // border the match on either side.
+    const esc = f.path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    out = out.replace(
+      new RegExp('(?<![\\w./-])' + esc + '(?![\\w./-])', 'g'),
+      '[attach-failed: ' + f.name + ']',
+    )
   }
   return out
 }
