@@ -723,8 +723,29 @@ so the parser skips it and the provider keeps that runtime OFF
 
 A FIRST message from a fresh profile is gated by an Aliyun slider
 ("Please drag the slider to complete the puzzle", `CertifyId`). A headless
-browser cannot pass it; a signed-in session usually skips it, but a burst can
-trigger it again. That is exactly why login is browser-based.
+browser cannot pass it.
+
+MEASURED, and it matters for the smoke: even a SIGNED-IN session gets the
+slider in HEADLESS mode, while the SAME profile in a HEADED window sends fine.
+So the captcha is not (only) a login gate — it is a headless-vs-headed
+difference for the send itself. Consequence: `npm run glm-smoke` passes the
+ask/toolCall scenarios with `--headed` and fails them headless (listModels,
+history, attachment still work headless, because they are not sends).
+
+The provider reports this as a clear error (`glm.captcha`) instead of waiting
+out the answer timeout. A HEADFUL run is therefore the practical way to use
+GLM today; a headless session would need a way to pass the slider, which this
+build does not expose.
+
+### Mode flags are server-side defaults (measured)
+
+The completion body always carries `preview_mode: true`,
+`flags: ['general_agent']` and `enable_thinking: true`. No UI control changes
+them (the recon found none, and forcing `last_mode=chat` in localStorage did
+not change the body). The provider therefore VERIFIES the body
+(`src/glm-flags.ts`) and warns the operator, instead of pretending to toggle
+it. In practice the smoke still parsed the tool call fine with those flags on,
+so the warning says "may break", not "breaks".
 
 ### Not observed (deliberately NOT implemented)
 
