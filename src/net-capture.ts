@@ -177,8 +177,13 @@ export function extractAnswer(body: string): string {
 // below excludes explicitly.
 const MIN_REAL_ANSWER_CHARS = 1
 
-/** A bare truncated head (whitespace or braces only) is not a real answer. */
-const TRUNCATED_HEAD_RE = /^[\s{[]*$/
+/**
+ * A bare truncated head is not a real answer: whitespace, or nothing but
+ * BRACKETS of either kind (an opening `{` / `[` from a cut-off JSON answer AND
+ * a closing `}` / `]` / `)` left by a truncation that began mid-structure).
+ * Listing only the opening brackets let a lone `}` count as a COMPLETE answer.
+ */
+const TRUNCATED_HEAD_RE = /^[\s{}[\]()]*$/
 
 // How many chars of RESPONSE text the body carries, or -1 when there is NO
 // RESPONSE fragment at all. The fragment is SSE/JSON-encoded, so the content
