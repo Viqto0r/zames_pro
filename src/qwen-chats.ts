@@ -109,7 +109,13 @@ export function scrapeQwenChatMessages(
  */
 export function parseQwenChatList(json: unknown): ChatInfo[] {
   const root = json as { data?: unknown } | null
-  const data = root && typeof root === 'object' ? root.data : null
+  // A BARE array (no `data` wrapper) is the simplest shape the endpoint can
+  // return and the GLM parser already accepts it: reading only `root.data`
+  // made /chats print "(none)" for a valid list.
+  const data =
+    Array.isArray(json) || root === null || typeof root !== 'object'
+      ? json
+      : root.data
   const arr: unknown = Array.isArray(data)
     ? data
     : data && typeof data === 'object'
