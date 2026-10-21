@@ -69,8 +69,8 @@ export const glmMessages: Record<string, { ru: string; en: string }> = {
     en: '✖ The GLM send button was not found or is disabled — the message was not sent. Check the chat manually.',
   },
   'glm.mode_flags': {
-    ru: '⚠ GLM: в теле запроса включён режим {v}, который ломает протокол tool-call.',
-    en: '⚠ GLM: the request body has {v} enabled, which breaks the tool-call protocol.',
+    ru: '⚠ GLM: в теле запроса включён режим {v} — он меняет формат ответа и может сломать протокол tool-call.',
+    en: '⚠ GLM: the request body has {v} enabled — it changes the answer format and may break the tool-call protocol.',
   },
   'glm.mode_mismatch': {
     ru: '⚠ GLM: сайт не применил ваши настройки режима ({v}) — ответ может прийти без размышлений/поиска.',
