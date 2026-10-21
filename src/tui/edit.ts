@@ -41,8 +41,13 @@ export interface EditState {
   searchIndex: number
   /** Buffer saved before reverse search, restored on Esc. */
   searchSavedBuf: string
-  /** Undo stack of {buf, cursor} snapshots (Ctrl+_). */
-  undo: Array<{ buf: string; cursor: number }>
+  /**
+   * Undo stack of {buf, cursor, pastes} snapshots (Ctrl+_). The paste BLOCKS
+   * are part of a snapshot: without them an undo of a cleared line restored
+   * the bare `[Pasted lines#N]` marker while its body was gone, and the submit
+   * sent the literal marker instead of the pasted text.
+   */
+  undo: Array<{ buf: string; cursor: number; pastes: PasteBlock[] }>
   /** True while a run of plain typing is in progress (one undo snapshot). */
   typingRun: boolean
 }
@@ -80,7 +85,11 @@ export function insertText(s: EditState, text: string): EditState {
 /** Push an undo snapshot. `coalesce` keeps one snapshot per typing run. */
 export function pushUndo(s: EditState, coalesce = false): EditState {
   if (coalesce && s.typingRun) return s
-  const undo = s.undo.concat({ buf: s.buf, cursor: s.cursor })
+  const undo = s.undo.concat({
+    buf: s.buf,
+    cursor: s.cursor,
+    pastes: s.pastes,
+  })
   if (undo.length > 200) undo.shift()
   return { ...s, undo, typingRun: coalesce }
 }
@@ -93,6 +102,7 @@ export function undoEdit(s: EditState): EditState {
     ...s,
     buf: prev.buf,
     cursor: Math.min(prev.cursor, Array.from(prev.buf).length),
+    pastes: prev.pastes,
     undo,
     typingRun: false,
   }
