@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.81.4] - 2026-10-21
+
+### Fixed
+
+- **web:** SSRF guard blocks metadata/kubernetes service aliases
+
 ## [2.81.3] - 2026-10-21
 
 ### Fixed
