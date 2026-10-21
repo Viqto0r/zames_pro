@@ -32,14 +32,15 @@ test('Edit корректно заменяет многострочный фра
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Read с offset за пределами файла возвращает пустую строку, не падает', async (t) => {
+test('Read с offset за пределами файла сообщает о пустом окне, не падает', async (t) => {
   const dir = await makeTmpDir(t, 'zames-off-')
   await fs.writeFile(path.join(dir, 'f.txt'), 'a' + NL + 'b', 'utf-8')
   const tools = createTools(dir, {})
   const out = String(
     await tool(tools, 'Read').fn({ path: 'f.txt', offset: 100, limit: 5 }),
   )
-  assert.equal(out, '')
+  assert.notEqual(out, '', 'an empty string reads as "file is empty"')
+  assert.match(out, /past the end/)
   await fs.rm(dir, { recursive: true, force: true })
 })
 

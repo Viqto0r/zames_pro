@@ -72,11 +72,15 @@ test('Read: numbered output numbers the REAL lines', async (t) => {
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Read: offset past the end returns an empty string', async (t) => {
+test('Read: offset past the end explains the empty window', async (t) => {
+  // An empty string reads as "the file is empty"; say the window is past
+  // the end instead (with the real line count).
   const { dir, tools } = await setup(t)
   const out = String(
     await tool(tools, 'Read').fn({ path: 'f.txt', offset: 100, limit: 5 }),
   )
-  assert.equal(out, '')
+  assert.notEqual(out, '')
+  assert.match(out, /past the end/)
+  assert.match(out, /10 lines/)
   await fs.rm(dir, { recursive: true, force: true })
 })

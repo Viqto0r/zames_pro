@@ -164,6 +164,16 @@ export function createTools(
         const start = off - 1
         const lim = Math.floor(Number(limit))
         const end = Number.isFinite(lim) && lim > 0 ? start + lim : lines.length
+        // An offset PAST the end returned an empty string, which the model
+        // reads as "the file is empty" instead of "your window does not
+        // exist" - it then re-read from the start or gave up. Say so, with
+        // the real line count.
+        if (start >= lines.length) {
+          return (
+            `(offset ${off} is past the end of ${p}: the file has ` +
+            `${lines.length} line${lines.length === 1 ? '' : 's'})`
+          )
+        }
         const slice = lines.slice(start, end)
         const clip = (l: string): string =>
           l.length > 2000 ? clipLine(l, 2000) + ' …[line truncated]' : l
