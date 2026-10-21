@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.81.16] - 2026-10-21
+
+### Fixed
+
+- **i18n:** /cost describes the context counter neutrally
+
 ## [2.81.15] - 2026-10-21
 
 ### Fixed
