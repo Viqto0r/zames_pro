@@ -19,6 +19,8 @@ export interface BuildSystemPromptOptions {
    * BACKLOG.md it does not own.
    */
   selfImprovement?: boolean
+  /** Active provider id; enables provider-specific guidance (GLM). */
+  provider?: string
 }
 
 // The dev-mode BACKLOG instruction. English (agent-facing) like the rest of the
@@ -245,6 +247,7 @@ export function buildSystemPrompt({
   attachments = [],
   context = null,
   selfImprovement = false,
+  provider,
 }: BuildSystemPromptOptions): string {
   const t = translate(locale)
   const toolDescriptions = renderToolSection(tools)
@@ -258,6 +261,25 @@ export function buildSystemPrompt({
   const askUserSection = tools.some((x) => x.name === 'AskUser')
     ? ASKUSER_SECTION
     : ''
+  // GLM runs on chat.z.ai, whose OWN agent mode used to execute tool calls in
+  // a cloud sandbox instead of the operator's machine. The provider neutralises
+  // that mode (see glm-browser.ts), but the model must also be TOLD where it
+  // runs: otherwise it asks for a sandbox ("Limit Sandbox Concurrency") or
+  // claims it ran something it did not.
+  const runtimeSection =
+    provider === 'glm'
+      ? '\n## You run on the OPERATOR\'S MACHINE (GLM)\n\n' +
+        'The tools above execute on the operator\'s computer, in the working ' +
+        'directory shown at the top. They are the ONLY way to touch files or ' +
+        'run commands.\n\n' +
+        '- There is NO cloud sandbox for you. Do NOT request or use a z.ai ' +
+        'sandbox/VM; a "Limit Sandbox Concurrency" page is a leftover of the ' +
+        "site's own agent mode and is NOT part of this task.\n" +
+        '- Never claim a command ran unless you emitted its tool call and ' +
+        'received a tool result. If you have not called the tool, say so.\n' +
+        '- Paths like `/home/z/...` or `/mnt/data` are NOT the operator\'s ' +
+        'machine.\n'
+      : ''
 
   const gitSection = gitContext
     ? `\n## Git context\n\n${gitContext}\n`
@@ -323,7 +345,7 @@ task is done (or when you must ask the operator), not between tool calls.
 You have access to the following tools:
 
 ${toolDescriptions}
-${gitSection}${attachSection}${contextSection}${selfSection}
+${runtimeSection}${gitSection}${attachSection}${contextSection}${selfSection}
 ## Choosing the right tool
 
 Prefer the most specific tool; a wrong choice wastes a turn:

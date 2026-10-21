@@ -840,7 +840,11 @@ export class GlmBrowser {
   async _installRuntimeRewrite(): Promise<void> {
     if (!this.disableAgentRuntime) return
     try {
-      await this.page.route(/\/api\/v2\/chat\/completions/, async (route) => {
+      // A PREDICATE (not an anchored regex): the live URL carries
+      // ?timestamp=…&requestId=…, which an end-anchored pattern misses.
+      await this.page.route(
+        (url) => url.pathname.includes('/api/v2/chat/completions'),
+        async (route) => {
         try {
           const body = JSON.parse(route.request().postData() || '{}')
           const f = body.features
@@ -854,7 +858,8 @@ export class GlmBrowser {
         } catch {
           await route.continue()
         }
-      })
+      },
+      )
     } catch {}
   }
 
