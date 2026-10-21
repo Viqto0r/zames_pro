@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.81.14] - 2026-10-21
+
+### Fixed
+
+- **glm:** an answer that mentions the captcha is not the captcha
+
 ## [2.81.13] - 2026-10-21
 
 ### Fixed
