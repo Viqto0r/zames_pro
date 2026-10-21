@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- per-provider credentials are writable (missing from the config schema)
 - DeepSeek signs in through the browser window before the terminal form
 - the TUI login fallback prefills the active provider's credentials
 - doctor renders the display row and the adaptive pause

@@ -927,7 +927,16 @@ export class QwenBrowser {
       await pwd.fill(this.auth.password)
       await this._clickSubmit()
       const ok = await this._waitLoggedIn(20000)
-      if (ok) this._notice(this._t('qwen.login_ok'))
+      if (ok) {
+        this._notice(this._t('qwen.login_ok'))
+        // Remember the credentials that WORKED, so the next launch signs in
+        // silently without a window. The auto-login is the one path that used
+        // to skip this, which is why a successful auto sign-in left the
+        // config without the password and the NEXT cold start needed a window.
+        try {
+          this.onAuthSave?.(this.auth.username, this.auth.password)
+        } catch {}
+      }
       return ok
     } catch (e) {
       if (this.debug)
