@@ -292,13 +292,16 @@ export const commonMessages: Record<string, { ru: string; en: string }> = {
   },
 
   'cost.title': { ru: 'Статистика сессии:', en: 'Session stats:' },
+  // /cost runs on EVERY provider, so the counter is described neutrally:
+  // DeepSeek reports accumulated_token_usage, Qwen input_tokens, GLM
+  // prompt_tokens - naming one backend made the other two look broken.
   'cost.context_known': {
-    ru: ' контекст: ~{n} токенов (DeepSeek accumulated_token_usage)',
-    en: ' context: ~{n} tokens (DeepSeek accumulated_token_usage)',
+    ru: ' контекст: ~{n} токенов (счётчик провайдера)',
+    en: ' context: ~{n} tokens (the provider counter)',
   },
   'cost.context_unknown': {
-    ru: ' контекст: неизвестно (DeepSeek сообщит после первого ответа в чате)',
-    en: ' context: unknown (DeepSeek reports it after the first answer in a chat)',
+    ru: ' контекст: неизвестно (провайдер сообщит после первого ответа в чате)',
+    en: ' context: unknown (the provider reports it after the first answer in a chat)',
   },
   'cost.tasks': { ru: ' задач: {n}', en: ' tasks: {n}' },
   'cost.tool_calls': {
