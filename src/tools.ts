@@ -484,15 +484,39 @@ export function filterToolsByAllowList(
 // mutating VERBS in the tool name. It is a heuristic deny-list, not a proof:
 // an exotic server could name a mutating tool innocuously. The honest default
 // in read-only mode is therefore to drop everything that looks like a writer.
-const MCP_MUTATING_RE =
-  /(^|_)(click|type|navigate|press|upload|select|drag|fill|hover|evaluate|run_code|run_|handle_dialog|key|screenshot|write|create|delete|update|set|put|post|patch|execute|exec|insert|remove|drop|restart|stop|start|install|kill|move|rename|copy|mkdir|rmdir|touch|chmod|chown)(_|$)/
+const MCP_MUTATING_WORDS = new Set(
+  (
+    'click type navigate press upload select drag fill hover evaluate key ' +
+    'screenshot write create delete update set put post patch execute exec ' +
+    'insert remove drop restart stop start install kill move rename copy ' +
+    'mkdir rmdir touch chmod chown'
+  ).split(' '),
+)
+
+// Multi-word verbs are matched as a substring of the normalized name: they
+// never stand alone as ONE `_word_`, so a word-set alone missed them.
+const MCP_MUTATING_PHRASES = ['run_code', 'run_', 'handle_dialog']
+
+// A camelCase name is split BEFORE it is lowercased: `browserClick` used to
+// become `browserclick` (one word, no verb) and slipped through read-only mode.
+function splitCamelCase(s: string): string {
+  return s.replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+}
 
 export function isMutatingMcpTool(name: string): boolean {
   // Strip the server prefix and normalize separators to underscores so the
   // verb matcher sees "browser_click" -> "click".
   const tail = String(name).split('__').pop() || String(name)
-  const norm = tail.toLowerCase().replace(/[^a-z0-9]+/g, '_')
-  return MCP_MUTATING_RE.test('_' + norm + '_')
+  const norm = splitCamelCase(tail)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+  if (MCP_MUTATING_PHRASES.some((p) => norm.includes(p))) return true
+  const words = norm.split('_').filter(Boolean)
+  if (words.some((w) => MCP_MUTATING_WORDS.has(w))) return true
+  // A CONCATENATED style (all lowercase, no separator: `browserclick`,
+  // `pageevaluate`) still hides a writer. A verb as a substring is safe here
+  // because every verb is a whole action word no read-only tool contains.
+  return [...MCP_MUTATING_WORDS].some((v) => norm.includes(v))
 }
 
 // Merge MCP tools into the base set. In read-only (plan) mode the MCP tools
