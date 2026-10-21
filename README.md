@@ -5,7 +5,7 @@
 <h1 align="center">zames_pro</h1>
 
 <p align="center">
-  <strong>A terminal coding agent that drives real web chat LLMs (DeepSeek, Qwen, …) through a browser — no API key required.</strong>
+  <strong>A terminal coding agent that drives real web chat LLMs (DeepSeek, Qwen, GLM) through a browser — no API key required.</strong>
 </p>
 
 <p align="center">
@@ -23,13 +23,13 @@
 </p>
 
 A terminal coding agent that works on top of real web chat LLMs
-([chat.deepseek.com](https://chat.deepseek.com/), [chat.qwen.ai](https://chat.qwen.ai/), …)
+([chat.deepseek.com](https://chat.deepseek.com/), [chat.qwen.ai](https://chat.qwen.ai/), [chat.z.ai](https://chat.z.ai/), …)
 through Playwright.
 In spirit it is similar to Claude Code / Codex CLI: it starts in the current
 directory, reads and edits files, runs commands, and commits to git.
 
-> No API key required — it drives a DeepSeek or Qwen web chat like a regular
-> user through a real (headless) browser.
+> No API key required — it drives a DeepSeek, Qwen or GLM web chat like a
+> regular user through a real (headless) browser.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png" alt="zames session in the terminal" width="860">
@@ -44,12 +44,13 @@ zames                      # sign in once, then describe your task
 ```
 
 There is **no API key and no per-token bill**: zames signs in to **your own
-[chat.deepseek.com](https://chat.deepseek.com/) or
-[chat.qwen.ai](https://chat.qwen.ai/) account** in a real (headless) Chromium
-and drives the web chat like a regular user. The first launch asks for your
-login once (the session is stored in `~/.zames/profile` for DeepSeek or
-`~/.zames/qwen-profile` for Qwen); after that just run `zames` and type a task
-in plain language:
+[chat.deepseek.com](https://chat.deepseek.com/),
+[chat.qwen.ai](https://chat.qwen.ai/) or [chat.z.ai](https://chat.z.ai/)
+account** in a real (headless) Chromium and drives the web chat like a regular
+user. The first launch asks for your login once (the session is stored in
+`~/.zames/profile` for DeepSeek, `~/.zames/qwen-profile` for Qwen or
+`~/.zames/glm-profile` for GLM); after that just run `zames` and type a task in
+plain language:
 
 ```text
 ❯ refactor the config loader and add a test for the new default
@@ -70,15 +71,15 @@ Three chat backends are available, switched with `/provider <deepseek|qwen|glm>`
 and **GLM** (`chat.z.ai`).
 The switch is **live** — zames closes the current backend and opens the other
 one in place, no restart needed. Each keeps its own persistent profile
-(`~/.zames/profile` and `~/.zames/qwen-profile`), so switching never signs the
-other one out.
+(`~/.zames/profile`, `~/.zames/qwen-profile` and `~/.zames/glm-profile`), so
+switching never signs the other one out.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/how-it-works.png" alt="how zames works" width="860">
 </p>
 
 In text: you type a task → zames sends the system prompt plus the task into
-the active chat web app (DeepSeek or Qwen) → the model answers → zames parses
+the active chat web app (DeepSeek, Qwen or GLM) → the model answers → zames parses
 the tool call, runs the tool locally, feeds the result back, and prints the
 final answer for you.
 
@@ -90,7 +91,8 @@ Key pieces:
   `~/.zames/qwen-profile` for Qwen) keeps you signed in; the headless
   User-Agent is patched so the site's CDN does not 403 the login.
 - **A send throttle** (15 s on DeepSeek, ~1 s on Qwen, which tolerates rapid
-  sends) keeps the web chat's rate limit happy during long tool-heavy runs.
+  sends; GLM uses an adaptive pause that starts at 0) keeps the web chat's rate
+  limit happy during long tool-heavy runs.
 - **The agent is sandboxed** to the directory it was started in — no tool can
   read or write above it.
 
@@ -129,8 +131,8 @@ Key pieces:
   coding agent is used on this repository: the agent in this very terminal
   reads the sources, runs the tests, fixes the bugs and commits the result.
   That is the daily proof that it works and is actually used.
-- **No API key, no per-token bill** — it uses your own DeepSeek or Qwen chat
-  account, not the paid API. Good for long, tool-heavy tasks.
+- **No API key, no per-token bill** — it uses your own DeepSeek, Qwen or GLM
+  chat account, not the paid API. Good for long, tool-heavy tasks.
 - **Same workflow as Claude Code / Codex** — tools, `AGENTS.md`, skills, MCP
   and slash commands, so it feels familiar from day one.
 - **Runs unattended** — headless by default, resumable sessions, and `/loop`
@@ -142,8 +144,8 @@ Key pieces:
 
 - Node.js >= 20
 - An account on the chat you want to use — **DeepSeek** (`chat.deepseek.com`,
-  the default) or **Qwen** (`chat.qwen.ai`). Qwen also works in guest mode for
-  a few messages. On first launch zames asks for your login in the terminal
+  the default), **Qwen** (`chat.qwen.ai`) or **GLM** (`chat.z.ai`). Qwen also
+  works in guest mode for a few messages. On first launch zames asks for your login in the terminal
   (and stores it in `~/.zames/config.json` after a successful sign-in, so a
   later logout is handled automatically without asking you again). You can also
   sign in manually in the browser window when the browser is headed.
@@ -307,7 +309,7 @@ You can paste an image or a file into the input line (Ctrl+Shift+V / Shift+Inser
 or the terminal's own paste). zames saves it under `<project>/tmp` and shows a
 marker in the line - `[image#1]` for images, `[file#1]` for other files - then
 uploads the real file to the chat together with your message. These are the
-same formats the DeepSeek / Qwen web chat accepts (PNG, JPEG, GIF, WEBP, BMP,
+same formats the DeepSeek / Qwen / GLM web chat accepts (PNG, JPEG, GIF, WEBP, BMP,
 SVG and the usual document types).
 
 Pasting an image works when the terminal sends it as a `data:` URL or as a
@@ -391,15 +393,15 @@ Codex CLI:
 - /rename <title> — set the current session title (shown in /sessions).
 - /copy — copy the last assistant answer to the OS clipboard.
 - /cost (alias /usage) — session stats: tasks, tool calls, duration, and the
-  context size in tokens (DeepSeek's `accumulated_token_usage`; Qwen
-  reports `input_tokens`).
+  context size in tokens (DeepSeek's `accumulated_token_usage`, Qwen's
+  `input_tokens`, GLM's `prompt_tokens`).
 - /export [file] — write the session transcript to a Markdown file
   (zames-export-<stamp>.md by default).
 - /doctor — diagnose node, git, config, browser, clipboard, MCP and the
   active chat provider (it also reports that provider's UI health).
-- /provider <deepseek|qwen> — switch the chat backend (applied live, no
+- /provider <deepseek|qwen|glm> — switch the chat backend (applied live, no
   restart); /provider status shows the active provider/model/login; /provider
-  login re-runs the sign-in check. /model [id] lists or picks a Qwen model at
+  login re-runs the sign-in check. /model [id] lists or picks a Qwen/GLM model at
   runtime.
 - /add-dir <path> — validate an extra directory (the sandbox is fixed at
   startup; relaunch with --dir to write there).
@@ -445,7 +447,8 @@ The token context is also shown live: the status line above the input has the
 spinner/text on the left and the context on the right (e.g. `125k · 13%`,
 percent of a 1M context). It is COLORED by fill level: green below 50%,
 yellow 50-80%, red above 80%. It comes from the provider's own token
-counter (DeepSeek's `accumulated_token_usage`, Qwen's `input_tokens`) and is
+counter (DeepSeek's `accumulated_token_usage`, Qwen's `input_tokens`, GLM's
+`prompt_tokens`) and is
 hidden until the first answer delivers it.
 
 ## Project context, skills and memory
@@ -485,7 +488,7 @@ Skills and custom commands show up in the «/» completion list and in `/help`.
 zames can use tools from [MCP](https://modelcontextprotocol.io) servers.
 The flagship example is @playwright/mcp: it gives the agent a real browser
 (navigate, click, snapshot, type, ...) on top of the one zames already uses
-for the DeepSeek or Qwen chat.
+for the DeepSeek, Qwen or GLM chat.
 
 Drop a config file (same shape as Claude Code / Cursor):
 
@@ -518,8 +521,9 @@ agent.
 
 ### Recommended servers (verified)
 
-A few small, high-value servers tested end to end with zames (both the
-DeepSeek and Qwen backends):
+A few small, high-value servers tested end to end with zames (on the DeepSeek
+and Qwen backends; the MCP layer is provider-agnostic, so they work with GLM
+too):
 
 - **Context7** (`@upstash/context7-mcp`) — fetches CURRENT, version-specific
 documentation for a library before the agent writes code, instead of relying
@@ -584,15 +588,16 @@ Agent data is stored in `~/.zames`: browser profile, logs, undo history, session
 
 ## FAQ
 
-**Is this an official DeepSeek or Qwen product?**
-No. zames drives the public `chat.deepseek.com` / `chat.qwen.ai` web UIs through
-a real browser, like a regular user. It is not affiliated with DeepSeek or
-Alibaba.
+**Is this an official DeepSeek, Qwen or GLM product?**
+No. zames drives the public `chat.deepseek.com` / `chat.qwen.ai` / `chat.z.ai`
+web UIs through a real browser, like a regular user. It is not affiliated with
+DeepSeek, Alibaba or Zhipu AI.
 
 **Do I need an API key?**
 No. You sign in with your own account on the chat you use — DeepSeek (stored in
-`~/.zames/profile`) or Qwen (stored in `~/.zames/qwen-profile`) — and the session
-is reused. Qwen also works in guest mode for a few messages a day.
+`~/.zames/profile`), Qwen (stored in `~/.zames/qwen-profile`) or GLM (stored in
+`~/.zames/glm-profile`) — and the session is reused. Qwen also works in guest
+mode for a few messages a day.
 
 **Which model does it use?**
 Whichever the active web chat uses. On DeepSeek that is DeepSeek-V3 (or the
@@ -610,8 +615,8 @@ not hammer the rate limit.
 
 **How is it different from Claude Code / Codex?**
 Same shape (tools, `AGENTS.md`, skills, MCP, slash commands) but it runs on your
-DeepSeek or Qwen account instead of an API, as a browser automation rather than
-a first-party API client.
+DeepSeek, Qwen or GLM account instead of an API, as a browser automation rather
+than a first-party API client.
 
 ## Links
 
@@ -631,13 +636,13 @@ MIT
 <summary>🇷🇺 Читать по-русски (Russian)</summary>
 
 Терминальный coding-агент, работающий поверх веб-чатов LLM
-([chat.deepseek.com](https://chat.deepseek.com/), [chat.qwen.ai](https://chat.qwen.ai/), …)
+([chat.deepseek.com](https://chat.deepseek.com/), [chat.qwen.ai](https://chat.qwen.ai/), [chat.z.ai](https://chat.z.ai/), …)
 через Playwright.
 По духу он похож на Claude Code / Codex CLI: запускается в текущей
 директории, читает и правит файлы, выполняет команды и коммитит в git.
 
-> API-ключ не нужен — агент управляет веб-чатом DeepSeek или Qwen как обычный
-> пользователь через настоящий (headless) браузер.
+> API-ключ не нужен — агент управляет веб-чатом DeepSeek, Qwen или GLM как
+> обычный пользователь через настоящий (headless) браузер.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png" alt="сессия zames в терминале" width="860">
@@ -652,11 +657,12 @@ zames                      # один раз войти, дальше прост
 ```
 
 Здесь **нет API-ключа и нет оплаты за токены**: zames входит в **ваш
-собственный аккаунт [chat.deepseek.com](https://chat.deepseek.com/) или
-[chat.qwen.ai](https://chat.qwen.ai/)** в настоящем (headless) Chromium и
-управляет веб-чатом как обычный пользователь. При первом запуске он один раз
-спросит логин (сессия сохраняется в `~/.zames/profile` для DeepSeek или
-`~/.zames/qwen-profile` для Qwen); после этого достаточно запустить `zames` и
+собственный аккаунт [chat.deepseek.com](https://chat.deepseek.com/),
+[chat.qwen.ai](https://chat.qwen.ai/) или [chat.z.ai](https://chat.z.ai/)** в
+настоящем (headless) Chromium и управляет веб-чатом как обычный пользователь.
+При первом запуске он один раз спросит логин (сессия сохраняется в
+`~/.zames/profile` для DeepSeek, `~/.zames/qwen-profile` для Qwen или
+`~/.zames/glm-profile` для GLM); после этого достаточно запустить `zames` и
 написать задачу обычным языком:
 
 ```text
@@ -688,7 +694,7 @@ zames не вызывает API модели. Он запускает headless C
 </p>
 
 Словами: вы вводите задачу → zames отправляет системный промпт и задачу в
-активный веб-чат (DeepSeek или Qwen) → модель отвечает → zames разбирает
+активный веб-чат (DeepSeek, Qwen или GLM) → модель отвечает → zames разбирает
 вызов инструмента, выполняет его локально, возвращает результат обратно и
 печатает финальный ответ.
 
@@ -698,11 +704,12 @@ zames не вызывает API модели. Он запускает headless C
   DOM, поэтому JSON вызова инструмента с шаблонными строками и экранированием
   остаётся целым.
 - **Постоянный профиль на каждого провайдера** (`~/.zames/profile` у DeepSeek,
-  `~/.zames/qwen-profile` у Qwen) держит вас залогиненным; User-Agent
+  `~/.zames/qwen-profile` у Qwen, `~/.zames/glm-profile` у GLM) держит вас
+  залогиненным; User-Agent
   headless-браузера подменяется, чтобы CDN сайта не отдавал 403 на вход.
 - **Троттлинг отправки** (15 с у DeepSeek, ~1 с у Qwen, который спокойно
-  переносит частые отправки) щадит рейт-лимит веб-чата во время долгих
-  прогонов с инструментами.
+  переносит частые отправки; у GLM — адаптивная пауза с нуля) щадит рейт-лимит
+  веб-чата во время долгих прогонов с инструментами.
 - **Агент запесочен** в директорию запуска — ни один инструмент не может
   читать или писать выше неё.
 
@@ -744,7 +751,7 @@ zames не вызывает API модели. Он запускает headless C
   гоняет тесты, чинит баги и коммитит результат. Это ежедневное доказательство,
   что он работает и реально используется.
 - **Нет API-ключа и счёта за токены** — используется ваш собственный аккаунт
-  чата DeepSeek или Qwen, а не платный API. Удобно для долгих задач с
+  чата DeepSeek, Qwen или GLM, а не платный API. Удобно для долгих задач с
   инструментами.
 - **Тот же рабочий процесс, что в Claude Code / Codex** — инструменты,
   `AGENTS.md`, навыки, MCP и слэш-команды, так что всё знакомо с первого дня.
@@ -756,9 +763,9 @@ zames не вызывает API модели. Он запускает headless C
 ## Требования
 
 - Node.js >= 20
-- Аккаунт в нужном чате — **DeepSeek** (`chat.deepseek.com`, по умолчанию) или
-  **Qwen** (`chat.qwen.ai`). Qwen также работает в гостевом режиме на несколько
-  сообщений. При первом запуске zames спросит логин в терминале (и сохранит его
+- Аккаунт в нужном чате — **DeepSeek** (`chat.deepseek.com`, по умолчанию),
+  **Qwen** (`chat.qwen.ai`) или **GLM** (`chat.z.ai`). Qwen также работает в
+  гостевом режиме на несколько сообщений. При первом запуске zames спросит логин в терминале (и сохранит его
   в `~/.zames/config.json` после успешного входа, поэтому более поздний
   разлогин обрабатывается автоматически, без повторных вопросов). Можно также
   войти вручную в окне браузера, когда он headed.
@@ -922,7 +929,7 @@ zames
 или собственной вставкой терминала). zames сохраняет его в `<project>/tmp` и
 показывает маркер в строке — `[image#1]` для картинок, `[file#1]` для прочих
 файлов — затем загружает реальный файл в чат вместе с вашим сообщением. Это те
-же форматы, что принимает веб-чат DeepSeek / Qwen (PNG, JPEG, GIF, WEBP, BMP,
+же форматы, что принимает веб-чат DeepSeek / Qwen / GLM (PNG, JPEG, GIF, WEBP, BMP,
 SVG и обычные типы документов).
 
 Вставка картинки работает, когда терминал передаёт её как `data:` URL или как
@@ -1008,12 +1015,12 @@ zames --task "..." --output-format jsonl \
 - /copy — скопировать последний ответ ассистента в буфер обмена ОС.
 - /cost (алиас /usage) — статистика сессии: задачи, вызовы инструментов,
   длительность и размер контекста в токенах (у DeepSeek —
-  `accumulated_token_usage`, у Qwen — `input_tokens`).
+  `accumulated_token_usage`, у Qwen — `input_tokens`, у GLM — `prompt_tokens`).
 - /export [file] — записать транскрипт сессии в Markdown-файл
   (по умолчанию zames-export-<stamp>.md).
 - /doctor — диагностика node, git, конфига, браузера, буфера обмена, MCP и
   активного провайдера чата (плюс состояние UI его страницы).
-- /provider <deepseek|qwen> — сменить бэкенд чата (применяется сразу, без
+- /provider <deepseek|qwen|glm> — сменить бэкенд чата (применяется сразу, без
   перезапуска); /provider status показывает активный провайдер/модель/вход;
   /provider login повторно проверяет вход. /model [id] покажет или выберет
   модель Qwen на лету.
@@ -1062,7 +1069,8 @@ zames --task "..." --output-format jsonl \
 спиннер/текст, справа — контекст (например, `125k · 13%`, процент от 1M
 контекста). Он ОКРАШЕН по уровню заполнения: зелёный ниже 50%, жёлтый 50-80%,
 красный выше 80%. Значение приходит из счётчика токенов провайдера (у DeepSeek —
-`accumulated_token_usage`, у Qwen — `input_tokens`) и скрыто до первого ответа.
+`accumulated_token_usage`, у Qwen — `input_tokens`, у GLM — `prompt_tokens`) и
+скрыто до первого ответа.
 
 ## Контекст проекта, навыки и память
 
@@ -1102,7 +1110,7 @@ zames --task "..." --output-format jsonl \
 zames может использовать инструменты с серверов [MCP](https://modelcontextprotocol.io).
 Главный пример — @playwright/mcp: он даёт агенту настоящий браузер
 (navigate, click, snapshot, type, ...) поверх того, который zames уже
-использует для чата DeepSeek или Qwen.
+использует для чата DeepSeek, Qwen или GLM.
 
 Положите файл конфига (той же формы, что в Claude Code / Cursor):
 
@@ -1136,12 +1144,13 @@ MCP-браузер и браузер агента подерутся за оди
 ### Рекомендованные серверы (проверены)
 
 Несколько небольших полезных серверов, протестированных вживую с zames
-(на обоих бэкендах — DeepSeek и Qwen):
+(на бэкендах DeepSeek, Qwen и GLM):
 
 - **Context7** (`@upstash/context7-mcp`) — подтягивает АКТУАЛЬНУЮ
 документацию библиотеки (для конкретной версии) до того, как агент пишет код,
 вместо устаревших знаний из обучения. Инструменты: `resolve_library_id`, затем
-`query_docs`. Проверено вживую на DeepSeek И Qwen: агент вызвал оба инструмента
+`query_docs`. Проверено вживую на DeepSeek и Qwen (слой MCP не зависит от провайдера,
+поэтому работает и с GLM): агент вызвал оба инструмента
 и получил актуальный API Zod. Именно его стоит подключить первым.
 
   ```json
@@ -1202,15 +1211,16 @@ enum переключаются на месте; числа и строки от
 
 ## FAQ
 
-**Это официальный продукт DeepSeek или Qwen?**
+**Это официальный продукт DeepSeek, Qwen или GLM?**
 Нет. zames управляет публичными веб-интерфейсами `chat.deepseek.com` /
-`chat.qwen.ai` через настоящий браузер, как обычный пользователь. Он не связан
-ни с DeepSeek, ни с Alibaba.
+`chat.qwen.ai` / `chat.z.ai` через настоящий браузер, как обычный пользователь.
+Он не связан ни с DeepSeek, ни с Alibaba, ни с Zhipu AI.
 
 **Нужен ли API-ключ?**
 Нет. Вы один раз входите в свой аккаунт на нужном чате — DeepSeek (хранится в
-`~/.zames/profile`) или Qwen (хранится в `~/.zames/qwen-profile`) — и сессия
-переиспользуется. Qwen также работает в гостевом режиме на несколько сообщений.
+`~/.zames/profile`), Qwen (хранится в `~/.zames/qwen-profile`) или GLM
+(хранится в `~/.zames/glm-profile`) — и сессия переиспользуется. Qwen также
+работает в гостевом режиме на несколько сообщений.
 
 **Какую модель он использует?**
 Ту, которую использует активный веб-чат. В DeepSeek это DeepSeek-V3 (или
@@ -1229,7 +1239,7 @@ reasoning-модель при включённом «Deep thinking»). В Qwen �
 
 **Чем отличается от Claude Code / Codex?**
 Та же форма (инструменты, `AGENTS.md`, навыки, MCP, слэш-команды), но работает
-на вашем аккаунте DeepSeek или Qwen вместо API, как автоматизация браузера, а
+на вашем аккаунте DeepSeek, Qwen или GLM вместо API, как автоматизация браузера, а
 не first-party API-клиент.
 
 ## Ссылки
