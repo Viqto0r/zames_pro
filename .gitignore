@@ -31,3 +31,7 @@ scripts/dev-probes/
 # The agent's own bug-hunting journal (like BACKLOG.md): rewritten during
 # development cycles, must never ship with a release.
 QUEUE.md
+
+# Long GLM run artifacts (agent-generated, not part of the package).
+GLM_RUN_REPORT.md
+GLM_LONG_RUN_TASK.md
