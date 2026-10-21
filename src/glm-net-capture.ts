@@ -305,7 +305,14 @@ export function isGuestLimitText(body: string): boolean {
 export function isCaptchaText(body: string): boolean {
   const b = String(body || '')
   if (!b) return false
-  return /security verification|drag the slider|CertifyId/i.test(b)
+  const hit = /security verification|drag the slider|CertifyId/i.test(b)
+  if (!hit) return false
+  // The SAME body may be the answer SSE stream (this classifier runs on every
+  // response). An answer that merely MENTIONS the captcha must not be taken
+  // for the challenge page: an error payload or a body WITHOUT answer text
+  // only (same rule as the rate-limit / guest classifiers).
+  if (!ERROR_PAYLOAD_RE.test(b) && hasAnswerContent(b)) return false
+  return true
 }
 
 /**
