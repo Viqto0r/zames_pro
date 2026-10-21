@@ -2,8 +2,8 @@
 // README.md. Reproduces the ORIGINAL mermaid `flowchart LR` look (rounded
 // lavender nodes, gray arrows, white background, a simple left-to-right
 // chain) so the diagram stays visually the same as before. The ONLY change:
-// the model node now shows BOTH supported backends (chat.deepseek.com /
-// chat.qwen.ai) instead of only chat.deepseek.com.
+// the model node shows ALL THREE supported backends (chat.deepseek.com /
+// chat.qwen.ai / chat.z.ai).
 //
 // Layout matches mermaid LR: FORWARD edges (the request) run through the node
 // centerline left->right; BACK edges (the answers) are routed BELOW the boxes
