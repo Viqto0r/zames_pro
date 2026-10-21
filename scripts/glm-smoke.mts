@@ -193,6 +193,21 @@ async function main() {
     } catch (e) {
       record('history', false, (e as Error).message)
     }
+
+    // Attachments: the upload control fires a real filechooser. A signed-in
+    // session uploads; a guest cannot, which is a site restriction (a SKIP).
+    try {
+      const note = path.join(SMOKE_HOME, 'glm-smoke-note.txt')
+      fs.writeFileSync(note, 'The secret word is KIWI')
+      const failed = await browser._attachFiles([
+        { path: note, name: 'glm-smoke-note.txt', mime: 'text/plain' },
+      ])
+      const attached = failed.length === 0
+      if (attached) record('attachment', true, '')
+      else record('attachment', false, JSON.stringify(failed))
+    } catch (e) {
+      record('attachment', false, (e as Error).message)
+    }
   }
 
   await browser.close().catch(() => {})
