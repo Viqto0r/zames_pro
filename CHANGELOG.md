@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **glm:** the smoke sends the system-prompt into the same chat; the mode check reads the rewritten body
 - **glm:** a signed-in session is not reported as a guest
 - drop the unused headless flag
 - **glm:** word the mode warning accurately (the smoke passed with it on)

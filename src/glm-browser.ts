@@ -89,6 +89,7 @@ import {
   extractTokenUsage,
   isFinishedWithoutAnswer,
   isRateLimitText,
+  isQuotaExhaustedText,
   isServerBusyText,
   isGuestLimitText,
   isCaptchaText,
@@ -1367,10 +1368,13 @@ export class GlmBrowser {
     if (unsafe.length) {
       this._notice(this._t('glm.mode_flags', { v: unsafe.join(', ') }))
     }
+    // Only the THINKING flag is actionable: GLM starts its own web search
+    // regardless of the request flag, so a web_search mismatch was pure noise
+    // (it fired on every send and told the operator nothing they could fix).
     const mismatch = glmFlagsMismatch(feat, {
       thinking: this.deepThinking,
-      webSearch: this.webSearch,
-    })
+      webSearch: feat.webSearch === true || feat.autoWebSearch === true,
+    }).filter((m) => m !== 'web_search')
     if (mismatch.length) {
       this._notice(this._t('glm.mode_mismatch', { v: mismatch.join(', ') }))
     }
@@ -1494,6 +1498,10 @@ export class GlmBrowser {
           if (e instanceof GlmGuestLimitError) {
             this.sendRuntime.onOutcome('guest_limit', { errorText: msg })
             throw new Error(this._t('glm.guest_mode'))
+          }
+          if (isQuotaExhaustedText(msg) || isQuotaExhaustedText(this._netBody)) {
+            this.sendRuntime.onOutcome('rate_limit', { errorText: 'quota' })
+            throw new Error(this._t('glm.quota_exhausted'))
           }
           if (e instanceof GlmCaptchaError) {
             this.sendRuntime.onOutcome('guest_limit', { errorText: 'captcha' })

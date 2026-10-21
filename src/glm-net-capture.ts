@@ -241,6 +241,18 @@ const ERROR_PAYLOAD_RE =
   /"type"\s*:\s*"error"|"error"\s*:|\{\s*"code"\s*:/i
 
 /** True when the RAW body is z.ai's rate-limit notice. */
+/**
+ * True when z.ai answers that the ACCOUNT quota is exhausted
+ * (`insufficient_quota`, HTTP 429). Distinct from a transient rate limit:
+ * it does not clear in minutes, so ask() must fail at once with a clear
+ * message instead of retrying for the whole budget.
+ */
+export function isQuotaExhaustedText(body: string): boolean {
+  return /insufficient_quota|quota (?:exceeded|exhausted)|exceeded your current quota/i.test(
+    String(body || ''),
+  )
+}
+
 export function isRateLimitText(body: string): boolean {
   const b = String(body || '')
   if (!b) return false

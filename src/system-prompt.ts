@@ -278,7 +278,10 @@ export function buildSystemPrompt({
         '- Never claim a command ran unless you emitted its tool call and ' +
         'received a tool result. If you have not called the tool, say so.\n' +
         '- Paths like `/home/z/...` or `/mnt/data` are NOT the operator\'s ' +
-        'machine.\n'
+        'machine.\n' +
+        '- Do NOT use web search / WebSearch unless the task explicitly asks ' +
+        'for current web information: it is slow, it burns the account quota ' +
+        'and it is not needed to read or edit files.\n'
       : ''
 
   const gitSection = gitContext

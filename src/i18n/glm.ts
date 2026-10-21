@@ -68,6 +68,10 @@ export const glmMessages: Record<string, { ru: string; en: string }> = {
     ru: '✖ Кнопка отправки GLM не найдена или недоступна — сообщение не отправлено. Проверь чат вручную.',
     en: '✖ The GLM send button was not found or is disabled — the message was not sent. Check the chat manually.',
   },
+  'glm.quota_exhausted': {
+    ru: '✖ У аккаунта z.ai исчерпана квота (insufficient_quota). Это лимит аккаунта, а не пауза: пополните квоту или дождитесь сброса, повторы не помогут.',
+    en: '✖ The z.ai account quota is exhausted (insufficient_quota). This is an account limit, not a pause: top up or wait for the reset; retrying will not help.',
+  },
   'glm.mode_flags': {
     ru: '⚠ GLM: в теле запроса включён режим {v} — он меняет формат ответа и может сломать протокол tool-call.',
     en: '⚠ GLM: the request body has {v} enabled — it changes the answer format and may break the tool-call protocol.',
