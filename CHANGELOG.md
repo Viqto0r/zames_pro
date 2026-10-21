@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.81.2] - 2026-10-21
+
+### Fixed
+
+- **tools:** read-only mode drops concatenated/camelCase MCP writers
+
 ## [2.81.1] - 2026-10-21
 
 ### Added
