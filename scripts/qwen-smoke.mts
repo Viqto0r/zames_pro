@@ -25,6 +25,9 @@ if (!process.env.ZAMES_QWEN_SMOKE_HOME) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-qwen-smoke-'))
   process.env.HOME = tmp
   process.env.ZAMES_QWEN_SMOKE_HOME = tmp
+  // A cold login must fail FAST (exit 2) instead of opening an interactive
+  // window nobody can see in a smoke run (the part-A login contract).
+  process.env.ZAMES_NONINTERACTIVE_LOGIN = '1'
   fs.mkdirSync(path.join(tmp, '.zames'), { recursive: true })
   fs.mkdirSync(path.join(tmp, '.cache'), { recursive: true })
   const realCfg = path.join(REAL_HOME, '.zames', 'config.json')
