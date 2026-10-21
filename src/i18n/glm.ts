@@ -64,6 +64,10 @@ export const glmMessages: Record<string, { ru: string; en: string }> = {
     ru: '✖ Новый ответ не получен — на странице остался прежний текст. Проверь чат {provider} вручную.',
     en: '✖ No new answer received — the page still shows the previous text. Check the {provider} chat manually.',
   },
+  'glm.page_busy': {
+    ru: '✖ GLM всё ещё генерирует ответ (страница занята) — отправка невозможна. Это не сломанная кнопка: дождитесь конца хода или нажмите Stop в окне.',
+    en: '✖ GLM is still generating (the page is busy) — the message cannot be sent. This is not a broken button: wait for the turn to finish or press Stop in the window.',
+  },
   'glm.send_button_missing': {
     ru: '✖ Кнопка отправки GLM не найдена или недоступна — сообщение не отправлено. Проверь чат вручную.',
     en: '✖ The GLM send button was not found or is disabled — the message was not sent. Check the chat manually.',

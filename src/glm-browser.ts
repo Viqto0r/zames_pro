@@ -854,6 +854,15 @@ export class GlmBrowser {
             if (Array.isArray(f.flags)) {
               f.flags = f.flags.filter((x: unknown) => x !== 'general_agent')
             }
+            // z.ai starts its OWN web search even when the request says
+            // `web_search:false` (measured: 260+ search iterations on a plain
+            // file task). Each call burns account credits and minutes, and the
+            // busy UI then refuses the next send ("send button not found").
+            // The model does not need the web to read or edit local files, so
+            // the flags are forced off on the way out.
+            f.web_search = false
+            f.auto_web_search = false
+            f.vlm_web_search_enable = false
           }
           // The body that ACTUALLY goes out - the only honest source for
           // _verifyModes (the `request` event sees the pre-rewrite body).
@@ -1227,6 +1236,30 @@ export class GlmBrowser {
       }, INPUT_SELECTORS[0])
       .catch(() => false)
     return !!disabled
+  }
+
+  /**
+   * True while the page is still generating (the input is disabled or a stop
+   * control is visible). Used to explain a missing send button instead of
+   * blaming the selectors.
+   */
+  async _isGenerating(): Promise<boolean> {
+    return await this._stopButtonVisible().catch(() => false)
+  }
+
+  /**
+   * Wait (bounded) until the page stops generating. Returns true when it was
+   * STILL generating at the deadline - the caller then reports "busy" rather
+   * than "send button missing".
+   */
+  async _waitWhileGenerating(maxMs: number): Promise<boolean> {
+    const deadline = Date.now() + maxMs
+    while (Date.now() < deadline) {
+      if (this._abort || this._askCancelled) return false
+      if (!(await this._isGenerating())) return false
+      await this.page.waitForTimeout(500)
+    }
+    return await this._isGenerating()
   }
 
   async _captchaVisible(): Promise<boolean> {
@@ -1774,6 +1807,14 @@ export class GlmBrowser {
     if (!sent) {
       if (await this._captchaVisible().catch(() => false)) {
         throw new GlmCaptchaError('captcha blocks the send')
+      }
+      // A PAGE THAT IS STILL GENERATING hides/disabled the send control. That
+      // is not a broken button: the previous turn (often a long z.ai web
+      // search) is still running. Wait for it to settle before failing, so a
+      // slow turn does not turn into "send button not found" + a retry storm.
+      const settled = await this._waitWhileGenerating(120_000)
+      if (settled) {
+        throw new Error(this._t('glm.page_busy'))
       }
       throw new Error(this._t('glm.send_button_missing'))
     }
