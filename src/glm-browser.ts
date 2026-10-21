@@ -65,6 +65,7 @@ import {
   CHAT_ID_RE,
   chatUrl,
   INPUT_SELECTORS,
+  UPLOAD_BUTTON_SELECTOR,
   SEND_SELECTORS,
   STOP_SELECTORS,
   STOP_NAME_RE,
@@ -94,6 +95,11 @@ import {
   extractChatId,
 } from './glm-net-capture.js'
 import { SendRuntime } from './send-runtime.js'
+import {
+  readGlmBodyFeatures,
+  unsafeGlmModes,
+  glmFlagsMismatch,
+} from './glm-flags.js'
 import {
   interactiveBrowserLogin,
   loginIsInteractive,
@@ -202,6 +208,8 @@ export class GlmBrowser {
   _netBody: string
   _netHookInstalled: boolean
   _netHookPage: unknown
+  /** The features of the LAST completion request the page sent. */
+  _lastBodyFeatures: ReturnType<typeof readGlmBodyFeatures> | null
   _windowClosed: boolean
   /** Cookies captured at close time when a session cookie has no expiry. */
   _carryCookies: Array<Record<string, unknown>> | null
@@ -292,6 +300,7 @@ export class GlmBrowser {
     this._netBody = ''
     this._netHookInstalled = false
     this._netHookPage = null
+    this._lastBodyFeatures = null
     this._windowClosed = false
     this._carryCookies = null
     this.onSendStart = null
@@ -787,6 +796,15 @@ export class GlmBrowser {
         if (!url.includes('chat.z.ai/api/')) return
         const h = req.headers()
         if (h['authorization']) this._apiAuth = h['authorization']
+        // Remember what the site actually sent: the mode flags are decided
+        // by ITS UI state, so this is the ground truth for _verifyModes.
+        if (ANSWER_URL_RE.test(url) && req.method() === 'POST') {
+          try {
+            this._lastBodyFeatures = readGlmBodyFeatures(
+              JSON.parse(req.postData() || '{}'),
+            )
+          } catch {}
+        }
       } catch {}
     })
   }
@@ -1246,9 +1264,32 @@ export class GlmBrowser {
       deepThinking: this.deepThinking,
       webSearch: this.webSearch,
     }
-    // Nothing to click yet: the flags travel in the completion request, which
-    // the SITE builds. The provider verifies the safe state in _assertSafeFlags
-    // (part C) once the body is observable.
+    // GLM exposes no stable UI control for thinking / web search in the
+    // observed build, so the desired state is carried by the request body the
+    // SITE builds from its own UI. We therefore VERIFY the body after the send
+    // (_verifyModes) rather than click a control that may not exist.
+  }
+
+  /**
+   * Check the LAST completion request the page sent: unsafe modes must be off
+   * (z.ai's own agent runtime breaks the zames tool-call protocol) and the
+   * thinking/web-search flags should match the operator's setting. Best-effort
+   * and NON-fatal: a mismatch is reported, the turn is not aborted.
+   */
+  _verifyModes(): void {
+    const feat = this._lastBodyFeatures
+    if (!feat) return
+    const unsafe = unsafeGlmModes(feat)
+    if (unsafe.length) {
+      this._notice(this._t('glm.mode_flags', { v: unsafe.join(', ') }))
+    }
+    const mismatch = glmFlagsMismatch(feat, {
+      thinking: this.deepThinking,
+      webSearch: this.webSearch,
+    })
+    if (mismatch.length) {
+      this._notice(this._t('glm.mode_mismatch', { v: mismatch.join(', ') }))
+    }
   }
 
   // ---------- diagnostics ----------
@@ -1498,6 +1539,21 @@ export class GlmBrowser {
         ),
     )
     if (!bufPayload.length) return failed
+    // Primary flow: the observed upload control is button#upload-file-button,
+    // which fires a real filechooser (the same shape as Qwen's menu item).
+    try {
+      const [chooser] = await Promise.all([
+        this.page.waitForEvent('filechooser', { timeout: 5000 }),
+        this.page.locator(UPLOAD_BUTTON_SELECTOR).first().click({ timeout: 3000 }),
+      ])
+      await chooser.setFiles(bufPayload)
+      await this._awaitUploadPreview(
+        files.map((f) => f.name),
+        5000,
+      )
+      return failed
+    } catch {}
+    // Fallback: set the files directly on the hidden <input type=file>.
     for (const sel of ['input[type="file"]']) {
       const el = this.page.locator(sel).last()
       try {
@@ -1629,6 +1685,8 @@ export class GlmBrowser {
       }
       throw new Error(this._t('glm.send_button_missing'))
     }
+    // The site has just built the request: check the mode flags it used.
+    this._verifyModes()
 
     // Wait for the answer to start, then for it to settle.
     const startDeadline = Date.now() + this.startWaitMs

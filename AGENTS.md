@@ -506,6 +506,27 @@ heading, not only at `</details>`. In `--dev` mode the system prompt
 improvement outside the current task, and a startup warning fires past 500
 lines / 60 KB.
 
+## The TodoWrite checklist must be kept current
+
+The status line shows `[Provider] задачи: N/M` from `TodoWrite`. It is a
+progress indicator the OPERATOR watches, so a stale list is misleading: it
+looks like nothing was done.
+
+Rules:
+
+- Write the checklist BEFORE a multi-step task (more than ~3 steps).
+- Update it AS you go, not only at the end: after finishing each step, resend
+  the WHOLE list with that step `completed` and the next one `in_progress`.
+  `TodoWrite` REPLACES the list, so every entry must be resent each time.
+- The final update marks everything that is actually DONE as `completed`
+  (leave a step `pending`/`in_progress` if it was genuinely not done — never
+  mark unverified work as complete).
+- A step that is blocked on the operator (e.g. a manual sign-in) stays
+  `pending`, not `completed`.
+
+This is not busywork: `[DeepSeek] задачи: 0/9` while the work is finished is
+exactly the confusion a current list prevents.
+
 ## Talking to the operator
 
 The operator does NOT read the model's free text. The only thing that reaches

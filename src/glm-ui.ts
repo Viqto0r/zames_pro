@@ -208,3 +208,8 @@ export const GUEST_LIMIT_RE =
 // request body is verified per chat (see glm-net-capture.ts).
 export const SAFE_PREVIEW_MODE = false
 export const SAFE_ENABLE_THINKING = true
+
+// ---------- attachments ----------
+
+// The observed upload control (a real filechooser on click).
+export const UPLOAD_BUTTON_SELECTOR = '#upload-file-button, button[class*="upload"]'
