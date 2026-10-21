@@ -704,32 +704,44 @@ export function parseDuckDuckGoResults(
   limit: number,
 ): Array<{ title: string; url: string; snippet: string }> {
   const results: Array<{ title: string; url: string; snippet: string }> = []
-  const re =
-    /<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?(?:<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>)?/gi
-  let m: RegExpExecArray | null
-  while ((m = re.exec(body)) && results.length < limit) {
-    let href = m[1]
-    const uddgMatch = href.match(/[?&]uddg=([^&]+)/)
-    if (uddgMatch) {
-      // decodeURIComponent THROWS on a malformed percent escape (`%ZZ`, a lone
-      // `%`). One broken href in the page must not abort the whole search: keep
-      // the raw href, which the http(s) check below then rejects.
-      try {
-        href = decodeURIComponent(uddgMatch[1])
-      } catch {
-        href = uddgMatch[1]
-      }
-    }
-    const title = htmlToText(m[2] || '').trim()
-    const snippet = htmlToText(m[3] || '').trim()
-    // Only an absolute http(s) link is a real result. The page can carry a
-    // `javascript:`/`data:` href (malicious or broken markup) or a
-    // site-relative one; handing either to the model as a result URL is wrong
-    // (a `javascript:` URL looks fetchable, a relative one is not).
-    if (!title || !/^https?:\/\//i.test(href)) continue
-    results.push({ title, url: href, snippet })
+  // Parse the page ROW BY ROW: each `result__a` title opens a result, and a
+  // `result__snippet` belongs to the result opened most recently. The old
+  // single regex made the snippet group OPTIONAL with an unbounded gap, so a
+  // result without a snippet picked up the FOLLOWING result's snippet (wrong
+  // text under a URL). A row scan ties every snippet to its own result.
+  const anchorRe =
+    /<a[^>]*class="[^"]*result__(a|snippet)[^"]*"[^>]*>([\s\S]*?)<\/a>/gi
+  const hrefOf = (tag: string): string => {
+    const m = tag.match(/href="([^"]*)"/i)
+    return m ? m[1] : ''
   }
-  return results
+  let cur: { title: string; url: string; snippet: string } | null = null
+  let m: RegExpExecArray | null
+  while ((m = anchorRe.exec(body))) {
+    const kind = m[1].toLowerCase()
+    if (kind === 'a') {
+      if (cur && cur.title && /^https?:\/\//i.test(cur.url)) {
+        results.push(cur)
+        if (results.length >= limit) return results
+      }
+      cur = { title: htmlToText(m[2] || '').trim(), url: '', snippet: '' }
+      // The href lives in the OPENING tag, which m[0] starts with.
+      let href = hrefOf(m[0].slice(0, m[0].indexOf('>') + 1))
+      const uddg = href.match(/[?&]uddg=([^&]+)/)
+      if (uddg) {
+        try {
+          href = decodeURIComponent(uddg[1])
+        } catch {
+          href = uddg[1]
+        }
+      }
+      cur.url = href
+      continue
+    }
+    if (cur && !cur.snippet) cur.snippet = htmlToText(m[2] || '').trim()
+  }
+  if (cur && cur.title && /^https?:\/\//i.test(cur.url)) results.push(cur)
+  return results.slice(0, limit)
 }
 
 function formatResult(
