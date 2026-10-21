@@ -149,6 +149,15 @@ export interface GlmBrowserOptions {
     hasSavedPassword?: boolean
     step?: 'email' | 'code'
   }) => Promise<{ username: string; password: string } | null | string>
+  /**
+   * Neutralise z.ai's OWN agent runtime by rewriting the completion request
+   * (`preview_mode:false`, drop the `general_agent` flag) before it leaves the
+   * page. Without this the site intercepts tool calls and runs them in ITS
+   * sandbox (`/home/z/my-project`), so zames' tools never execute. Measured:
+   * with the rewrite ON the model emits the calls to us and does NOT pretend
+   * to have run them.
+   */
+  disableAgentRuntime?: boolean
   /** Write a telemetry line per send (browser.sendTelemetry). */
   sendTelemetry?: boolean
   /** `~/.zames/logs` (the telemetry directory). */
@@ -220,6 +229,8 @@ export class GlmBrowser {
   userAgent: string
   /** Telemetry + adaptive throttle state (see src/send-runtime.ts). */
   sendRuntime!: SendRuntime
+  /** Rewrite the request to disable z.ai's own agent runtime (see options). */
+  disableAgentRuntime: boolean
 
   constructor({
     headless = false,
@@ -245,6 +256,7 @@ export class GlmBrowser {
     locale,
     onAuthSave,
     onLoginPrompt,
+    disableAgentRuntime = true,
     sendTelemetry = true,
     logsDir,
     loginTimeoutMs = 600000,
@@ -315,6 +327,7 @@ export class GlmBrowser {
     // (a guest is gated by a captcha first), so a fixed 0 pause plus a LEARNED
     // back-off beats a guess. The telemetry is what the operator analyses
     // later to pick the real values.
+    this.disableAgentRuntime = disableAgentRuntime
     this.sendRuntime = new SendRuntime({
       provider: 'glm',
       baseMs: minSendIntervalMs,
@@ -816,6 +829,35 @@ export class GlmBrowser {
     } catch {}
   }
 
+  /**
+   * Rewrite the completion REQUEST so z.ai's own agent runtime stays off.
+   * The site builds the body with `features.preview_mode:true` and
+   * `flags:['general_agent']`; with them the model's tool calls are executed
+   * INSIDE z.ai's sandbox and never reach zames. Playwright can rewrite the
+   * post body before it is sent, which is the only lever we have (no UI
+   * control exists for those flags).
+   */
+  async _installRuntimeRewrite(): Promise<void> {
+    if (!this.disableAgentRuntime) return
+    try {
+      await this.page.route(/\/api\/v2\/chat\/completions/, async (route) => {
+        try {
+          const body = JSON.parse(route.request().postData() || '{}')
+          const f = body.features
+          if (f && typeof f === 'object') {
+            f.preview_mode = false
+            if (Array.isArray(f.flags)) {
+              f.flags = f.flags.filter((x: unknown) => x !== 'general_agent')
+            }
+          }
+          await route.continue({ postData: JSON.stringify(body) })
+        } catch {
+          await route.continue()
+        }
+      })
+    } catch {}
+  }
+
   // ---------- network capture ----------
 
   _installNetHook(): void {
@@ -827,6 +869,8 @@ export class GlmBrowser {
     pg.on('response', (resp) => {
       void this._onResponse(resp).catch(() => {})
     })
+    // Neutralise z.ai's own agent runtime BEFORE the first send.
+    void this._installRuntimeRewrite()
     pg.on('request', (req) => {
       try {
         const url = req.url()
