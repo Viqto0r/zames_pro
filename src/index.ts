@@ -232,9 +232,6 @@ const t = (key: string, params?: Record<string, string | number>): string =>
 // DeepSeek/Qwen run headless by default; GLM CANNOT: z.ai answers a headless
 // send with an Aliyun captcha (see PROVIDERS[id].needsVisibleBrowser). An
 // explicit --headless still wins, and --headed forces a window everywhere.
-const headlessFlag = hasFlag('--headed')
-  ? false
-  : hasFlag('--headless') || config.headless
 function headlessFor(provider: ProviderId): boolean {
   if (hasFlag('--headed')) return false
   if (hasFlag('--headless')) return true

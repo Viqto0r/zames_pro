@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **glm:** run with a visible browser by default (the site blocks headless)
 - **glm:** thinking is always on and cannot be toggled off
 - **glm:** verify mode flags and attach files through the upload button
 - send telemetry for all providers and adaptive throttle (enabled for GLM)
