@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.81.10] - 2026-10-21
+
+### Fixed
+
+- **qwen:** the restored dialogue drops a SYSTEM turn
+
 ## [2.81.9] - 2026-10-21
 
 ### Fixed
