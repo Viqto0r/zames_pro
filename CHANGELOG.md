@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.81.5] - 2026-10-21
+
+### Changed
+
+- docs(readme): mention GLM everywhere DeepSeek and Qwen were listed
+
 ## [2.81.4] - 2026-10-21
 
 ### Fixed
