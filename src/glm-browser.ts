@@ -854,6 +854,9 @@ export class GlmBrowser {
               f.flags = f.flags.filter((x: unknown) => x !== 'general_agent')
             }
           }
+          // The body that ACTUALLY goes out - the only honest source for
+          // _verifyModes (the `request` event sees the pre-rewrite body).
+          this._lastBodyFeatures = readGlmBodyFeatures(body)
           await route.continue({ postData: JSON.stringify(body) })
         } catch {
           await route.continue()
@@ -884,13 +887,8 @@ export class GlmBrowser {
         if (h['authorization']) this._apiAuth = h['authorization']
         // Remember what the site actually sent: the mode flags are decided
         // by ITS UI state, so this is the ground truth for _verifyModes.
-        if (ANSWER_URL_RE.test(url) && req.method() === 'POST') {
-          try {
-            this._lastBodyFeatures = readGlmBodyFeatures(
-              JSON.parse(req.postData() || '{}'),
-            )
-          } catch {}
-        }
+// (The features are recorded by _installRuntimeRewrite's route handler:
+        // the `request` event still carries the ORIGINAL body.)
       } catch {}
     })
   }

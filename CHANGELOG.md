@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **glm:** tell the model it runs on the operator's machine; fix the runtime rewrite URL match
 - **glm:** neutralise z.ai's agent runtime so zames tools actually run
 - **glm:** run with a visible browser by default (the site blocks headless)
 - **glm:** thinking is always on and cannot be toggled off

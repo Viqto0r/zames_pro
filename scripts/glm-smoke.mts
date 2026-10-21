@@ -128,8 +128,26 @@ async function main() {
   }
 
   if (!loginFailed) {
+    // ONE chat for the whole run: open it, then send the real system-prompt
+    // into it. Sending the prompt first and calling newChat() after would
+    // discard it and every tool scenario would run against a bare model.
     try {
       await browser.newChat()
+      const { buildSystemPrompt } = await import('../src/system-prompt.ts')
+      const { createTools } = await import('../src/tools.ts')
+      const tools = createTools(SMOKE_HOME, {})
+      const sys = buildSystemPrompt({
+        workdir: SMOKE_HOME,
+        tools,
+        locale: 'ru',
+        provider: 'glm',
+      })
+      await browser.ask(sys, { agent: false })
+    } catch (e) {
+      record('systemPrompt', false, (e as Error).message)
+    }
+
+    try {
       const id = await browser.getCurrentChatId()
       record('newChat', true, 'id=' + (id || '(none)'))
     } catch (e) {
