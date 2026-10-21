@@ -238,6 +238,15 @@ export function createTools(
       }: ToolArgs) => {
         const file = safe(req(p, 'path'))
         const oldStr = decodeContent(old_string, old_base64)
+        // A missing new_string (BOTH fields omitted) must not mean "delete":
+        // String(undefined) is '' and the tool silently erased the matched
+        // text while reporting success. An EXPLICIT empty string still deletes.
+        if (new_string === undefined && new_base64 === undefined) {
+          throw new Error(
+            'Missing required argument: new_string (or new_base64). Add the ' +
+              'replacement text (use an empty string to delete) and retry.',
+          )
+        }
         const newStr = decodeContent(new_string, new_base64)
         if (oldStr === '') {
           throw new Error('old_string is empty — nothing to replace.')
