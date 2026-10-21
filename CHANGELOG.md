@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.81.7] - 2026-10-21
+
+### Changed
+
+- docs(diagram): how-it-works shows all three chat backends
+
 ## [2.81.6] - 2026-10-21
 
 ### Fixed
