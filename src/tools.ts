@@ -68,7 +68,17 @@ export function createTools(
       }
       return Buffer.from(compact, 'base64').toString('utf-8')
     }
-    return String(content ?? '')
+    // NEITHER field present (the model omitted both, e.g. a truncated call):
+    // `String(undefined)` is '' and silently TRUNCATED an existing file to
+    // zero bytes while reporting success. An EXPLICIT empty string is still
+    // a legitimate request to create an empty file.
+    if (content === undefined || content === null) {
+      throw new Error(
+        'Missing required argument: content (or content_base64). Add the ' +
+          'file text to the tool call and retry.',
+      )
+    }
+    return String(content)
   }
 
   // Guard against missing/placeholder required args. Without this, a tool call
