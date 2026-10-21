@@ -752,7 +752,6 @@ export class DeepSeekBrowser {
     await this._fixHeadlessUserAgent()
   }
 
-
   /**
    * PURE-ish gate: may the login open a visible window? False for --task, a
    * scheduler job, a non-TTY or ZAMES_NONINTERACTIVE_LOGIN=1 (the smoke
@@ -834,13 +833,17 @@ export class DeepSeekBrowser {
                 try {
                   const form = ev.target as HTMLElement | null
                   if (!form) return
-                  const u = form.querySelector('input') as HTMLInputElement | null
+                  const u = form.querySelector(
+                    'input',
+                  ) as HTMLInputElement | null
                   const p = form.querySelector(
                     'input[type="password"]',
                   ) as HTMLInputElement | null
-                  const fn = (window as unknown as {
-                    __zamesDsCreds?: (a: string, b: string) => void
-                  }).__zamesDsCreds
+                  const fn = (
+                    window as unknown as {
+                      __zamesDsCreds?: (a: string, b: string) => void
+                    }
+                  ).__zamesDsCreds
                   if (fn) fn(u ? u.value || '' : '', p ? p.value || '' : '')
                 } catch {}
               },

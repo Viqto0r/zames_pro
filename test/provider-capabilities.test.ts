@@ -11,10 +11,7 @@ import {
   providerChatIdRe,
 } from '../src/providers.ts'
 import { buildHandoffText, handoffFromLabel } from '../src/provider-handoff.ts'
-import {
-  authMarkerHas,
-  mergeAuthMarker,
-} from '../src/browser-pure.ts'
+import { authMarkerHas, mergeAuthMarker } from '../src/browser-pure.ts'
 import {
   parseHeadlessUACache,
   mergeHeadlessUACache,

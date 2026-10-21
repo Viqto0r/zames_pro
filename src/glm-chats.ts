@@ -34,9 +34,7 @@ export function scrapeGlmChatList(limit: number): ChatInfo[] {
     if (!m) continue
     if (seen.has(m[1])) continue
     seen.add(m[1])
-    const title = ((a.textContent || '') as string)
-      .trim()
-      .replace(/\s+/g, ' ')
+    const title = ((a.textContent || '') as string).trim().replace(/\s+/g, ' ')
     out.push({ id: m[1], title })
     if (out.length >= limit) break
   }
@@ -86,7 +84,9 @@ export function scrapeGlmChatMessages(
 
   const out: ChatMessage[] = []
   for (const c of blocks) {
-    const role: ChatMessage['role'] = userRe.test((c.className || '').toString())
+    const role: ChatMessage['role'] = userRe.test(
+      (c.className || '').toString(),
+    )
       ? 'user'
       : 'assistant'
     const text = (c.textContent || '').trim()

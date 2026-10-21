@@ -237,8 +237,7 @@ function hasAnswerContent(body: string): boolean {
 // logic) and make ask() back off on a good turn. A real notice arrives in an
 // ERROR payload (`type: "error"` / a code) or as a bare notice with NO answer
 // content; answer text lives in `phase: "answer"` chunks.
-const ERROR_PAYLOAD_RE =
-  /"type"\s*:\s*"error"|"error"\s*:|\{\s*"code"\s*:/i
+const ERROR_PAYLOAD_RE = /"type"\s*:\s*"error"|"error"\s*:|\{\s*"code"\s*:/i
 
 /** True when the RAW body is z.ai's rate-limit notice. */
 /**
@@ -289,9 +288,10 @@ export function isGuestLimitText(body: string): boolean {
   // looked like a guest limit (a real false positive: the operator was told
   // "working as a guest" while the session was active). The notice must be an
   // ERROR payload or an EXPLICIT limit sentence, never a bare `guest` word.
-  const explicit = /guest (?:chat |daily |usage )?limit|reached the guest|log ?in to continue|sign ?in to continue|гостевой лимит/i.test(
-    b,
-  )
+  const explicit =
+    /guest (?:chat |daily |usage )?limit|reached the guest|log ?in to continue|sign ?in to continue|гостевой лимит/i.test(
+      b,
+    )
   if (!explicit) return false
   if (!ERROR_PAYLOAD_RE.test(b) && hasAnswerContent(b)) return false
   return true

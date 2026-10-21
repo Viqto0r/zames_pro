@@ -128,7 +128,11 @@ export const USER_DATA_DIR = path.join(os.homedir(), '.zames', 'profile')
 // still read.
 const HEADLESS_UA_CACHE = path.join(os.homedir(), '.zames', 'headless-ua.json')
 
-type UaCacheFile = { engines?: Record<string, string>; engine?: string; ua?: string }
+type UaCacheFile = {
+  engines?: Record<string, string>
+  engine?: string
+  ua?: string
+}
 
 // Pure: pick a reusable UA from the cache file's text for the given engine, or
 // null. Exported so the policy is unit-tested without touching ~/.zames.

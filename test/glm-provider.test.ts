@@ -12,10 +12,12 @@ interface FakeEl {
   visible: boolean
 }
 
-function fakeBrowser(opts: {
-  url?: string
-  counts?: Record<string, number>
-} = {}): GlmBrowser {
+function fakeBrowser(
+  opts: {
+    url?: string
+    counts?: Record<string, number>
+  } = {},
+): GlmBrowser {
   const b = new GlmBrowser({ headless: true, locale: 'en' })
   const counts = opts.counts || {}
   const makeLocator = (sel: string): Record<string, unknown> => {

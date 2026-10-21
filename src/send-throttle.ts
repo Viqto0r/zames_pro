@@ -48,7 +48,10 @@ export interface ThrottleState {
   recent: number[]
 }
 
-export const DEFAULT_THROTTLE: Omit<ThrottleConfig, 'baseMs' | 'rateLimitWaitMs'> = {
+export const DEFAULT_THROTTLE: Omit<
+  ThrottleConfig,
+  'baseMs' | 'rateLimitWaitMs'
+> = {
   windowMs: 10 * 60_000,
   // Off until the operator has data: an infinite budget never fires.
   budget: Number.POSITIVE_INFINITY,
@@ -115,10 +118,7 @@ export function applySendEvent(
     next.recent = prune(next.recent, now, cfg.windowMs)
     next.okStreak = state.okStreak + 1
     if (next.okStreak >= cfg.recoverAfter) {
-      next.intervalMs = Math.max(
-        cfg.baseMs,
-        Math.floor(next.intervalMs / 2),
-      )
+      next.intervalMs = Math.max(cfg.baseMs, Math.floor(next.intervalMs / 2))
       next.okStreak = 0
     }
     next.blocked = false

@@ -18,7 +18,9 @@ const dir = path.join(
   'glm',
 )
 const realBody = (): unknown =>
-  JSON.parse(fs.readFileSync(path.join(dir, 'completions-request.json'), 'utf-8'))
+  JSON.parse(
+    fs.readFileSync(path.join(dir, 'completions-request.json'), 'utf-8'),
+  )
 
 test('readGlmBodyFeatures reads the real request body', () => {
   const f = readGlmBodyFeatures(realBody())
@@ -52,7 +54,10 @@ test('a body with the runtime off is safe', () => {
 
 test('glmFlagsMismatch reports thinking/search drift, not a match', () => {
   const f = readGlmBodyFeatures(realBody())
-  assert.deepEqual(glmFlagsMismatch(f, { thinking: true, webSearch: false }), [])
+  assert.deepEqual(
+    glmFlagsMismatch(f, { thinking: true, webSearch: false }),
+    [],
+  )
   assert.deepEqual(glmFlagsMismatch(f, { thinking: false, webSearch: false }), [
     'thinking',
   ])
@@ -63,7 +68,10 @@ test('glmFlagsMismatch reports thinking/search drift, not a match', () => {
 
 test('an auto web search counts as web search ON', () => {
   const f = readGlmBodyFeatures({ features: { auto_web_search: true } })
-  assert.deepEqual(glmFlagsMismatch(f, { thinking: false, webSearch: true }), [])
+  assert.deepEqual(
+    glmFlagsMismatch(f, { thinking: false, webSearch: true }),
+    [],
+  )
 })
 
 test('garbage never throws', () => {

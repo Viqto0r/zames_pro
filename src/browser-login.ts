@@ -90,12 +90,7 @@ export interface BrowserLoginDeps {
   timeoutMs: number
 }
 
-export type LoginOutcome =
-  | 'already'
-  | 'auto'
-  | 'guest'
-  | 'window'
-  | 'tui'
+export type LoginOutcome = 'already' | 'auto' | 'guest' | 'window' | 'tui'
 
 export async function interactiveBrowserLogin(
   deps: BrowserLoginDeps,
@@ -174,7 +169,9 @@ async function runHeadedLogin(deps: BrowserLoginDeps): Promise<boolean> {
     // may still hold the session cookies, so verify once more and accept.
     if (deps.windowClosed()) {
       deps.notice('login.window_closed')
-      const again = await deps.probeLogin().catch(() => 'unknown' as ProbeResult)
+      const again = await deps
+        .probeLogin()
+        .catch(() => 'unknown' as ProbeResult)
       return again === 'in'
     }
     await deps.sleep(1000)

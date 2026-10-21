@@ -41,7 +41,8 @@ export function readGlmBodyFeatures(body: unknown): GlmBodyFeatures {
   if (typeof feat.auto_web_search === 'boolean') {
     out.autoWebSearch = feat.auto_web_search
   }
-  if (typeof feat.preview_mode === 'boolean') out.previewMode = feat.preview_mode
+  if (typeof feat.preview_mode === 'boolean')
+    out.previewMode = feat.preview_mode
   if (typeof feat.image_generation === 'boolean') {
     out.imageGeneration = feat.image_generation
   }

@@ -93,8 +93,7 @@ export const STOP_SELECTORS = [
   'button[aria-label*="stop" i]',
   'button[aria-label*="останов" i]',
 ]
-export const STOP_NAME_RE =
-  /^(?:stop|остановить)(?:\s+\S{0,20})?\s*[.!…]?$/i
+export const STOP_NAME_RE = /^(?:stop|остановить)(?:\s+\S{0,20})?\s*[.!…]?$/i
 
 // ---------- new chat ----------
 
@@ -212,4 +211,5 @@ export const SAFE_ENABLE_THINKING = true
 // ---------- attachments ----------
 
 // The observed upload control (a real filechooser on click).
-export const UPLOAD_BUTTON_SELECTOR = '#upload-file-button, button[class*="upload"]'
+export const UPLOAD_BUTTON_SELECTOR =
+  '#upload-file-button, button[class*="upload"]'

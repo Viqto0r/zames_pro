@@ -155,9 +155,7 @@ export function providerGuestAllowed(id: ProviderId | string): boolean {
 
 /** The persistent profile directory of a provider. */
 /** True when the provider needs a VISIBLE browser (a headless captcha). */
-export function providerNeedsVisibleBrowser(
-  id: ProviderId | string,
-): boolean {
+export function providerNeedsVisibleBrowser(id: ProviderId | string): boolean {
   return isProviderId(id) ? PROVIDERS[id].needsVisibleBrowser : false
 }
 

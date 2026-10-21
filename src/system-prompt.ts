@@ -268,8 +268,8 @@ export function buildSystemPrompt({
   // claims it ran something it did not.
   const runtimeSection =
     provider === 'glm'
-      ? '\n## You run on the OPERATOR\'S MACHINE (GLM)\n\n' +
-        'The tools above execute on the operator\'s computer, in the working ' +
+      ? "\n## You run on the OPERATOR'S MACHINE (GLM)\n\n" +
+        "The tools above execute on the operator's computer, in the working " +
         'directory shown at the top. They are the ONLY way to touch files or ' +
         'run commands.\n\n' +
         '- There is NO cloud sandbox for you. Do NOT request or use a z.ai ' +
@@ -277,7 +277,7 @@ export function buildSystemPrompt({
         "site's own agent mode and is NOT part of this task.\n" +
         '- Never claim a command ran unless you emitted its tool call and ' +
         'received a tool result. If you have not called the tool, say so.\n' +
-        '- Paths like `/home/z/...` or `/mnt/data` are NOT the operator\'s ' +
+        "- Paths like `/home/z/...` or `/mnt/data` are NOT the operator's " +
         'machine.\n' +
         '- Do NOT use web search / WebSearch unless the task explicitly asks ' +
         'for current web information: it is slow, it burns the account quota ' +

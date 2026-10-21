@@ -121,7 +121,6 @@ function capNetBody(body: string): string {
   return body.slice(0, head) + '\n...[truncated]...\n' + body.slice(-1024)
 }
 
-
 export interface GlmBrowserOptions {
   headless?: boolean
   debug?: boolean
@@ -458,9 +457,7 @@ export class GlmBrowser {
     // re-apply them BEFORE the first goto, or the SPA answers 401 and may wipe
     // its own token.
     if (this._carryCookies && this._carryCookies.length) {
-      await this.context
-        .addCookies(this._carryCookies as never)
-        .catch(() => {})
+      await this.context.addCookies(this._carryCookies as never).catch(() => {})
     }
 
     this.page = this.context.pages()[0] || (await this.context.newPage())
@@ -532,9 +529,7 @@ export class GlmBrowser {
       )
     }
     if (this._carryCookies && this._carryCookies.length) {
-      await this.context
-        .addCookies(this._carryCookies as never)
-        .catch(() => {})
+      await this.context.addCookies(this._carryCookies as never).catch(() => {})
     }
     this.page = this.context.pages()[0] || (await this.context.newPage())
     this._windowClosed = false
@@ -735,9 +730,11 @@ export class GlmBrowser {
               const pwd = form.querySelector(
                 'input[type="password"]',
               ) as HTMLInputElement | null
-              const fn = (window as unknown as {
-                __zamesGlmCreds?: (e: string, p: string) => void
-              }).__zamesGlmCreds
+              const fn = (
+                window as unknown as {
+                  __zamesGlmCreds?: (e: string, p: string) => void
+                }
+              ).__zamesGlmCreds
               if (email && fn) fn(email.value || '', pwd ? pwd.value || '' : '')
             } catch {}
           },
@@ -858,58 +855,60 @@ export class GlmBrowser {
       await this.page.route(
         (url) => url.pathname.includes('/api/v2/chat/completions'),
         async (route) => {
-        try {
-          const body = JSON.parse(route.request().postData() || '{}')
-          const f = body.features
-          if (f && typeof f === 'object') {
-            f.preview_mode = false
-            if (Array.isArray(f.flags)) {
-              f.flags = f.flags.filter((x: unknown) => x !== 'general_agent')
-            }
-            // z.ai starts its OWN web search even when the request says
-            // `web_search:false` (measured: 260+ search iterations on a plain
-            // file task). Each call burns account credits and minutes, and the
-            // busy UI then refuses the next send ("send button not found").
-            // The model does not need the web to read or edit local files, so
-            // the flags are forced off on the way out.
-            f.web_search = false
-            f.auto_web_search = false
-            f.vlm_web_search_enable = false
-            // `reasoning_effort: 'max'` makes every turn THINK as long as it
-            // can: a 19 KB system-prompt took 8-14 s, and a real task 3+ min.
-            // The catalogue offers low/high/max; `low` keeps thinking on
-            // (it cannot be disabled) but cuts the deliberation time a lot.
-            // Configurable, because a hard debugging task may want `max`.
-            // The field lives at features.reasoning_effort, but the body
-            // ALSO carries a top-level `reasoning_effort` on some builds -
-            // set both so the site cannot fall back to its 'max' default.
-            if (this.reasoningEffort) {
-              f.reasoning_effort = this.reasoningEffort
-              if (typeof body.reasoning_effort === 'string') {
-                body.reasoning_effort = this.reasoningEffort
+          try {
+            const body = JSON.parse(route.request().postData() || '{}')
+            const f = body.features
+            if (f && typeof f === 'object') {
+              f.preview_mode = false
+              if (Array.isArray(f.flags)) {
+                f.flags = f.flags.filter((x: unknown) => x !== 'general_agent')
+              }
+              // z.ai starts its OWN web search even when the request says
+              // `web_search:false` (measured: 260+ search iterations on a plain
+              // file task). Each call burns account credits and minutes, and the
+              // busy UI then refuses the next send ("send button not found").
+              // The model does not need the web to read or edit local files, so
+              // the flags are forced off on the way out.
+              f.web_search = false
+              f.auto_web_search = false
+              f.vlm_web_search_enable = false
+              // `reasoning_effort: 'max'` makes every turn THINK as long as it
+              // can: a 19 KB system-prompt took 8-14 s, and a real task 3+ min.
+              // The catalogue offers low/high/max; `low` keeps thinking on
+              // (it cannot be disabled) but cuts the deliberation time a lot.
+              // Configurable, because a hard debugging task may want `max`.
+              // The field lives at features.reasoning_effort, but the body
+              // ALSO carries a top-level `reasoning_effort` on some builds -
+              // set both so the site cannot fall back to its 'max' default.
+              if (this.reasoningEffort) {
+                f.reasoning_effort = this.reasoningEffort
+                if (typeof body.reasoning_effort === 'string') {
+                  body.reasoning_effort = this.reasoningEffort
+                }
               }
             }
+            // The body that ACTUALLY goes out - the only honest source for
+            // _verifyModes (the `request` event sees the pre-rewrite body).
+            this._lastBodyFeatures = readGlmBodyFeatures(body)
+            if (this.debug) {
+              console.error(
+                'glm route: web_search=' +
+                  String(f && (f as Record<string, unknown>).web_search) +
+                  ' auto=' +
+                  String(f && (f as Record<string, unknown>).auto_web_search) +
+                  ' effort=' +
+                  String(f && (f as Record<string, unknown>).reasoning_effort) +
+                  ' flags=' +
+                  JSON.stringify(
+                    (f && (f as Record<string, unknown>).flags) || [],
+                  ),
+              )
+            }
+            await route.continue({ postData: JSON.stringify(body) })
+          } catch {
+            await route.continue()
           }
-          // The body that ACTUALLY goes out - the only honest source for
-          // _verifyModes (the `request` event sees the pre-rewrite body).
-          this._lastBodyFeatures = readGlmBodyFeatures(body)
-          if (this.debug) {
-            console.error(
-              'glm route: web_search=' +
-                String(f && (f as Record<string, unknown>).web_search) +
-                ' auto=' +
-                String(f && (f as Record<string, unknown>).auto_web_search) +
-                ' effort=' +
-                String(f && (f as Record<string, unknown>).reasoning_effort) +
-                ' flags=' +
-                JSON.stringify((f && (f as Record<string, unknown>).flags) || []),
-            )
-          }
-          await route.continue({ postData: JSON.stringify(body) })
-        } catch {
-          await route.continue()
-        }
-      },
+        },
       )
     } catch {}
   }
@@ -935,7 +934,7 @@ export class GlmBrowser {
         if (h['authorization']) this._apiAuth = h['authorization']
         // Remember what the site actually sent: the mode flags are decided
         // by ITS UI state, so this is the ground truth for _verifyModes.
-// (The features are recorded by _installRuntimeRewrite's route handler:
+        // (The features are recorded by _installRuntimeRewrite's route handler:
         // the `request` event still carries the ORIGINAL body.)
       } catch {}
     })
@@ -1270,7 +1269,9 @@ export class GlmBrowser {
       .evaluate((sel: string) => {
         const el = document.querySelector(sel) as HTMLTextAreaElement | null
         if (!el) return false
-        return el.disabled === true || el.getAttribute('aria-disabled') === 'true'
+        return (
+          el.disabled === true || el.getAttribute('aria-disabled') === 'true'
+        )
       }, INPUT_SELECTORS[0])
       .catch(() => false)
     return !!disabled
@@ -1466,7 +1467,11 @@ export class GlmBrowser {
     return [
       { capability: 'input', selectors: INPUT_SELECTORS, critical: true },
       { capability: 'toggles', selectors: [], critical: false },
-      { capability: 'newChat', selectors: [NEW_CHAT_SELECTOR], critical: false },
+      {
+        capability: 'newChat',
+        selectors: [NEW_CHAT_SELECTOR],
+        critical: false,
+      },
     ]
   }
 
@@ -1570,7 +1575,10 @@ export class GlmBrowser {
             this.sendRuntime.onOutcome('guest_limit', { errorText: msg })
             throw new Error(this._t('glm.guest_mode'))
           }
-          if (isQuotaExhaustedText(msg) || isQuotaExhaustedText(this._netBody)) {
+          if (
+            isQuotaExhaustedText(msg) ||
+            isQuotaExhaustedText(this._netBody)
+          ) {
             this.sendRuntime.onOutcome('rate_limit', { errorText: 'quota' })
             throw new Error(this._t('glm.quota_exhausted'))
           }
@@ -1707,7 +1715,10 @@ export class GlmBrowser {
     try {
       const [chooser] = await Promise.all([
         this.page.waitForEvent('filechooser', { timeout: 5000 }),
-        this.page.locator(UPLOAD_BUTTON_SELECTOR).first().click({ timeout: 3000 }),
+        this.page
+          .locator(UPLOAD_BUTTON_SELECTOR)
+          .first()
+          .click({ timeout: 3000 }),
       ])
       await chooser.setFiles(bufPayload)
       await this._awaitUploadPreview(

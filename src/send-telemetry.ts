@@ -17,11 +17,7 @@ import fs from 'fs'
 import path from 'path'
 
 export type SendOutcome =
-  | 'ok'
-  | 'rate_limit'
-  | 'busy'
-  | 'incomplete'
-  | 'guest_limit'
+  'ok' | 'rate_limit' | 'busy' | 'incomplete' | 'guest_limit'
 
 export interface SendEvent {
   /** ISO timestamp of the send. */

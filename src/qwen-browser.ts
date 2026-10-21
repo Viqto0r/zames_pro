@@ -683,7 +683,6 @@ export class QwenBrowser {
     return false
   }
 
-
   /**
    * A FAST login probe: Qwen's own `auths/refresh` API needs the app's header,
    * so it cannot be replayed from a bare fetch. Instead the page reports
@@ -752,17 +751,14 @@ export class QwenBrowser {
       },
       captureCredentials: async () => {
         try {
-          await this.page.exposeFunction(
-            '__zamesQwenCreds',
-            (u: string) => {
-              const user = String(u || '').trim()
-              if (!user) return
-              this.auth.username = user
-              try {
-                this.onAuthSave?.(user, '')
-              } catch {}
-            },
-          )
+          await this.page.exposeFunction('__zamesQwenCreds', (u: string) => {
+            const user = String(u || '').trim()
+            if (!user) return
+            this.auth.username = user
+            try {
+              this.onAuthSave?.(user, '')
+            } catch {}
+          })
           await this.page.evaluate(() => {
             const w = window as unknown as { __zamesQwenHooked?: boolean }
             if (w.__zamesQwenHooked) return
@@ -776,9 +772,11 @@ export class QwenBrowser {
                   const e = form.querySelector(
                     'input[type="email"], input[name="email"]',
                   ) as HTMLInputElement | null
-                  const fn = (window as unknown as {
-                    __zamesQwenCreds?: (a: string) => void
-                  }).__zamesQwenCreds
+                  const fn = (
+                    window as unknown as {
+                      __zamesQwenCreds?: (a: string) => void
+                    }
+                  ).__zamesQwenCreds
                   if (fn && e) fn(e.value || '')
                 } catch {}
               },

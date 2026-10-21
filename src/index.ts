@@ -687,9 +687,7 @@ ${theme.bold(t('help.sec.context'))}
 
 ${theme.bold(t('help.sec.provider'))}
   ${t('help.cmd.provider')}${
-    providerHasModelPicker(config.provider)
-      ? '\n  ' + t('help.cmd.model')
-      : ''
+    providerHasModelPicker(config.provider) ? '\n  ' + t('help.cmd.model') : ''
   }
 
 ${theme.bold(t('help.sec.files'))}
@@ -907,7 +905,10 @@ function providerModelOf(provider: ProviderId): string {
 }
 
 function providerAnswerTimeoutMs(): number {
-  return providerSectionNumber('answerTimeoutMs', config.browser.answerTimeoutMs)
+  return providerSectionNumber(
+    'answerTimeoutMs',
+    config.browser.answerTimeoutMs,
+  )
 }
 
 /**
@@ -973,7 +974,9 @@ function applyModelContextLimit(model: string): void {
   const section = providerConfigSection(config.provider)
   if (!section) return
   const window =
-    config.provider === 'qwen' ? qwenContextWindow(model) : glmContextWindow(model)
+    config.provider === 'qwen'
+      ? qwenContextWindow(model)
+      : glmContextWindow(model)
   if (window === null) return
   const sec = activeProviderSection()
   if (!sec) return
@@ -999,9 +1002,9 @@ function createProviderBrowser(provider: ProviderId): ChatProvider {
     const section = providerConfigSection(provider)
     const prefix = section ? section + '.auth' : 'browser.auth'
     const target = section
-      ? (config as unknown as Record<string, { auth?: Record<string, string> }>)[
-          section
-        ]
+      ? (
+          config as unknown as Record<string, { auth?: Record<string, string> }>
+        )[section]
       : null
     if (target) {
       if (!target.auth) target.auth = { username: '', password: '' }
@@ -1407,8 +1410,15 @@ async function main(): Promise<void> {
     return
   }
 
-  if (providerNeedsVisibleBrowser(config.provider) && headlessFor(config.provider)) {
-    console.log(theme.warn(t('provider.needs_headed', { v: providerLabel(config.provider) })))
+  if (
+    providerNeedsVisibleBrowser(config.provider) &&
+    headlessFor(config.provider)
+  ) {
+    console.log(
+      theme.warn(
+        t('provider.needs_headed', { v: providerLabel(config.provider) }),
+      ),
+    )
   }
   console.log(theme.system(t('msg.interactive')))
   console.log(theme.system(t('msg.queue_hint')))
@@ -2939,8 +2949,7 @@ async function main(): Promise<void> {
     if (lower === '/provider' || lower.startsWith('/provider ')) {
       const arg = trimmed.slice('/provider'.length).trim().toLowerCase()
       if (!arg || arg === 'status') {
-        const model =
-          providerModelOf(config.provider) || '(default)'
+        const model = providerModelOf(config.provider) || '(default)'
         console.log(
           theme.system(
             t('provider.status', {
@@ -3117,7 +3126,9 @@ async function main(): Promise<void> {
       if (!providerHasModelPicker(config.provider)) {
         console.log(
           theme.system(
-            t('model.unsupported', { provider: providerLabel(config.provider) }),
+            t('model.unsupported', {
+              provider: providerLabel(config.provider),
+            }),
           ),
         )
         continue
@@ -4017,19 +4028,22 @@ async function main(): Promise<void> {
     }
 
     if (lower === '/limits') {
-      const { readSendEvents, summarizeSends, sendLogPath } = await import(
-        './send-telemetry.js'
-      )
+      const { readSendEvents, summarizeSends, sendLogPath } =
+        await import('./send-telemetry.js')
       const logsDir = config.transcript.dir
       const events = readSendEvents(logsDir, config.provider)
       if (!events.length) {
         console.log(
-          theme.system(t('limits.none', { path: sendLogPath(logsDir, config.provider) })),
+          theme.system(
+            t('limits.none', { path: sendLogPath(logsDir, config.provider) }),
+          ),
         )
       } else {
         const st = summarizeSends(events)
         console.log(
-          theme.system(t('limits.title', { provider: providerLabel(config.provider) })),
+          theme.system(
+            t('limits.title', { provider: providerLabel(config.provider) }),
+          ),
         )
         for (const [label, n] of [
           ['10m', st.last10m],

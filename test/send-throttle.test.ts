@@ -49,7 +49,11 @@ test('a base interval is respected between sends', () => {
 
 test('a rate limit uses Retry-After when present, else the pause', () => {
   let st = initialThrottleState(cfg)
-  st = applySendEvent(st, ev({ outcome: 'rate_limit', retryAfterMs: 7000 }), cfg)
+  st = applySendEvent(
+    st,
+    ev({ outcome: 'rate_limit', retryAfterMs: 7000 }),
+    cfg,
+  )
   assert.equal(st.forcedWaitMs, 7000)
   assert.equal(nextWaitMs(st, 0, 0), 7000)
 
@@ -75,11 +79,14 @@ test('after a limit the interval doubles from a 2 s floor, with a cap', () => {
 test('three successes in a row halve the interval, down to the base', () => {
   let st = initialThrottleState({ ...cfg, baseMs: 4000 })
   st.intervalMs = 16000
-  for (let i = 0; i < 3; i++) st = applySendEvent(st, ev(), { ...cfg, baseMs: 4000 })
+  for (let i = 0; i < 3; i++)
+    st = applySendEvent(st, ev(), { ...cfg, baseMs: 4000 })
   assert.equal(st.intervalMs, 8000)
-  for (let i = 0; i < 3; i++) st = applySendEvent(st, ev(), { ...cfg, baseMs: 4000 })
+  for (let i = 0; i < 3; i++)
+    st = applySendEvent(st, ev(), { ...cfg, baseMs: 4000 })
   assert.equal(st.intervalMs, 4000)
-  for (let i = 0; i < 3; i++) st = applySendEvent(st, ev(), { ...cfg, baseMs: 4000 })
+  for (let i = 0; i < 3; i++)
+    st = applySendEvent(st, ev(), { ...cfg, baseMs: 4000 })
   assert.equal(st.intervalMs, 4000)
 })
 
@@ -165,8 +172,6 @@ test('telemetry: append, read and rotate the files', (t) => {
     appendSendEvent(dir, ev({ provider: 'p' + i }))
   }
   rotateSendLogs(dir, 3)
-  const left = fs
-    .readdirSync(dir)
-    .filter((f) => f.startsWith('sends-'))
+  const left = fs.readdirSync(dir).filter((f) => f.startsWith('sends-'))
   assert.ok(left.length <= 3, 'rotation kept ' + left.length + ' files')
 })

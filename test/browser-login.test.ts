@@ -245,7 +245,10 @@ test('classifyLoginProbe: the input field alone never means signed in', () => {
   // A guest with no sign-in control is a GUEST SESSION (it is not logged in,
   // but the guest limit, not a login, is what the caller needs to know).
   assert.equal(classifyLoginProbe({ role: 'guest' }), 'in')
-  assert.equal(classifyLoginProbe({ role: 'guest', signInVisible: true }), 'out')
+  assert.equal(
+    classifyLoginProbe({ role: 'guest', signInVisible: true }),
+    'out',
+  )
   assert.equal(classifyLoginProbe({ hasToken: true }), 'in')
   assert.equal(classifyLoginProbe({ hasToken: false }), 'out')
   assert.equal(classifyLoginProbe({ signInVisible: true }), 'out')
