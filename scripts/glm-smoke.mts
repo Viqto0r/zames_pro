@@ -166,18 +166,22 @@ async function main() {
     const usage = browser.getLastTokenUsage()
     record('tokenUsage', usage !== null, 'usage=' + String(usage))
 
+    // A REAL tool call through the zames protocol: the site's own agent
+    // runtime is neutralised (preview_mode/general_agent), so the model must
+    // emit the call as JSON to US. Asking it to "print the JSON" would test
+    // the wrong thing (it refuses to print tool syntax as prose).
     try {
       const { parseToolCall } = await import('../src/answer-parse.ts')
       const ans = await browser.ask(
-        'Call the Read tool for the file package.json. Reply with EXACTLY one ' +
+        'Use the Read tool to read package.json, then reply with EXACTLY one ' +
           'JSON tool-call object and nothing else: ' +
-          '{"tool":"Read","args":{"path":"..."}}',
+          '{"tool":"Read","args":{"path":"package.json"}}',
         { agent: true },
       )
       const parsed = parseToolCall(ans)
       const call = Array.isArray(parsed) ? parsed[0] : parsed
       const ok = !!call && call.tool === 'Read'
-      record('toolCall', ok, ok ? '' : 'got: ' + ans.slice(0, 100))
+      record('toolCall', ok, ok ? '' : 'got: ' + ans.slice(0, 140))
     } catch (e) {
       record('toolCall', false, (e as Error).message)
     }

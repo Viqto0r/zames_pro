@@ -719,6 +719,44 @@ Tool traffic from z.ai's OWN runtime (`phase: tool_call` / `tool_response`,
 so the parser skips it and the provider keeps that runtime OFF
 (`preview_mode:false`; the `general_agent` flag is z.ai's agent mode).
 
+### z.ai runs ITS OWN agent runtime — zames must switch it off
+
+This is the most important difference from DeepSeek/Qwen. The completion body
+z.ai builds ALWAYS carries:
+
+```json
+"features": {"preview_mode": true, "flags": ["general_agent"], "enable_thinking": true}
+```
+
+With those flags the site intercepts the model's tool calls, runs them in ITS
+sandbox (`/home/z/my-project`) and streams back a `tool_response`. Observed
+symptoms before the fix:
+
+- the model said "I created /home/z/my-project/probe.txt" while OUR workdir had
+  nothing (measured: `FILE IN OUR WORKDIR: false`);
+- it also answered "this environment has no /workspaces/zames/zames_pro";
+- the smoke's old `toolCall` scenario passed FALSELY — the model "printed" a
+  call the site had already executed.
+
+There is NO UI control for these flags (the recon found none, and forcing
+`last_mode=chat` in localStorage does not change the body). The one lever is
+the request itself: `GlmBrowser._installRuntimeRewrite()` installs a
+`page.route()` on `/api/v2/chat/completions`, sets `preview_mode = false`
+and drops `general_agent` from `flags` BEFORE the request leaves the page.
+Controlled by `disableAgentRuntime` (default true).
+
+After the rewrite (measured):
+- the model answers honestly: "no command was executed … I'd be fabricating
+  results if I claimed to have run it";
+- a real `runAgentLoop` creates the file in OUR workdir
+  (`FILE: true HELLO_GLM`);
+- the smoke's `toolCall` passes for the RIGHT reason (the call reaches us).
+
+If z.ai changes the endpoint or the flag names, the rewrite silently stops
+matching — the symptom is again "the model claims to have run something".
+`/debug-dom` and the `sends-glm.jsonl` telemetry (which records the outcome)
+are the first places to look.
+
 ### Captcha
 
 A FIRST message from a fresh profile is gated by an Aliyun slider
