@@ -159,6 +159,8 @@ export interface GlmBrowserOptions {
    * to have run them.
    */
   disableAgentRuntime?: boolean
+  /** 'low' (default) | 'high' | 'max' — cuts the per-turn deliberation. */
+  reasoningEffort?: string
   /** Write a telemetry line per send (browser.sendTelemetry). */
   sendTelemetry?: boolean
   /** `~/.zames/logs` (the telemetry directory). */
@@ -232,6 +234,14 @@ export class GlmBrowser {
   sendRuntime!: SendRuntime
   /** Rewrite the request to disable z.ai's own agent runtime (see options). */
   disableAgentRuntime: boolean
+  /**
+   * `reasoning_effort` sent with each request ('low' | 'high' | 'max').
+   * z.ai defaults to 'max', which makes EVERY turn deliberate at length —
+   * a measured 8-14 s for the system-prompt alone and minutes for a task.
+   * 'low' keeps thinking on (it cannot be disabled for these models) but
+   * removes most of the wait. Empty = leave the site's default.
+   */
+  reasoningEffort: string
 
   constructor({
     headless = false,
@@ -258,6 +268,7 @@ export class GlmBrowser {
     onAuthSave,
     onLoginPrompt,
     disableAgentRuntime = true,
+    reasoningEffort = 'low',
     sendTelemetry = true,
     logsDir,
     loginTimeoutMs = 600000,
@@ -329,6 +340,7 @@ export class GlmBrowser {
     // back-off beats a guess. The telemetry is what the operator analyses
     // later to pick the real values.
     this.disableAgentRuntime = disableAgentRuntime
+    this.reasoningEffort = reasoningEffort
     this.sendRuntime = new SendRuntime({
       provider: 'glm',
       baseMs: minSendIntervalMs,
@@ -863,6 +875,20 @@ export class GlmBrowser {
             f.web_search = false
             f.auto_web_search = false
             f.vlm_web_search_enable = false
+            // `reasoning_effort: 'max'` makes every turn THINK as long as it
+            // can: a 19 KB system-prompt took 8-14 s, and a real task 3+ min.
+            // The catalogue offers low/high/max; `low` keeps thinking on
+            // (it cannot be disabled) but cuts the deliberation time a lot.
+            // Configurable, because a hard debugging task may want `max`.
+            // The field lives at features.reasoning_effort, but the body
+            // ALSO carries a top-level `reasoning_effort` on some builds -
+            // set both so the site cannot fall back to its 'max' default.
+            if (this.reasoningEffort) {
+              f.reasoning_effort = this.reasoningEffort
+              if (typeof body.reasoning_effort === 'string') {
+                body.reasoning_effort = this.reasoningEffort
+              }
+            }
           }
           // The body that ACTUALLY goes out - the only honest source for
           // _verifyModes (the `request` event sees the pre-rewrite body).
@@ -873,6 +899,8 @@ export class GlmBrowser {
                 String(f && (f as Record<string, unknown>).web_search) +
                 ' auto=' +
                 String(f && (f as Record<string, unknown>).auto_web_search) +
+                ' effort=' +
+                String(f && (f as Record<string, unknown>).reasoning_effort) +
                 ' flags=' +
                 JSON.stringify((f && (f as Record<string, unknown>).flags) || []),
             )

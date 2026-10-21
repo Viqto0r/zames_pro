@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **glm:** force web search off and report a busy page instead of a missing button
+- **glm:** no web-search noise, quota fails fast, the model is told not to browse
 - **glm:** the smoke sends the system-prompt into the same chat; the mode check reads the rewritten body
 - **glm:** a signed-in session is not reported as a guest
 - drop the unused headless flag

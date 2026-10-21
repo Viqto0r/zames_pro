@@ -106,8 +106,16 @@ export const DEFAULTS: ZamesConfig = {
     // not waited out. 240s used to mean a 4-minute spinner per dead turn.
     askDeadlineMs: 120000,
     maxAfterToolRetries: 6,
-    autoCompact: false,
-    autoCompactPct: 95,
+    // Auto-compact is ON by default: a provider's context window is small and
+    // per-model (GLM: 32k-128k), and running out of it mid-task is a hard stop
+    // that loses the work, while a compaction at a safe seam only costs one
+    // extra send. The threshold is 85 rather than the old 95 because ONE large
+    // tool result can overflow the window before the seam is reached. The loop
+    // already guards the dangerous cases: it never compacts mid-generation or
+    // during a rate-limit wait, and it disables itself for the rest of the
+    // task if the fresh chat did not actually open.
+    autoCompact: true,
+    autoCompactPct: 85,
     resendPromptOnResume: false,
     // Subagents on by default: the Task tool is what keeps heavy exploration
     // out of the main context, and the main chat is restored afterwards.
