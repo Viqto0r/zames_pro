@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.81.6] - 2026-10-21
+
+### Fixed
+
+- **tui:** undo restores the paste body, not just its marker
+
 ## [2.81.5] - 2026-10-21
 
 ### Changed
