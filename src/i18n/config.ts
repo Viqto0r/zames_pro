@@ -197,6 +197,22 @@ export const configMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Пароль DeepSeek для авто-входа',
     en: 'DeepSeek password for auto sign-in',
   },
+  'cfg.f.qwen_authUsername': {
+    ru: 'Логин Qwen для авто-входа',
+    en: 'Qwen login for auto sign-in',
+  },
+  'cfg.f.qwen_authPassword': {
+    ru: 'Пароль Qwen для авто-входа',
+    en: 'Qwen password for auto sign-in',
+  },
+  'cfg.f.glm_authUsername': {
+    ru: 'Логин GLM для авто-входа',
+    en: 'GLM login for auto sign-in',
+  },
+  'cfg.f.glm_authPassword': {
+    ru: 'Пароль GLM для авто-входа',
+    en: 'GLM password for auto sign-in',
+  },
   'cfg.f.browser_authSaveSession': {
     ru: 'Сохранять сессию входа в профиле',
     en: 'Persist the login session in the profile',

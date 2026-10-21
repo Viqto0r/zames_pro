@@ -308,6 +308,34 @@ export const CONFIG_SCHEMA: ConfigField[] = [
     labelKey: 'cfg.f.browser_authSaveSession',
     groupKey: 'cfg.group.browser',
   },
+  // Each non-DeepSeek provider owns its credentials, so a DeepSeek login is
+  // never typed into a Qwen/GLM form (and vice versa). They MUST be in the
+  // schema: writeConfigValue rejects an unknown key, which silently dropped
+  // every GLM/Qwen credential saved from the login window.
+  {
+    path: 'qwen.auth.username',
+    type: 'string',
+    labelKey: 'cfg.f.qwen_authUsername',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'qwen.auth.password',
+    type: 'string',
+    labelKey: 'cfg.f.qwen_authPassword',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'glm.auth.username',
+    type: 'string',
+    labelKey: 'cfg.f.glm_authUsername',
+    groupKey: 'cfg.group.browser',
+  },
+  {
+    path: 'glm.auth.password',
+    type: 'string',
+    labelKey: 'cfg.f.glm_authPassword',
+    groupKey: 'cfg.group.browser',
+  },
   {
     path: 'provider',
     type: 'enum',
