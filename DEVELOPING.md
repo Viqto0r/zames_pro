@@ -305,6 +305,22 @@ profile. Scenarios: `login`, `newChat`, `ask:simple`, `ask:second-send`,
 `listModels`, `tokenUsage`, `toolCall`, `history`. Flags: `--headed`,
 `--no-reuse-profile`, `ZAMES_GLM_SMOKE_KEEP=1`.
 
+### Passing flags through npm (`--` is mandatory)
+
+`npm run dev --provider glm` does NOT pass `--provider` to zames: npm swallows
+unknown `--flags` itself (it warns `Unknown cli config "--provider"`) and hands
+the script only `glm` as a bare positional, so zames starts with its DEFAULT
+provider (DeepSeek) and ignores the value. Always separate npm's own arguments
+from the script's with `--`:
+
+```bash
+npm run dev -- --provider glm     # correct: zames sees --provider glm
+npm run dev --provider glm        # WRONG: npm eats the flag
+```
+
+This is an npm rule, not a zames bug (the same applies to `--headed`,
+`--task`, ...).
+
 ### Browser login during development
 
 The interactive sign-in opens a VISIBLE window when the automatic paths fail
