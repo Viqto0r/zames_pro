@@ -17,6 +17,7 @@ import {
   providerChatUrlPrefix,
   providerLabel,
   providerHasModelPicker,
+  providerNeedsVisibleBrowser,
   providerConfigSection,
   PROVIDER_IDS,
   type ProviderId,
@@ -228,9 +229,18 @@ const t = (key: string, params?: Record<string, string | number>): string =>
 
 // Headless is the default. --headed forces a visible window (useful for the
 // first sign-in or debugging the DOM). --headless keeps it explicit.
-const headless = hasFlag('--headed')
+// DeepSeek/Qwen run headless by default; GLM CANNOT: z.ai answers a headless
+// send with an Aliyun captcha (see PROVIDERS[id].needsVisibleBrowser). An
+// explicit --headless still wins, and --headed forces a window everywhere.
+const headlessFlag = hasFlag('--headed')
   ? false
   : hasFlag('--headless') || config.headless
+function headlessFor(provider: ProviderId): boolean {
+  if (hasFlag('--headed')) return false
+  if (hasFlag('--headless')) return true
+  return config.headless && !providerNeedsVisibleBrowser(provider)
+}
+const headless = headlessFor(config.provider)
 const debug = hasFlag('--debug') || config.debug
 const maxIterArg = getArg('--max-iter', null)
 // A non-numeric `--max-iter abc` yields NaN, which the loop treats as
@@ -1013,7 +1023,7 @@ function createProviderBrowser(provider: ProviderId): ChatProvider {
   switch (provider) {
     case 'qwen':
       return new QwenBrowser({
-        headless,
+        headless: headlessFor('qwen'),
         debug,
         channel: config.browserChannel,
         ...config.browser,
@@ -1029,7 +1039,7 @@ function createProviderBrowser(provider: ProviderId): ChatProvider {
       })
     case 'glm':
       return new GlmBrowser({
-        headless,
+        headless: headlessFor('glm'),
         debug,
         channel: config.browserChannel,
         ...config.browser,
@@ -1046,7 +1056,7 @@ function createProviderBrowser(provider: ProviderId): ChatProvider {
     case 'deepseek':
     default:
       return new DeepSeekBrowser({
-        headless,
+        headless: headlessFor('deepseek'),
         debug,
         channel: config.browserChannel,
         ...config.browser,
@@ -1400,6 +1410,9 @@ async function main(): Promise<void> {
     return
   }
 
+  if (providerNeedsVisibleBrowser(config.provider) && headlessFor(config.provider)) {
+    console.log(theme.warn(t('provider.needs_headed', { v: providerLabel(config.provider) })))
+  }
   console.log(theme.system(t('msg.interactive')))
   console.log(theme.system(t('msg.queue_hint')))
   console.log(theme.dim(t('msg.first_hint')))

@@ -38,6 +38,13 @@ export interface ProviderMeta {
   guestAllowed: boolean
   /** Persistent Chromium profile directory for this provider. */
   profileDir: string
+  /**
+   * The site refuses HEADLESS automation: z.ai answers every send with an
+   * Aliyun slider captcha that only a human in a visible window can pass
+   * (measured: the SAME signed-in session sends fine headed and fails
+   * headless). So this provider runs headed by default.
+   */
+  needsVisibleBrowser: boolean
   /** Operator-facing URL of the provider's chat home page. */
   chatUrl: string
   /**
@@ -67,6 +74,7 @@ export const PROVIDERS: Record<ProviderId, ProviderMeta> = {
     hasModelPicker: false,
     guestAllowed: false,
     profileDir: zamesProfile('profile'),
+    needsVisibleBrowser: false,
   },
   qwen: {
     id: 'qwen',
@@ -78,6 +86,7 @@ export const PROVIDERS: Record<ProviderId, ProviderMeta> = {
     hasModelPicker: true,
     guestAllowed: true,
     profileDir: zamesProfile('qwen-profile'),
+    needsVisibleBrowser: false,
   },
   glm: {
     id: 'glm',
@@ -89,6 +98,7 @@ export const PROVIDERS: Record<ProviderId, ProviderMeta> = {
     hasModelPicker: true,
     guestAllowed: true,
     profileDir: zamesProfile('glm-profile'),
+    needsVisibleBrowser: true,
   },
 }
 
@@ -144,6 +154,13 @@ export function providerGuestAllowed(id: ProviderId | string): boolean {
 }
 
 /** The persistent profile directory of a provider. */
+/** True when the provider needs a VISIBLE browser (a headless captcha). */
+export function providerNeedsVisibleBrowser(
+  id: ProviderId | string,
+): boolean {
+  return isProviderId(id) ? PROVIDERS[id].needsVisibleBrowser : false
+}
+
 export function providerProfileDir(id: ProviderId | string): string {
   return isProviderId(id) ? PROVIDERS[id].profileDir : ''
 }

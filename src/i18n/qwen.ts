@@ -87,6 +87,10 @@ export const qwenMessages: Record<string, { ru: string; en: string }> = {
     ru: 'GLM: размышления у этой модели всегда включены (сайт не даёт их выключить).',
     en: 'GLM: thinking is always on for this model (the site does not allow turning it off).',
   },
+  'provider.needs_headed': {
+    ru: '{v}: сайт не пропускает отправку в headless (капча-слайдер), поэтому браузер запущен с окном.',
+    en: '{v}: the site blocks headless sends (slider captcha), so the browser runs with a visible window.',
+  },
   'provider.switched': {
     ru: 'Провайдер чата: {v}.',
     en: 'Chat provider: {v}.',
