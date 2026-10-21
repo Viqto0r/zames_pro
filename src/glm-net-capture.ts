@@ -272,10 +272,17 @@ export function isServerBusyText(body: string): boolean {
 export function isGuestLimitText(body: string): boolean {
   const b = String(body || '')
   if (!b) return false
-  if (!ERROR_PAYLOAD_RE.test(b) && hasAnswerContent(b)) return false
-  return /guest.*limit|log ?in to continue|sign ?in to continue|гостевой лимит/i.test(
+  // A chat-create response contains the OLD guest email (`guest-123@guest.com`)
+  // and the word `guest` in the chat id/title. A SIGNED-IN session therefore
+  // looked like a guest limit (a real false positive: the operator was told
+  // "working as a guest" while the session was active). The notice must be an
+  // ERROR payload or an EXPLICIT limit sentence, never a bare `guest` word.
+  const explicit = /guest (?:chat |daily |usage )?limit|reached the guest|log ?in to continue|sign ?in to continue|гостевой лимит/i.test(
     b,
   )
+  if (!explicit) return false
+  if (!ERROR_PAYLOAD_RE.test(b) && hasAnswerContent(b)) return false
+  return true
 }
 
 /**
