@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.81.8] - 2026-10-21
+
+### Fixed
+
+- **net-capture:** a lone closing bracket is not a finished answer
+
 ## [2.81.7] - 2026-10-21
 
 ### Changed
