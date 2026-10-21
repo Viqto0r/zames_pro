@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.81.12] - 2026-10-21
+
+### Fixed
+
+- **backlog:** a priority on its own line is still the priority
+
 ## [2.81.11] - 2026-10-21
 
 ### Fixed
