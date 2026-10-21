@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.81.19] - 2026-10-21
+
+### Fixed
+
+- **tools:** Edit without new_string no longer deletes the text
+
 ## [2.81.18] - 2026-10-21
 
 ### Fixed
