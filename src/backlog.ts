@@ -32,17 +32,28 @@ export function parseBacklogNote(note: string): {
   const raw = String(note ?? '')
   let priority = 'P2'
   let body = raw
+  // The token may be followed by a SPACE (one-line form) or a LINE BREAK
+  // (`P1` on its own line, e.g. a pasted multi-line note with CRLF). Matching
+  // only `P<d> ` made the priority fall back to P2, left the literal `P1` as
+  // the title and pushed the real title into the body.
   for (const p of ['P0', 'P1', 'P2', 'P3']) {
-    if (raw.toUpperCase().startsWith(p + ' ')) {
+    const m = new RegExp('^' + p + '(?=[ \\t\\r\\n]|$)', 'i').exec(raw)
+    if (m) {
       priority = p
-      body = raw.slice(p.length + 1)
+      // Drop the token, then ALL whitespace up to the first real character
+      // (a space, a line break, or a following blank line): the title must
+      // start at the real text, and a `P1` on its own line must not leave an
+      // empty title.
+      body = raw.slice(m[0].length).replace(/^[ \t\r\n]+/, '')
       break
     }
   }
   // A note typed on Windows (or pasted from one) carries CRLF line endings;
   // the title would keep the trailing `\r` and the heading would get a stray
   // carriage return.
-  const bodyLines = body.split(NL).map((l) => l.replace(/\r$/, ''))
+  // Normalize BOTH line endings first: a lone `\r` (a classic-Mac paste) is
+  // a line break too, and `body.split(NL)` kept it inside the title.
+  const bodyLines = body.split(/\r\n?|\n/).map((l) => l.replace(/\r$/, ''))
   const title = bodyLines[0]
   const rest = bodyLines.slice(1).join(NL).trim()
   return { priority, title, note: rest || undefined }
