@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.81.9] - 2026-10-21
+
+### Fixed
+
+- **commands:** a failed attachment only rewrites its own whole path
+
 ## [2.81.8] - 2026-10-21
 
 ### Fixed
