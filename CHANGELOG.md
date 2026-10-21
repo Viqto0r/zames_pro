@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.81.11] - 2026-10-21
+
+### Fixed
+
+- **commands:** unescapeJsonString never leaves a lone surrogate
+
 ## [2.81.10] - 2026-10-21
 
 ### Fixed
