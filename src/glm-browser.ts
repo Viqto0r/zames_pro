@@ -867,6 +867,16 @@ export class GlmBrowser {
           // The body that ACTUALLY goes out - the only honest source for
           // _verifyModes (the `request` event sees the pre-rewrite body).
           this._lastBodyFeatures = readGlmBodyFeatures(body)
+          if (this.debug) {
+            console.error(
+              'glm route: web_search=' +
+                String(f && (f as Record<string, unknown>).web_search) +
+                ' auto=' +
+                String(f && (f as Record<string, unknown>).auto_web_search) +
+                ' flags=' +
+                JSON.stringify((f && (f as Record<string, unknown>).flags) || []),
+            )
+          }
           await route.continue({ postData: JSON.stringify(body) })
         } catch {
           await route.continue()
