@@ -7,8 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.81.0] - 2026-10-21
+
 ### Added
 
+- auto-compact by default, GLM reasoning effort low
 - **glm:** tell the model it runs on the operator's machine; fix the runtime rewrite URL match
 - **glm:** neutralise z.ai's agent runtime so zames tools actually run
 - **glm:** run with a visible browser by default (the site blocks headless)
