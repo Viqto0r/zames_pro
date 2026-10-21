@@ -783,6 +783,31 @@ export class GlmBrowser {
   }
 
   async close(): Promise<void> {
+    // A session cookie (expires = -1) is dropped when the context closes, so a
+    // sign-in would not survive the process. Re-add it as a PERSISTENT cookie
+    // before closing: the token then lives in the profile and the next launch
+    // is signed in without a window.
+    try {
+      if (this.context) {
+        const cookies = await this.context.cookies()
+        const session = cookies.filter((c) => c.expires === -1 || c.expires < 0)
+        if (session.length) {
+          const keepUntil = Math.floor((Date.now() + 15552000000) / 1000)
+          await this.context.addCookies(
+            session.map((c) => ({
+              name: c.name,
+              value: c.value,
+              domain: c.domain,
+              path: c.path,
+              httpOnly: c.httpOnly,
+              secure: c.secure,
+              sameSite: c.sameSite,
+              expires: keepUntil,
+            })) as never,
+          )
+        }
+      }
+    } catch {}
     try {
       if (this.context) await this.context.close()
     } catch {}
