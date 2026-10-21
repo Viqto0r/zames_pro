@@ -209,6 +209,13 @@ export function parseQwenHistory(json: unknown): ChatMessage[] {
       m.is_user === true ||
       fromStr === 'user' ||
       fromStr === 'human'
+    // A SYSTEM/TOOL turn is neither the operator nor the model's answer: on
+    // Qwen the system prompt is a message of its own, and mapping it to
+    // ASSISTANT printed it as a model reply in the restored dialogue. DeepSeek's
+    // parser drops those roles too.
+    if (/^(system|tool)$/.test(roleStr) || /^(system|tool)$/.test(fromStr)) {
+      continue
+    }
     const role: ChatMessage['role'] = isUser ? 'user' : 'assistant'
     let text = ''
     if (typeof m.content === 'string') text = m.content
