@@ -597,10 +597,26 @@ export function parseAssistantToolCall(
 
 /** Decode the JSON escape sequences that appear inside a captured string. */
 export function unescapeJsonString(s: string): string {
+  // A `\uD800`-style escape that is NOT followed by a low surrogate (a
+  // truncated or hand-written payload) would become a LONE surrogate - a
+  // broken code point the restored dialogue prints as `?`. Decode a valid PAIR
+  // as one code point and drop an unpaired half.
+  let pendingHigh = ''
   return String(s || '')
-    .replace(/\\u([0-9a-fA-F]{4})/g, (_x, h: string) =>
-      String.fromCharCode(parseInt(h, 16)),
-    )
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_x, h: string) => {
+      const cp = parseInt(h, 16)
+      if (cp >= 0xd800 && cp <= 0xdbff) {
+        pendingHigh = String.fromCharCode(cp)
+        return ''
+      }
+      if (cp >= 0xdc00 && cp <= 0xdfff) {
+        const high = pendingHigh
+        pendingHigh = ''
+        return high ? high + String.fromCharCode(cp) : ''
+      }
+      pendingHigh = ''
+      return String.fromCharCode(cp)
+    })
     .replace(/\\n/g, NL)
     .replace(/\\r/g, String.fromCharCode(13))
     .replace(/\\t/g, String.fromCharCode(9))
