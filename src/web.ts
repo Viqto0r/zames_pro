@@ -316,7 +316,12 @@ export function isPrivateHostname(host: string): boolean {
   const h = host.toLowerCase().replace(/\.$/, '')
   if (!h) return true
   if (h === 'localhost' || h.endsWith('.localhost')) return true
+  // Cloud metadata / cluster service ALIASES. `metadata` (GCP), `instance-data`
+  // (AWS) and `kubernetes.default[.svc]` are internal-only names; blocking them
+  // by name does not depend on a split-horizon DNS answering with a private IP.
   if (h === 'metadata.google.internal') return true
+  if (h === 'metadata' || h === 'instance-data') return true
+  if (h === 'kubernetes.default' || h === 'kubernetes.default.svc') return true
   // Internal/mDNS/service names that never belong to the public internet.
   if (h.endsWith('.internal') || h === 'internal') return true
   if (h.endsWith('.local') || h === 'local') return true
