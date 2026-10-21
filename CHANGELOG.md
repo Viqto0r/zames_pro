@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.81.18] - 2026-10-21
+
+### Fixed
+
+- **tools:** Write without content no longer truncates a file
+
 ## [2.81.17] - 2026-10-21
 
 ### Fixed
