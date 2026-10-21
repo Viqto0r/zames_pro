@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **glm:** thinking is always on and cannot be toggled off
 - **glm:** verify mode flags and attach files through the upload button
 - send telemetry for all providers and adaptive throttle (enabled for GLM)
 - GLM (chat.z.ai) provider with anonymized recon fixtures
