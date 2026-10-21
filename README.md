@@ -216,6 +216,12 @@ Notes:
   profile is gated by a slider captcha, so sign in once in the visible window;
   after that the stored session is reused. `/model` lists and picks GLM
   models too.
+- **GLM runs with a VISIBLE browser window.** Measured: the SAME signed-in
+  session is fine in a headed window but every send from HEADLESS is stopped by
+  the site's slider captcha (a different puzzle each time, so it cannot be
+  solved programmatically). zames therefore launches GLM headed by default and
+  prints a note about it; `--headless` still forces headless (sends will hit
+  the captcha). `--headed` is accepted everywhere.
 - **Send telemetry**: every send is recorded in
   `~/.zames/logs/sends-<provider>.jsonl` (timing, mode flags, the outcome and
   the server error — never the prompt or the answer). Turn it off with
@@ -822,6 +828,12 @@ zames умеет работать с **DeepSeek** (`chat.deepseek.com`, по у�
 - **GLM** (`chat.z.ai`) — третий бэкенд. Первое сообщение с нового
   профиля закрыто капчей-слайдером, поэтому войдите один раз в видимом окне;
   дальше сохранённая сессия переиспользуется. `/model` работает и для GLM.
+- **GLM работает с ВИДИМЫМ окном браузера.** Замерено: одна и та же
+  залогиненная сессия в окне отправляет нормально, а КАЖДАЯ отправка из
+  headless упирается в капчу-слайдер сайта (картинка каждый раз новая, поэтому
+  программно её не пройти). Поэтому zames запускает GLM с окном по умолчанию и
+  пишет об этом при старте; `--headless` по-прежнему форсирует headless
+  (отправки будут упираться в капчу). `--headed` работает везде.
 - **Телеметрия отправок**: каждая отправка пишется в
   `~/.zames/logs/sends-<provider>.jsonl` (тайминги, флаги режимов, исход и
   ошибка сервера — без промптов и ответов). Отключается через

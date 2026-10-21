@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- drop the unused headless flag
 - **glm:** word the mode warning accurately (the smoke passed with it on)
 - persist the sign-in session cookie so it survives a restart
 - a successful auto-login saves the credentials it used

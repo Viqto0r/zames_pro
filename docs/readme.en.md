@@ -214,6 +214,12 @@ Notes:
   profile is gated by a slider captcha, so sign in once in the visible window;
   after that the stored session is reused. `/model` lists and picks GLM
   models too.
+- **GLM runs with a VISIBLE browser window.** Measured: the SAME signed-in
+  session is fine in a headed window but every send from HEADLESS is stopped by
+  the site's slider captcha (a different puzzle each time, so it cannot be
+  solved programmatically). zames therefore launches GLM headed by default and
+  prints a note about it; `--headless` still forces headless (sends will hit
+  the captcha). `--headed` is accepted everywhere.
 - **Send telemetry**: every send is recorded in
   `~/.zames/logs/sends-<provider>.jsonl` (timing, mode flags, the outcome and
   the server error — never the prompt or the answer). Turn it off with
