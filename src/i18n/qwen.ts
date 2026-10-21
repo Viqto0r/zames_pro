@@ -83,6 +83,10 @@ export const qwenMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Файл телеметрии пока пуст ({path}).',
     en: 'The telemetry file is empty so far ({path}).',
   },
+  'toggle.thinking_locked': {
+    ru: 'GLM: размышления у этой модели всегда включены (сайт не даёт их выключить).',
+    en: 'GLM: thinking is always on for this model (the site does not allow turning it off).',
+  },
   'provider.switched': {
     ru: 'Провайдер чата: {v}.',
     en: 'Chat provider: {v}.',

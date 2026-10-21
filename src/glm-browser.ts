@@ -267,7 +267,10 @@ export class GlmBrowser {
     this.startWaitMs = startWaitMs
     this.sendButtonWaitMs = sendButtonWaitMs
     this.model = model
-    this.deepThinking = deepThinking
+    // The flagship models cannot skip thinking (skip_think=false in the
+    // catalogue), so the provider always reports it ON: the 🧠 icon then
+    // tells the truth and /thinking cannot pretend to disable it.
+    this.deepThinking = true
     this.webSearch = webSearch
     this.auth = {
       username: (auth?.username || '').trim(),

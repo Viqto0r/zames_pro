@@ -2289,6 +2289,20 @@ async function main(): Promise<void> {
     kind: 'thinking' | 'search'
     mode: string
   }): void {
+    // GLM's flagship models (x-preview-l, glm-5.3, glm-4.6v) report
+    // skip_think=false in the catalogue: thinking CANNOT be turned off, and
+    // the site always sends enable_thinking=true. Flipping the switch would
+    // only mislead the operator (and the icon would lie), so it is refused.
+    if (
+      cmd.kind === 'thinking' &&
+      config.provider === 'glm' &&
+      cmd.mode !== 'on'
+    ) {
+      const line = t('toggle.thinking_locked')
+      if (editor) editor.printAbove(theme.warn(line))
+      else console.log(theme.warn(line))
+      return
+    }
     const b = browser as unknown as {
       deepThinking: boolean
       webSearch: boolean
