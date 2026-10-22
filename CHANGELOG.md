@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.6] - 2026-10-22
+
+### Fixed
+
+- **config:** a numeric setting rejects a fractional value
+
 ## [2.82.5] - 2026-10-22
 
 ### Fixed
