@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.81.21] - 2026-10-22
+
+### Fixed
+
+- **extra-tools:** ApplyPatch Add File refuses to overwrite an existing file
+
 ## [2.81.20] - 2026-10-22
 
 ### Fixed
