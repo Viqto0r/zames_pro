@@ -173,12 +173,49 @@ export class CheckpointStore {
   }
 
   private async _readIndex(): Promise<CheckpointRecord[]> {
+    let raw: string
     try {
-      const data = JSON.parse(await fs.readFile(this.indexFile, 'utf-8'))
-      return Array.isArray(data) ? (data as CheckpointRecord[]) : []
+      raw = await fs.readFile(this.indexFile, 'utf-8')
     } catch {
       return []
     }
+    try {
+      const data = JSON.parse(raw)
+      if (Array.isArray(data)) return data as CheckpointRecord[]
+    } catch {
+      // A CORRUPT index must not hide the archives that are still on disk:
+      // /rewind would say "nothing to rewind" and the next create() would
+      // start a fresh index, leaving the orphans unprunable forever.
+    }
+    return await this._rebuildIndexFromDisk()
+  }
+
+  /**
+   * Reconstruct the index from archive file names (`<stamp>-<uniq>.tgz`) when
+   * index.json is missing or corrupt. The workdir cannot be recovered from an
+   * archive name, so a rebuilt record carries the checkpoint DIR as a last
+   * resort — restore() extracts the archive itself, and a wrong workdir only
+   * affects the label /checkpoints shows.
+   */
+  private async _rebuildIndexFromDisk(): Promise<CheckpointRecord[]> {
+    const out: CheckpointRecord[] = []
+    let files: string[]
+    try {
+      files = await fs.readdir(this.dir)
+    } catch {
+      return out
+    }
+    for (const f of files) {
+      const m = /^(\d+)-[0-9a-f]+\.tgz$/.exec(f)
+      if (!m) continue
+      out.push({
+        stamp: Number(m[1]),
+        file: path.join(this.dir, f),
+        workdir: this.dir,
+      })
+    }
+    out.sort((a, b) => a.stamp - b.stamp)
+    return out
   }
 
   /**
