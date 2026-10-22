@@ -465,6 +465,22 @@ export function createExtraTools(
             continue
           }
           if (op.op === 'add') {
+            // `Add File:` means CREATE. Applied to an existing file it used to
+            // silently OVERWRITE the whole file (the writer just writes the
+            // body), so a stale or wrong path destroyed real content with no
+            // warning. Refuse; Update/Delete remain for existing files.
+            if (
+              await fs
+                .stat(file)
+                .then(() => true)
+                .catch(() => false)
+            ) {
+              throw new Error(
+                'Add File ' +
+                  op.file +
+                  ': the file already exists. Use Update File to change it.',
+              )
+            }
             const body = op.lines
               .filter((l) => l.startsWith('+'))
               .map((l) => l.slice(1))
