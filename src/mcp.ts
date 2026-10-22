@@ -323,8 +323,16 @@ export function renderMcpResult(
     return truncateMcpResult(formatResultString(r.toolResult, r.isError), limit)
   }
 
+  // `content` is an ARRAY per the SDK, but a hand-rolled/buggy server may put
+  // a STRING there. Iterating that string yielded one part per CHARACTER and
+  // the result became `n\n\no\n\nt...` instead of the text.
+  const blocks = Array.isArray(r.content)
+    ? r.content
+    : typeof r.content === 'string'
+      ? [{ type: 'text', text: r.content }]
+      : []
   const parts: string[] = []
-  for (const block of r.content || []) {
+  for (const block of blocks) {
     if (!block || typeof block !== 'object') {
       parts.push(String(block ?? ''))
       continue
