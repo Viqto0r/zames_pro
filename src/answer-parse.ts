@@ -232,6 +232,30 @@ function repairRawControlChars(str: string): string {
   return out
 }
 
+/** True when a value is a string holding the JSON of a plain object. */
+function isJsonObjectString(v: unknown): boolean {
+  if (typeof v !== 'string') return false
+  try {
+    const parsed = JSON.parse(v)
+    return !!parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+  } catch {
+    return false
+  }
+}
+
+/** Unwrap a JSON-string `args` into an object; return the value as-is otherwise. */
+function coerceArgsObject(v: unknown): ToolArgs {
+  if (typeof v === 'string') {
+    try {
+      const parsed = JSON.parse(v)
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as ToolArgs
+      }
+    } catch {}
+  }
+  return v as ToolArgs
+}
+
 function tryParse(str: string): ToolCall | null {
   try {
     const obj = JSON.parse(str)
@@ -239,10 +263,13 @@ function tryParse(str: string): ToolCall | null {
       obj &&
       typeof obj.tool === 'string' &&
       obj.args &&
-      typeof obj.args === 'object' &&
+      // `args` may arrive as a JSON STRING (double-encoded): unwrap it when it
+      // parses to a plain object, otherwise the call is not recognized at all
+      // and the run either re-asks or ends with the JSON as the final answer.
+      (typeof obj.args === 'object' || isJsonObjectString(obj.args)) &&
       !Array.isArray(obj.args)
     ) {
-      return obj
+      return { tool: obj.tool, args: coerceArgsObject(obj.args) }
     }
     return null
   } catch {
