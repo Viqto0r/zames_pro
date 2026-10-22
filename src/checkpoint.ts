@@ -313,15 +313,18 @@ export class CheckpointStore {
       .catch(() => false)
     if (!exists) return { ok: false, reason: 'archive_missing' }
 
-    // Backup the CURRENT tree before touching it.
-    const backup = await this.create(record.workdir, 'pre-rewind', false)
-
     // Extract to a temp dir FIRST; only a successful extract may touch workdir
-    // (otherwise a bad archive would wipe the tree).
+    // (otherwise a bad archive would wipe the tree). The pre-rewind backup is
+    // taken AFTER this check: a corrupt archive would otherwise cost a FULL
+    // snapshot of the tree on every attempt, filling /checkpoints with
+    // identical entries and evicting the real ones.
     const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'zames-rewind-'))
     try {
       const res = await runTar(tarExtractArgs(record.file, tmp), tmp)
       if (res.code !== 0) return { ok: false, reason: 'extract_failed' }
+
+      // Backup the CURRENT tree before touching it.
+      const backup = await this.create(record.workdir, 'pre-rewind', false)
 
       // Full restore: drop everything in workdir except the excludes, then
       // copy the snapshot in. A partial extract would leave behind files the
