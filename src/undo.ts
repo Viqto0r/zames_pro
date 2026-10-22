@@ -66,7 +66,15 @@ export class UndoStore {
       content = await fs.readFile(filePath)
       existed = true
     } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e
+      // A missing file is the normal first-write case. Anything else (a
+      // DIRECTORY at the path: EISDIR; a permission error) means no backup
+      // can be taken — return null instead of throwing a raw Node error out
+      // of the tool call (the same rule as CheckpointStore.create()).
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
+        existed = false
+      } else {
+        return null
+      }
     }
 
     const stamp = Date.now()
