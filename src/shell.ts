@@ -130,6 +130,16 @@ export function runShell(
     typeof timeout === 'number' && Number.isFinite(timeout) && timeout >= 0
       ? Math.floor(timeout)
       : 30_000
+  // An EMPTY command is rejected by exec SYNCHRONOUSLY
+  // (`ERR_INVALID_ARG_VALUE: The argument 'file' cannot be empty`), so the
+  // throw escaped the promise below and the caller crashed instead of
+  // reporting the problem: the Bash tool after req() accepted a
+  // whitespace-only command, and the operator's `!` escape never passed
+  // through req() at all. Answer with the same wording an empty successful
+  // run uses, so every caller just prints it.
+  if (!String(command ?? '').trim()) {
+    return Promise.resolve('(command produced no output)')
+  }
   return new Promise((resolve) => {
     const options: ExecOptions = {
       cwd: workdir,

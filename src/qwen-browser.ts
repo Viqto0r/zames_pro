@@ -1864,7 +1864,8 @@ export class QwenBrowser {
             contextLimitRetries++
             const res = await recoverFromContextLimit(
               {
-                recover: () => this.onContextLimit?.() ?? Promise.resolve(false),
+                recover: () =>
+                  this.onContextLimit?.() ?? Promise.resolve(false),
                 maxRetries: this.maxContextLimitRetries,
                 attempt: contextLimitRetries,
                 notice: (text) => this._notice(text),

@@ -3127,10 +3127,7 @@ async function main(): Promise<void> {
           // If we closed the old browser before the new one launched and the
           // launch failed, `browser` would point at a dead instance and every
           // later command would break.
-          const nextBrowser = createProviderBrowser(
-            arg,
-            onContextLimit,
-          )
+          const nextBrowser = createProviderBrowser(arg, onContextLimit)
           // Wire the Ink login BEFORE waitForLogin(), or the new backend would
           // fall back to readline and pause the TUI for its sign-in.
           wireLoginCallbacks(nextBrowser)
