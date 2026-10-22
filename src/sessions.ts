@@ -80,6 +80,9 @@ function safeName(id: string): string {
 
 // Save/update a session. workdir is needed so that when launched from the same
 // project we restore exactly its last chat.
+/** Hard cap on the todo checklist stored with a session. */
+export const SESSION_TODOS_CAP = 1000
+
 export function saveSession({
   id,
   title = '',
@@ -114,7 +117,12 @@ export function saveSession({
     // Keep the previous checklist unless a new one is explicitly passed —
     // saveLastChat() calls this for title/workdir only and must not wipe it.
     const nextTodos = todos !== undefined ? todos : prev.todos
-    if (nextTodos !== undefined) data.todos = nextTodos
+    if (nextTodos !== undefined) {
+      // A checklist is a UI indicator, not a database: a model that keeps
+      // appending items would grow the session file (read on every
+      // startup/restore) without bound. Keep the NEWEST entries.
+      data.todos = nextTodos.slice(-SESSION_TODOS_CAP)
+    }
     writeJsonAtomic(file, data)
     writeIndex({ id, workdir: data.workdir })
     return data
