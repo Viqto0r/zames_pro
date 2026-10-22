@@ -113,6 +113,13 @@ export function looksLikeToolError(result: string): boolean {
     head.startsWith('subagent failed') ||
     head.startsWith('subagent error') ||
     head.includes('process killed') ||
-    head.startsWith('(aborted by the operator)')
+    head.startsWith('(aborted by the operator)') ||
+    // A SANDBOX refusal: `safePath` throws
+    // `Access outside the working directory is forbidden: …` and the shell
+    // guard throws `Sandbox: …` (eval+cd, an unresolvable cd target, chroot).
+    // Both mean the call did NOTHING, yet neither prefix matched and the
+    // operator saw a green check next to a refused call.
+    head.includes('outside the working directory is forbidden') ||
+    head.includes('sandbox:')
   )
 }
