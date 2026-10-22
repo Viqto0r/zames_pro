@@ -379,7 +379,16 @@ export function createExtraTools(
         for (let i = 0; i < list.length; i++) {
           const e = list[i]
           const oldStr = String(e.old_string ?? '')
-          const newStr = String(e.new_string ?? '')
+          // A missing new_string must not mean "delete": String(undefined) is
+          // '' and the edit silently ERASED the matched text (the same data
+          // loss fixed in the single-file Edit). An EXPLICIT '' still deletes.
+          if (e.new_string === undefined || e.new_string === null) {
+            throw new Error(
+              `edits[${i}]: new_string is missing. Add the replacement text ` +
+                '(use an empty string to delete) and retry.',
+            )
+          }
+          const newStr = String(e.new_string)
           if (oldStr === '') {
             throw new Error(`edits[${i}]: old_string is empty.`)
           }
