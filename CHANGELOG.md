@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.8] - 2026-10-22
+
+### Fixed
+
+- **mcp:** --isolated=false no longer counts as an isolated profile
+
 ## [2.82.7] - 2026-10-22
 
 ### Fixed
