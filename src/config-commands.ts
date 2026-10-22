@@ -21,7 +21,10 @@ export function configListValue(
   if (value === undefined) return t('cfg.menu.default')
   if (typeof value === 'boolean')
     return value ? t('common.on') : t('common.off')
-  if (/password/i.test(field.path) && String(value).length > 0)
+  // Mask a real secret, but NOT a whitespace-only one — the same rule as
+  // configGetValue(): a blank password cannot log in, and masking it makes
+  // the list claim a password is configured while auto-login silently fails.
+  if (/password/i.test(field.path) && String(value).trim().length > 0)
     return '********'
   return JSON.stringify(value)
 }
