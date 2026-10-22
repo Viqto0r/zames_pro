@@ -993,7 +993,10 @@ function applyModelContextLimit(model: string): void {
  * the choice is a class, not a flag; the shared timings live in
  * config.browser and only the provider's own section is overridden.
  */
-function createProviderBrowser(provider: ProviderId): ChatProvider {
+function createProviderBrowser(
+  provider: ProviderId,
+  onContextLimit: (() => Promise<boolean>) | null = null,
+): ChatProvider {
   // Saved credentials go into the ACTIVE provider's section: browser.auth
   // belongs to DeepSeek (so old configs keep working), qwen.auth / glm.auth
   // are their own. Sharing one pair meant a DeepSeek login was typed into the
@@ -1036,6 +1039,7 @@ function createProviderBrowser(provider: ProviderId): ChatProvider {
         loginTimeoutMs: config.browser.loginTimeoutMs,
         locale: currentLocale,
         onAuthSave: persistAuth,
+        onContextLimit,
       })
     case 'glm':
       return new GlmBrowser({
@@ -1056,6 +1060,7 @@ function createProviderBrowser(provider: ProviderId): ChatProvider {
         loginTimeoutMs: config.browser.loginTimeoutMs,
         locale: currentLocale,
         onAuthSave: persistAuth,
+        onContextLimit,
       })
     case 'deepseek':
     default:
@@ -1066,6 +1071,7 @@ function createProviderBrowser(provider: ProviderId): ChatProvider {
         ...config.browser,
         locale: currentLocale,
         onAuthSave: persistAuth,
+        onContextLimit,
       })
   }
 }
@@ -1295,8 +1301,19 @@ async function main(): Promise<void> {
   // `let`, not `const`: a live /provider switch disposes this instance and
   // builds the other one IN PLACE (see the /provider block in the main loop),
   // so the URL changes without restarting zames.
+  // The context-limit recovery is a closure over main() session state, but
+  // the browser is built BEFORE that state exists and it needs the callback
+  // at construction. This holder breaks the cycle: the factory reads it
+  // lazily on every recovery, and it is filled right after the session
+  // variables are set up (before the first task). Null = the provider fails
+  // with a clear message instead of retrying into a dead chat.
+  let contextLimitRecovery: (() => Promise<boolean>) | null = null
+  const onContextLimit = (): Promise<boolean> =>
+    contextLimitRecovery ? contextLimitRecovery() : Promise.resolve(false)
+
   let browser: ChatProvider = createProviderBrowser(
     asProviderId(config.provider),
+    onContextLimit,
   )
 
   const bootSpinner = mod.createSpinner(currentLocale)
@@ -1464,6 +1481,42 @@ async function main(): Promise<void> {
 
   let freshChatNext = true
   let sendSystemPromptNext = true
+  /**
+   * Recover from "Length limit reached. Please start a new chat.": the chat
+   * refuses EVERY further send, so the only way to keep working is compaction
+   * into a fresh chat. Returns true when a new chat holds the system prompt
+   * and the handover, i.e. the browser may resend the refused message there.
+   *
+   * `contextExhausted` skips the summary call inside performCompact: asking the
+   * OLD chat to summarize itself is refused exactly like the send that failed,
+   * so the summary is built from the history endpoint instead.
+   */
+  const recoverFromContextLimit = async (): Promise<boolean> => {
+    const res = await performCompact({
+      browser,
+      currentChatId,
+      workdir: currentWorkdir,
+      locale: currentLocale,
+      transcript,
+      ui: editor,
+      buildSystemPrompt: mod.buildSystemPrompt,
+      tools: mod.createTools(currentWorkdir, { undo, todos: todoStore }),
+      answerTimeoutMs: providerAnswerTimeoutMs(),
+      quiet: true,
+      skipUiLock: true,
+      selfImprovement: devMode,
+      contextExhausted: true,
+    })
+    if (!res.ok) return false
+    currentChatId = res.chatId
+    if (currentChatId) saveLastChat(currentChatId, currentWorkdir)
+    // The fresh chat already carries the system prompt and the handover, and
+    // the session continues in it — later tasks must not open yet another chat.
+    freshChatNext = false
+    sendSystemPromptNext = false
+    return true
+  }
+  contextLimitRecovery = recoverFromContextLimit
   // Resuming an existing chat already has the system-prompt at its start, so
   // resending it is wasteful and pollutes the context. Default: do NOT resend.
   // `--resend-prompt` or `browser.resendPromptOnResume` forces it (e.g. when
@@ -3074,7 +3127,10 @@ async function main(): Promise<void> {
           // If we closed the old browser before the new one launched and the
           // launch failed, `browser` would point at a dead instance and every
           // later command would break.
-          const nextBrowser = createProviderBrowser(arg)
+          const nextBrowser = createProviderBrowser(
+            arg,
+            onContextLimit,
+          )
           // Wire the Ink login BEFORE waitForLogin(), or the new backend would
           // fall back to readline and pause the TUI for its sign-in.
           wireLoginCallbacks(nextBrowser)
@@ -4767,6 +4823,7 @@ async function main(): Promise<void> {
                 return res.ok ? res.chatId : null
               }
             : null,
+          onContextLimit: recoverFromContextLimit,
           autoCompactPct: config.browser.autoCompactPct,
           contextLimit: effectiveContextLimit(),
           getTokenUsage: () => browser.getLastTokenUsage(),

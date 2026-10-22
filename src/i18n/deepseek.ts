@@ -56,6 +56,18 @@ export const deepseekMessages: Record<string, { ru: string; en: string }> = {
     ru: '✖ Не удалось получить ответ от {provider} после {max} попыток: {error}',
     en: '✖ Could not get an answer from {provider} after {max} attempts: {error}',
   },
+  'ds.context_limit_compact': {
+    ru: '🗜️ {provider}: лимит длины чата исчерпан («Length limit reached») — сжимаю историю и продолжаю в новом чате...',
+    en: '🗜️ {provider}: the chat hit its length limit ("Length limit reached") — compacting the history and continuing in a fresh chat...',
+  },
+  'ds.context_limit_compact_failed': {
+    ru: '⚠ Не удалось сжать историю: {error}',
+    en: '⚠ Could not compact the history: {error}',
+  },
+  'ds.context_limit_give_up': {
+    ru: '✖ {provider}: лимит длины чата исчерпан, и сжать историю не удалось — этот чат больше не принимает сообщения. Открой новый чат (/new) и повтори задачу.',
+    en: '✖ {provider}: the chat length limit is reached and the history could not be compacted — this chat no longer accepts messages. Open a new chat (/new) and repeat the task.',
+  },
   'ds.input_missing': {
     ru: '✖ Не найдено поле ввода на странице {provider}. Запусти /debug-dom и поправь INPUT_SELECTORS.',
     en: '✖ The {provider} input field was not found. Run /debug-dom and fix INPUT_SELECTORS.',

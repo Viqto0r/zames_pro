@@ -24,6 +24,7 @@ import type { BrowserContext, Locator, Page } from 'playwright'
 import { translate, DEFAULT_LOCALE } from './i18n.js'
 import type { Locale } from './i18n.js'
 import { rewriteFailedAttachments } from './commands.js'
+import { recoverFromContextLimit } from './context-limit.js'
 import { awaitUploadPreview, readAttachBuffers } from './attach-flow.js'
 import { theme } from './theme.js'
 import type { ChatInfo, ChatMessage } from './types.js'
@@ -92,6 +93,7 @@ import {
   isQuotaExhaustedText,
   isServerBusyText,
   isGuestLimitText,
+  isContextLimitText,
   isCaptchaText,
   extractChatId,
 } from './glm-net-capture.js'
@@ -136,6 +138,10 @@ export interface GlmBrowserOptions {
   serverBusyWaitMs?: number
   maxIncompleteRetries?: number
   incompleteWaitMs?: number
+  /** Compaction attempts after an exhausted context before ask() gives up. */
+  maxContextLimitRetries?: number
+  /** Compact the exhausted chat into a fresh one; true = resend is OK. */
+  onContextLimit?: (() => Promise<boolean>) | null
   startWaitMs?: number
   sendButtonWaitMs?: number
   model?: string
@@ -185,6 +191,9 @@ export class GlmBrowser {
   serverBusyWaitMs: number
   maxIncompleteRetries: number
   incompleteWaitMs: number
+  // Ask() budget for the context-limit recovery (a compaction, not a resend).
+  maxContextLimitRetries: number
+  onContextLimit: (() => Promise<boolean>) | null
   startWaitMs: number
   sendButtonWaitMs: number
   model: string
@@ -210,6 +219,9 @@ export class GlmBrowser {
   _netRateLimited: boolean
   _netGuestLimit: boolean
   _netServerBusy: boolean
+  // True when the chat context window is exhausted: it refuses every
+  // further send, so ask() must compact into a fresh chat, not retry here.
+  _netContextLimit: boolean
   _netCaptcha: boolean
   _netChatId: string | null
   _lastTokenUsage: number | null
@@ -257,6 +269,8 @@ export class GlmBrowser {
     serverBusyWaitMs = 3000,
     maxIncompleteRetries = 4,
     incompleteWaitMs = 2000,
+    maxContextLimitRetries = 1,
+    onContextLimit,
     startWaitMs = 30000,
     sendButtonWaitMs = 8000,
     model = '',
@@ -287,6 +301,8 @@ export class GlmBrowser {
     this.serverBusyWaitMs = serverBusyWaitMs
     this.maxIncompleteRetries = maxIncompleteRetries
     this.incompleteWaitMs = incompleteWaitMs
+    this.maxContextLimitRetries = maxContextLimitRetries
+    this.onContextLimit = onContextLimit || null
     this.startWaitMs = startWaitMs
     this.sendButtonWaitMs = sendButtonWaitMs
     this.model = model
@@ -317,6 +333,7 @@ export class GlmBrowser {
     this._netRateLimited = false
     this._netGuestLimit = false
     this._netServerBusy = false
+    this._netContextLimit = false
     this._netCaptcha = false
     this._netChatId = null
     this._lastTokenUsage = null
@@ -1003,6 +1020,10 @@ export class GlmBrowser {
         if (isServerBusyText(body)) {
           this._netServerBusy = true
         }
+        if (isContextLimitText(body)) {
+          this._netContextLimit = true
+          this._netCapture = ''
+        }
         this._netCaptureAt = Date.now()
       }
     } catch {}
@@ -1555,6 +1576,9 @@ export class GlmBrowser {
     let rateLimitRetries = 0
     let serverBusyRetries = 0
     let incompleteRetries = 0
+    // The exhausted-context recovery is a COMPACTION (a new chat), not a
+    // resend, so it has its own budget.
+    let contextLimitRetries = 0
     this._askInFlight++
     try {
       while (attempt < this.askRetries) {
@@ -1581,6 +1605,30 @@ export class GlmBrowser {
           ) {
             this.sendRuntime.onOutcome('rate_limit', { errorText: 'quota' })
             throw new Error(this._t('glm.quota_exhausted'))
+          }
+          // Checked BEFORE the rate-limit/captcha branches below: those
+          // retry IN PLACE, which an exhausted chat can never accept.
+          if (e instanceof GlmContextLimitError) {
+            contextLimitRetries++
+            const res = await recoverFromContextLimit(
+              {
+                recover: () => this.onContextLimit?.() ?? Promise.resolve(false),
+                maxRetries: this.maxContextLimitRetries,
+                attempt: contextLimitRetries,
+                notice: (text) => this._notice(text),
+                t: (k, p) => this._t(k, p),
+                keys: {
+                  compact: 'glm.context_limit_compact',
+                  compactFailed: 'glm.context_limit_compact_failed',
+                  giveUp: 'glm.context_limit_give_up',
+                },
+                provider: 'GLM',
+              },
+              e,
+            )
+            if (!res.resend) throw res.error || e
+            this._lastSentAt = Date.now()
+            continue
           }
           if (e instanceof GlmCaptchaError) {
             this.sendRuntime.onOutcome('guest_limit', { errorText: 'captcha' })
@@ -1798,6 +1846,7 @@ export class GlmBrowser {
     this._netRateLimited = false
     this._netGuestLimit = false
     this._netServerBusy = false
+    this._netContextLimit = false
     this._netCaptcha = false
     this._netBody = ''
 
@@ -1883,6 +1932,9 @@ export class GlmBrowser {
       if (isRateLimitText(pageText)) {
         throw new GlmRateLimitError(pageText.slice(0, 300))
       }
+      if (this._netContextLimit && this._netCaptureAt >= this._lastSentAt) {
+        throw new GlmContextLimitError(this._netBody.slice(0, 300))
+      }
       if (this._netCaptcha && this._netCaptureAt >= this._lastSentAt) {
         throw new GlmCaptchaError(this._netBody.slice(0, 200))
       }
@@ -1917,6 +1969,9 @@ export class GlmBrowser {
       }
       if (isRateLimitText(pageText)) {
         throw new GlmRateLimitError(pageText.slice(0, 300))
+      }
+      if (this._netContextLimit && this._netCaptureAt >= this._lastSentAt) {
+        throw new GlmContextLimitError(this._netBody.slice(0, 300))
       }
       if (this._netCaptcha && this._netCaptureAt >= this._lastSentAt) {
         throw new GlmCaptchaError(this._netBody.slice(0, 200))
@@ -1980,6 +2035,14 @@ class GlmCaptchaError extends Error {
   constructor(detail: string) {
     super('captcha: ' + detail)
     this.name = 'GlmCaptchaError'
+  }
+}
+// The chat context window is exhausted and the turn was refused. NOT
+// retryable in place: ask() compacts into a fresh chat and resends there.
+class GlmContextLimitError extends Error {
+  constructor(detail: string) {
+    super('context limit: ' + detail)
+    this.name = 'GlmContextLimitError'
   }
 }
 class GlmIncompleteError extends Error {

@@ -51,6 +51,12 @@ export interface RunTaskOptions {
   onChatReady?: (chatId: string | null) => void
   /** Called at the between-tools seam when the context is nearly full. */
   onAutoCompact?: (() => Promise<string | null>) | null
+  /**
+   * Called when the chat REFUSES a send because its LENGTH limit is reached
+   * ("Length limit reached. Please start a new chat."). Must compact and open
+   * a fresh chat, returning true when the resend may proceed.
+   */
+  onContextLimit?: (() => Promise<boolean>) | null
   /** Fill percentage at which onAutoCompact fires. */
   autoCompactPct?: number
   /** The context window size (tokens) for the threshold. */
@@ -437,6 +443,7 @@ export async function runTask(
     ui: editor,
     onChatReady,
     onAutoCompact = null,
+    onContextLimit = null,
     autoCompactPct = 95,
     contextLimit = 1_000_000,
     getTokenUsage = null,
@@ -589,6 +596,7 @@ export async function runTask(
         // outer currentChatId; it serializes with the throttle because the
         // loop awaits it.
         onAutoCompact,
+        onContextLimit,
         autoCompactPct,
         contextLimit,
         getTokenUsage,

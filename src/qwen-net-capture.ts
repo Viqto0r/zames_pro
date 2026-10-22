@@ -266,3 +266,22 @@ export function isServerBusyText(body: string): boolean {
   if (!errNotice && hasAnswerContent(b)) return false
   return /server is busy|service unavailable|try again later/i.test(b)
 }
+
+// The chat's CONTEXT WINDOW is exhausted. Qwen refuses the turn and no retry
+// in the same chat can succeed - the only way out is a compaction into a
+// fresh chat. Same guard as the other classifiers: the notice must be an
+// error payload or a body with NO answer content, because the model can
+// legitimately WRITE about context limits and treating that answer as a
+// refusal would lose a good turn.
+export function isContextLimitText(body: string): boolean {
+  const b = String(body || '')
+  if (!b) return false
+  const explicit =
+    /context (?:length|window) (?:is )?(?:exceeded|too long|limit)|maximum context length|exceeds? the (?:maximum |model'?s )?context|too many (?:input )?tokens|length limit (?:has been )?reached|start a new (?:chat|conversation)|лимит длин|превышен[ао]? (?:максимальн[аяу]? )?(?:длина|контекст)|начните новый чат/i.test(
+      b,
+    )
+  if (!explicit) return false
+  const errNotice = /event:\s*error|"type"\s*:\s*"error"|"error"\s*:/i.test(b)
+  if (!errNotice && hasAnswerContent(b)) return false
+  return true
+}

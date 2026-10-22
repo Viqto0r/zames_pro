@@ -1,4 +1,5 @@
 import { buildSystemPrompt } from './system-prompt.js'
+import { isContextLimitText } from './browser-pure.js'
 import { providerLabel as providerHumanLabel } from './providers.js'
 import { loadProjectContext } from './context.js'
 import { getGitContext, formatGitContext } from './gitTools.js'
@@ -93,6 +94,14 @@ export interface RunAgentLoopOptions {
    * The callback is awaited, so it naturally serializes with the throttle.
    */
   onAutoCompact?: (() => Promise<string | null>) | null
+  /**
+   * Called when a send is REFUSED because the chat's length limit is reached
+   * ("Length limit reached. Please start a new chat."). Unlike onAutoCompact
+   * this fires on a HARD failure, not on a threshold: the chat accepts no
+   * further messages, so the only way to continue is a compaction into a fresh
+   * chat. Returns true when the retry may proceed.
+   */
+  onContextLimit?: (() => Promise<boolean>) | null
   /**
    * Fill percentage (of ui.contextLimit) at which onAutoCompact fires.
    * Default 95. Only used when onAutoCompact is provided.
@@ -198,6 +207,7 @@ export async function runAgentLoop({
   askDeadlineMs = 240_000,
   maxAfterToolRetries = 6,
   onAutoCompact = null,
+  onContextLimit = null,
   autoCompactPct = 95,
   contextLimit = 1_000_000,
   getTokenUsage = null,
@@ -250,6 +260,16 @@ export async function runAgentLoop({
   // editor's repaint, so the operator only saw the spinner. `onNotice` prints
   // the notice ABOVE the input line.
   browser.onNotice = safe(onNotice)
+  // The chat ran out of context and refuses further sends ("Length limit
+  // reached. Please start a new chat."). The browser cannot recover by itself:
+  // compaction needs the system prompt, the tools and the session bookkeeping
+  // that live above it, so the callback is attached here, where the caller's
+  // hook lives (the same seam pattern as onAutoCompact).
+  if ('onContextLimit' in browser) {
+    ;(
+      browser as { onContextLimit?: (() => Promise<boolean>) | null }
+    ).onContextLimit = onContextLimit
+  }
   const safeAssistantThought = safe(onAssistantThought)
   const safeToolCall = safe(onToolCall)
   const safeToolResult = safe(onToolResult)
@@ -730,6 +750,10 @@ export async function runAgentLoop({
         // tool-call and not a real final answer — treat it as a service
         // answer so the loop re-asks instead of stopping on it.
         /<ds_safety>|<\/ds_safety>/i.test(trimmed) ||
+        // An exhausted-context notice can also arrive as the turn's TEXT (it
+        // is short and carries no tool call). Treat it as a service answer so
+        // the loop re-asks instead of finishing on "start a new chat".
+        isContextLimitText(trimmed) ||
         (trimmed.length <= 200 &&
           /(messages? too frequent|too many requests|rate limit|server (is )?busy|service (is )?unavailable|слишком часто|try again later)/i.test(
             trimmed,

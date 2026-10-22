@@ -148,3 +148,111 @@ test('performCompact reports an abort without opening a new chat', async () => {
   assert.equal(res.ok, false)
   assert.match(res.error || '', /прервано/)
 })
+
+// A chat that hit "Length limit reached. Please start a new chat." refuses
+// EVERY send, including the summary prompt. Asking it anyway burned the three
+// summary attempts (and the rate-limit budget) and then fell back to the local
+// history. With contextExhausted the summary request is skipped entirely.
+test('performCompact skips the summary call on an exhausted chat', async () => {
+  const asks: string[] = []
+  let newChats = 0
+  const browser: BrowserLike = {
+    async ask(text: string) {
+      asks.push(text)
+      return 'ok'
+    },
+    async newChat() {
+      newChats++
+    },
+    async getCurrentChatId() {
+      return newChats ? 'new-chat' : 'old-chat'
+    },
+    async stopGeneration() {
+      return true
+    },
+    async listChats() {
+      return []
+    },
+    async openChat() {
+      return true
+    },
+    async close() {},
+    getLastTokenUsage: () => 999,
+    fetchChatMessages: async () => [
+      { role: 'user' as const, text: 'сделай X' },
+      { role: 'assistant' as const, text: 'готово' },
+    ],
+  }
+  const res = await performCompact({
+    browser,
+    currentChatId: 'old-chat',
+    workdir: '/tmp',
+    locale: 'ru',
+    transcript: { log: noop },
+    buildSystemPrompt: () => 'SYS',
+    tools: [],
+    answerTimeoutMs: 60000,
+    contextExhausted: true,
+  })
+  assert.equal(res.ok, true)
+  assert.equal(newChats, 1)
+  // No summary request into the dead chat: system prompt + carryover only.
+  assert.equal(asks.length, 2, asks.join('\n---\n'))
+  assert.equal(asks[0], 'SYS')
+  assert.ok(asks[1].includes('сделай X'), 'the history fallback is carried')
+})
+
+// The recovery path runs INSIDE a refused send, so a refusal during the
+// new-chat sends must not call back into compaction (infinite recursion).
+test('performCompact disables the context-limit callback while it works', async () => {
+  const seen: Array<unknown> = []
+  let newChats = 0
+  const browser = {
+    async ask(text: string) {
+      seen.push(
+        (browser as { onContextLimit?: unknown }).onContextLimit ?? 'none',
+      )
+      return 'ok'
+    },
+    async newChat() {
+      newChats++
+    },
+    async getCurrentChatId() {
+      return newChats ? 'new-chat' : 'old-chat'
+    },
+    async stopGeneration() {
+      return true
+    },
+    async listChats() {
+      return []
+    },
+    async openChat() {
+      return true
+    },
+    async close() {},
+    getLastTokenUsage: () => 10,
+    fetchChatMessages: async () => [
+      { role: 'user' as const, text: 'task' },
+      { role: 'assistant' as const, text: 'done' },
+    ],
+    onContextLimit: async () => true,
+  } as unknown as BrowserLike
+  const res = await performCompact({
+    browser,
+    currentChatId: 'old-chat',
+    workdir: '/tmp',
+    locale: 'ru',
+    transcript: { log: noop },
+    buildSystemPrompt: () => 'SYS',
+    tools: [],
+    answerTimeoutMs: 60000,
+    contextExhausted: true,
+  })
+  assert.equal(res.ok, true)
+  assert.deepEqual(seen, ['none', 'none'])
+  assert.equal(
+    typeof (browser as { onContextLimit?: unknown }).onContextLimit,
+    'function',
+    'the callback is restored afterwards',
+  )
+})

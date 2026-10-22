@@ -678,6 +678,11 @@ interactive launch.
   note appended, and if it still fails the LOCAL history fallback is used.
   The `buildCompactPrompt()` text itself now also says "reply with the summary
   text ONLY; do NOT call tools / output tool-call JSON or DSML".
+  A THIRD case, `contextExhausted`: the chat already refuses every send
+  ("Length limit reached. Please start a new chat."), so the summary prompt
+  would be rejected exactly like the failed message. The summary call is then
+  SKIPPED and the local history fallback is used directly. This path is
+  triggered by the browser (see "Length limit reached" below).
 - `/review [focus] [--staged]` — the agent reviews uncommitted changes
 - `/config` — view and edit settings (see "Configuration")
 - `/config lang <ru|en>` — switch the interface and agent language
@@ -885,6 +890,33 @@ The "Stopped" family (a FINISHED turn with only a THINK fragment and no
 RESPONSE; "Stopped" with no Continue button; and why all four detectors must
 read the RAW SSE body `_netBody`/`_netNoAnswer`, not `_netCapture`) is a deep
 root-cause write-up — see docs/DESIGN-NOTES.md, section "The Continue button".
+
+### "Length limit reached. Please start a new chat."
+
+This is NOT a rate limit and NOT a server hiccup: the chat's CONTEXT WINDOW is
+exhausted and the server refuses EVERY further send into it. Retrying in place
+can never succeed, yet the notice used to fall into the generic ask() retry —
+the agent kept resending into the dead chat, burned `askRetries` and stopped
+with a bare error while the notice sat in the chat.
+
+Now it has its own detection path and its own recovery:
+- `CONTEXT_LIMIT_RE` (deepseek-ui.ts) plus `isContextLimitText()` /
+  `ContextLimitError` (browser-pure.ts, re-exported from browser.ts).
+- `_askOnce` throws `ContextLimitError` in BOTH loops (start-wait and
+  finish-loop), checked BEFORE the rate-limit / server-busy branches, from the
+  toast (`_readPageText`) AND from the captured `_netBody`.
+- `ask()` has a dedicated branch with its own budget
+  (`maxContextLimitRetries`): it calls `browser.onContextLimit` and only on
+  `true` resends the SAME prompt (now into the fresh chat). Without the
+  callback, or when it fails, ask() gives up with `ds.context_limit_give_up`
+  ("open /new and repeat the task") instead of hammering the dead chat.
+- `onContextLimit` is a SEAM like `onAutoCompact`: `agent-loop` attaches it to
+  the browser, `run-task` passes it through, and index.ts implements it with
+  `performCompact({ contextExhausted: true })` — the summary is built from
+  `fetchChatMessages` (the OLD chat refuses the summary prompt too), then a
+  fresh chat gets the system prompt and the carryover. `freshChatNext` /
+  `sendSystemPromptNext` are reset so the next task does not open yet another
+  chat and does not duplicate the prompt.
 
 ## Headless by default + login (src/browser.ts)
 

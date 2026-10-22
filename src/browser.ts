@@ -18,6 +18,7 @@ import {
   isFinishedWithAnswer,
 } from './net-capture.js'
 import { rewriteFailedAttachments } from './commands.js'
+import { recoverFromContextLimit } from './context-limit.js'
 import { awaitUploadPreview, readAttachBuffers } from './attach-flow.js'
 import {
   parseHistoryMessages,
@@ -120,11 +121,13 @@ import {
   isGenerationIncompleteText,
   isRateLimitText,
   isServerBusyText,
+  isContextLimitText,
   normText,
   cleanAnswer,
   RateLimitError,
   ServerBusyError,
   GenerationIncompleteError,
+  ContextLimitError,
   cleanSingletonFiles,
   profileLooksLocked,
   nukeProfile,
@@ -138,10 +141,12 @@ export {
   isGenerationIncompleteText,
   isRateLimitText,
   isServerBusyText,
+  isContextLimitText,
   normText,
   RateLimitError,
   ServerBusyError,
   GenerationIncompleteError,
+  ContextLimitError,
 }
 // ---------- class ----------
 
@@ -164,6 +169,11 @@ export interface DeepSeekBrowserOptions {
   maxIncompleteRetries?: number
   /** Pause before resending after a truncated turn (ms). */
   incompleteWaitMs?: number
+  /**
+   * Compaction attempts after "Length limit reached" before ask() gives up.
+   * Only used when onContextLimit is provided.
+   */
+  maxContextLimitRetries?: number
   /** Click DeepSeek's "Continue" button automatically (reasoning pause). */
   autoContinue?: boolean
   /** Min gap between Continue clicks in thinking mode (ms). */
@@ -196,6 +206,15 @@ export interface DeepSeekBrowserOptions {
   }) => Promise<{ username: string; password: string } | null>
   /** Prompt for the DeepSeek email one-time code (MFA), TUI-friendly. */
   onMfaPrompt?: () => Promise<string | null>
+  /**
+   * Recover from "Length limit reached. Please start a new chat.": compact the
+   * exhausted chat and open a fresh one. Returns true when a NEW chat is ready
+   * for the resend. Injected by the caller (like onAutoCompact) because the
+   * recovery sends the system prompt and a handover summary — logic that lives
+   * ABOVE the browser. Absent: the send fails with a clear explanation instead
+   * of retrying into the same, permanently rejected chat.
+   */
+  onContextLimit?: (() => Promise<boolean>) | null
   /**
    * Explicit User-Agent. When omitted, the browser derives one from the real
    * engine version and strips the "Headless" marker (DeepSeek's CDN 403s a
@@ -233,6 +252,11 @@ export class DeepSeekBrowser {
   rateLimitWaitMs: number
   maxRateLimitRetries: number
   maxServerBusyRetries: number
+  // Ask() budget for the context-limit recovery. A compaction that does not
+  // free the window leaves the chat just as rejected as before, so the
+  // recovery is capped independently of askRetries.
+  maxContextLimitRetries: number
+  onContextLimit: (() => Promise<boolean>) | null
   serverBusyWaitMs: number
   // Retries for a turn the server truncated (generation_err / INCOMPLETE).
   maxIncompleteRetries: number
@@ -383,6 +407,8 @@ export class DeepSeekBrowser {
     serverBusyWaitMs = 3000,
     maxIncompleteRetries = 4,
     incompleteWaitMs = 2000,
+    maxContextLimitRetries = 1,
+    onContextLimit,
     autoContinue = true,
     continueMinGapMs = 1500,
     loginTimeoutMs = 600000,
@@ -410,6 +436,8 @@ export class DeepSeekBrowser {
     this.serverBusyWaitMs = serverBusyWaitMs
     this.maxIncompleteRetries = maxIncompleteRetries
     this.incompleteWaitMs = incompleteWaitMs
+    this.maxContextLimitRetries = maxContextLimitRetries
+    this.onContextLimit = onContextLimit || null
     this.autoContinue = autoContinue
     this.continueMinGapMs = continueMinGapMs
     this.loginTimeoutMs = loginTimeoutMs
@@ -1885,6 +1913,10 @@ export class DeepSeekBrowser {
     // hiccup, not a failed send, and it is more likely in the reasoning
     // (deep thinking) mode, where the long THINK phase gets cut off.
     let incompleteRetries = 0
+    // Bumped when the chat's context window is exhausted. Recovery is a
+    // COMPACTION (a new chat), not a resend, so it has its own budget: a
+    // compaction that frees nothing leaves the chat just as rejected.
+    let contextLimitRetries = 0
 
     // Mark that OUR code has an ask in flight. A completion/continue body
     // that arrives with _askInFlight === 0 was the operator's own turn, and
@@ -2010,6 +2042,37 @@ export class DeepSeekBrowser {
               this.incompleteWaitMs,
             )
             if (aborted) return '(прервано пользователем)'
+            continue
+          }
+
+          // The chat's context window is exhausted: every further send into
+          // this chat is refused ("Length limit reached. Please start a new
+          // chat."). Retrying here is useless — the caller compacts the chat
+          // and opens a fresh one, then the SAME prompt is resent there. The
+          // resend does not consume a regular ask() attempt.
+          if (e instanceof ContextLimitError) {
+            contextLimitRetries++
+            const res = await recoverFromContextLimit(
+              {
+                recover: () => this.onContextLimit?.() ?? Promise.resolve(false),
+                maxRetries: this.maxContextLimitRetries,
+                attempt: contextLimitRetries,
+                notice: (text) => this._notice(text),
+                t: (k, p) => this._t(k, p),
+                keys: {
+                  compact: 'ds.context_limit_compact',
+                  compactFailed: 'ds.context_limit_compact_failed',
+                  giveUp: 'ds.context_limit_give_up',
+                },
+                provider: 'DeepSeek',
+              },
+              e,
+            )
+            if (!res.resend) throw res.error || e
+            // The compaction has already typed into the new chat, so the send
+            // throttle must count from that moment. Leaving `_lastSentAt` at
+            // the failed send's time adds nothing: that send never went out.
+            this._lastSentAt = Date.now()
             continue
           }
 
@@ -2457,6 +2520,12 @@ export class DeepSeekBrowser {
     while (Date.now() < startDeadline) {
       if (this._abort || this._askCancelled) return '(прервано пользователем)'
       const pageText = await this._readPageText()
+      // Checked BEFORE the rate limit and the server hiccup: DeepSeek shows the
+      // context notice INSTEAD of an answer, and both of those branches would
+      // retry the same send into a chat that can never accept it again.
+      if (isContextLimitText(pageText)) {
+        throw new ContextLimitError(pageText.slice(0, 300))
+      }
       if (isRateLimitText(pageText)) {
         throw new RateLimitError(pageText.slice(0, 300))
       }
@@ -2707,6 +2776,14 @@ export class DeepSeekBrowser {
         throw new RateLimitError(
           this._netBody.slice(0, 300) || 'rate limit (from network)',
         )
+      }
+      // The exhausted context can likewise be visible only in the captured
+      // body rather than in a toast, so ask() must see it here as well.
+      if (
+        this._netCaptureAt >= this._lastSentAt &&
+        isContextLimitText(this._netBody)
+      ) {
+        throw new ContextLimitError(this._netBody.slice(0, 300))
       }
       // The server truncated the turn (generation_err / INCOMPLETE) or ended
       // it with only reasoning. PREFER the Continue button: it RESUMES the

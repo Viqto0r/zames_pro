@@ -329,3 +329,24 @@ export function extractChatId(body: string): string | null {
   )
   return m2 ? m2[1] : null
 }
+
+/**
+ * True when the RAW body says the chat's CONTEXT WINDOW is exhausted - the
+ * same hard failure as DeepSeek's length limit: every further send into that
+ * chat is refused, so the only recovery is a compaction into a fresh chat.
+ *
+ * Same guard as the other z.ai classifiers: the notice must be an ERROR
+ * payload (or carry no answer text). The model can legitimately WRITE about
+ * context limits, and treating such an answer as a refusal loses a good turn.
+ */
+export function isContextLimitText(body: string): boolean {
+  const b = String(body || '')
+  if (!b) return false
+  const explicit =
+    /context (?:length|window) (?:is )?(?:exceeded|too long|limit)|maximum context length|exceeds? the (?:maximum |model'?s )?context|too many (?:input )?tokens|length limit (?:has been )?reached|start a new (?:chat|conversation)|лимит длин|превышен[ао]? (?:максимальн[аяу]? )?(?:длина|контекст)|начните новый чат/i.test(
+      b,
+    )
+  if (!explicit) return false
+  if (!ERROR_PAYLOAD_RE.test(b) && hasAnswerContent(b)) return false
+  return true
+}

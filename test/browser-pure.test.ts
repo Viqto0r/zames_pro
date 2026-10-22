@@ -16,10 +16,12 @@ test('browser.ts re-exports the pure helpers by identity', () => {
     'isGenerationIncompleteText',
     'isRateLimitText',
     'isServerBusyText',
+    'isContextLimitText',
     'normText',
     'RateLimitError',
     'ServerBusyError',
     'GenerationIncompleteError',
+    'ContextLimitError',
   ] as const
   for (const n of names) {
     assert.equal(
@@ -35,4 +37,12 @@ test('browser-pure: the pure helpers behave (spot checks)', () => {
   assert.equal(pure.normText('a  b\u00a0c'), 'a b c')
   assert.equal(pure.isRateLimitText('Messages too frequent.'), true)
   assert.equal(pure.isServerBusyText('Messages too frequent.'), false)
+  // The exhausted-context notice is neither a rate limit nor a server hiccup:
+  // retrying it in the same chat can never succeed.
+  assert.equal(
+    pure.isContextLimitText('Length limit reached. Please start a new chat.'),
+    true,
+  )
+  assert.equal(pure.isContextLimitText('Messages too frequent.'), false)
+  assert.equal(pure.isRateLimitText('Length limit reached.'), false)
 })

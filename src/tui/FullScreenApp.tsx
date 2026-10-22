@@ -12,7 +12,7 @@
 import React, { useSyncExternalStore } from 'react'
 import { Box, Text, useWindowSize, useInput } from 'ink'
 import { LogList } from './LogView.js'
-import { windowByRows, totalRows } from './log-window.js'
+import { windowByRows, totalRows, entryRows } from './log-window.js'
 import { StatusBar } from './StatusBar.js'
 import { InputLine, type InputLineProps } from './InputLine.js'
 import type { TuiStore } from './store.js'
@@ -118,10 +118,22 @@ export function FullScreenApp({
   // it half empty. `scroll` is measured in ROWS here (0 = newest at the
   // bottom).
   const all = state.log
+  // The viewport height is RESERVED with the floor (never more rows than the
+  // pane can hold) and the box is allowed to take the slack: rounding the
+  // reservation UP on every entry made the panel taller than the terminal on a
+  // short window, so the input rows fell below the last screen row and the
+  // caret drifted under the box while a long multi-line buffer was typed.
+  const totalFloor = totalRows(all, cols, 'floor')
   const total = totalRows(all, cols)
   const maxScroll = Math.max(0, total - logHeight)
   const scroll = Math.max(0, Math.min(state.scroll, maxScroll))
   const visible = windowByRows(all, logHeight, scroll, cols)
+  // Rows the WINDOWED content really needs. The reservation above rounds DOWN
+  // per entry (floor), so the difference is the slack the content needs. The
+  // box takes at most `logHeight` and at least one row; never more, because
+  // that is exactly what pushed the input rows off a short screen.
+  const filledRows = visible.reduce((n, e) => n + entryRows(e, cols), 0)
+  const logBoxHeight = Math.max(1, Math.min(logHeight, Math.max(filledRows, 1)))
 
   // Scroll the log with PgUp/PgDn; Home/End jump to the very top/bottom. The
   // input line OWNS Home/End while its buffer is non-empty (they move the
@@ -158,9 +170,16 @@ export function FullScreenApp({
   return (
     <Box flexDirection="column" height={termRows}>
       <Header store={store} />
+      {/* `flexGrow` instead of a fixed `height`: the pane takes whatever the
+          panel leaves, so the layout can never be taller than the terminal.
+          A fixed height that was even one row too big pushed the input rows
+          off a short screen and the caret (positioned by absolute row) drifted
+          UNDER the box while a long multi-line buffer was typed. */}
       <Box
         flexDirection="column"
-        height={logHeight}
+        flexGrow={1}
+        flexShrink={1}
+        minHeight={1}
         overflow="hidden"
         justifyContent="flex-end"
       >
@@ -177,7 +196,17 @@ export function FullScreenApp({
         {...inputProps}
         store={store}
         // Cursor rows above the input box: header + log viewport + status.
-        cursorTop={HEADER_ROWS + logHeight + suggestRows + STATUS_ROWS + 1}
+        // The log pane is FLEXIBLE now, so the panel below it starts right
+        // after everything above: header + as many log rows as fit + the
+        // suggestion popup + status. `cursorTop` counts the rows ABOVE the
+        // input rows; the box border row is added by InputLine.
+        cursorTop={
+          HEADER_ROWS +
+          Math.max(1, termRows - panelRows) +
+          suggestRows +
+          STATUS_ROWS +
+          1
+        }
         prompt={state.prompt}
         locale={state.locale}
         commands={state.commands}

@@ -147,6 +147,18 @@ export const qwenMessages: Record<string, { ru: string; en: string }> = {
     ru: '⚠ Отправка не удалась (попытка {attempt}/{max} на этот запрос): {error} — повторяю...',
     en: '⚠ Send failed (attempt {attempt}/{max} for this request): {error} — retrying...',
   },
+  'qwen.context_limit_compact': {
+    ru: '🗜️ {provider}: лимит длины чата исчерпан — сжимаю историю и продолжаю в новом чате...',
+    en: '🗜️ {provider}: the chat hit its context limit — compacting the history and continuing in a fresh chat...',
+  },
+  'qwen.context_limit_compact_failed': {
+    ru: '⚠ Не удалось сжать историю: {error}',
+    en: '⚠ Could not compact the history: {error}',
+  },
+  'qwen.context_limit_give_up': {
+    ru: '✖ {provider}: лимит длины чата исчерпан, и сжать историю не удалось. Открой новый чат (/new) и повтори задачу.',
+    en: '✖ {provider}: the chat context limit is reached and the history could not be compacted. Open a new chat (/new) and repeat the task.',
+  },
   'qwen.ask_failed': {
     ru: '✖ Не удалось получить ответ от {provider} после {max} попыток: {error}',
     en: '✖ Could not get an answer from {provider} after {max} attempts: {error}',

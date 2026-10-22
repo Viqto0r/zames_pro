@@ -295,6 +295,18 @@ export const RATE_LIMIT_RE =
 export const SERVER_BUSY_RE =
   /(server (is )?busy|server error|service (is )?unavailable|temporarily unavailable|internal server error|502|503|504|server overloaded|сервер занят|сервер перегружен|сервис недоступен|внутренняя ошибка|попробуйте позже)/i
 
+// The chat's CONTEXT WINDOW is exhausted. DeepSeek refuses to continue the
+// conversation and answers with a non-retryable notice instead of a model
+// turn: "Length limit reached. Please start a new chat." (the Russian UI:
+// «Достигнут лимит длины» / «начните новый чат»). Retrying the same send can
+// never succeed and every such attempt burned the askRetries budget, after
+// which the agent stopped with a bare error — the operator had to notice the
+// notice in the chat by hand. The only way out is compaction (a NEW chat with
+// a handover summary), so this must be its own error class, not a rate limit
+// or a server hiccup.
+export const CONTEXT_LIMIT_RE =
+  /(length limit (?:has been )?reached|context (?:window|length) (?:is )?(?:exceeded|full)|maximum context|start a new (?:chat|conversation)|достигнут лимит длин|лимит длин[ыа] (?:достигнут|исчерпан)|начните новый чат|начните нов(ый|ую) (диалог|бесед))/i
+
 // ---------- network protocol (SSE) ----------
 
 export const GENERATION_ERR_RE = /"finish_reason":\s*"generation_err"/i

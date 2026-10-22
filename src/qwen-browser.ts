@@ -32,6 +32,7 @@ import {
 } from './browser-login.js'
 import { awaitUploadPreview, readAttachBuffers } from './attach-flow.js'
 import { theme } from './theme.js'
+import { recoverFromContextLimit } from './context-limit.js'
 import type { ChatInfo, ChatMessage } from './types.js'
 import {
   scrapeQwenChatList,
@@ -107,6 +108,7 @@ import {
   isFinishedWithoutAnswer,
   isRateLimitText,
   isGuestLimitText,
+  isContextLimitText,
   isServerBusyText,
 } from './qwen-net-capture.js'
 
@@ -161,6 +163,18 @@ export interface QwenBrowserOptions {
   maxServerBusyRetries?: number
   serverBusyWaitMs?: number
   maxIncompleteRetries?: number
+  /**
+   * Compaction attempts after the chat hits its CONTEXT LIMIT before ask()
+   * gives up. Only used when onContextLimit is provided.
+   */
+  maxContextLimitRetries?: number
+  /**
+   * Recover from an exhausted context window: compact the chat and open a
+   * fresh one. Returns true when the resend may proceed. Injected by the
+   * caller (like onAutoCompact) because the recovery needs the system
+   * prompt and the session bookkeeping that live above the browser.
+   */
+  onContextLimit?: (() => Promise<boolean>) | null
   incompleteWaitMs?: number
   /**
    * How long to wait for the answer to START after a send (ms). Qwen's cold
@@ -245,6 +259,10 @@ export class QwenBrowser {
   // body is the reliable signal. ask() then backs off instead of waiting out
   // the whole answer deadline.
   _netServerBusy: boolean
+  // True when the chat's CONTEXT WINDOW is exhausted. The chat refuses every
+  // further send, so this is NOT retryable in place: the caller compacts into
+  // a fresh chat (onContextLimit) and ask() resends there.
+  _netContextLimit: boolean
   _netChatId: string | null
   _lastTokenUsage: number | null
   _toggles: { deepThinking: boolean; webSearch: boolean }
@@ -267,6 +285,11 @@ export class QwenBrowser {
   loginTimeoutMs: number
   _windowClosed: boolean
   _carryCookies: unknown[] | null
+  // Ask() budget for the context-limit recovery. A compaction that frees
+  // nothing leaves the chat just as rejected, so this is independent of
+  // askRetries.
+  maxContextLimitRetries: number
+  onContextLimit: (() => Promise<boolean>) | null
 
   constructor({
     headless = false,
@@ -283,6 +306,8 @@ export class QwenBrowser {
     serverBusyWaitMs = 3000,
     maxIncompleteRetries = 4,
     incompleteWaitMs = 2000,
+    maxContextLimitRetries = 1,
+    onContextLimit,
     startWaitMs = 30000,
     sendButtonWaitMs = 8000,
     model = '',
@@ -309,6 +334,8 @@ export class QwenBrowser {
     this.serverBusyWaitMs = serverBusyWaitMs
     this.maxIncompleteRetries = maxIncompleteRetries
     this.incompleteWaitMs = incompleteWaitMs
+    this.maxContextLimitRetries = maxContextLimitRetries
+    this.onContextLimit = onContextLimit || null
     this.startWaitMs = startWaitMs
     this.sendButtonWaitMs = sendButtonWaitMs
     this.model = model
@@ -335,6 +362,7 @@ export class QwenBrowser {
     this._netRateLimited = false
     this._netGuestLimit = false
     this._netServerBusy = false
+    this._netContextLimit = false
     this._netChatId = null
     this._lastTokenUsage = null
     this._toggles = { deepThinking, webSearch }
@@ -625,6 +653,10 @@ export class QwenBrowser {
       if (!extracted) {
         if (isFinishedWithoutAnswer(body)) {
           this._netNoAnswer = true
+          this._netCapture = ''
+        }
+        if (isContextLimitText(body)) {
+          this._netContextLimit = true
           this._netCapture = ''
         }
         if (isRateLimitText(body)) {
@@ -1795,6 +1827,9 @@ export class QwenBrowser {
     let rateLimitRetries = 0
     let serverBusyRetries = 0
     let incompleteRetries = 0
+    // The exhausted-context recovery is a COMPACTION (a new chat), not a
+    // resend, so it has its own budget.
+    let contextLimitRetries = 0
     this._askInFlight++
     try {
       while (attempt < this.askRetries) {
@@ -1820,6 +1855,34 @@ export class QwenBrowser {
             // Not retryable: a resend hits the SAME gate. Fail at once with a
             // clear "sign in" message instead of burning the retry budget.
             throw new Error(this._t('qwen.age_gate_block'))
+          }
+          // The chat ran out of context: it refuses every further send, so
+          // resending in place can never succeed. The injected callback
+          // compacts the chat into a fresh one and the SAME prompt is
+          // resent there.
+          if (e instanceof QwenContextLimitError) {
+            contextLimitRetries++
+            const res = await recoverFromContextLimit(
+              {
+                recover: () => this.onContextLimit?.() ?? Promise.resolve(false),
+                maxRetries: this.maxContextLimitRetries,
+                attempt: contextLimitRetries,
+                notice: (text) => this._notice(text),
+                t: (k, p) => this._t(k, p),
+                keys: {
+                  compact: 'qwen.context_limit_compact',
+                  compactFailed: 'qwen.context_limit_compact_failed',
+                  giveUp: 'qwen.context_limit_give_up',
+                },
+                provider: 'Qwen',
+              },
+              e,
+            )
+            if (!res.resend) throw res.error || e
+            // The compaction already typed into the new chat, so the send
+            // throttle must count from that moment.
+            this._lastSentAt = Date.now()
+            continue
           }
           if (/rate limit|too frequent/i.test(msg)) {
             if (rateLimitRetries >= this.maxRateLimitRetries) break
@@ -2062,6 +2125,7 @@ export class QwenBrowser {
     this._netRateLimited = false
     this._netGuestLimit = false
     this._netServerBusy = false
+    this._netContextLimit = false
     this._netBody = ''
 
     await this._applyToggles()
@@ -2171,6 +2235,9 @@ export class QwenBrowser {
       if (isRateLimitText(pageText)) {
         throw new QwenRateLimitError(pageText.slice(0, 300))
       }
+      if (this._netContextLimit && this._netCaptureAt >= this._lastSentAt) {
+        throw new QwenContextLimitError(this._netBody.slice(0, 300))
+      }
       if (this._netGuestLimit && this._netCaptureAt >= this._lastSentAt) {
         throw new QwenGuestLimitError(this._netBody.slice(0, 200))
       }
@@ -2204,6 +2271,9 @@ export class QwenBrowser {
       const pageText = await this._readPageText()
       if (isRateLimitText(pageText)) {
         throw new QwenRateLimitError(pageText.slice(0, 300))
+      }
+      if (this._netContextLimit && this._netCaptureAt >= this._lastSentAt) {
+        throw new QwenContextLimitError(this._netBody.slice(0, 300))
       }
       if (this._netGuestLimit && this._netCaptureAt >= this._lastSentAt) {
         throw new QwenGuestLimitError(this._netBody.slice(0, 200))
@@ -2262,6 +2332,14 @@ class QwenAgeGateError extends Error {
   constructor(detail: string) {
     super('age gate: ' + detail)
     this.name = 'QwenAgeGateError'
+  }
+}
+// The chat hit its CONTEXT LIMIT and refuses the turn. NOT retryable in
+// place: ask() compacts into a fresh chat and resends the prompt there.
+class QwenContextLimitError extends Error {
+  constructor(detail: string) {
+    super('context limit: ' + detail)
+    this.name = 'QwenContextLimitError'
   }
 }
 class QwenIncompleteError extends Error {

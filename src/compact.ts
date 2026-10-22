@@ -60,6 +60,14 @@ export interface PerformCompactOptions {
   quiet?: boolean
   /** Dev-mode BACKLOG note in the rebuilt system prompt (see system-prompt). */
   selfImprovement?: boolean
+  /**
+   * The chat hit its LENGTH limit (DeepSeek: "Length limit reached. Please
+   * start a new chat.") and refuses further messages. The summary must then be
+   * built from the HISTORY ENDPOINT instead of asking the OLD chat to
+   * summarize itself: that send is rejected exactly like the one that failed,
+   * so the 3 attempts only burn rate-limit budget.
+   */
+  contextExhausted?: boolean
 }
 
 export interface PerformCompactResult {
@@ -99,6 +107,7 @@ export async function performCompact(
     skipUiLock = false,
     quiet = false,
     selfImprovement = false,
+    contextExhausted = false,
   } = opts
   const t = translate(locale)
   const log = (msg: string): void => {
@@ -140,10 +149,17 @@ export async function performCompact(
       if (out) transcript?.log('hook_pre_compact', { output: out })
     } catch {}
 
-    // 1) Ask the OLD chat to summarize itself.
+    // 1) Ask the OLD chat to summarize itself. On an EXHAUSTED chat that send
+    // is refused ("Length limit reached"), so go straight to the local
+    // fallback below — retrying the refused send wastes minutes on the rate
+    // limit and can never produce a summary.
     let summary = ''
     let summaryErr = ''
-    for (let attempt = 1; attempt <= COMPACT_SUMMARY_ATTEMPTS; attempt++) {
+    for (
+      let attempt = 1;
+      !contextExhausted && attempt <= COMPACT_SUMMARY_ATTEMPTS;
+      attempt++
+    ) {
       let prompt = buildCompactPrompt(locale)
       if (attempt > 1) {
         prompt +=
@@ -223,18 +239,39 @@ export async function performCompact(
     })
 
     // 2) New chat + system prompt + the summary as the first message.
-    await browser.newChat()
-    await browser.ask(
-      buildSystemPrompt({ workdir, tools, locale, selfImprovement }),
-      {
+    // The recovery path (contextExhausted) is RE-ENTRANT: this compaction was
+    // started BY a refused send, so a refusal during these sends would call
+    // back into compaction while it is still running. Drop the callback for
+    // the duration — by now the exhausted chat is behind us and a refusal here
+    // means the compaction itself cannot proceed, which the caller reports.
+    const prevOnContextLimit = (
+      browser as { onContextLimit?: (() => Promise<boolean>) | null }
+    ).onContextLimit
+    if (contextExhausted && 'onContextLimit' in browser) {
+      ;(
+        browser as { onContextLimit?: (() => Promise<boolean>) | null }
+      ).onContextLimit = null
+    }
+    try {
+      await browser.newChat()
+      await browser.ask(
+        buildSystemPrompt({ workdir, tools, locale, selfImprovement }),
+        {
+          timeout: 60_000,
+          agent: false,
+        },
+      )
+      await browser.ask(buildCompactCarryover(summary, task), {
         timeout: 60_000,
         agent: false,
-      },
-    )
-    await browser.ask(buildCompactCarryover(summary, task), {
-      timeout: 60_000,
-      agent: false,
-    })
+      })
+    } finally {
+      if (contextExhausted && 'onContextLimit' in browser) {
+        ;(
+          browser as { onContextLimit?: (() => Promise<boolean>) | null }
+        ).onContextLimit = prevOnContextLimit || null
+      }
+    }
 
     const newChatId = browser.getCurrentChatId
       ? await browser.getCurrentChatId()

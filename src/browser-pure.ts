@@ -3,6 +3,7 @@ import os from 'os'
 import fs from 'fs/promises'
 import { chromium } from 'playwright'
 import {
+  CONTEXT_LIMIT_RE,
   GENERATION_ERR_RE,
   GENERATION_TIMEOUT_RE,
   INCOMPLETE_STATUS_RE,
@@ -333,6 +334,14 @@ export function isRateLimitText(text: string): boolean {
   return RATE_LIMIT_RE.test(String(text || ''))
 }
 
+// The chat ran out of context: DeepSeek answers "Length limit reached. Please
+// start a new chat." and will refuse every further send into this chat. Distinct
+// from the rate limit (which clears with time) and from a server hiccup — the
+// only recovery is compaction, so ask() must not retry in the same chat.
+export function isContextLimitText(text: string): boolean {
+  return CONTEXT_LIMIT_RE.test(String(text || ''))
+}
+
 export function isServerBusyText(text: string): boolean {
   const t = String(text || '')
   // Rate limit takes priority (it needs the long wait).
@@ -362,6 +371,17 @@ export class ServerBusyError extends Error {
   constructor(detail: string) {
     super('Server busy. Try again later. ' + detail)
     this.name = 'ServerBusyError'
+  }
+}
+
+// The chat's context window is exhausted ("Length limit reached. Please start
+// a new chat."). The server rejects EVERY send into this chat, so a retry in
+// place is pointless: the caller must compact (open a NEW chat with a handover
+// summary) and only then resend.
+export class ContextLimitError extends Error {
+  constructor(detail: string) {
+    super('Chat context limit reached. ' + detail)
+    this.name = 'ContextLimitError'
   }
 }
 

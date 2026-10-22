@@ -40,13 +40,25 @@ function visWidth(s: string): number {
  * How many terminal rows one log entry occupies at `cols` columns. A line
  * longer than the width wraps (Ink uses hard wrapping for these rows). An
  * empty line still takes one row.
+ *
+ * `floor` gives the UNDER-estimate used to RESERVE the log viewport height;
+ * the exact `ceil` is what the content really renders, so the two together let
+ * the log box take the slack (see FullScreenApp) without ever overflowing —
+ * an overflow is what pushed the input rows below the terminal and left the
+ * caret drifting under the box on a short terminal.
  */
-export function entryRows(entry: LogEntry, cols: number): number {
+export function entryRows(
+  entry: LogEntry,
+  cols: number,
+  mode: 'exact' | 'floor' = 'exact',
+): number {
   const width = Math.max(1, cols)
   const lines = String(entry.text ?? '').split(String.fromCharCode(10))
   let rows = 0
   for (const line of lines) {
-    rows += Math.max(1, Math.ceil(visWidth(line) / width))
+    const w = visWidth(line)
+    const n = mode === 'floor' ? Math.floor(w / width) : Math.ceil(w / width)
+    rows += Math.max(1, n)
   }
   return Math.max(1, rows)
 }
@@ -54,8 +66,9 @@ export function entryRows(entry: LogEntry, cols: number): number {
 /**
  * Slice the log so its RENDERED height fits `height` rows, keeping `scroll`
  * rows hidden from the bottom (0 = pinned to the newest). Returns the visible
- * entries. A single entry taller than the viewport is kept whole (its tail is
- * shown) rather than dropped.
+ * entries. A single entry taller than the viewport is kept whole (its tail
+ * is shown) rather than dropped — the pane is overflow="hidden" with
+ * justifyContent="flex-end", so the TAIL is what stays on screen.
  */
 export function windowByRows(
   entries: LogEntry[],
@@ -89,8 +102,12 @@ export function windowByRows(
 }
 
 /** Total rendered rows of a list of entries (for maxScroll). */
-export function totalRows(entries: LogEntry[], cols: number): number {
+export function totalRows(
+  entries: LogEntry[],
+  cols: number,
+  mode: 'exact' | 'floor' = 'exact',
+): number {
   let n = 0
-  for (const e of entries) n += entryRows(e, cols)
+  for (const e of entries) n += entryRows(e, cols, mode)
   return n
 }
