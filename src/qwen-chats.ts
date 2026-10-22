@@ -107,6 +107,25 @@ export function scrapeQwenChatMessages(
  *   { data: [ {id,title} ] }, { data: { chats: [...] } }, { data: { list: [...] } }.
  * Returns [] for anything unrecognizable (never throws).
  */
+/**
+ * Unwrap the list out of its wrappers: `{chats:[…]}`, `{list:{page,data:[…]}}`.
+ * A paginated reply nests the wrapper INSIDE the wrapper, and treating that
+ * inner object as an id-keyed map made its own key (`'data'`, `'list'`) look
+ * like a chat id. A plain id-keyed map (no known wrapper key) is returned
+ * as-is, because that is a legitimate shape too.
+ */
+function unwrapChatList(data: unknown): unknown {
+  let cur = data
+  for (let depth = 0; depth < 3; depth++) {
+    if (!cur || typeof cur !== 'object' || Array.isArray(cur)) return cur
+    const o = cur as Record<string, unknown>
+    const inner = o.chats ?? o.list ?? o.items ?? o.data
+    if (inner === undefined) return cur
+    cur = inner
+  }
+  return cur
+}
+
 export function parseQwenChatList(json: unknown): ChatInfo[] {
   const root = json as { data?: unknown } | null
   // A BARE array (no `data` wrapper) is the simplest shape the endpoint can
@@ -122,10 +141,7 @@ export function parseQwenChatList(json: unknown): ChatInfo[] {
       ? // A bare map keyed by chat id (the same convention as the history
         // shape) has no `chats`/`list`/`items` wrapper: without this fallback
         // a legitimate list was rejected and /chats printed "(none)".
-        ((data as Record<string, unknown>).chats ??
-        (data as Record<string, unknown>).list ??
-        (data as Record<string, unknown>).items ??
-        data)
+        unwrapChatList(data)
       : null
   const keyed: Array<[string, unknown]> | null = Array.isArray(arr)
     ? null
