@@ -112,13 +112,21 @@ export function extractAtFileRefs(text: string): string[] {
       continue
     }
     const prev = i > 0 ? chars[i - 1] : ''
-    if (prev && !isRefBoundary(prev)) {
+    // A comma separates list items: `@a.ts,@b.ts` is TWO references. The
+    // comma itself is not a boundary (it is stripped as prose punctuation),
+    // so without this the second `@` never started a new scan and its file was
+    // never inlined.
+    if (prev && !isRefBoundary(prev) && prev !== ',') {
       i++
       continue
     }
     let j = i + 1
     let tok = ''
     while (j < n && !isRefEnd(chars[j])) {
+      // A COMMA directly followed by another `@` starts the NEXT reference:
+      // `@a.ts,@b.ts` is a list, and scanning to whitespace made the whole
+      // `a.ts,@b.ts` one path, so neither file was inlined.
+      if (chars[j] === ',' && chars[j + 1] === '@') break
       tok += chars[j]
       j++
     }
@@ -127,7 +135,11 @@ export function extractAtFileRefs(text: string): string[] {
       seen.add(cleaned)
       out.push(cleaned)
     }
-    i = j > i + 1 ? j : i + 1
+    // The break above leaves `j` ON the comma; step past it so the next `@`
+    // is seen as the start of a reference. When the scan ended on a
+    // terminator instead, continue AFTER it.
+    if (chars[j] === ',' && chars[j + 1] === '@') i = j + 1
+    else i = j > i + 1 ? j : i + 1
   }
   return out
 }
