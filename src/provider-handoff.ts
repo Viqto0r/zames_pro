@@ -75,8 +75,29 @@ export function buildHandoffText(h: {
 export function saveProviderHandoff(h: ProviderHandoff): void {
   try {
     fs.mkdirSync(ZAMES_HOME, { recursive: true })
+    // There is ONE handoff file for all projects, and save used to overwrite
+    // it unconditionally: switching providers in project B silently dropped
+    // the UNCONSUMED handoff of project A. A pending handoff for another
+    // workdir is kept in a per-workdir side file so both survive.
+    let pending: ProviderHandoff | null = null
+    try {
+      pending = JSON.parse(fs.readFileSync(HANDOFF_FILE, 'utf-8'))
+    } catch {}
+    if (pending && typeof pending.summary === 'string') {
+      if (sameDir(pending.workdir, h.workdir)) {
+        writeJsonAtomic(HANDOFF_FILE, h)
+        return
+      }
+      writeJsonAtomic(sideHandoffFile(pending.workdir), pending)
+    }
     writeJsonAtomic(HANDOFF_FILE, h)
   } catch {}
+}
+
+/** A per-workdir copy of a handoff displaced from the global file. */
+function sideHandoffFile(workdir: string): string {
+  const key = Buffer.from(String(workdir || '')).toString('base64url')
+  return path.join(ZAMES_HOME, 'provider-handoff-' + key + '.json')
 }
 
 /**
@@ -96,8 +117,30 @@ export function readProviderHandoff(
       return null
     }
     if (raw.provider !== provider) return null
-    if (!sameDir(raw.workdir, workdir)) return null
+    if (!sameDir(raw.workdir, workdir)) {
+      // The global file may hold another project's handoff; this project's
+      // own one (displaced by a later switch) lives in its side file.
+      return readSideHandoff(provider, workdir)
+    }
     return raw
+  } catch {
+    return null
+  }
+}
+
+function readSideHandoff(
+  provider: ProviderId,
+  workdir: string,
+): ProviderHandoff | null {
+  try {
+    const raw = JSON.parse(
+      fs.readFileSync(sideHandoffFile(workdir), 'utf-8'),
+    ) as ProviderHandoff | null
+    if (!raw || typeof raw.summary !== 'string' || !raw.summary.trim()) {
+      return null
+    }
+    if (raw.provider !== provider) return null
+    return sameDir(raw.workdir, workdir) ? raw : null
   } catch {
     return null
   }
