@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.42] - 2026-10-22
+
+### Fixed
+
+- **throttle:** let a forced Retry-After wait expire
+
 ## [2.82.41] - 2026-10-22
 
 ### Fixed
