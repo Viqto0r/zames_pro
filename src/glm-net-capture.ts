@@ -184,7 +184,15 @@ export function extractTokenUsage(body: string): number | null {
   if (lastTotal !== null) return lastTotal
   try {
     const obj = JSON.parse(body) as Record<string, unknown>
-    const usage = obj?.usage as Record<string, unknown> | undefined
+    // A non-streamed reply keeps `usage` inside the same `chat:completion`
+    // envelope as the SSE stream (`data.usage`); reading only the top level
+    // lost the counter entirely.
+    const envelope =
+      obj?.data && typeof obj.data === 'object'
+        ? (obj.data as Record<string, unknown>)
+        : null
+    const usage = ((envelope ? envelope.usage : undefined) ?? obj?.usage) as
+      Record<string, unknown> | undefined
     if (usage) {
       if (typeof usage.prompt_tokens === 'number') return usage.prompt_tokens
       if (typeof usage.total_tokens === 'number') return usage.total_tokens
