@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.13] - 2026-10-22
+
+### Fixed
+
+- **qwen:** parse a bare-array history reply on resume
+
 ## [2.82.12] - 2026-10-22
 
 ### Fixed
