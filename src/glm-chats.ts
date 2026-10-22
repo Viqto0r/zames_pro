@@ -170,12 +170,47 @@ export function parseGlmHistory(json: unknown): ChatMessage[] {
     .sort((a, b) => (Number(a.timestamp) || 0) - (Number(b.timestamp) || 0))
   const out: ChatMessage[] = []
   for (const m of sorted) {
+    // The role has been `role` (string, case-insensitive) or `from`
+    // (`human`/`assistant`, z.ai's older spelling). Reading only `role`
+    // attributed a `from: 'human'` turn to the model.
     const roleStr = String(m.role ?? '').toLowerCase()
-    const isUser = roleStr === 'user' || roleStr === 'human'
+    const fromStr = String(m.from ?? '').toLowerCase()
+    // A SYSTEM/TOOL turn is neither the operator nor the model's answer: z.ai's
+    // own system prompt and the sandbox output of its agent runtime used to be
+    // restored as model REPLIES (the Qwen parser drops those roles too).
+    if (/^(system|tool)$/.test(roleStr) || /^(system|tool)$/.test(fromStr)) {
+      continue
+    }
+    // A numeric flag uses 1 = user, 2 = assistant (the same convention as
+    // Qwen's history); anything else is matched by name.
+    const isUser =
+      roleStr === 'user' ||
+      roleStr === 'human' ||
+      roleStr === '1' ||
+      fromStr === 'user' ||
+      fromStr === 'human'
     const role: ChatMessage['role'] = isUser ? 'user' : 'assistant'
     let text = ''
     if (typeof m.content === 'string') text = m.content
     else if (typeof m.text === 'string') text = m.text
+    else if (Array.isArray(m.fragments)) {
+      const want = role === 'assistant' ? 'RESPONSE' : 'REQUEST'
+      for (const fr of m.fragments as Array<Record<string, unknown>>) {
+        if (fr && fr.type === want && typeof fr.content === 'string') {
+          text += fr.content
+        }
+      }
+    }
+    // `content_list` (phase-split output) is used when `content` is empty; the
+    // reasoning phase must never leak into the restored dialogue as the answer.
+    if (!text && Array.isArray(m.content_list)) {
+      for (const part of m.content_list as Array<Record<string, unknown>>) {
+        if (!part || typeof part.content !== 'string') continue
+        const phase = String(part.phase ?? part.type ?? '')
+        if (/think|reason/i.test(phase)) continue
+        text += part.content
+      }
+    }
     text = text.trim()
     if (text) out.push({ role, text })
   }
