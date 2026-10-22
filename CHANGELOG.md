@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.2] - 2026-10-22
+
+### Fixed
+
+- **banner:** a zero content width still renders the real fields
+
 ## [2.82.1] - 2026-10-22
 
 ### Fixed
