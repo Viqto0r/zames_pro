@@ -83,15 +83,12 @@ export function summarizeSends(
       const t = Date.parse(e.at)
       return Number.isFinite(t) && now - t <= ms
     }).length
+  // `blockMs` may arrive as a NUMBER (the writer) or a string (an older
+  // build, a hand-edited file): a numeric string is accepted so the average
+  // is not silently 0 for a file that records the block.
   const blocks = events
-    .filter(
-      (e) =>
-        e.outcome === 'rate_limit' &&
-        typeof e.blockMs === 'number' &&
-        Number.isFinite(e.blockMs) &&
-        e.blockMs >= 0,
-    )
-    .map((e) => e.blockMs as number)
+    .map((e) => Number(e.blockMs))
+    .filter((n) => Number.isFinite(n) && n >= 0)
   const avgBlockMs = blocks.length
     ? Math.round(blocks.reduce((a, b) => a + b, 0) / blocks.length)
     : 0
