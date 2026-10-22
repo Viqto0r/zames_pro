@@ -63,9 +63,13 @@ export function htmlToText(html: string): string {
     },
   )
 
-  // Headings, paragraphs, BR → newlines
+  // Headings, paragraphs, BR → newlines. A table CELL ends with a space: the
+  // cells are joined without any separator otherwise, so `<td>Name</td>`
+  // `<td>42</td>` became `Name42` — two independent values fused into one, and
+  // the model reported a number that never appeared on the page.
   s = s
     .replace(/<\/(h[1-6]|p|div|li|tr|section|article)>/gi, '\n')
+    .replace(/<\/(td|th)>/gi, ' ')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<li[^>]*>/gi, '- ')
     .replace(/<[^>]+>/g, '')
