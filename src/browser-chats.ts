@@ -44,7 +44,16 @@ export function parseHistoryMessages(messages: unknown): {
   const list: ChatMessage[] = []
   let usage: number | null = null
   for (const raw of messages as RawHistoryMessage[]) {
-    if (raw && typeof raw.accumulated_token_usage === 'number') {
+    // A token counter is a FINITE NON-NEGATIVE number. A negative value is a
+    // nonsense payload; it used to become browser._lastTokenUsage as-is, so
+    // the context badge vanished (tokenStatusLevel rejects a negative count)
+    // and the auto-compact percentage went negative and never fired.
+    if (
+      raw &&
+      typeof raw.accumulated_token_usage === 'number' &&
+      Number.isFinite(raw.accumulated_token_usage) &&
+      raw.accumulated_token_usage >= 0
+    ) {
       usage = raw.accumulated_token_usage
     }
     // Roles are matched case-insensitively, and a turn that is neither the
