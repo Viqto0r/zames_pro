@@ -167,6 +167,17 @@ export function createSubagentRunner(
     // attempts burned the whole budget on runs that never started.
     used++
 
+    // The model is told to fill `description` (a short label for the log/UI).
+    // Without logging it every subagent turn in the transcript was anonymous,
+    // so a long run could not be attributed to a sub-task.
+    try {
+      transcript?.log('subagent_start', {
+        type: req.type,
+        description: req.description || '',
+        promptChars: String(req.prompt || '').length,
+      })
+    } catch {}
+
     const subTools = buildTools(req.type === 'explore')
 
     const taskText =
