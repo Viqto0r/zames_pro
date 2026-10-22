@@ -73,7 +73,10 @@ export function splitPaths(input: string): string[] {
       quote = ch
       continue
     }
-    if (ch === ' ' || ch === '\t' || ch === '\n') {
+    if (ch === ' ' || ch === '\t' || ch === '\n' || ch === ',') {
+      // A COMMA separates pathspecs too: models write lists the prose way
+      // (`"a.txt, b.txt"`), and leaving it on the first path made git look for
+      // a file whose name ends with a comma.
       if (cur) out.push(cur)
       cur = ''
       continue
