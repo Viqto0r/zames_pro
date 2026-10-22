@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.41] - 2026-10-22
+
+### Fixed
+
+- **telemetry:** accept a stringified blockMs in the average
+
 ## [2.82.40] - 2026-10-22
 
 ### Fixed
