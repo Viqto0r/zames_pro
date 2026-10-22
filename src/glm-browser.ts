@@ -1487,6 +1487,11 @@ export class GlmBrowser {
   _uiCapabilities(): UiCapabilitySpec[] {
     return [
       { capability: 'input', selectors: INPUT_SELECTORS, critical: true },
+      // z.ai's send button is present on an idle page (a disabled
+      // `button#send-message-button`), so a missing one is a REAL failure: the
+      // prompt would be typed and never submitted. Without this entry the page
+      // reported healthy while no send control existed.
+      { capability: 'send', selectors: SEND_SELECTORS, critical: true },
       { capability: 'toggles', selectors: [], critical: false },
       {
         capability: 'newChat',

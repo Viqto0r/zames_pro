@@ -21,7 +21,12 @@ function fakeBrowser(
   const b = new GlmBrowser({ headless: true, locale: 'en' })
   const counts = opts.counts || {}
   const makeLocator = (sel: string): Record<string, unknown> => {
-    const hit = counts[sel] ?? (sel === 'textarea#chat-input' ? 1 : 0)
+    // The live idle page HAS the input and a (disabled) send button.
+    const hit =
+      counts[sel] ??
+      (sel === 'textarea#chat-input' || sel === 'button#send-message-button'
+        ? 1
+        : 0)
     const loc: Record<string, unknown> = {
       count: async () => hit,
       last: () => makeLocator(sel),
@@ -99,7 +104,9 @@ test('the UI capability list probes only ALWAYS-present controls', () => {
   const b = new GlmBrowser({ headless: true, locale: 'en' })
   const caps = b._uiCapabilities()
   const critical = caps.filter((c) => c.critical).map((c) => c.capability)
-  // The send button appears only after text is typed, so it must NOT be
-  // critical (a probe on an idle page would report a false negative).
-  assert.deepEqual(critical, ['input'])
+  // z.ai keeps the send button in the DOM on an idle page (a disabled
+  // `button#send-message-button`), so it is a legitimate CRITICAL capability:
+  // without it the prompt would be typed and never submitted. A capability
+  // that only appears AFTER typing must never be critical.
+  assert.deepEqual(critical, ['input', 'send'])
 })
