@@ -238,7 +238,16 @@ export function formatRelativeTime(
   if (!iso) return ''
   const then = Date.parse(iso)
   if (!Number.isFinite(then)) return ''
-  const diff = Math.max(0, now - then)
+  // A slightly future timestamp is CLOCK SKEW (a session file copied from a
+  // machine with a faster clock, a sub-second rounding) and reads "just now".
+  // A DISTANT future date (a corrupted `updatedAt`, a year-9999 value) must
+  // not pretend the session was updated now: say it is in the future.
+  const skew = now - then
+  if (skew < -24 * 3600 * 1000) {
+    const ahead = Math.max(1, Math.floor(-skew / 86_400_000))
+    return t('time.in_future', { n: String(ahead) })
+  }
+  const diff = Math.max(0, skew)
   const min = Math.floor(diff / 60_000)
   if (min < 1) return t('time.now')
   if (min < 60) return t('time.min_ago', { n: String(min) })

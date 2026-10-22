@@ -166,6 +166,7 @@ export const selfReviewMessages: Record<string, { ru: string; en: string }> = {
   'time.min_ago': { ru: '{n} мин назад', en: '{n}m ago' },
   'time.hour_ago': { ru: '{n} ч назад', en: '{n}h ago' },
   'time.day_ago': { ru: '{n} дн назад', en: '{n}d ago' },
+  'time.in_future': { ru: 'через {n} дн', en: 'in {n}d' },
   'sessions.dir': { ru: 'Папка сессий: {v}', en: 'Sessions dir: {v}' },
   'sessions.none': {
     ru: 'Сохранённых сессий нет. Они появятся после первой задачи/чата.',
