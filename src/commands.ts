@@ -212,7 +212,11 @@ export function formatDuration(
   ms: number,
   units: DurationUnits = EN_DURATION_UNITS,
 ): string {
-  const total = Math.max(0, Math.round(ms / 1000))
+  // A non-finite input (NaN/Infinity from a clock jump or a subtraction of an
+  // absent timestamp) must not leak into the text: `Math.round(NaN)` stayed
+  // NaN and /cost printed "длительность: NaNs". Render it as zero.
+  const safeMs = typeof ms === 'number' && Number.isFinite(ms) ? ms : 0
+  const total = Math.max(0, Math.round(safeMs / 1000))
   const h = Math.floor(total / 3600)
   const m = Math.floor((total % 3600) / 60)
   const s = total % 60
