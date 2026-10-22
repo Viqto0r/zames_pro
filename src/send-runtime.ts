@@ -120,6 +120,11 @@ export class SendRuntime {
     }
     if (this.opts.adaptive) {
       this.state = applySendEvent(this.state, e, this.cfg, this.now())
+    } else if (outcome === 'rate_limit' && !this.state.blockedAt) {
+      // The block START is telemetry bookkeeping, not learning: with the
+      // adaptive throttle off the fold above is skipped, so a rate-limit
+      // event used to carry NO blockMs and /limits could not average it.
+      this.state = { ...this.state, blocked: true, blockedAt: this.now() }
     }
     if (outcome === 'rate_limit') {
       e = withBlockDuration(e, this.state.blockedAt, this.now())
