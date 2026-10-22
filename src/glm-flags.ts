@@ -48,6 +48,13 @@ export function readGlmBodyFeatures(body: unknown): GlmBodyFeatures {
   }
   if (Array.isArray(feat.flags)) {
     out.flags = feat.flags.filter((x): x is string => typeof x === 'string')
+  } else if (feat.flags && typeof feat.flags === 'object') {
+    // Some builds send the flags as an OBJECT MAP (`{"general_agent": true}`)
+    // instead of an array. Reading only the array shape turned a map into "no
+    // flags", so z.ai's own agent runtime was reported as OFF.
+    out.flags = Object.entries(feat.flags as Record<string, unknown>)
+      .filter(([, v]) => v === true || (typeof v === 'string' && v !== 'false'))
+      .map(([k]) => k)
   }
   return out
 }
