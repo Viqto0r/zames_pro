@@ -696,6 +696,14 @@ function parseConfigValue(field: ConfigField, raw: string): unknown {
       if (raw.trim() === '') throw new Error('number')
       const n = Number(raw)
       if (!Number.isFinite(n)) throw new Error('number')
+      // Every numeric setting is a COUNT or a MILLISECOND amount, and the code
+      // that consumes it compares/loops it as an integer (`attempt <
+      // this.askRetries`, `used >= maxSubagents`, a setTimeout delay). A
+      // fraction was accepted and then behaved unpredictably: a budget of
+      // 0.4 subagents printed "0.4" while refusing nothing on the first run,
+      // and 5.7 retries meant "5 attempts plus half an attempt". `5.0` is a
+      // legitimate way to type 5, so only a REAL fraction is rejected.
+      if (!Number.isInteger(n)) throw new Error('number')
       if (field.min !== undefined && n < field.min) throw new Error('number')
       if (field.max !== undefined && n > field.max) throw new Error('number')
       return n
