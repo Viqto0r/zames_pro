@@ -312,13 +312,21 @@ export function runFile(
   signal?: AbortSignal,
   okExitCodes: number[] = [],
 ): Promise<string> {
+  // execFile validates `timeout` SYNCHRONOUSLY (`ERR_OUT_OF_RANGE` for a
+  // negative, fractional or non-numeric value) and the throw would escape this
+  // promise, so a sloppy call crashed the tool instead of returning a result.
+  // Normalize to the unsigned-integer contract, like runShell does.
+  const safeTimeout =
+    typeof timeout === 'number' && Number.isFinite(timeout) && timeout >= 0
+      ? Math.floor(timeout)
+      : 30_000
   return new Promise((resolve) => {
     execFile(
       file,
       args,
       {
         cwd: workdir,
-        timeout,
+        timeout: safeTimeout,
         maxBuffer: 1024 * 1024 * 8,
         windowsHide: true,
         env: { ...process.env },
@@ -326,7 +334,13 @@ export function runFile(
       },
       (err, stdout, stderr) => {
         resolve(
-          formatExecResult(err as never, stdout, stderr, timeout, okExitCodes),
+          formatExecResult(
+            err as never,
+            stdout,
+            stderr,
+            safeTimeout,
+            okExitCodes,
+          ),
         )
       },
     )
