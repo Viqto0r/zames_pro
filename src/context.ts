@@ -700,9 +700,16 @@ function touchedDirs(workdir: string, text: string): string[] {
     if (!/[\\/]/.test(w) && !/\.[A-Za-z0-9]{1,8}$/.test(w)) continue
     const abs = path.isAbsolute(w) ? w : path.resolve(root, w)
     if (abs !== root && !abs.startsWith(root + path.sep)) continue
-    // Walk from the deepest directory that actually exists up to the root.
+    // Walk from the deepest directory that actually exists up to the root. A
+    // token that names a FILE (`sub/file.ts`) is not a directory: starting the
+    // climb at it never found a directory and the scoped rules were silently
+    // dropped for the most common way to name a file in a task.
     let dir = abs
     let st = statSyncSafe(dir)
+    if (st && !st.isDirectory()) {
+      dir = path.dirname(dir)
+      st = statSyncSafe(dir)
+    }
     while (!st && dir !== root && dir.startsWith(root + path.sep)) {
       dir = path.dirname(dir)
       st = statSyncSafe(dir)
