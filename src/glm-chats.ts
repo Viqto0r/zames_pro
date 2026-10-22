@@ -104,19 +104,18 @@ export function scrapeGlmChatMessages(
  * anything unrecognizable (never throws).
  */
 export function parseGlmChatList(json: unknown): ChatInfo[] {
+  // Unwrap up to THREE levels of list wrappers: a paginated reply nests them
+  // (`{data:{list:{page,data:[…]}}}`, `{chats:{page,data:[…]}}`). Leaving an
+  // inner wrapper in place made its KEY (`'data'`/`'list'`) look like a chat id
+  // with an empty title, so /chats showed one fake chat and hid the real ones.
+  // A bare id-keyed MAP of chats has none of these keys and is kept as-is.
   let arr: unknown = json
-  if (arr && typeof arr === 'object' && !Array.isArray(arr)) {
+  for (let depth = 0; depth < 3; depth++) {
+    if (!arr || typeof arr !== 'object' || Array.isArray(arr)) break
     const o = arr as Record<string, unknown>
-    // A wrapper key wins; otherwise the object itself is an id-keyed MAP
-    // of chats (a real alternative shape), not an empty list.
-    arr = o.data ?? o.chats ?? o.list ?? o.items ?? arr
-    // A paginated endpoint wraps TWICE (`{data:{chats:[…]}}`); leaving the
-    // inner wrapper in place made its KEY look like a chat id (`'chats'`) with
-    // an empty title, so /chats listed one fake chat and hid the real ones.
-    if (arr && typeof arr === 'object' && !Array.isArray(arr)) {
-      const inner = arr as Record<string, unknown>
-      arr = inner.chats ?? inner.list ?? inner.items ?? arr
-    }
+    const next = o.data ?? o.chats ?? o.list ?? o.items
+    if (next === undefined) break
+    arr = next
   }
   const keyed: Array<[string, unknown]> | null = Array.isArray(arr)
     ? null
