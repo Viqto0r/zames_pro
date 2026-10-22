@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.47] - 2026-10-22
+
+### Fixed
+
+- **checkpoint:** take the pre-rewind backup after a successful extract
+
 ## [2.82.46] - 2026-10-22
 
 ### Fixed
