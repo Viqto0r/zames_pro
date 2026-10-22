@@ -53,6 +53,11 @@ export class UndoStore {
     filePath: string,
   ): Promise<Omit<UndoRecord, 'backupFile'> | null> {
     if (!this.enabled) return null
+    // A retention of ZERO means "keep nothing": the record would be pushed and
+    // immediately shifted out (with its .bak unlinked) while the caller was
+    // told the backup happened — /undo then had nothing to revert. Report
+    // honestly that no backup was taken.
+    if (this.maxBackups <= 0) return null
     await this._ensure()
 
     let content: Buffer | null = null
