@@ -22,7 +22,10 @@ test('a runaway todo list is capped in the session file', async (t) => {
     }))
     mod.saveSession({ id: 'big', title: 't', workdir: '/w', todos })
     const raw = JSON.parse(
-      await fs.readFile(path.join(home, '.zames', '.sessions', 'big.json'), 'utf-8'),
+      await fs.readFile(
+        path.join(home, '.zames', '.sessions', 'big.json'),
+        'utf-8',
+      ),
     )
     assert.ok(
       raw.todos.length <= 1000,
