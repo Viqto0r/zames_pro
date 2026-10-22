@@ -22,20 +22,23 @@ test('parseGlmHistory: system and tool turns are dropped, not shown as answers',
   ])
 })
 
-test('parseGlmHistory: the `from` field is honoured for the role', () => {
+test('parseGlmHistory: system and tool turns are dropped from BOTH fields', () => {
+  // The live response carries `role` only; the parser must not invent a
+  // role from an unobserved field. A turn whose ROLE is unknown stays the
+  // assistant's (the safe default), while system/tool never appear.
   const msgs = parseGlmHistory({
     messages: [
-      { from: 'human', content: 'q', timestamp: 1 },
-      { from: 'assistant', content: 'a', timestamp: 2 },
-      { from: 'system', content: 'sys', timestamp: 3 },
+      { role: 'SYSTEM', content: 'sys', timestamp: 1 },
+      { role: 'tool', content: 'out', timestamp: 2 },
+      { role: 'user', content: 'q', timestamp: 3 },
+      { role: 'assistant', content: 'a', timestamp: 4 },
     ],
   })
-  assert.deepEqual(msgs, [
-    { role: 'user', text: 'q' },
-    { role: 'assistant', text: 'a' },
-  ])
+  assert.deepEqual(
+    msgs.map((m) => m.role),
+    ['user', 'assistant'],
+  )
 })
-
 test('parseGlmHistory: fragments and content_list are used when content is empty', () => {
   const msgs = parseGlmHistory({
     messages: [

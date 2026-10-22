@@ -170,29 +170,22 @@ export function parseGlmHistory(json: unknown): ChatMessage[] {
     .sort((a, b) => (Number(a.timestamp) || 0) - (Number(b.timestamp) || 0))
   const out: ChatMessage[] = []
   for (const m of sorted) {
-    // The role has been `role` (string, case-insensitive) or `from`
-    // (`human`/`assistant`, z.ai's older spelling). Reading only `role`
-    // attributed a `from: 'human'` turn to the model.
+    // The role comes from `role` (confirmed by the live fixture). Only the
+    // values the API actually uses are matched: a numeric flag or a `from`
+    // field was never observed on z.ai and guessing at it would silently
+    // re-attribute turns.
     const roleStr = String(m.role ?? '').toLowerCase()
-    const fromStr = String(m.from ?? '').toLowerCase()
     // A SYSTEM/TOOL turn is neither the operator nor the model's answer: z.ai's
     // own system prompt and the sandbox output of its agent runtime used to be
     // restored as model REPLIES (the Qwen parser drops those roles too).
-    if (/^(system|tool)$/.test(roleStr) || /^(system|tool)$/.test(fromStr)) {
-      continue
-    }
-    // A numeric flag uses 1 = user, 2 = assistant (the same convention as
-    // Qwen's history); anything else is matched by name.
-    const isUser =
-      roleStr === 'user' ||
-      roleStr === 'human' ||
-      roleStr === '1' ||
-      fromStr === 'user' ||
-      fromStr === 'human'
+    if (/^(system|tool)$/.test(roleStr)) continue
+    const isUser = roleStr === 'user' || roleStr === 'human'
     const role: ChatMessage['role'] = isUser ? 'user' : 'assistant'
     let text = ''
     if (typeof m.content === 'string') text = m.content
     else if (typeof m.text === 'string') text = m.text
+    // `fragments` is the DeepSeek-style payload (kept as a safety net for a
+    // build that reuses it): REQUEST is the user turn, RESPONSE the answer.
     else if (Array.isArray(m.fragments)) {
       const want = role === 'assistant' ? 'RESPONSE' : 'REQUEST'
       for (const fr of m.fragments as Array<Record<string, unknown>>) {
