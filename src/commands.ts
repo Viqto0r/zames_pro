@@ -952,6 +952,10 @@ export function parseGoalCommand(
   if (rest === '') return { sub: 'show' }
   if (rest.toLowerCase() === 'clear' || rest.toLowerCase() === 'off')
     return { sub: 'clear' }
+  // `/goal on` is the natural way to RE-ENABLE a goal after `/goal clear`;
+  // treating it as new goal text replaced the goal with the literal word
+  // `on`, which no work can satisfy. With no goal set it is a no-op.
+  if (rest.toLowerCase() === 'on') return { sub: 'show' }
   return { sub: 'set', goal: rest }
 }
 
