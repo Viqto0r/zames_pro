@@ -65,6 +65,10 @@ export const DEFAULTS: ZamesConfig = {
   // headless: false (or pass --headed) to watch/debug the page.
   headless: true,
   debug: false,
+  // Dev mode (`--dev` / `npm run dev`) turns it on. It MUST have a default:
+  // without one `/config reset hotReload` deleted the key and the runtime
+  // read `undefined` instead of a real boolean.
+  hotReload: false,
   browserChannel: null,
 
   undo: {
