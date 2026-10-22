@@ -657,6 +657,10 @@ export function normalizeRestoredMessage(
     if (call.tool !== 'respond') return null
     const msg = (call.message || '').trim()
     if (!msg) return null
+    // The safety-classification block can sit INSIDE the respond message; the
+    // plain-text path already drops it, and printing the marker as the answer
+    // is the same leak.
+    if (/<\/?ds_safety\b/i.test(msg)) return null
     return { role: 'assistant', text: msg }
   }
   // A plain-text answer (written without the respond wrapper) — show as-is.
