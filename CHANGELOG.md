@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.30] - 2026-10-22
+
+### Fixed
+
+- **statusline:** kill the whole process group on timeout
+
 ## [2.82.29] - 2026-10-22
 
 ### Fixed
