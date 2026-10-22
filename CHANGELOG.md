@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.4] - 2026-10-22
+
+### Fixed
+
+- **telemetry:** a non-finite blockMs does not poison the /limits average
+
 ## [2.82.3] - 2026-10-22
 
 ### Fixed
