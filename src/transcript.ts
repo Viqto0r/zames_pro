@@ -51,6 +51,9 @@ export interface TranscriptOptions {
   onLine?: ((line: string) => void) | null
 }
 
+/** Hard cap on one transcript line (a single `log` payload). */
+export const TRANSCRIPT_LINE_CAP = 100_000
+
 export class Transcript {
   enabled: boolean
   file: string | null
@@ -110,7 +113,18 @@ export class Transcript {
       type,
       ...data,
     }
-    const line = JSON.stringify(entry) + String.fromCharCode(10)
+    let line = JSON.stringify(entry) + String.fromCharCode(10)
+    // One `log` call may carry a tool result, a page dump or a fetched
+    // document; an uncapped line makes the transcript grow by megabytes per
+    // event, and /cost + /export then load it all into memory. Keep the
+    // transcript a LOG: cap each line with a marker (never splitting a
+    // surrogate pair).
+    if (line.length > TRANSCRIPT_LINE_CAP) {
+      let cut = TRANSCRIPT_LINE_CAP - 2
+      const last = line.charCodeAt(cut - 1)
+      if (last >= 0xd800 && last <= 0xdbff) cut--
+      line = line.slice(0, cut) + '…' + String.fromCharCode(10)
+    }
     // The mirror runs even when the file is disabled (jsonl mode).
     if (this.onLine) {
       try {
