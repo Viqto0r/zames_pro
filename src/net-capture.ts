@@ -406,8 +406,11 @@ export async function rotateNetLog(
   // The stamp prefix sorts the names chronologically, so a plain sort is
   // enough — no stat() per file (a directory with 77k entries would make
   // 77k syscalls on every response).
+  // ONLY our own dumps count: a foreign `.txt` in the directory must not be
+  // deleted, and must not eat a slot of the keep window either.
+  const DUMP_RE = /^\d{4}-\d{2}-\d{2}T[\d-]+Z_/
   const names = (await fs.readdir(dir).catch(() => [] as string[])).filter(
-    (n) => n.endsWith('.txt'),
+    (n) => n.endsWith('.txt') && DUMP_RE.test(n),
   )
   if (names.length <= keep) return 0
   names.sort()
