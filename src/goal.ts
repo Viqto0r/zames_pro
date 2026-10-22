@@ -110,8 +110,13 @@ export function parseGoalVerdict(text: string): GoalVerdict | null {
   // separator is checked on the character FOLLOWING the matched value (a
   // lookahead INSIDE the value pattern was useless: the value alternatives
   // always end on a word boundary of their own).
+  // A right boundary is REQUIRED: without it `VERDICT: METS` /
+  // `METADATA` parsed as MET, and MET CLEARS the goal — an unfinished task
+  // looked done. `\b` alone is not enough: in `MET-ish` the hyphen is a word
+  // boundary, so a hyphen/underscore directly after the value is rejected
+  // explicitly (a hyphen is only legal INSIDE `NOT-MET`).
   const label =
-    /VERDICT\s*[*_`]*\s*:\s*[*_`]*\s*(IMPOSSIBLE|NOT[_ -]?MET|MET)/gi
+    /VERDICT\s*[*_`]*\s*:\s*[*_`]*\s*(IMPOSSIBLE|NOT[_ -]?MET|MET)(?![\w-])/gi
   let m: RegExpExecArray | null
   let status: GoalVerdict['status'] | null = null
   while ((m = label.exec(t)) !== null) {
