@@ -51,6 +51,12 @@ export function runStatusLineCommand(
             : '/bin/sh',
         windowsHide: true,
         env: { ...process.env },
+        // Own process group so the timeout can kill the WHOLE tree. A command
+        // that backgrounds a child (a watcher, `npm run dev &`) leaves the
+        // grandchild holding our stdout pipe: killing only the shell kept
+        // 'close' from firing, so the promise stayed pending and the badge
+        // stopped updating on every tick.
+        detached: process.platform !== 'win32',
       })
     } catch {
       resolve('')
@@ -73,7 +79,11 @@ export function runStatusLineCommand(
     // once a short line is buffered (the rest of that line does not matter).
     const timer = setTimeout(() => {
       try {
-        child.kill()
+        if (process.platform !== 'win32' && child.pid) {
+          process.kill(-child.pid, 'SIGKILL')
+        } else {
+          child.kill()
+        }
       } catch {}
       finish()
     }, timeoutMs)
