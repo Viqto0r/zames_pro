@@ -24,7 +24,21 @@ export function rotateTranscripts(
     return 0
   }
   if (names.length <= keep) return 0
-  names.sort()
+  // The name is `<sessionName>-<ISO stamp>.jsonl`, and sessionName is the
+  // WORKDIR label: one log dir holds several projects, so a plain name sort
+  // orders by the LABEL and deletes the newest file of an early-alphabet
+  // project (or the CURRENT run's transcript). Order by the STAMP instead,
+  // with the name as a tie-break.
+  const stampOf = (n: string): string => {
+    const m = /(\d{4}-\d{2}-\d{2}T[\d-]+Z)\.jsonl$/.exec(n)
+    return m ? m[1] : ''
+  }
+  names.sort((a, b) => {
+    const sa = stampOf(a)
+    const sb = stampOf(b)
+    if (sa !== sb) return sa < sb ? -1 : 1
+    return a < b ? -1 : a > b ? 1 : 0
+  })
   let removed = 0
   for (const n of names.slice(0, names.length - keep)) {
     try {
