@@ -76,10 +76,6 @@ export async function handleConfigCommand(
   const sub = (parts[1] || '').toLowerCase()
 
   // With no subcommand - the menu (or a text list in non-TTY).
-  //
-  // `ui` is NOT a menu alias: `ui` is a real config GROUP (`ui.locale`,
-  // `ui.answerWidth`, …), so `/config ui` / `/config ui.locale …` was
-  // swallowed by the menu and the operator's subcommand silently did nothing.
   if (!sub || sub === 'menu') {
     await openMenu()
     return

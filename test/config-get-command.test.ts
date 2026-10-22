@@ -3,9 +3,11 @@ import assert from 'node:assert/strict'
 import { handleConfigCommand } from '../src/config-command.ts'
 import { CONFIG_SCHEMA } from '../src/config.ts'
 
-// `/config get <path>` used to swallow `ui` as a MENU alias, so a real, listed
-// setting (`ui.locale`) was answered with "unknown key" plus the full list.
-// The dispatcher must find the field.
+// `/config get <path>` reported a REAL, listed setting as an unknown key —
+// the field lookup is a plain `schema.find((f) => f.path === key)` over
+// CONFIG_SCHEMA, and `ui.locale` IS there, so the dispatcher must not answer
+// "unknown key". A wrong answer here sends the operator hunting for a typo in
+// a path that is correct.
 test('/config get ui.locale finds the setting', async () => {
   const lines: string[] = []
   await handleConfigCommand('get ui.locale', {
@@ -26,6 +28,6 @@ test('/config get ui.locale finds the setting', async () => {
     projectConfigPath: '/p',
   })
   assert.equal(lines.length, 1, 'got: ' + lines.join(' | '))
-  assert.match(lines[0], /^cfg\.value:/)
-  assert.match(lines[0], /ui\.locale/)
+  assert.match(lines[0], /^cfg.value:/)
+  assert.match(lines[0], /ui.locale/)
 })
