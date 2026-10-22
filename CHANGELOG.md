@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.26] - 2026-10-22
+
+### Fixed
+
+- **context:** split a comma-separated @file list into references
+
 ## [2.82.25] - 2026-10-22
 
 ### Fixed
