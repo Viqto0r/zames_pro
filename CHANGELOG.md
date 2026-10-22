@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.5] - 2026-10-22
+
+### Fixed
+
+- **cost:** a non-finite duration renders as zero, not NaNs
+
 ## [2.82.4] - 2026-10-22
 
 ### Fixed
