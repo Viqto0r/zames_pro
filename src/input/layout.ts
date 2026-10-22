@@ -446,6 +446,17 @@ export const CONTEXT_RED_PCT = 80
 
 // The color role for a context fill level, as a stable string so it can be
 // unit-tested without a terminal: 'ok' | 'warn' | 'high'. Null tokens -> null.
+// A usable context window: a finite POSITIVE number. The denominator comes
+// from config (`ui.contextLimit` / a provider section), so a 0 / NaN /
+// negative / Infinity value reaches these functions; dividing by it rendered
+// `Infinity%` / `NaN%` (or a fake 0.0% and even 'high') on a real token
+// count. An unusable window falls back to the default one.
+function usableLimit(limit: number | null | undefined): number {
+  return typeof limit === 'number' && Number.isFinite(limit) && limit > 0
+    ? limit
+    : CONTEXT_LIMIT
+}
+
 export function tokenStatusLevel(
   tokens: number | null | undefined,
   limit = CONTEXT_LIMIT,
@@ -453,7 +464,7 @@ export function tokenStatusLevel(
   if (typeof tokens !== 'number' || !Number.isFinite(tokens) || tokens < 0) {
     return null
   }
-  const pct = (tokens / limit) * 100
+  const pct = (tokens / usableLimit(limit)) * 100
   if (pct >= CONTEXT_RED_PCT) return 'high'
   if (pct >= CONTEXT_YELLOW_PCT) return 'warn'
   return 'ok'
@@ -468,7 +479,7 @@ export function formatTokenStatus(
   }
   const n = Math.round(tokens)
   const compact = formatCompactTokens(n)
-  const pct = Math.max(0, (n / limit) * 100)
+  const pct = Math.max(0, (n / usableLimit(limit)) * 100)
   const pctStr = pct >= 10 ? String(Math.round(pct)) : pct.toFixed(1)
   // "ctx:" marks this as the USED context size, so the operator does not have
   // to guess what "302k · 30%" means.
