@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.49] - 2026-10-22
+
+### Fixed
+
+- **goal:** /goal on no longer overwrites the goal text
+
 ## [2.82.48] - 2026-10-22
 
 ### Fixed
