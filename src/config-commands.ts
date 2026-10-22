@@ -37,7 +37,11 @@ export function configGetValue(
   t: TranslateFn,
 ): string {
   if (value === undefined) return t('cfg.menu.default')
-  if (/password/i.test(path) && String(value).length > 0) return '********'
+  // Mask a real secret, but NOT a whitespace-only one: it cannot log in, and
+  // hiding it makes `/config get` look like a password is configured.
+  if (/password/i.test(path) && String(value).trim().length > 0) {
+    return '********'
+  }
   return JSON.stringify(value)
 }
 
