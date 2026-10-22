@@ -167,8 +167,14 @@ export function parseQwenChatList(json: unknown): ChatInfo[] {
  * (a DeepSeek-style payload: keep REQUEST for user, RESPONSE for assistant).
  */
 export function parseQwenHistory(json: unknown): ChatMessage[] {
-  const root = json as { data?: unknown } | null
-  const data = root && typeof root === 'object' ? root.data : null
+  const root = json as { data?: unknown; messages?: unknown } | null
+  // A BARE array (no `data` wrapper) and a top-level `messages` are the same
+  // simple shapes the chat-LIST endpoint returns: reading only `root.data`
+  // made /resume print nothing for a payload that DID carry the dialogue.
+  const data =
+    Array.isArray(json) || root === null || typeof root !== 'object'
+      ? json
+      : (root.data ?? (root.messages ? { messages: root.messages } : null))
   // The REAL shape (verified live) is a MAP, not an array:
   //   data.chat.history.messages = { <id>: { role, content, timestamp, ... } }
   // An array is accepted too (older shape).
