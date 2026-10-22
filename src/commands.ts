@@ -1420,6 +1420,7 @@ export const SLASH_COMMANDS: SlashCommandEntry[] = [
   { name: '/diff', key: 'help.cmd.diff' },
   { name: '/diffstat', key: 'help.cmd.diffstat' },
   { name: '/cost', key: 'help.cmd.cost' },
+  { name: '/limits', key: 'help.cmd.limits' },
   { name: '/export', key: 'help.cmd.export' },
   { name: '/doctor', key: 'help.cmd.doctor' },
   { name: '/add-dir', key: 'help.cmd.add_dir' },
