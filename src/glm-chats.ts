@@ -110,6 +110,13 @@ export function parseGlmChatList(json: unknown): ChatInfo[] {
     // A wrapper key wins; otherwise the object itself is an id-keyed MAP
     // of chats (a real alternative shape), not an empty list.
     arr = o.data ?? o.chats ?? o.list ?? o.items ?? arr
+    // A paginated endpoint wraps TWICE (`{data:{chats:[…]}}`); leaving the
+    // inner wrapper in place made its KEY look like a chat id (`'chats'`) with
+    // an empty title, so /chats listed one fake chat and hid the real ones.
+    if (arr && typeof arr === 'object' && !Array.isArray(arr)) {
+      const inner = arr as Record<string, unknown>
+      arr = inner.chats ?? inner.list ?? inner.items ?? arr
+    }
   }
   const keyed: Array<[string, unknown]> | null = Array.isArray(arr)
     ? null
