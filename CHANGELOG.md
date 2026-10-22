@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.17] - 2026-10-22
+
+### Fixed
+
+- **glm:** drop system/tool turns and read fragments on resume
+
 ## [2.82.16] - 2026-10-22
 
 ### Fixed
