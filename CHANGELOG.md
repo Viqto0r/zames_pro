@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.19] - 2026-10-22
+
+### Fixed
+
+- **glm:** unwrap a nested chats wrapper in the chat list
+
+### Changed
+
+- **glm:** drop guessed role fields from the history parser
+
 ## [2.82.18] - 2026-10-22
 
 ### Fixed
