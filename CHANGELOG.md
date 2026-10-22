@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.32] - 2026-10-22
+
+### Fixed
+
+- **git:** split a comma-separated paths argument
+
 ## [2.82.31] - 2026-10-22
 
 ### Fixed
