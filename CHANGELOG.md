@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.44] - 2026-10-22
+
+### Fixed
+
+- **transcript:** rotate by timestamp, not by the workdir label
+
 ## [2.82.43] - 2026-10-22
 
 ### Fixed
