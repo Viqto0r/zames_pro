@@ -26,10 +26,15 @@ function width(s: string): number {
  * longer than the inner width are truncated with an ellipsis.
  */
 function box(lines: string[], maxWidth: number, border = '#c8b06a'): string {
-  const inner = Math.max(
-    10,
-    Math.min(maxWidth - 4, Math.max(...lines.map(width)) + 2),
-  )
+  // A caller may pass 0 ("auto") or a tiny width on a narrow terminal. With
+  // `maxWidth - 4` going negative the inner width collapsed to the 10-column
+  // floor while every content line was clipped to `inner - 2`, so the title,
+  // version and directory were replaced by a bare `…` — the banner was drawn
+  // but said nothing. Fall back to a width that still fits the real fields.
+  const widest = Math.max(...lines.map(width)) + 2
+  const base =
+    Number.isFinite(maxWidth) && maxWidth >= 12 ? maxWidth : widest + 4
+  const inner = Math.max(10, Math.min(base - 4, widest))
   const top = theme.prompt('╭' + '─'.repeat(inner) + '╮')
   const bottom = theme.prompt('╰' + '─'.repeat(inner) + '╯')
   const body = lines.map((l) => {
