@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.37] - 2026-10-22
+
+### Fixed
+
+- **config:** give hotReload a default so it can be reset
+
 ## [2.82.36] - 2026-10-22
 
 ### Fixed
