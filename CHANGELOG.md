@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.20] - 2026-10-22
+
+### Fixed
+
+- **qwen:** unwrap a paginated chat-list wrapper
+
 ## [2.82.19] - 2026-10-22
 
 ### Fixed
