@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process'
+import { parseCoverageRows, runCoverageGate } from './coverage-gate-lib.mts'
 
 // Soft coverage FLOOR for the PURE logic modules — the ones a regression would
 // silently break without any UI symptom (command formatting, schedule parsing,
@@ -72,28 +73,15 @@ if (run.status !== 0) {
   process.exit(1)
 }
 
-const linePct = new Map()
-for (const line of out.split('\n')) {
-  // Per-file rows look like:
-  //   ℹ  commands.ts      |  94.14 |  78.70 |  93.88 | 40-56 ...
-  const m = line.match(/^\s*\S?\s*([A-Za-z0-9._-]+\.ts)\s+\|\s+([\d.]+)\s+\|/)
-  if (m) linePct.set(m[1], Number(m[2]))
-}
+const linePct = parseCoverageRows(out)
 
-const failures = []
+const gate = runCoverageGate(linePct, FLOORS)
 for (const [file, floor] of Object.entries(FLOORS)) {
   const pct = linePct.get(file)
-  if (pct === undefined) {
-    failures.push(file + ': no coverage row found')
-    continue
-  }
-  if (pct < floor) {
-    failures.push(file + ': ' + pct + '% < floor ' + floor + '%')
-  } else {
+  if (pct !== undefined && pct >= floor) {
     console.log('coverage-gate: ' + file + ' ' + pct + '% >= ' + floor + '%')
   }
 }
-
 // Print the lowest-covered modules, so a dead or untested module is visible
 // in the CI log even when it has no floor yet. Informational only.
 const sorted = [...linePct.entries()].sort((a, b) => a[1] - b[1]).slice(0, 8)
@@ -104,9 +92,11 @@ if (sorted.length) {
   }
 }
 
-if (failures.length) {
+if (!gate.ok) {
   console.error('coverage-gate: FAILED')
-  for (const f of failures) console.error('  ' + f)
+  for (const f of gate.failures) {
+    console.error('  ' + f.file + ': ' + f.reason)
+  }
   process.exit(1)
 }
 console.log('coverage-gate: OK')
