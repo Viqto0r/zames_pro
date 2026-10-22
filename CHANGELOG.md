@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.35] - 2026-10-22
+
+### Fixed
+
+- **checkpoint:** rebuild the index when index.json is corrupt
+
 ## [2.82.34] - 2026-10-22
 
 ### Fixed
