@@ -94,6 +94,11 @@ function pickAnswer(node: unknown): string {
   if (Array.isArray(node)) return node.map(pickAnswer).join('')
   if (typeof node !== 'object') return ''
   const obj = node as Record<string, unknown>
+  // A plain-JSON reply can carry the SAME phase marker as an SSE delta
+  // (`thinking_summary`). The reasoning guard used to live only in the
+  // choices[] branch, so a top-level `{phase:"thinking_summary",content}`
+  // (or the same object one envelope deeper) was returned as the ANSWER.
+  if (isThinkingPhase(obj)) return ''
   if (Array.isArray(obj.choices)) {
     let out = ''
     for (const ch of obj.choices) {
