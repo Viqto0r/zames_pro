@@ -84,7 +84,13 @@ export function summarizeSends(
       return Number.isFinite(t) && now - t <= ms
     }).length
   const blocks = events
-    .filter((e) => e.outcome === 'rate_limit' && typeof e.blockMs === 'number')
+    .filter(
+      (e) =>
+        e.outcome === 'rate_limit' &&
+        typeof e.blockMs === 'number' &&
+        Number.isFinite(e.blockMs) &&
+        e.blockMs >= 0,
+    )
     .map((e) => e.blockMs as number)
   const avgBlockMs = blocks.length
     ? Math.round(blocks.reduce((a, b) => a + b, 0) / blocks.length)
