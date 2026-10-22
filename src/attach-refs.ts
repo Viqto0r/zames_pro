@@ -39,6 +39,13 @@ export async function resolveAttachPath(
     s = s.slice(1, -1)
   }
   s = s.replace(/\\ /g, ' ')
+  // A URL is never a local file. `isImageName` alone would still accept
+  // `https://example.com/a.png` (it only looks at the extension), and the
+  // RELATIVE candidate `path.resolve(workdir, 'https://…')` then becomes
+  // `https:/…` — a project that happens to have such a directory silently
+  // attached the URL as a file. A URL preceded by prose words is covered too
+  // (the same rule as looksLikeFilePath).
+  if (/(?:^|\s)[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(s)) return null
   if (!looksLikeFilePath(s) && !isImageName(s)) return null
   const candidates = path.isAbsolute(s)
     ? [s]

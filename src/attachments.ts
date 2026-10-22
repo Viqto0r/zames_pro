@@ -210,6 +210,14 @@ export function looksLikeFilePath(text: string): boolean {
   const s: string = String(text || '').trim()
   if (!s || s.length > 500) return false
   if (/[\r\n]/.test(s)) return false
+  // A URL is not a file path. It contains `/` and ends in a short extension,
+  // so it used to pass, and resolveAttachPath then resolved it RELATIVELY
+  // (`https://…` -> `https:/…`): a project that happened to contain such a
+  // directory silently attached the URL as a local file instead of keeping
+  // the text. Any `scheme://` head is rejected here — INCLUDING one that sits
+  // after prose words (`see https://x/a.png`), since the whole trimmed text is
+  // handed to this check.
+  if (/(?:^|\s)[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(s)) return false
   // A bare file name with an image/known extension.
   if (looksLikeFileName(s)) return true
   // A path with separators and an extension.
