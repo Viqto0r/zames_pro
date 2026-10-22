@@ -162,6 +162,10 @@ export function extractAnswer(body: string): string {
   return extractFromJson(body)
 }
 
+/** A usable token count: a FINITE NON-NEGATIVE number. */
+function isUsageCount(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v) && v >= 0
+}
 /**
  * The CONTEXT size (tokens) from `usage.prompt_tokens` - the prompt size for
  * the turn, the same idea as DeepSeek's accumulated_token_usage. Falls back to
@@ -175,10 +179,13 @@ export function extractTokenUsage(body: string): number | null {
     const usage = d ? d.usage : (obj as Record<string, unknown>).usage
     if (!usage || typeof usage !== 'object') continue
     const u = usage as Record<string, unknown>
-    if (typeof u.prompt_tokens === 'number' && Number.isFinite(u.prompt_tokens))
-      lastPrompt = u.prompt_tokens
-    if (typeof u.total_tokens === 'number' && Number.isFinite(u.total_tokens))
-      lastTotal = u.total_tokens
+    // A token count is a FINITE NON-NEGATIVE number. A negative payload (a
+    // nonsense reply, or a wrapped `int` in a proxy build) used to become
+    // `browser._lastTokenUsage` as-is: the context badge disappeared
+    // (tokenStatusLevel rejects it) while the auto-compact percentage went
+    // negative and never fired. Treat it as "no usage", like a non-number.
+    if (isUsageCount(u.prompt_tokens)) lastPrompt = u.prompt_tokens
+    if (isUsageCount(u.total_tokens)) lastTotal = u.total_tokens
   }
   if (lastPrompt !== null) return lastPrompt
   if (lastTotal !== null) return lastTotal
@@ -194,8 +201,8 @@ export function extractTokenUsage(body: string): number | null {
     const usage = ((envelope ? envelope.usage : undefined) ?? obj?.usage) as
       Record<string, unknown> | undefined
     if (usage) {
-      if (typeof usage.prompt_tokens === 'number') return usage.prompt_tokens
-      if (typeof usage.total_tokens === 'number') return usage.total_tokens
+      if (isUsageCount(usage.prompt_tokens)) return usage.prompt_tokens
+      if (isUsageCount(usage.total_tokens)) return usage.total_tokens
     }
   } catch {}
   return null
