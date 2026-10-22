@@ -81,7 +81,12 @@ export function summarizeSends(
   const within = (ms: number): number =>
     events.filter((e) => {
       const t = Date.parse(e.at)
-      return Number.isFinite(t) && now - t <= ms
+      // The event must be in the PAST: a future stamp (clock skew on the
+      // machine that wrote the log, a hand-edited line) satisfies
+      // `now - t <= ms` for EVERY window and inflated all three counters.
+      if (!Number.isFinite(t)) return false
+      const age = now - t
+      return age >= 0 && age <= ms
     }).length
   // `blockMs` may arrive as a NUMBER (the writer) or a string (an older
   // build, a hand-edited file): a numeric string is accepted so the average
