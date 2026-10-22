@@ -197,13 +197,36 @@ export function decidePermission(
   // the natural shape for execFile-style MCP tools). Accepting only strings
   // let a `command` deny be bypassed by passing the words as an array.
   const commands: string[] = []
-  for (const k of COMMAND_KEYS) {
-    const v = a[k]
+  // Collect a value as a command string: a string is one command, an ARRAY
+  // (argv) is joined into one line so a rule can match the words in order.
+  const addCommand = (v: unknown): void => {
     if (typeof v === 'string') commands.push(v)
     else if (Array.isArray(v)) {
-      commands.push(v.filter((x) => typeof x === 'string').join(' '))
+      const parts = v.filter((x) => typeof x === 'string')
+      if (parts.length) commands.push(parts.join(' '))
     }
   }
+  for (const k of COMMAND_KEYS) {
+    if (k in a) addCommand(a[k])
+  }
+  // MCP tools (and a model that nests its payload) send the command one or
+  // more levels down — `{args: {command}}`, `{input: {params: {cmd}}}`.
+  // Checking only the TOP level let a `command` deny rule be bypassed by
+  // wrapping the same words in an object, so nested objects and arrays are
+  // scanned too (depth-bounded like the path scan).
+  const walkCommands = (v: unknown, depth: number): void => {
+    if (depth > 4 || v === null || v === undefined) return
+    if (Array.isArray(v)) {
+      for (const x of v) walkCommands(x, depth + 1)
+      return
+    }
+    if (typeof v !== 'object') return
+    for (const [key, val] of Object.entries(v as Record<string, unknown>)) {
+      if (COMMAND_KEYS.includes(key)) addCommand(val)
+      walkCommands(val, depth + 1)
+    }
+  }
+  walkCommands(a, 0)
   const paths = collectPathCandidates(tool, args)
   for (const r of policy.rules) {
     // An UNPARSABLE regex in any field of the rule makes the rule fail
