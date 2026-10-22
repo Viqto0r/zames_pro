@@ -65,6 +65,14 @@ export function parsePermissions(raw: unknown): PermissionPolicy | null {
     const e = item as Record<string, unknown>
     const action = normAltion(e['action'])
     if (!action) continue
+    // A rule whose condition key is not one we understand (`paths`, `tools`,
+    // `cmd`) would otherwise lose that condition and match EVERY call of the
+    // listed tool — the operator wrote a narrow rule and got a global block.
+    // Such a rule is UNUSABLE: dropping it keeps the operator's policy honest
+    // (the default still applies) instead of silently widening it.
+    const KNOWN = new Set(['action', 'tool', 'command', 'path'])
+    const unknown = Object.keys(e).find((k) => !KNOWN.has(k))
+    if (unknown !== undefined) continue
     out.push({
       action,
       tool: typeof e['tool'] === 'string' ? (e['tool'] as string) : undefined,
