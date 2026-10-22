@@ -201,8 +201,11 @@ export function wordLeft(s: EditState): EditState {
 export function wordRight(s: EditState): EditState {
   const chars = charsOf(s)
   let i = s.cursor
-  while (i < chars.length && /\s/.test(chars[i])) i++
-  while (i < chars.length && !/\s/.test(chars[i])) i++
+  // Stop at a NEWLINE, like wordLeft/deleteWordLeft/deleteWordRight do: the
+  // caret must never jump ACROSS a line break. Without the guard, Alt+F at the
+  // end of a line skipped the break and landed at the end of the NEXT line.
+  while (i < chars.length && chars[i] !== NL && /\s/.test(chars[i])) i++
+  while (i < chars.length && chars[i] !== NL && !/\s/.test(chars[i])) i++
   return i === s.cursor ? s : { ...s, cursor: i }
 }
 
