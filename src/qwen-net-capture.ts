@@ -115,6 +115,15 @@ function pickAnswer(node: unknown): string {
     const v = obj[key]
     if (typeof v === 'string' && v) return v
   }
+  // A wrapper envelope (`{data:{…}}`, `{response:{…}}`) keeps the answer one
+  // level deeper; without this the whole reply reads as empty.
+  for (const key of ['data', 'response', 'result']) {
+    const v = obj[key]
+    if (v && typeof v === 'object') {
+      const inner = pickAnswer(v)
+      if (inner) return inner
+    }
+  }
   return ''
 }
 
@@ -213,7 +222,18 @@ export function isRateLimitText(body: string): boolean {
 
 // True when the body carries actual answer text in an SSE/JSON chunk.
 function hasAnswerContent(body: string): boolean {
-  for (const obj of parseDataLines(body)) {
+  const b = String(body || '')
+  // A NON-streamed body is a single JSON object with no `data:` lines; the
+  // answer may sit in a wrapper (`{data:{content}}`). Without this check the
+  // answer was invisible here and a rate-limit/busy phrase elsewhere in the
+  // SAME body (the model may quote the notice) made ask() back off.
+  if (!b.split(NL).some((l) => l.trim().startsWith('data:'))) {
+    try {
+      const parsed = JSON.parse(b)
+      if (pickAnswer(parsed).trim()) return true
+    } catch {}
+  }
+  for (const obj of parseDataLines(b)) {
     const choices = (obj as Record<string, unknown>).choices
     if (!Array.isArray(choices)) continue
     for (const ch of choices) {
