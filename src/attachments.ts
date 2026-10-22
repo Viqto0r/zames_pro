@@ -105,10 +105,12 @@ export function parseDataUrl(
   const m = String(text || '').match(/^data:([^;,]*);base64,([\s\S]*)$/)
   if (!m) return null
   try {
-    return {
-      mime: m[1] || 'application/octet-stream',
-      data: Buffer.from(m[2].replace(/\s+/g, ''), 'base64'),
-    }
+    const data = Buffer.from(m[2].replace(/\s+/g, ''), 'base64')
+    // An EMPTY or unparsable payload decodes to a zero-length Buffer, which is
+    // still a truthy object: the paste handler then showed an `[image#N]`
+    // marker for a zero-byte file and submitted a broken attachment.
+    if (!data.length) return null
+    return { mime: m[1] || 'application/octet-stream', data }
   } catch {
     return null
   }
