@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.40] - 2026-10-22
+
+### Fixed
+
+- **transcript:** cap a single logged payload
+
 ## [2.82.39] - 2026-10-22
 
 ### Fixed
