@@ -65,11 +65,22 @@ export async function handleConfigCommand(
     projectConfigPath,
   } = deps
   const schema = deps.schema
-  const parts = input.trim().split(/\s+/)
+  // Accept BOTH spellings: the main loop passes the whole typed line
+  // (`/config get ui.locale`), while tests and other callers pass the text
+  // after the command (`get ui.locale`). Reading parts[1] blindly made the
+  // second form treat `get` as the subcommand.
+  const all = input.trim().split(/\s+/).filter(Boolean)
+  const parts = /^\/config(\s|$)/i.test(input.trim())
+    ? all
+    : ['/config', ...all]
   const sub = (parts[1] || '').toLowerCase()
 
   // With no subcommand - the menu (or a text list in non-TTY).
-  if (!sub || sub === 'menu' || sub === 'ui') {
+  //
+  // `ui` is NOT a menu alias: `ui` is a real config GROUP (`ui.locale`,
+  // `ui.answerWidth`, …), so `/config ui` / `/config ui.locale …` was
+  // swallowed by the menu and the operator's subcommand silently did nothing.
+  if (!sub || sub === 'menu') {
     await openMenu()
     return
   }
