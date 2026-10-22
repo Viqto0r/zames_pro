@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.81.22] - 2026-10-22
+
+### Fixed
+
+- **parser:** a tool call whose args are a JSON string is recognized
+
 ## [2.81.21] - 2026-10-22
 
 ### Fixed
