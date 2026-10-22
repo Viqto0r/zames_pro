@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.23] - 2026-10-22
+
+### Fixed
+
+- **shell:** normalize the runFile timeout instead of throwing
+
 ## [2.82.22] - 2026-10-22
 
 ### Fixed
