@@ -24,11 +24,21 @@ export function truncateToolResult(text: string, limit: number): string {
   const nl = text.lastIndexOf(NL, limit)
   // Cut AFTER the newline (include it) so the kept part is a whole number of
   // lines — a cut that EXCLUDED the newline left a half line before the marker.
-  if (nl >= searchFrom) cut = nl + 1
-  // Never split a surrogate PAIR (an emoji / astral CJK char): the high half
-  // alone is a lone surrogate — a broken code point some channels replace with
-  // '?' or truncate at. Step back one unit so the pair is dropped WHOLE.
-  else {
+  if (nl >= searchFrom) {
+    cut = nl + 1
+    // The char that would end the kept text is the one BEFORE the newline.
+    // Stepping back here drops only the dangling newline, so the high
+    // surrogate is never the last unit the model sees.
+    const beforeNl = text.charCodeAt(cut - 2)
+    if (beforeNl >= 0xd800 && beforeNl <= 0xdbff) {
+      cut--
+      const hi = text.charCodeAt(cut - 1)
+      if (hi >= 0xd800 && hi <= 0xdbff) cut--
+    }
+  } else {
+    // Never split a surrogate PAIR (an emoji / astral CJK char): the high half
+    // alone is a lone surrogate — a broken code point some channels replace
+    // with '?' or truncate at. Step back one unit so the pair is dropped WHOLE.
     const c = text.charCodeAt(cut - 1)
     if (c >= 0xd800 && c <= 0xdbff) cut--
   }
