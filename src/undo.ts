@@ -38,7 +38,19 @@ export class UndoStore {
 
   async _readIndex(): Promise<UndoRecord[]> {
     try {
-      return JSON.parse(await fs.readFile(INDEX, 'utf-8'))
+      const data: unknown = JSON.parse(await fs.readFile(INDEX, 'utf-8'))
+      // The index is a JSON FILE: a crash, a hand edit or an old format can
+      // leave VALID JSON that is not an array (`{}`, `null`, `"x"`, `42`),
+      // or an array with junk entries. Returning it as-is made /undo throw
+      // `history.pop is not a function` and /undo-list throw
+      // `history.slice is not a function` out of the command dispatcher.
+      if (!Array.isArray(data)) return []
+      return data.filter(
+        (r): r is UndoRecord =>
+          !!r &&
+          typeof r === 'object' &&
+          typeof (r as UndoRecord).originalPath === 'string',
+      )
     } catch {
       return []
     }
