@@ -55,7 +55,12 @@ test('a rate limit uses Retry-After when present, else the pause', () => {
     cfg,
   )
   assert.equal(st.forcedWaitMs, 7000)
-  assert.equal(nextWaitMs(st, 0, 0), 7000)
+  // A forced wait is measured from when it was requested (`now`): the
+  // caller passes the SAME instant, so the full wait is reported once.
+  const evAt = Date.parse(ev().at)
+  // The wait is measured from when it was REQUESTED: at that instant the
+  // remaining time is the full Retry-After.
+  assert.equal(nextWaitMs(st, 0, st.forcedWaitAt as number), 7000)
 
   let st2 = initialThrottleState(cfg)
   st2 = applySendEvent(st2, ev({ outcome: 'rate_limit' }), cfg)

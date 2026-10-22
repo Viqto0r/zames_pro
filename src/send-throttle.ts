@@ -44,6 +44,8 @@ export interface ThrottleState {
   blockedAt: number
   /** Pending forced wait from a Retry-After header (ms). */
   forcedWaitMs: number
+  /** When the forced wait was requested (epoch ms); 0 = none. */
+  forcedWaitAt?: number
   /** Timestamps (epoch ms) of the recent sends, for the soft budget. */
   recent: number[]
 }
@@ -86,7 +88,18 @@ export function nextWaitMs(
   lastSentAt: number,
   now: number,
 ): number {
-  if (state.forcedWaitMs > 0) return state.forcedWaitMs
+  if (state.forcedWaitMs > 0) {
+    // A forced wait must EXPIRE: a long Retry-After used to block every
+    // send forever (the check was `> 0` only), until another event cleared
+    // it. With the request stamp the remaining time is exact; without one
+    // (a caller-built or restored state) the wait is reported ONCE, from
+    // the current call, and expires on the next.
+    if (state.forcedWaitAt) {
+      const left = state.forcedWaitMs - (now - state.forcedWaitAt)
+      return left > 0 ? left : 0
+    }
+    return state.forcedWaitMs
+  }
   if (!lastSentAt) return 0
   const gap = state.intervalMs - (now - lastSentAt)
   return gap > 0 ? gap : 0
@@ -132,6 +145,7 @@ export function applySendEvent(
       typeof event.retryAfterMs === 'number' && event.retryAfterMs > 0
         ? event.retryAfterMs
         : cfg.rateLimitWaitMs
+    next.forcedWaitAt = now
     const floor = Math.max(cfg.baseMs, cfg.limitFloorMs)
     next.intervalMs = Math.min(cfg.maxMs, Math.max(next.intervalMs, floor) * 2)
   } else {
