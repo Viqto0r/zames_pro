@@ -48,6 +48,9 @@ export const MAX_TIMER_MS = 2_147_483_647
 // nextAt to Infinity) renders as "-" instead of "Infinityh".
 export function formatInterval(ms: number): string {
   if (!Number.isFinite(ms)) return '-'
+  // Zero must stay in SECONDS: `0 % 3_600_000 === 0`, so the hour branch used
+  // to render a job that is due NOW as `next ~0h`.
+  if (ms === 0) return '0s'
   if (ms % 3_600_000 === 0) return ms / 3_600_000 + 'h'
   if (ms % 60_000 === 0) return ms / 60_000 + 'm'
   if (ms % 1000 === 0) return ms / 1000 + 's'
