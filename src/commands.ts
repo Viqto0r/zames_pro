@@ -1168,7 +1168,15 @@ export function formatQueueList(msgs: QueuedMessage[]): string[] {
     const one = String(m.text || '')
       .replace(/\s+/g, ' ')
       .trim()
-    const shown = one.length > 80 ? one.slice(0, 80) + ' …' : one
+    // The cut is in UTF-16 units: a surrogate PAIR (an emoji / astral CJK
+    // char) straddling the boundary would leave a lone HIGH surrogate at the
+    // end of the line — a broken code point in the /queue listing and in the
+    // transcript. Step back one unit so the pair is dropped WHOLE (the same
+    // rule as truncateToolResult / capReport).
+    let cut = 80
+    const last = one.charCodeAt(cut - 1)
+    if (last >= 0xd800 && last <= 0xdbff) cut--
+    const shown = one.length > 80 ? one.slice(0, cut) + ' …' : one
     const att = m.attachments?.length ? ' [+' + m.attachments.length + ']' : ''
     return '  ' + (i + 1) + '. ' + shown + att
   })
