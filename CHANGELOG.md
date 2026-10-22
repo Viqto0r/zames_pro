@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.45] - 2026-10-22
+
+### Fixed
+
+- **net-log:** rotate only real dumps, never a foreign txt
+
 ## [2.82.44] - 2026-10-22
 
 ### Fixed
