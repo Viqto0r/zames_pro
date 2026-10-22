@@ -124,6 +124,13 @@ function pickAnswer(node: unknown): string {
     return ''
   }
   if (typeof obj.delta_content === 'string') return obj.delta_content
+  // A non-streamed reply carries the SAME `chat:completion` envelope as the
+  // SSE stream: the answer lives in `data.delta_content`, so the envelope must
+  // be unwrapped or the whole reply reads as empty.
+  if (obj.data && typeof obj.data === 'object') {
+    const inner = pickAnswer(obj.data)
+    if (inner) return inner
+  }
   if (Array.isArray(obj.choices)) {
     let out = ''
     for (const ch of obj.choices) {
