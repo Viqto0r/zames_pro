@@ -138,10 +138,18 @@ export function hardenPlaywrightArgs(
   if (
     args.some(
       (a) =>
-        a.startsWith('--isolated') ||
-        a.startsWith('--user-data-dir') ||
-        a.startsWith('--extension') ||
-        a.startsWith('--cdp-endpoint'),
+        // A PREFIX match treated `--isolated=false` as the isolated flag, so
+        // the hardener added nothing and the MCP browser opened the agent's
+        // live profile anyway. Only a flag EXPLICITLY ON, or a value-taking
+        // profile flag, counts; `=false` does not.
+        a === '--isolated' ||
+        /^--isolated=(?!false$)/.test(a) ||
+        a === '--user-data-dir' ||
+        a.startsWith('--user-data-dir=') ||
+        a === '--extension' ||
+        a.startsWith('--extension=') ||
+        a === '--cdp-endpoint' ||
+        a.startsWith('--cdp-endpoint='),
     )
   ) {
     return args
