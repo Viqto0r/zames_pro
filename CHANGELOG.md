@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.25] - 2026-10-22
+
+### Fixed
+
+- **context:** pull scoped AGENTS.md for a file path in the task
+
 ## [2.82.24] - 2026-10-22
 
 ### Fixed
