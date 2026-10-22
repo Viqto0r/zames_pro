@@ -48,7 +48,12 @@ export function countPasteLines(raw: string): number {
     .join(NL)
     .split(CR)
     .join(NL)
-  const trimmed = normalized.replace(/\n+$/, '')
+  // Only the SINGLE last newline is a terminator (it does not open a new
+  // line); any newline before it ends a real - possibly BLANK - line. The
+  // old /\n+$/ stripped ALL trailing newlines, so a paste of "a\n\n\n"
+  // counted as ONE line: it was inserted verbatim instead of collapsing into
+  // a `[Pasted lines#N]` marker and flooded the input line.
+  const trimmed = normalized.endsWith(NL) ? normalized.slice(0, -1) : normalized
   if (trimmed === '') return 1
   return trimmed.split(NL).length
 }
