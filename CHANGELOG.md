@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **compact:** recover from an exhausted chat context on every provider
+
 ## [2.81.23] - 2026-10-22
 
 ### Fixed
