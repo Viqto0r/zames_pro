@@ -16,7 +16,6 @@ import {
   initialThrottleState,
   applySendEvent,
   nextWaitMs,
-  withBlockDuration,
   type ThrottleConfig,
   type ThrottleState,
 } from './send-throttle.js'
@@ -113,7 +112,7 @@ export class SendRuntime {
     extra: { errorText?: string; retryAfterMs?: number } = {},
   ): void {
     if (!this.pending) return
-    let e: SendEvent = { ...this.pending, outcome }
+    const e: SendEvent = { ...this.pending, outcome }
     if (extra.errorText) e.errorText = String(extra.errorText).slice(0, 300)
     if (typeof extra.retryAfterMs === 'number') {
       e.retryAfterMs = extra.retryAfterMs
@@ -127,7 +126,14 @@ export class SendRuntime {
       this.state = { ...this.state, blocked: true, blockedAt: this.now() }
     }
     if (outcome === 'rate_limit') {
-      e = withBlockDuration(e, this.state.blockedAt, this.now())
+      // The block START is only known AFTER the fold above (the adaptive path
+      // sets it there). The event itself carries NO duration: a rate-limit
+      // send is not the END of the block, so any value measured here is a
+      // lower bound that would then be averaged together with the real
+      // duration written by onBlockLifted — the same block counted TWICE.
+      if (!this.state.blockedAt) {
+        this.state = { ...this.state, blocked: true, blockedAt: this.now() }
+      }
     }
     if (this.opts.telemetry) {
       appendSendEvent(this.opts.logsDir, e)
