@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.56] - 2026-10-23
+
+### Fixed
+
+- **tool-summary:** mark an MCP failure as an error, not a success
+- **tools:** answer Read failures in the tool's own words
+- **paste:** never swap the bodies of two same-size pastes
+
 ## [2.82.55] - 2026-10-23
 
 ### Fixed
