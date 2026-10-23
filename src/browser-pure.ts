@@ -288,7 +288,13 @@ export function mergeAuthMarker(
     if (j && j.providers && typeof j.providers === 'object') {
       for (const [k, v] of Object.entries(j.providers)) providers[k] = v || {}
     } else if (j && typeof j === 'object') {
-      if (j.provider === 'qwen') providers.qwen = { at: j.at }
+      // A legacy record carries ONE provider name. Only Qwen and GLM ever wrote
+      // one (`{provider:'qwen'|'glm', at}`); a BARE `{at}` was DeepSeek. Treating
+      // every non-qwen name as DeepSeek filed a legacy GLM session under
+      // `deepseek`, so /doctor reported a DeepSeek session and the GLM one
+      // vanished.
+      const p = typeof j.provider === 'string' ? j.provider : ''
+      if (p === 'qwen' || p === 'glm') providers[p] = { at: j.at }
       else if (typeof j.at === 'string') providers.deepseek = { at: j.at }
     }
   } catch {}
