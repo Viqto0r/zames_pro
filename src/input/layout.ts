@@ -76,26 +76,75 @@ export function pasteReplacement(raw: string): PasteBlock | null {
   return { marker: formatPasteMarker(lines), text }
 }
 
-// Replace "[Pasted lines#N]" markers with the original pasted text. The marker
-// carries ONLY the line count, so two pastes of the same length share it: a
-// plain indexOf-per-paste substituted the FIRST paste's text into whichever
-// marker survived (the operator deleted the first one) — the model then got
-// the WRONG paste under a plausible marker. Replacing ONE occurrence per paste
-// and tying each marker to the pasted text it was CREATED with fixes it for
-// every order: an unmatched paste leaves the marker as text instead of
-// swapping bodies.
-export function expandPastes(pastes: PasteBlock[], text: string): string {
+// Replace "[Pasted lines#N]" markers with the original pasted text.
+//
+// The marker carries ONLY the line count, so two pastes of the same length are
+// indistinguishable in the buffer. The old "last occurrence for the last paste"
+// walk handed the SURVIVING marker the wrong body whenever the operator deleted
+// the other one. The caller can also name the paste it deleted
+// (`deletedIndex`), which removes the ambiguity completely; without it, an
+// ambiguous case (two same-size pastes, exactly one marker left) cannot be
+// resolved from the text, so the marker is left AS IS — sending the literal
+// "[Pasted lines#3]" is visible to the operator, while the wrong body under a
+// plausible marker silently sends the model someone else's text.
+export function expandPastes(
+  pastes: PasteBlock[],
+  text: string,
+  deletedIndex?: number,
+): string {
   if (!pastes.length) return text
-  // Expand in REVERSE order of appearance: each paste consumes its OWN marker
-  // occurrence (the last one for the last paste), so a marker the operator
-  // deleted cannot shift another paste's text into the wrong slot. With a
-  // single occurrence left, the LAST paste owns it — the operator deleted the
-  // EARLIER marker, so the later paste's body is the right fill.
-  let out = String(text)
-  for (let i = pastes.length - 1; i >= 0; i--) {
-    const p = pastes[i]
-    const idx = out.lastIndexOf(p.marker)
+  const src = String(text)
+  // Without a deletion hint, expansion is only unambiguous when the number of
+  // surviving markers matches the number of pastes (nothing was deleted) or
+  // the markers differ (different line counts).
+  const occurrences = new Map<string, number>()
+  for (const p of pastes) {
+    occurrences.set(p.marker, (occurrences.get(p.marker) || 0) + 1)
+  }
+  let ambiguous = false
+  for (const [marker, count] of occurrences) {
+    let seen = 0
+    let from = 0
+    while (true) {
+      const idx = src.indexOf(marker, from)
+      if (idx === -1) break
+      seen++
+      from = idx + marker.length
+    }
+    if (seen === count) continue
+    // Fewer markers than pastes means one was deleted; more than one survivor
+    // of the same text cannot be attributed.
+    if (seen > 1 || count > 1) ambiguous = true
+  }
+  if (deletedIndex !== undefined) ambiguous = false
+
+  // With a KNOWN deletion index the mapping is exact: the remaining pastes in
+  // order own the remaining markers in order.
+  const pool =
+    deletedIndex !== undefined &&
+    deletedIndex >= 0 &&
+    deletedIndex < pastes.length
+      ? pastes.filter((_p, i) => i !== deletedIndex)
+      : pastes
+  let out = src
+  let scanFrom = 0
+  const positions: Array<{ p: PasteBlock; idx: number }> = []
+  for (const p of pool) {
+    const idx = out.indexOf(p.marker, scanFrom)
     if (idx === -1) continue
+    positions.push({ p, idx })
+    scanFrom = idx + p.marker.length
+  }
+  const survivors = pool.length
+  const total = pastes.length
+  const lost = total - pool.length
+  const found = positions.length
+  // Every marker left in the text must be accounted for, and every unmatched
+  // paste must have actually lost its marker. Anything else is ambiguous.
+  if (!ambiguous && (found !== survivors || lost < 0)) ambiguous = true
+  if (ambiguous) return src
+  for (let i = positions.length - 1; i >= 0; i--) {
+    const { p, idx } = positions[i]
     out = out.slice(0, idx) + p.text + out.slice(idx + p.marker.length)
   }
   return out
