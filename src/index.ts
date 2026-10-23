@@ -82,7 +82,11 @@ import {
 } from './i18n.js'
 import { Transcript } from './transcript.js'
 import { UndoStore } from './undo.js'
-import { CheckpointStore, pickRecord as pickCheckpoint } from './checkpoint.js'
+import {
+  CheckpointStore,
+  pickRecord as pickCheckpoint,
+  isFullStampSelector,
+} from './checkpoint.js'
 import { selfReview, selfDiff, selfApply, selfList } from './self-review.js'
 import { type RestoredMessage } from './commands.js'
 import { performCompact } from './compact.js'
@@ -4465,8 +4469,16 @@ async function main(): Promise<void> {
       const selector = trimmed.slice('/rewind'.length).trim() || '1'
       if (editor) editor.lock(t('msg.input_locked'))
       try {
+        // The DISPLAY window is the newest 10, but a FULL stamp must resolve
+        // against the whole index (restore() searches all of it): an older
+        // checkpoint picked by its stamp used to report "/rewind failed", and a
+        // stamp sharing its first digits with a newer one could resolve to
+        // THAT wrong record.
         const list = await checkpoints.list(10)
-        const target = pickCheckpoint(list, selector)
+        const all = isFullStampSelector(selector)
+          ? await checkpoints.list(Number.MAX_SAFE_INTEGER)
+          : list
+        const target = pickCheckpoint(list, selector, all)
         if (!target) {
           console.error(theme.error(t('rewind.failed', { v: selector })))
           continue

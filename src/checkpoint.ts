@@ -74,12 +74,33 @@ export function rotateRecords<T>(records: T[], max: number): T[] {
  * Resolve a `/rewind` selector against records sorted NEWEST FIRST.
  * `1` = most recent; a non-numeric selector is matched as a stamp prefix.
  */
+/** True for a selector that is exactly a full epoch-ms stamp (13 digits). */
+export function isFullStampSelector(selector: string): boolean {
+  return /^\d{13}$/.test(String(selector ?? '').trim())
+}
+
+const isFullStamp = isFullStampSelector
+
 export function pickRecord(
   records: CheckpointRecord[],
   selector: string,
+  /** The FULL record set, when `records` is only a display window. */
+  allRecords?: CheckpointRecord[],
 ): CheckpointRecord | null {
   const sel = String(selector ?? '').trim()
   if (!sel) return null
+  // A FULL epoch-ms stamp names exactly ONE checkpoint, wherever it sits in
+  // the index. The command resolves against the newest-10 display window while
+  // restore() searches the WHOLE index, so an older checkpoint picked by its
+  // full stamp used to report "/rewind failed" — and, worse, a stamp that
+  // happened to share its first digits with a NEWER one was resolved to that
+  // WRONG record. A full stamp is therefore matched against the full set
+  // FIRST, and only then treated as an index.
+  if (isFullStamp(sel)) {
+    const pool = allRecords && allRecords.length ? allRecords : records
+    const exact = pool.find((r) => String(r.stamp) === sel)
+    if (exact) return exact
+  }
   if (/^\d+$/.test(sel)) {
     const n = Number(sel)
     // A small number is an index (1 = newest).
@@ -90,7 +111,12 @@ export function pickRecord(
     // with 5 checkpoints): the prefix form therefore needs TWO digits.
     if (sel.length < 2) return null
   }
-  return records.find((r) => String(r.stamp).startsWith(sel)) || null
+  const pool = allRecords && allRecords.length ? allRecords : records
+  return (
+    records.find((r) => String(r.stamp).startsWith(sel)) ||
+    pool.find((r) => String(r.stamp).startsWith(sel)) ||
+    null
+  )
 }
 
 // ---------- tar / fs plumbing ----------
