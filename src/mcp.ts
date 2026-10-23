@@ -135,8 +135,15 @@ export function hardenPlaywrightArgs(
 ): string[] {
   const hay = (String(command || '') + ' ' + args.join(' ')).toLowerCase()
   if (!hay.includes('playwright') || !hay.includes('mcp')) return args
+  // The profile flag may sit in the COMMAND itself: a config like
+  // `{command: "npx --user-data-dir=/tmp/x", args: ["@playwright/mcp"]}` is
+  // legitimate, and checking only `args` appended `--isolated` next to the
+  // profile — the server then has BOTH an on-disk profile and an in-memory
+  // one and picks unpredictably (the live agent's profile is the very thing
+  // this guard exists to protect).
+  const all = [String(command || ''), ...args]
   if (
-    args.some(
+    all.some(
       (a) =>
         // A PREFIX match treated `--isolated=false` as the isolated flag, so
         // the hardener added nothing and the MCP browser opened the agent's
@@ -146,10 +153,16 @@ export function hardenPlaywrightArgs(
         /^--isolated=(?!false$)/.test(a) ||
         a === '--user-data-dir' ||
         a.startsWith('--user-data-dir=') ||
+        a.endsWith('--user-data-dir') ||
+        a.includes('--user-data-dir=') ||
         a === '--extension' ||
         a.startsWith('--extension=') ||
+        a.endsWith('--extension') ||
+        a.includes('--extension=') ||
         a === '--cdp-endpoint' ||
-        a.startsWith('--cdp-endpoint='),
+        a.startsWith('--cdp-endpoint=') ||
+        a.endsWith('--cdp-endpoint') ||
+        a.includes('--cdp-endpoint='),
     )
   ) {
     return args
