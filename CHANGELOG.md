@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.54] - 2026-10-23
+
+### Fixed
+
+- **telemetry:** measure a rate-limit block once, at the lift
+- **hooks:** load the config before firing the Stop hook
+- **history:** match fragment types case-insensitively in every parser
+
 ## [2.82.53] - 2026-10-23
 
 ### Fixed
