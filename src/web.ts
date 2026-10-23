@@ -713,22 +713,30 @@ export function parseDuckDuckGoResults(
   // single regex made the snippet group OPTIONAL with an unbounded gap, so a
   // result without a snippet picked up the FOLLOWING result's snippet (wrong
   // text under a URL). A row scan ties every snippet to its own result.
-  const anchorRe =
-    /<a[^>]*class="[^"]*result__(a|snippet)[^"]*"[^>]*>([\s\S]*?)<\/a>/gi
+  // A result anchor is `<a … class="… result__a|result__snippet …" …>`. The
+  // attribute VALUES may be single-quoted (HTML allows both, and a page served
+  // through a proxy does), so each quote style is accepted rather than only
+  // `class="…"`. Rejecting them made a valid page parse to zero results and
+  // WebSearch answer "the output format may have changed".
+  const anchorRe = /<a[^>]*class=(?:"([^"]*)"|'([^']*)')[^>]*>([\s\S]*?)<\/a>/gi
   const hrefOf = (tag: string): string => {
-    const m = tag.match(/href="([^"]*)"/i)
-    return m ? m[1] : ''
+    const m = tag.match(/href=(?:"([^"]*)"|'([^']*)')/i)
+    return m ? (m[1] ?? m[2] ?? '') : ''
   }
   let cur: { title: string; url: string; snippet: string } | null = null
   let m: RegExpExecArray | null
   while ((m = anchorRe.exec(body))) {
-    const kind = m[1].toLowerCase()
+    const classes = m[1] ?? m[2] ?? ''
+    const kindMatch = /result__(a|snippet)/i.exec(classes)
+    if (!kindMatch) continue
+    const kind = kindMatch[1].toLowerCase()
+    const text = m[3] || ''
     if (kind === 'a') {
       if (cur && cur.title && /^https?:\/\//i.test(cur.url)) {
         results.push(cur)
         if (results.length >= limit) return results
       }
-      cur = { title: htmlToText(m[2] || '').trim(), url: '', snippet: '' }
+      cur = { title: htmlToText(text).trim(), url: '', snippet: '' }
       // The href lives in the OPENING tag, which m[0] starts with.
       let href = hrefOf(m[0].slice(0, m[0].indexOf('>') + 1))
       const uddg = href.match(/[?&]uddg=([^&]+)/)
@@ -742,7 +750,7 @@ export function parseDuckDuckGoResults(
       cur.url = href
       continue
     }
-    if (cur && !cur.snippet) cur.snippet = htmlToText(m[2] || '').trim()
+    if (cur && !cur.snippet) cur.snippet = htmlToText(text).trim()
   }
   if (cur && cur.title && /^https?:\/\//i.test(cur.url)) results.push(cur)
   return results.slice(0, limit)
