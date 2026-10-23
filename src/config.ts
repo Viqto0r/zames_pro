@@ -747,18 +747,46 @@ export function configPathFor(scope: ConfigScope): string {
  * writing does not "freeze" all defaults into the user's file.
  */
 export function readConfigFile(file: string): Record<string, unknown> {
+  let raw: string
   try {
-    const data = JSON.parse(fs.readFileSync(file, 'utf-8'))
-    if (data && typeof data === 'object' && !Array.isArray(data)) {
-      return data as Record<string, unknown>
-    }
+    raw = fs.readFileSync(file, 'utf-8')
   } catch (e) {
     const err = e as NodeJS.ErrnoException
+    // A MISSING file is the normal first-write case. Anything else (EACCES,
+    // EISDIR) is reported — the caller must know the write cannot land.
     if (err.code !== 'ENOENT') {
       throw new Error(`failed to read ${file}: ${err.message}`)
     }
+    return {}
   }
-  return {}
+  try {
+    const data = JSON.parse(raw)
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+      return data as Record<string, unknown>
+    }
+    return {}
+  } catch (e) {
+    // A file that does not PARSE (a hand edit with a trailing comma, a
+    // merge-conflict marker, a bare-word value) is NOT a reason to fail the
+    // write: loadConfig() already tolerates it with a warning. Failing here
+    // made /config set useless on such a project, and a caller that ignored
+    // the error overwrote the WHOLE file with the single edited key.
+    //
+    // The unparsable text is backed up beside the file first, so the operator's
+    // other settings are recoverable by hand; the warning goes to stderr, the
+    // same channel loadConfig() uses.
+    const backup = file + '.broken-' + Date.now()
+    try {
+      fs.copyFileSync(file, backup)
+      console.error(
+        `config: ${file} is not valid JSON (${(e as Error).message});` +
+          ` its content was kept in ${backup} and the write starts a fresh file`,
+      )
+    } catch {
+      // Best-effort: an unreadable backup must not block the write either.
+    }
+    return {}
+  }
 }
 
 /**
