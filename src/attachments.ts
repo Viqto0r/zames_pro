@@ -91,7 +91,12 @@ export function extForMime(mime: string): string {
 export function formatSize(bytes: number): string {
   const n: number = Number(bytes) || 0
   if (n < 1024) return n + ' B'
-  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB'
+  if (n < 1024 * 1024) {
+    const kb = (n / 1024).toFixed(1)
+    // toFixed ROUNDS: just under a megabyte the quotient is 1023.999 KB and
+    // the operator saw "1024.0 KB" — a size that should be "1.0 MB".
+    if (kb !== '1024.0') return kb + ' KB'
+  }
   return (n / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
