@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.59] - 2026-10-23
+
+### Fixed
+
+- **commands:** /diffstat hides the padded no-output sentinel
+
 ## [2.82.58] - 2026-10-23
 
 ### Fixed
