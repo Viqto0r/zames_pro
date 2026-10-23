@@ -273,8 +273,23 @@ function clipIf(
   // MEMORY.md is APPENDED to over time, so its newest (most relevant) notes
   // live at the TAIL — a head clip would drop exactly those. Keep the tail
   // for memory files, the head for AGENTS.md (whose top is the summary).
-  if (!fromTail) return cleaned.slice(0, keep) + NL + NL + marker
-  let slice = cleaned.slice(cleaned.length - keep)
+  //
+  // The cut is in UTF-16 units, so it can land BETWEEN the halves of a
+  // surrogate PAIR (an emoji / astral CJK char): the head would then end with
+  // a lone HIGH half and the tail would START with a lone LOW half. Both reach
+  // the model through the system prompt as broken code points (the same rule
+  // as truncateToolResult / capReport / cutHookText). Step one unit back for
+  // the head, one unit forward for the tail, so the pair is dropped whole.
+  if (!fromTail) {
+    let end = keep
+    const last = cleaned.charCodeAt(end - 1)
+    if (last >= 0xd800 && last <= 0xdbff) end--
+    return cleaned.slice(0, end) + NL + NL + marker
+  }
+  let start = cleaned.length - keep
+  const first = cleaned.charCodeAt(start)
+  if (first >= 0xdc00 && first <= 0xdfff) start++
+  let slice = cleaned.slice(start)
   // Cut at a NOTE boundary, not mid-note: start the kept tail at the next line
   // that begins a bullet or a heading, so a half-sentence note is not left.
   const m = slice.search(/\n(?=[-*] |#{1,6} )/)
