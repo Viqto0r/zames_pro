@@ -758,8 +758,11 @@ export async function runTask(
     // Stop hook (N32): the whole task (including drained queue messages) is
     // done. A cleanup/notification hook runs here. Best-effort.
     try {
-      const { runLifecycleHooks } = await import('./hooks.js')
-      const out = await runLifecycleHooks(undefined, 'Stop', workdir, {
+      // LOAD the config: `undefined` here made every Stop hook a no-op — the
+      // operator's `.zames/hooks.json` entry never ran, while the PreToolUse
+      // hooks from the SAME file worked (they are loaded separately).
+      const { runLifecycleHooks, loadHooks } = await import('./hooks.js')
+      const out = await runLifecycleHooks(loadHooks(workdir), 'Stop', workdir, {
         failure: failure ?? '',
       })
       if (out) ui.warning(out)
