@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.53] - 2026-10-23
+
+### Fixed
+
+- **glm:** keep a message without a timestamp in dialogue order
+- **qwen:** keep a message without a timestamp in dialogue order
+- **rewind:** resolve a full checkpoint stamp against the whole index
+
 ## [2.82.52] - 2026-10-23
 
 ### Fixed
