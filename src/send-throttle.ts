@@ -142,7 +142,9 @@ export function applySendEvent(
     next.blockedAt = state.blocked ? state.blockedAt || stamp : stamp
     next.okStreak = 0
     next.forcedWaitMs =
-      typeof event.retryAfterMs === 'number' && event.retryAfterMs > 0
+      typeof event.retryAfterMs === 'number' &&
+      Number.isFinite(event.retryAfterMs) &&
+      event.retryAfterMs > 0
         ? event.retryAfterMs
         : cfg.rateLimitWaitMs
     next.forcedWaitAt = now
