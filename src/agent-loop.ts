@@ -1242,7 +1242,18 @@ export async function runAgentLoop({
           continue
         }
 
-        const tool = tools.find((t) => t.name === call.tool)
+        // Resolve the tool name TOLERANTLY: the model pads it with spaces or
+        // a newline (`"tool": " Bash "`) and sometimes changes its case
+        // (`bash`). An exact match reported `Unknown tool: Bash ` and the model
+        // simply repeated the same call, burning the retry budget. The first
+        // exact match still wins, so a name that really is distinct is not
+        // merged.
+        const wantName = String(call.tool ?? '')
+          .trim()
+          .toLowerCase()
+        const tool =
+          tools.find((t) => t.name === call.tool) ??
+          tools.find((t) => t.name.trim().toLowerCase() === wantName)
 
         if (!tool) {
           const err = `Unknown tool: ${call.tool}`
