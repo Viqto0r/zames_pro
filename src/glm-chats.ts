@@ -171,9 +171,24 @@ export function parseGlmHistory(json: unknown): ChatMessage[] {
       ? Object.values(messages as Record<string, unknown>)
       : null
   if (!arr) return []
+  // The map is UNORDERED and `timestamp` restores the dialogue order. The
+  // value is a NUMBER or a numeric string in the builds seen so far, but an
+  // ISO stamp (`2026-10-23T10:00:00Z`) makes `Number(...)` NaN, and a NaN
+  // comparator keeps the INSERTION order — a scrambled dialogue. Fall back to
+  // Date.parse for a non-numeric string.
+  const stampOf = (m: Record<string, unknown>): number => {
+    const raw = m.timestamp
+    const n = Number(raw)
+    if (Number.isFinite(n) && n !== 0) return n
+    if (typeof raw === 'string') {
+      const t = Date.parse(raw)
+      if (Number.isFinite(t)) return t
+    }
+    return 0
+  }
   const sorted = arr
     .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
-    .sort((a, b) => (Number(a.timestamp) || 0) - (Number(b.timestamp) || 0))
+    .sort((a, b) => stampOf(a) - stampOf(b))
   const out: ChatMessage[] = []
   for (const m of sorted) {
     // The role comes from `role` (confirmed by the live fixture). Only the
