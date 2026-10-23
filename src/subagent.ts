@@ -5,7 +5,7 @@ import type { Locale } from './i18n.js'
 import type { SubagentRequest, SubagentResult } from './agent-loop.js'
 import type { runAgentLoop as RunAgentLoopFn } from './agent-loop.js'
 
-// Subagent runner (BACKLOG N36). A `Task` tool call from the model is handled
+// Subagent runner. A `Task` tool call from the model is handled
 // by the agent loop as a SEAM (like onAutoCompact): it calls back into the
 // caller, which owns the whole lifecycle. This module builds that callback.
 //

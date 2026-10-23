@@ -180,7 +180,7 @@ function authMarkerExists(provider: ProviderId = config.provider): boolean {
 }
 
 // ---------- CLI parsing ----------
-// The pure helpers live in src/cli-args.ts (C3) and are bound to this process's
+// The pure helpers live in src/cli-args.ts and are bound to this process's
 // argv ONCE here. Call sites keep using getArg/hasFlag/getPositional.
 const { getArg, hasFlag, getPositional } = createCliArgs(process.argv.slice(2))
 
@@ -1562,7 +1562,7 @@ async function main(): Promise<void> {
   // brings the tasks back (they used to be in-memory only).
   todoStore.onChange = () => persistTodos()
 
-  // Subagents (BACKLOG N36): the `Task` tool delegates a self-contained
+  // Subagents: the `Task` tool delegates a self-contained
   // sub-task to a nested agent loop in its OWN chat (context isolation — in
   // zames "context" IS the chat), then restores this chat and returns only
   // the report. Sequential by design (one browser, one send slot). On by
@@ -4677,7 +4677,7 @@ async function main(): Promise<void> {
       workdir: currentWorkdir,
     })
 
-    // BACKLOG B3: snapshot the working tree BEFORE the task so /rewind can
+    // Snapshot the working tree BEFORE the task so /rewind can
     // undo the whole task in one step. Best-effort: create() never throws, so
     // a missing tar cannot abort the task it was meant to protect. Skipped
     // while reviewing a snapshot (workdir is a throwaway copy).

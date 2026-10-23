@@ -2,7 +2,7 @@
 // of the LineEditor's «/» hint list (src/input.ts). No terminal access and no
 // editor state: given the buffer text and the command list these decide which
 // commands to show, the visible window, and the Tab completion. Split out
-// (C3) so the fuzzy match can be unit-tested without driving the editor.
+// so the fuzzy match can be unit-tested without driving the editor.
 
 import {
   SUGGEST_PAGE,

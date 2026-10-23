@@ -1,4 +1,4 @@
-// The /config subcommand DISPATCH (BACKLOG C3). The PURE text rendering lives
+// The /config subcommand DISPATCH . The PURE text rendering lives
 // in config-commands.ts; this module owns the parsing/routing of the text
 // subcommands (list/get/set/reset/lang/path) and prints through injected
 // callbacks. Everything that touches live state (the runtime config object,

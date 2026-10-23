@@ -5,7 +5,7 @@ import { execFile } from 'child_process'
 import { randomBytes } from 'crypto'
 import { writeJsonAtomic } from './fsutil.js'
 
-// Checkpoints / rewind (BACKLOG B3).
+// Checkpoints / rewind .
 //
 // Undo (src/undo.ts) reverts ONE file write. A checkpoint snapshots the WHOLE
 // working tree at the start of a task, so a risky task can be rolled back with

@@ -1,4 +1,4 @@
-// PURE CLI argument parsing (BACKLOG C3). index.ts used to hold `args` as a
+// PURE CLI argument parsing . index.ts used to hold `args` as a
 // module-level constant plus three helpers closing over it, which made the
 // parsing impossible to unit-test in isolation (index.ts is the entry point and
 // is not covered). `createCliArgs(argv)` binds the argv ONCE and returns the

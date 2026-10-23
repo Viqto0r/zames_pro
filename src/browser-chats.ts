@@ -1,6 +1,6 @@
 import type { ChatMessage } from './browser.js'
 
-// PURE parsing of the DeepSeek history/message payloads (BACKLOG C3). These
+// PURE parsing of the DeepSeek history/message payloads . These
 // helpers are extracted from DeepSeekBrowser.fetchChatMessages: they used to be
 // copy-pasted INLINE twice (the in-page evaluate AND the Playwright-request
 // fallback), so the same role/fragment extraction lived in two places and could

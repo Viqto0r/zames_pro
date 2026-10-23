@@ -104,7 +104,7 @@ import { translate, DEFAULT_LOCALE, type Locale } from './i18n.js'
 // browser.ts).
 export { STOP_NAME_RE, CONTINUE_NAME_RE }
 
-// The pure, state-free helpers live in browser-pure.ts (BACKLOG C3): they are
+// The pure, state-free helpers live in browser-pure.ts : they are
 // imported for the class below and RE-EXPORTED here, so the public API of this
 // module is unchanged (tests and other modules import these names from
 // './browser.js').

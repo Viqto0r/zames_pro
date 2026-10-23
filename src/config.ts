@@ -76,7 +76,7 @@ export const DEFAULTS: ZamesConfig = {
     maxBackups: 200,
   },
 
-  // BACKLOG B3: snapshot the whole working tree at the start of each task so
+  // Snapshot the whole working tree at the start of each task so
   // /rewind can roll a risky task back in one step.
   checkpoint: {
     enabled: true,

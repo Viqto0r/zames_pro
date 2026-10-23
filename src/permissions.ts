@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import type { ToolArgs } from './types.js'
 
-// Approval policy (BACKLOG C1). Unlike the deleted ConfirmManager,
+// Approval policy. Unlike the deleted ConfirmManager,
 // this is actually wired into the loop: before every tool call the policy
 // is evaluated and a `deny` blocks the call, an `ask` prompts the
 // operator. The rules live in `.zames/permissions.json`:

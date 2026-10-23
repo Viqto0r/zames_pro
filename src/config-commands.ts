@@ -1,4 +1,4 @@
-// PURE rendering for the /config command's TEXT output (BACKLOG C3). These
+// PURE rendering for the /config command's TEXT output . These
 // helpers format the schema into lines; they touch no browser/terminal state,
 // so they are unit-tested without a live agent (the /config dispatch in
 // index.ts only prints what these return). The interactive menu lives in

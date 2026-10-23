@@ -28,7 +28,7 @@ import type { TranslateFn, Locale } from './i18n.js'
 import type { ZamesConfig } from './types.js'
 import { providerAskDeadlineMs } from './config.js'
 
-// The TASK RUNNER, extracted from index.ts (C3 step 4). One task = send the
+// The TASK RUNNER, extracted from index.ts. One task = send the
 // first message, then drain the operator's queue (messages typed while the
 // agent worked, and scheduled /loop|/cron jobs) until it is empty or the run is
 // aborted. Kept as a FREE function taking its collaborators explicitly, so the

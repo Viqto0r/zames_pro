@@ -22,7 +22,7 @@ export function cleanAnswer(raw: string): string {
   return raw
 }
 
-// Pure, state-free helpers extracted from browser.ts (BACKLOG C3). Nothing
+// Pure, state-free helpers extracted from browser.ts . Nothing
 // here touches the DeepSeekBrowser instance state, so this module is safe to
 // import anywhere (including hot-reloaded modules) without pulling in the
 // live Playwright context. browser.ts re-exports the public names, so the

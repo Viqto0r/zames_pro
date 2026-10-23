@@ -3,7 +3,7 @@ import path from 'path'
 import { looksLikeFilePath, isImageName } from './attachments.js'
 import { extractAtFileRefs } from './path-token.js'
 
-// Path resolution and `@file` reference inlining (BACKLOG B5, C3).
+// Path resolution and `@file` reference inlining .
 // Extracted from src/index.ts so the logic is unit-testable without the whole
 // CLI. This module touches only the filesystem (no browser/terminal).
 
@@ -79,13 +79,13 @@ async function isInside(workdir: string, target: string): Promise<boolean> {
   return !rel.startsWith('..') && !path.isAbsolute(rel)
 }
 
-// Per-file and total caps for `@path` inlining (B5). A reference should SAVE
+// Per-file and total caps for `@path` inlining . A reference should SAVE
 // round-trips, not flood the context: a huge file is truncated with a note
 // telling the agent to read the rest itself.
 export const AT_REF_FILE_CAP = 60 * 1024
 export const AT_REF_TOTAL_CAP = 200 * 1024
 
-// Inline `@path` references found in a task text (B5). Returns the augmented
+// Inline `@path` references found in a task text . Returns the augmented
 // text plus the list of files actually inlined (for the operator notice).
 // Unknown/unreadable references are left in place untouched -- they may be
 // part of the prose; we never fail the task over a missing file.

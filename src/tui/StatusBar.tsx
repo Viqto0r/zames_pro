@@ -39,7 +39,7 @@ function stateLabel(state: TuiState, locale: Locale): string {
  *  status). Measured with the shared `visLen` so wide chars (CJK/emoji) count
  *  as 2 and the emoji's text-presentation selector (\uFE0E) as 0 — a plain
  *  `.length` counted an emoji as 1 and a CJK badge was clipped on a narrow
- *  terminal (BACKLOG T0.7). Exported so the width arithmetic is unit-tested
+ *  terminal. Exported so the width arithmetic is unit-tested
  *  without rendering. */
 export function badgeTextWidth(state: TuiState): number {
   let w = 0

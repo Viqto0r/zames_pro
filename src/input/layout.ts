@@ -4,7 +4,7 @@ import type { Locale } from '../i18n.js'
 // LineEditor (src/input.ts). No terminal access, no state: given a prompt, a
 // buffer, a cursor and a width these compute the visual rows, the cursor
 // position, the visible width (wide chars count 2) and the status formatting.
-// Split out (C3 step 3) so the geometry can be unit-tested without driving the
+// Split out so the geometry can be unit-tested without driving the
 // real editor, and so the editor class keeps only render/key handling.
 
 // All control characters are assembled from codes so the file has no

@@ -94,7 +94,7 @@ function stripRefPunct(tok: string): string {
   return t
 }
 
-// Find all `@path` references in a task text (B5). Returns the unique paths in
+// Find all `@path` references in a task text. Returns the unique paths in
 // order of appearance. A reference is an '@' at a word boundary followed by a
 // token that looks like a file name/path (a known extension). Implemented
 // without regular expressions, like extractPathToken, to keep the source free

@@ -1,4 +1,4 @@
-// Conventional-Commits -> CHANGELOG draft (BACKLOG D2). PURE and
+// Conventional-Commits -> CHANGELOG draft. PURE and
 // unit-tested: the draft is built from git log OUTSIDE the release flow
 // (scripts/changelog-draft.mts), so a misparse never touches CHANGELOG.md.
 // We do NOT auto-write the file: a human (or the agent) reviews the draft

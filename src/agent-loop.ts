@@ -1585,8 +1585,8 @@ ${diag}`
 }
 
 // The pure helpers (tool-call parser + answer heuristics) live in
-// answer-parse.ts (BACKLOG C3) and are imported here for runAgentLoop. They are
-// NOT re-exported: importers get them from answer-parse.js directly (C3b).
+// answer-parse.ts  and are imported here for runAgentLoop. They are
+// NOT re-exported: importers get them from answer-parse.js directly .
 import {
   parseToolCall,
   responseLooksLikeToolCall,

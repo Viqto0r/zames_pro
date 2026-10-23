@@ -50,7 +50,7 @@ export function normalizeLocale(v: unknown): Locale {
 export type TranslateParams = Record<string, string | number>
 
 // String catalog. Key -> { ru, en }. If a key is missing we return the key itself.
-// Split into section files (C3 step 1); merged here so callers keep importing
+// Split into section files; merged here so callers keep importing
 // CATALOG from a single place.
 export const CATALOG: Record<string, { ru: string; en: string }> = {
   ...commonMessages,

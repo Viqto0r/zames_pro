@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process'
 import type { DiagnosticsConfig } from './types.js'
 
-// Post-edit diagnostics (BACKLOG N38). Claude Code feeds diagnostics back to
+// Post-edit diagnostics. Claude Code feeds diagnostics back to
 // the model right after an edit, so it learns about a type error WITHOUT
 // spending a whole round-trip asking for `npm run typecheck`. zames has no
 // language server, so the closest equivalent is running the project's own

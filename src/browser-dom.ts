@@ -1,4 +1,4 @@
-// Pure in-page DOM helpers extracted from DeepSeekBrowser (BACKLOG C3).
+// Pure in-page DOM helpers extracted from DeepSeekBrowser .
 //
 // Every function here runs INSIDE page.evaluate, so it MUST be fully
 // self-contained: Playwright serializes the function SOURCE and evaluates it in

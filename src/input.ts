@@ -43,7 +43,7 @@ import {
 // The pure layout/formatting helpers (visual rows, cursor position, visible
 // width, paste markers, token formatting) live in ./input/layout.js. They are
 // re-exported here so every existing import from './input.js' keeps working,
-// and so tests can import them from either module (C3 step 3).
+// and so tests can import them from either module.
 export {
   PASTE_MIN_LINES,
   SUGGEST_PAGE,

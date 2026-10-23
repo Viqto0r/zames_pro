@@ -2,7 +2,7 @@ import type { ToolArgs, ToolCall, ParsedToolCall } from './types.js'
 import { parseXmlToolCalls } from './xml-toolcall.js'
 import { normText } from './browser-pure.js'
 
-// Pure, state-free helpers extracted from agent-loop.ts (BACKLOG C3): the
+// Pure, state-free helpers extracted from agent-loop.ts : the
 // tool-call PARSER (JSON / permissive / XML-DSML repair) and the small answer
 // heuristics. None of them touch the browser or the loop state, so this
 // module is safe to import on its own. agent-loop.ts imports the ones the
