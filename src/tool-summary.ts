@@ -109,6 +109,11 @@ export function looksLikeToolError(result: string): boolean {
     head.startsWith('blocked by') ||
     head.startsWith('denied by') ||
     head.startsWith('unknown tool') ||
+    // An MCP failure is returned AS the result (see renderMcpResult):
+    // `MCP error: …` for an isError answer, `MCP error (server/tool): …`
+    // when the call throws. Neither was recognised, so a failed MCP call was
+    // drawn with a green check.
+    head.startsWith('mcp error') ||
     head.startsWith('subagents are not available') ||
     head.startsWith('subagent failed') ||
     head.startsWith('subagent error') ||
