@@ -96,9 +96,9 @@ export const deepseekMessages: Record<string, { ru: string; en: string }> = {
     ru: '✖ {provider} перестал отвечать, лимит повторов исчерпан. Модель не дала ответа — проверь чат вручную.',
     en: '✖ {provider} stopped responding, retry limit exhausted. The model gave no answer — check the chat manually.',
   },
-  'ds.tool_retry': {
-    ru: '⏳ Агент не распознал ответ модели — прошу продолжить ({attempt}/{max})...',
-    en: '⏳ The agent did not recognize the model answer — asking it to continue ({attempt}/{max})...',
+  'ds.text_no_tool': {
+    ru: '⏳ Модель ответила текстом без вызова инструмента ({attempt}/{max}) — прошу вызвать инструмент...',
+    en: '⏳ The model answered with plain text and no tool call ({attempt}/{max}) — asking for a tool call...',
   },
   'ds.not_launched': {
     ru: '✖ Браузер не запущен.',

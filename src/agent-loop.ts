@@ -598,6 +598,18 @@ export async function runAgentLoop({
       )
       if (afterToolRetries < MAX_AFTER_TOOL_RETRIES) {
         afterToolRetries++
+        // The retry used to `continue` with the UNCHANGED `message`: a bare
+        // re-send of the same task text. The model then saw the task arrive a
+        // second time and answered it CONVERSATIONALLY ("you already have the
+        // prompt above…") instead of resuming the work — a real transcript
+        // showed exactly that after a watchdog timeout. The retry must say
+        // that the turn was cut off and demand a tool call.
+        message =
+          'The previous turn was cut off (the answer did not arrive in time), so the work is NOT finished. ' +
+          'Continue from where you stopped: reply with EXACTLY one JSON tool-call object, ' +
+          'no text before or after, for example: ' +
+          '{"tool": "Bash", "args": {"command": "..."}}. ' +
+          'If the task is really done — call respond with the final message.'
         await new Promise((r) => setTimeout(r, 1500))
         continue
       }
@@ -727,6 +739,7 @@ export async function runAgentLoop({
           : 'For example: a small JSON tool-call object'
         message =
           'Your previous answer was not recognized as a tool call. ' +
+          'Do NOT reply with prose, explanations or the task text — the operator never sees them and the work does not move. ' +
           'Reply with EXACTLY one JSON tool-call object, no text before or after. ' +
           'Do NOT use XML/DSML tags — plain JSON only. ' +
           truncHint
@@ -777,6 +790,8 @@ export async function runAgentLoop({
         message =
           'Continue the task. If you need a tool — reply with EXACTLY ' +
           'one JSON tool-call object: {"tool": "...", "args": {...}}. ' +
+          'Do NOT repeat the task text or describe what you are about to do — ' +
+          'act with a tool call. ' +
           'If the task is done — call the respond tool with the final message.'
         continue
       }
@@ -809,6 +824,7 @@ export async function runAgentLoop({
           'It looks like you meant to call a tool but did not. ' +
           'If the task is not finished — reply with EXACTLY one JSON ' +
           'tool-call object, no text before or after. ' +
+          'Do NOT restate the task or explain your plan in prose. ' +
           'If the task is really done — call respond with the final ' +
           'message to the operator.'
         continue
@@ -829,8 +845,12 @@ export async function runAgentLoop({
         // once per task, otherwise the retry budget spams the terminal.
         if (!toolRetryWarned) {
           toolRetryWarned = true
+          // The notice names the ACTUAL problem: the model answered in prose
+          // instead of calling a tool. It used to say "the answer was not
+          // recognized", which made the operator suspect a parsing bug while
+          // the model had simply not called anything.
           safeWarning(
-            tr('ds.tool_retry', {
+            tr('ds.text_no_tool', {
               attempt: unparsedRetries,
               max: MAX_UNPARSED_RETRIES,
             }),
@@ -844,7 +864,7 @@ export async function runAgentLoop({
           'The task is not finished. Reply with EXACTLY one JSON tool-call ' +
           'object, no text before or after, for example: ' +
           '{\"tool\": \"Bash\", \"args\": {\"command\": \"...\"}}. ' +
-          'Do NOT explain, plan or narrate — call a tool. ' +
+          'Do NOT explain, plan, narrate or repeat the task text — call a tool. ' +
           'If the task is really done — call respond with the final message.'
         continue
       }

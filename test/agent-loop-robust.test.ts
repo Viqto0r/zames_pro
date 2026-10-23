@@ -264,7 +264,7 @@ test('подозрительный финал (похож на вызов) вы�
     onWarning: (m) => warnings.push(m),
   })
   // The operator is now told TWICE: once when the agent starts re-asking the
-  // model for a proper tool call (ds.tool_retry) and once at the suspicious
+  // model for a proper tool call (ds.text_no_tool) and once at the suspicious
   // final (msg.suspicious_stop). Both are useful, so we assert both instead
   // of requiring a single silent warning.
   assert.ok(warnings.length >= 1)
@@ -609,5 +609,112 @@ test('эхо нераспознанного DSML-вызова выполняет
   assert.ok(
     runs >= 1,
     'нераспознанный DSML-вызов должен выполниться хотя бы раз',
+  )
+})
+
+// Regression (the operator's report): the model answered WITHOUT calling a
+// tool, and the retry turn made it clear. Two real transcripts showed the
+// same shape:
+//
+//   1. `ask_timeout` (the watchdog fired) — but the answer WAS there;
+//   2. the loop retried the SAME task text;
+//   3. the model treated the repeated task as a fresh chat message and wrote
+//      a one-line note explaining itself in prose ("You already have the
+//      prompt above…") or printed the task back verbatim.
+//
+// The plain-text re-ask could not make it call a tool, because the retry
+// message never said WHAT was wrong and the model had no reason to believe a
+// tool was needed. The guards below cover both holes.
+
+test('a repeated TASK cannot be mistaken for a stale tool answer', async () => {
+  // lastRaw is seeded with `message` before the first ask. If the guard did
+  // not exclude the first turn, a task text that the model parrots back would
+  // be discarded as "stale" (the tool never ran) and the loop would retry
+  // forever. The first turn must ALWAYS be evaluated on its own.
+  const taskText = 'посмотри файл и скажи, что в нём'
+  const { browser, asks } = makeBrowser([
+    taskText,
+    jsonCall('respond', { message: 'done' }),
+  ])
+  const result = await runAgentLoop({
+    browser,
+    tools: [respondTool],
+    task: taskText,
+    workdir: process.cwd(),
+  })
+  assert.equal(result, 'done')
+  assert.ok(asks.length >= 2)
+})
+
+test('after a watchdog timeout the retry does not resend the bare task', async () => {
+  // The retry used to be `continue` with the UNCHANGED `message`, i.e. the
+  // same task text sent again. The model then answered the repeated question
+  // conversationally instead of resuming the work. The retry must carry an
+  // explicit instruction that the turn was cut off.
+  let n = 0
+  const asks: string[] = []
+  const browser = {
+    async ask(text: string) {
+      asks.push(text)
+      n++
+      if (n === 1) {
+        // Never resolves: the watchdog must fire. It is released by
+        // cancelPendingAsk (what the real browser does).
+        await new Promise((r) => setTimeout(r, 5000))
+      }
+      return JSON.stringify({ tool: 'respond', args: { message: 'ok' } })
+    },
+    cancelPendingAsk() {},
+    async newChat() {},
+    async getCurrentChatId() {
+      return 'chat-xyz'
+    },
+    async stopGeneration() {
+      return true
+    },
+    async listChats() {
+      return []
+    },
+    async openChat() {
+      return true
+    },
+    async close() {},
+  }
+  const result = await runAgentLoop({
+    browser: browser as never,
+    tools: [respondTool],
+    task: 'исходная задача',
+    workdir: process.cwd(),
+    askDeadlineMs: 60,
+    maxAfterToolRetries: 1,
+  })
+  assert.equal(result, 'ok')
+  assert.ok(asks.length >= 2, 'ask calls: ' + asks.length)
+  assert.notEqual(
+    asks[1],
+    'исходная задача',
+    'the retry must not resend the bare task text',
+  )
+  assert.match(asks[1], /cut off|watchdog|continue/i)
+})
+
+test('a prose answer with no tool call is re-asked with an explicit reason', async () => {
+  // A bare "You already have the prompt above" answer must not be the end of
+  // the task: the re-ask names the violation instead of politely asking to
+  // "continue", so the model has no excuse to answer in prose again.
+  const { browser, asks } = makeBrowser([
+    'You already have the prompt above in this chat.',
+    jsonCall('respond', { message: 'final' }),
+  ])
+  const result = await runAgentLoop({
+    browser,
+    tools: [respondTool],
+    task: 'x',
+    workdir: process.cwd(),
+  })
+  assert.equal(result, 'final')
+  assert.ok(
+    /plain text is a PROTOCOL VIOLATION/i.test(asks[1]),
+    're-ask text: ' + asks[1],
   )
 })
