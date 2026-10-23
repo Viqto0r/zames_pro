@@ -347,7 +347,14 @@ const PROJECT_SKILL_DIRS = [
 ]
 
 function parseFrontmatter(raw: string): FrontMatter {
-  const norm = raw.replace(CRLF_RE, NL)
+  // A leading BOM must be dropped BEFORE the `---` check: Windows editors and
+  // generators write one, and without this the frontmatter was not recognised
+  // at all (description / argument-hint / arguments silently lost).
+  // `skillBody` already strips it; the two must agree.
+  const bom = String.fromCharCode(0xfeff)
+  const norm = String(raw ?? '')
+    .replace(new RegExp('^' + bom), '')
+    .replace(CRLF_RE, NL)
   if (!norm.startsWith('---')) return {}
   const end = norm.indexOf(NL + '---', 3)
   if (end === -1) return {}
