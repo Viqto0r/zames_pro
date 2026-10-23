@@ -375,11 +375,21 @@ export function createTools(
         const cwd = searchPath ? safe(String(searchPath)) : workdir
         const results: string[] = []
         for await (const f of glob(req(pattern, 'pattern'), { cwd })) {
-          // Sandbox: ignore anything that goes outside root.
-          const abs = path.resolve(cwd, f)
-          const rel = path.relative(root, abs)
-          if (rel.startsWith('..') || path.isAbsolute(rel)) continue
-          results.push(f)
+          // Sandbox: ignore anything that goes outside root. safePath() does
+          // the LEXICAL and the symlink-REAL check; a plain `rel.startsWith`
+          // here passed a pattern carrying `..` (`../**/*.ts` listed a SIBLING
+          // directory, and the printed path started with `..`).
+          let inside = true
+          try {
+            safePath(root, path.resolve(root, f))
+          } catch {
+            inside = false
+          }
+          if (!inside) continue
+          // Print a path relative to the PROJECT, never one that starts with
+          // `..`: the pattern may carry `..` (`../**/*.ts`) and node's glob
+          // then prefixes every result with it, which looked like an escape.
+          results.push(path.relative(root, path.resolve(root, f)) || '.')
         }
         return results.length ? results.join('\n') : 'No matches found.'
       },
