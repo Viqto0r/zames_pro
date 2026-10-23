@@ -102,6 +102,17 @@ export function createTools(
         `Missing required argument: ${name}. Add "${name}" to the tool call arguments and retry.`,
       )
     }
+    // The contract says `path: string`/`command: string`; nothing used to
+    // enforce it, so an OBJECT became "[object Object]" and the file tools
+    // CREATED a file with that literal name (the same family as the old
+    // `undefined` file). A garbled tool call is exactly this shape.
+    if (typeof v === 'object' || typeof v === 'function') {
+      throw new Error(
+        `Invalid required argument ${name}: expected a string, got ` +
+          JSON.stringify(v) +
+          '. Re-send the call with a plain string value.',
+      )
+    }
     const s = String(v)
     if (s === '' || s === 'undefined' || s === 'null') {
       throw new Error(

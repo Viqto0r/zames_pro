@@ -297,6 +297,15 @@ export function createExtraTools(
         `Missing required argument: ${name}. Add "${name}" to the tool call arguments and retry.`,
       )
     }
+    // `path`/`pattern` are strings by contract; an OBJECT used to become
+    // "[object Object]" and reach the fs layer as a literal file name.
+    if (typeof v === 'object' || typeof v === 'function') {
+      throw new Error(
+        `Invalid required argument ${name}: expected a string, got ` +
+          JSON.stringify(v) +
+          '. Re-send the call with a plain string value.',
+      )
+    }
     const s = String(v)
     if (s === '' || s === 'undefined' || s === 'null') {
       throw new Error(
