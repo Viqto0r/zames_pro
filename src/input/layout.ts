@@ -338,11 +338,27 @@ export function truncateToWidth(s: string, maxCols: number): string {
   const budget = Math.max(0, width - 1)
   let used = 0
   let out = ''
-  for (const ch of text) {
-    const w = charWidth(ch.codePointAt(0) as number)
+  let i = 0
+  while (i < text.length) {
+    // Copy an ANSI escape WHOLE (zero columns). Counting its code points
+    // consumed the budget and the cut landed inside the sequence
+    // (`\x1b[3…`), leaving a broken control sequence with no visible text.
+    if (text.charCodeAt(i) === 27 && text[i + 1] === '[') {
+      let j = i + 2
+      while (j < text.length && !/[A-Za-z]/.test(text[j])) j++
+      const seq = text.slice(i, Math.min(j + 1, text.length))
+      // A sequence the budget cannot even finish is dropped, never split.
+      out += seq
+      i += seq.length
+      continue
+    }
+    const cp = text.codePointAt(i) as number
+    const w = charWidth(cp)
     if (used + w > budget) break
+    const ch = String.fromCodePoint(cp)
     out += ch
     used += w
+    i += ch.length
   }
   return out + '…'
 }
