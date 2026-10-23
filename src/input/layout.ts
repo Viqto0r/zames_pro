@@ -219,15 +219,22 @@ export function wrapToWidth(s: string, maxCols: number): string {
     // separator, so `'aaa bbb'` at width 7 became `'aaabbb'` and an indented
     // warning lost its indent.
     const words = raw.split(/ +/).filter((w) => w !== '')
-    const indent = raw.slice(0, raw.length - raw.trimStart().length)
+    // An INDENT deeper than the whole width can never be reproduced within
+    // the margin: keeping it on the first line glued `width` MORE columns to
+    // it (a pasted stack-trace line pushed the terminal into horizontal
+    // scroll). It is clipped so every produced line fits.
+    let indent = raw.slice(0, raw.length - raw.trimStart().length)
+    if (visLen(indent) > width) indent = truncateToWidth(indent, width - 1)
+    const avail = Math.max(1, width - visLen(indent))
     let line = indent
     let lineW = visLen(indent)
     let first = true
     for (let i = 0; i < words.length; i++) {
       const word = words[i]
       const w = visLen(word)
-      // Hard-split a word longer than a whole line.
-      if (w > width) {
+      // Hard-split a word that does not fit the REMAINING columns on this
+      // line (the indent, plus any earlier word, consumes part of it).
+      if (w > avail) {
         if (!first) {
           out.push(line)
           line = ''
@@ -235,12 +242,14 @@ export function wrapToWidth(s: string, maxCols: number): string {
         }
         let piece = ''
         let pieceW = 0
+        let room = width - lineW
         for (const ch of word) {
           const cw = charWidth(ch.codePointAt(0) as number)
-          if (pieceW + cw > width) {
+          if (pieceW + cw > room) {
             out.push(line + piece)
             line = ''
             lineW = 0
+            room = width
             piece = ''
             pieceW = 0
           }
