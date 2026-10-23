@@ -21,6 +21,25 @@ function visWidth(s: string): number {
         i++
         while (i < s.length && !/[A-Za-z]/.test(s[i])) i++
         i++
+      } else if (s[i] === ']') {
+        // OSC sequence: `ESC ] ... (BEL | ESC \)`. OSC-8 hyperlinks
+        // (produced by renderMarkdown when the terminal supports them) wrap
+        // the LABEL in such a sequence, and the OLD parser did not skip it:
+        // every URL character counted as a visible column, so the viewport
+        // believed a short link line filled many rows and the log jumped.
+        i++
+        while (i < s.length) {
+          const c = s.charCodeAt(i)
+          if (c === 7) {
+            i++
+            break
+          }
+          if (c === 27 && s[i + 1] === String.fromCharCode(92)) {
+            i += 2
+            break
+          }
+          i++
+        }
       }
       continue
     }
