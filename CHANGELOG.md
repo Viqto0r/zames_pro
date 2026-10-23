@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.52] - 2026-10-23
+
+### Fixed
+
+- **config:** tolerate an unparsable config file when writing
+- **tui:** use the shared width table when estimating log rows
+
+### Changed
+
+- **tui:** derive the input box width from the shared helper
+
 ## [2.82.51] - 2026-10-23
 
 ### Added
