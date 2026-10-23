@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.55] - 2026-10-23
+
+### Fixed
+
+- **deepseek:** require a boundary around HTTP status codes in the busy matcher
+- **toolcall:** require an attribute boundary before the tool name
+
 ## [2.82.54] - 2026-10-23
 
 ### Fixed
