@@ -17,8 +17,11 @@ function unescapeXml(s: string): string {
 
 function readAttr(attrs: string, name: string): string | null {
   const Q = String.fromCharCode(34)
+  // A boundary BEFORE the name: without it `name` matched the TAIL of
+  // `tool_name="Bash"`, so an invoke tag that restated the tool was dispatched
+  // to `Bash` and the real `name="Write"` was ignored.
   const re = new RegExp(
-    name + '[ ]*=[ ]*([' + Q + ']([^' + Q + ']*)[' + Q + '])',
+    '(?:^|[\\s])' + name + '[ ]*=[ ]*([' + Q + ']([^' + Q + ']*)[' + Q + '])',
   )
   const m = attrs.match(re)
   return m ? m[2] : null
