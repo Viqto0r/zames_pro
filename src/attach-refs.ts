@@ -9,6 +9,17 @@ import { extractAtFileRefs } from './path-token.js'
 
 const NL = String.fromCharCode(10)
 
+// A NUL byte in the head is the classic binary signal (text files essentially
+// never contain one). Only the head is scanned: a huge archive must not be
+// walked byte-by-byte just to decide it is not text.
+function isBinaryBuffer(buf: Buffer): boolean {
+  const n = Math.min(buf.length, 8000)
+  for (let i = 0; i < n; i++) {
+    if (buf[i] === 0) return true
+  }
+  return false
+}
+
 export interface AtRefResult {
   text: string
   inlined: string[]
@@ -102,12 +113,19 @@ export async function inlineAtRefs(
     if (total >= AT_REF_TOTAL_CAP) break
     const file = await resolveAttachPath(workdir, ref)
     if (!file) continue
-    let raw: string
+    let buf: Buffer
     try {
-      raw = await fs.readFile(file, 'utf-8')
+      buf = await fs.readFile(file)
     } catch {
       continue
     }
+    // A BINARY file (an image, an archive, a compiled blob) read as UTF-8
+    // becomes replacement characters and NUL bytes in the prompt — the model
+    // cannot use that, and the reference was still counted as inlined. Leave
+    // it in the text as a plain `@path` reference (the same answer the Read
+    // tool gives for a binary file).
+    if (isBinaryBuffer(buf)) continue
+    const raw = buf.toString('utf-8')
     let body = raw
     let note = ''
     // The per-file cap alone lets the TOTAL budget be overshot: a file that
