@@ -7,6 +7,10 @@ import { createSubagentRunner } from '../src/subagent.ts'
 // (nor logged it), so every subagent turn in the transcript was anonymous —
 // an operator debugging a long run could not tell WHICH sub-task a chat
 // belonged to.
+//
+// The event belongs to the `Task` SEAM in agent-loop (which also logs the
+// prompt), so the runner must not duplicate it; here the nested loop is the
+// one that writes it, standing in for the seam.
 test('the subagent description reaches the transcript', async () => {
   const events: Array<{ event: string; data?: Record<string, unknown> }> = []
   const browser: never = {
@@ -22,7 +26,14 @@ test('the subagent description reaches the transcript', async () => {
     browser,
     workdir: '/w',
     locale: 'en',
-    runAgentLoop: (async () => 'report') as never,
+    runAgentLoop: (async () => {
+      // The seam in agent-loop is what logs this; the stub stands in for it.
+      events.push({
+        event: 'subagent_start',
+        data: { description: 'map the auth flow' },
+      })
+      return 'report'
+    }) as never,
     buildTools: () => [],
     transcript: { log: (event, data) => events.push({ event, data }) },
     maxSubagents: 5,
