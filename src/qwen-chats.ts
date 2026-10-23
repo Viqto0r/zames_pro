@@ -203,12 +203,17 @@ export function parseQwenHistory(json: unknown): ChatMessage[] {
     if (d.messages) arr = asArr(d.messages)
     else if (d.chat && typeof d.chat === 'object') {
       const chat = d.chat as Record<string, unknown>
-      const hist =
-        chat.history && typeof chat.history === 'object'
-          ? (chat.history as Record<string, unknown>)
-          : null
-      if (hist && hist.messages) arr = asArr(hist.messages)
-      else if (chat.messages) arr = asArr(chat.messages)
+      // `history` may itself be the message LIST (an array), not only an
+      // object with a `messages` field: the array form was read as
+      // `history.messages` -> undefined and the whole restored dialogue came
+      // back EMPTY even though the payload carried it.
+      const hist = chat.history
+      if (Array.isArray(hist)) arr = hist
+      else if (hist && typeof hist === 'object') {
+        const h = hist as Record<string, unknown>
+        if (h.messages) arr = asArr(h.messages)
+      }
+      if (!arr && chat.messages) arr = asArr(chat.messages)
     }
   }
   if (!arr) return []
