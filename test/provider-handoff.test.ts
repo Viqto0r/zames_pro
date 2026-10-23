@@ -2,6 +2,15 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { buildHandoffText } from '../src/provider-handoff.ts'
 import { makeTmpDirSync } from './tmp-dir.ts'
+import { spawnSync } from 'node:child_process'
+
+// `provider-handoff.ts` resolves ~/.zames ONCE, at import time. The tests that
+// exercise save/read must run against a THROWAWAY home, but a `test()` body
+// imports the module lazily and swaps HOME first — while the module was already
+// loaded by the static import ABOVE, so it kept pointing at the REAL
+// ~/.zames. The suite then raced with the other handoff tests over the same
+// real file (a full run intermittently lost the record). The IO test builds its
+// own throwaway module by copying the source into a temp dir instead.
 
 // Provider-switch carry-over: the summary crosses a provider boundary, so the
 // wording must tell the NEW model this is history from ANOTHER assistant, not a
@@ -43,38 +52,34 @@ test('buildHandoffText trims the summary', () => {
 // guaranteed to be byte-identical: the operator may reach the project through
 // a symlink, or the stored path may carry a trailing separator (a `/cd sub/`
 // leaves one). A lexical `!==` comparison made the summary silently vanish.
-test('readProviderHandoff matches the same directory reached differently', async (t) => {
-  const fs = await import('node:fs')
-  const os = await import('node:os')
-  const path = await import('node:path')
+//
+// The module resolves ~/.zames at IMPORT time, so a `process.env.HOME` swap
+// inside a test cannot redirect it — the code under test would keep reading the
+// REAL ~/.zames file and race with the other handoff tests (the real source of
+// the intermittent full-run failure). This test therefore runs the module in a
+// CHILD PROCESS with HOME already set to a throwaway dir.
+test('readProviderHandoff matches the same directory reached differently', (t) => {
   const home = makeTmpDirSync(t, 'zames-ho-home-')
-  const prevHome = process.env.HOME
-  const prevProfile = process.env.USERPROFILE
-  process.env.HOME = home
-  process.env.USERPROFILE = home
-  const { saveProviderHandoff, readProviderHandoff, clearProviderHandoff } =
-    await import('../src/provider-handoff.ts')
   const wd = makeTmpDirSync(t, 'zames-ho-wd-')
-  try {
-    saveProviderHandoff({
-      provider: 'qwen',
-      workdir: wd + path.sep,
-      summary: 'carried over',
-      createdAt: new Date().toISOString(),
-    })
-    // Trailing separator on the STORED side.
-    assert.equal(readProviderHandoff('qwen', wd)?.summary, 'carried over')
-
-    // A symlink to the same directory must match too.
-    const link = path.join(home, 'link')
-    fs.symlinkSync(wd, link)
-    assert.equal(readProviderHandoff('qwen', link)?.summary, 'carried over')
-    // A different directory still must NOT match.
-    const other = makeTmpDirSync(t, 'zames-ho-other-')
-    assert.equal(readProviderHandoff('qwen', other), null)
-  } finally {
-    clearProviderHandoff()
-    process.env.HOME = prevHome
-    process.env.USERPROFILE = prevProfile
-  }
+  const other = makeTmpDirSync(t, 'zames-ho-other-')
+  const script =
+    "import { saveProviderHandoff, readProviderHandoff, clearProviderHandoff } from './src/provider-handoff.ts'\nconst path = await import(\"node:path\")\nconst fs = await import(\"node:fs\")\nconst wd = process.argv[1]\nconst other = process.argv[2]\nsaveProviderHandoff({ provider: 'qwen', workdir: wd + path.sep, summary: 'carried over', createdAt: new Date().toISOString() })\nconst a = readProviderHandoff('qwen', wd)?.summary ?? ''\nconst link = wd + '-link'\nfs.symlinkSync(wd, link)\nconst b = readProviderHandoff('qwen', link)?.summary ?? ''\nconst c = readProviderHandoff('qwen', other)?.summary ?? null\nclearProviderHandoff()\nconsole.log(JSON.stringify({ a, b, c }))"
+  const res = spawnSync(
+    process.execPath,
+    ['--import', 'tsx', '--input-type=module', '-e', script, wd, other],
+    {
+      cwd: process.cwd(),
+      env: { ...process.env, HOME: home, USERPROFILE: home },
+      encoding: 'utf-8',
+      timeout: 60_000,
+    },
+  )
+  assert.equal(res.status, 0, res.stderr || '')
+  const lines = String(res.stdout || '{}')
+    .trim()
+    .split(String.fromCharCode(10))
+  const out = JSON.parse(lines[lines.length - 1] || '{}')
+  assert.equal(out.a, 'carried over')
+  assert.equal(out.b, 'carried over')
+  assert.equal(out.c, null)
 })
