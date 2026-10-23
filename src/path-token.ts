@@ -112,33 +112,60 @@ export function extractAtFileRefs(text: string): string[] {
       continue
     }
     const prev = i > 0 ? chars[i - 1] : ''
-    // A comma separates list items: `@a.ts,@b.ts` is TWO references. The
-    // comma itself is not a boundary (it is stripped as prose punctuation),
-    // so without this the second `@` never started a new scan and its file was
-    // never inlined.
-    if (prev && !isRefBoundary(prev) && prev !== ',') {
+    // The at-sign must START a reference: at the very beginning, after
+    // whitespace/a bracket/a quote, or right after a LIST SEPARATOR (a comma
+    // or a semicolon). A second at-sign WITHOUT a separator (`@a.ts@b.ts`) is
+    // an email/decorator shape and is skipped — the glued path cannot be
+    // inlined anyway.
+    if (prev && !isRefBoundary(prev) && prev !== ',' && prev !== ';') {
       i++
       continue
     }
     let j = i + 1
     let tok = ''
+    // The token is rejected WHOLE when it contains an at-sign that is NOT a
+    // list separator — `@Component` / `user@host` are a decorator and an
+    // email. Trimming the prefix at that at-sign would otherwise inline a
+    // bogus path.
+    let hadInnerAt = false
+    // A token that contains an at-sign (`@Component`, `user@host`) is a
+    // decorator / an email, NOT a file reference. The scan used to stop at
+    // that at-sign and hand the PREFIX (`Component` … no) or, worse, the part
+    // BEFORE it to the inliner. Now the whole token is rejected instead.
+    const isRef = (t: string): boolean => t.length > 0 && !t.includes('@')
     while (j < n && !isRefEnd(chars[j])) {
       // A COMMA directly followed by another `@` starts the NEXT reference:
       // `@a.ts,@b.ts` is a list, and scanning to whitespace made the whole
       // `a.ts,@b.ts` one path, so neither file was inlined.
       if (chars[j] === ',' && chars[j + 1] === '@') break
+      // A SEMICOLON or a second at-sign also separates list items. Scanning
+      // to whitespace made `a.ts;@b.ts` ONE path whose extension consumed the
+      // separator, so `looksLikeToken` failed and BOTH files were dropped.
+      if ((chars[j] === ';' || chars[j] === '@') && chars[j + 1] === '@') break
+      // An at-sign followed by an ordinary char is part of the token (an
+      // email/decorator) — remember it so the token is rejected below.
+      if (chars[j] === '@') hadInnerAt = true
       tok += chars[j]
       j++
     }
     const cleaned = stripRefPunct(tok)
-    if (cleaned && looksLikeToken(cleaned) && !seen.has(cleaned)) {
+    if (
+      !hadInnerAt &&
+      isRef(cleaned) &&
+      looksLikeToken(cleaned) &&
+      !seen.has(cleaned)
+    ) {
       seen.add(cleaned)
       out.push(cleaned)
     }
     // The break above leaves `j` ON the comma; step past it so the next `@`
     // is seen as the start of a reference. When the scan ended on a
     // terminator instead, continue AFTER it.
-    if (chars[j] === ',' && chars[j + 1] === '@') i = j + 1
+    // The scan stopped ON a separator that split the token (`,`, `;` or a
+    // second at-sign): resume AT it so the next part is scanned as its own
+    // reference. Continuing past it dropped the second file of a list.
+    const sep = j < n ? chars[j] : ''
+    if (j > i + 1 && (sep === ',' || sep === ';' || sep === '@')) i = j
     else i = j > i + 1 ? j : i + 1
   }
   return out
