@@ -61,7 +61,10 @@ export function formatDiffStat(
     .split(CR + NL)
     .join(NL)
     .trimEnd()
-  if (!trimmed || trimmed === '(command produced no output)') {
+  // Compare the TRIMMED text: the runner's sentinel reaches this function
+  // with its own padding, and a raw comparison then printed the internal
+  // marker to the operator (formatDiff already trims).
+  if (!trimmed || trimmed.trim() === '(command produced no output)') {
     return t('diff.no_changes')
   }
   const lines = trimmed.split(NL)
