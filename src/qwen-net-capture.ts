@@ -207,12 +207,13 @@ export function isFinishedWithoutAnswer(body: string): boolean {
 export function isRateLimitText(body: string): boolean {
   const b = String(body || '')
   if (!b) return false
-  // `quota_limit` is a SEPARATE code Qwen returns in the SSE error field
-  // ("The service is currently experiencing high demand. Please try again
-  // later.") — a TRANSIENT capacity limit, so it belongs with the rate-limit
-  // family (back off and retry), not with the guest DAILY limit.
-  if (/quota_limit/i.test(b)) return true
-  if (/event:\s*error|"type"\s*:\s*"error"|"error"\s*:/i.test(b)) {
+  const errNotice = /event:\s*error|"type"\s*:\s*"error"|"error"\s*:/i.test(b)
+  // The `quota_limit` CODE only means something in an ERROR payload: a normal
+  // ANSWER may MENTION `quota_limit` (the operator asked how to handle that
+  // API error), and this check used to run BEFORE the answer-content guard, so
+  // such an answer made ask() back off and re-send a good turn.
+  if (/quota_limit/i.test(b) && (errNotice || !hasAnswerContent(b))) return true
+  if (errNotice) {
     return /too many requests|rate limit|too frequent|please try again later|high demand|слишком часто/i.test(
       b,
     )
