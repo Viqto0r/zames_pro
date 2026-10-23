@@ -164,7 +164,13 @@ export function collectPathCandidates(
   // free to nest (`{file: {path}}`) or take `argv: ['cat', '/etc/x']`. Only
   // values that clearly look like paths are taken (depth-bounded to avoid a
   // pathological payload).
-  if (tool.includes('__')) {
+  //
+  // This runs for EVERY tool, not only MCP ones: a model that invents an
+  // argument shape (`{file: {path}}`, `{files: [...]}`) on a built-in tool
+  // used to slip past a `path` deny rule, silently widening the operator's
+  // policy. Path-looking values of a built-in's own arguments are exactly what
+  // such a rule is meant to match.
+  {
     const walk = (v: unknown, depth: number): void => {
       if (depth > 4 || v === null || v === undefined) return
       if (typeof v === 'string') {
@@ -183,7 +189,9 @@ export function collectPathCandidates(
     }
     for (const v of Object.values(a)) walk(v, 0)
   }
-  return out
+  // De-duplicate: a known key (`path`) is now also reached by the generic
+  // nested walk, and callers compare the candidate LIST (`deepEqual`).
+  return Array.from(new Set(out))
 }
 
 export function decidePermission(
