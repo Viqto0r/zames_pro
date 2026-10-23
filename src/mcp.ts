@@ -272,8 +272,15 @@ export function describeParamsExternally(
   description: string,
   schema: unknown,
 ): string {
-  const type = (schema as { type?: string } | undefined)?.type
-  if (!schema || type !== 'object') return description
+  // A JSON Schema may spell the object type as a LIST (`type: ['object']`, a
+  // zod-derived or nullable wrapper). Rejecting anything but the exact string
+  // 'object' silently dropped the schema — field descriptions and enums — from
+  // the model-facing tool description while the flat param map still listed
+  // the fields.
+  const raw = (schema as { type?: unknown } | undefined)?.type
+  const isObject =
+    raw === 'object' || (Array.isArray(raw) && raw.includes('object'))
+  if (!schema || !isObject) return description
   try {
     const json = JSON.stringify(schema)
     if (json.length > 4000) return description
