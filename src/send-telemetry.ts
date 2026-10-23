@@ -106,9 +106,15 @@ export function summarizeSends(
   }
 }
 
-/** `~/.zames/logs/sends-<provider>.jsonl`. */
+/** `~/.zames/logs/sends-<provider>.jsonl`. The provider id comes from the
+ *  CONFIG (a hand-edited file, `/provider`), so it must not be able to escape
+ *  the log directory: a separator or `..` used to build a path OUTSIDE
+ *  `~/.zames/logs` (a subdirectory at best, another file at worst — and the
+ *  rotation DELETES files it finds there). Everything outside a plain file-name
+ *  alphabet is replaced with `_`. */
 export function sendLogPath(logsDir: string, provider: string): string {
-  return path.join(logsDir, 'sends-' + provider + '.jsonl')
+  const safe = String(provider || 'unknown').replace(/[^A-Za-z0-9._-]/g, '_')
+  return path.join(logsDir, 'sends-' + safe + '.jsonl')
 }
 
 /** Keep at most `keep` sends-*.jsonl files (rotate the oldest away). */
