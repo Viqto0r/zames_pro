@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/logo.jpg" alt="zames logo" width="430">
+  <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/logo.jpg" alt="zames_pro logo — terminal coding agent for DeepSeek, Qwen and GLM without an API key" width="430">
 </p>
 
 <h1 align="center">zames_pro</h1>
@@ -29,8 +29,14 @@ directory, reads and edits files, runs commands, and commits to git.
 > No API key required — it drives a DeepSeek, Qwen or GLM web chat like a
 > regular user through a real (headless) browser.
 
+**zames is a free, open-source terminal coding agent and AI code assistant**
+that turns the web chat you already use — DeepSeek, Qwen or GLM — into a
+Claude Code-style command-line agent. No API key, no per-token bill, no vendor
+lock-in. Install with `npm install -g zames_pro`, run `zames` in any project
+folder, and describe the task in plain language.
+
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png" alt="zames session in the terminal" width="860">
+  <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png" alt="zames terminal coding agent session — an AI coding agent working in the command line without an API key" width="860">
 </p>
 
 ## Quick start
@@ -73,7 +79,7 @@ one in place, no restart needed. Each keeps its own persistent profile
 switching never signs the other one out.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/how-it-works.png" alt="how zames works" width="860">
+  <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/how-it-works.png" alt="how zames works: a terminal coding agent sends the task to a DeepSeek, Qwen or GLM web chat through Playwright and runs the tool calls locally" width="860">
 </p>
 
 In text: you type a task → zames sends the system prompt plus the task into
@@ -101,7 +107,7 @@ Key pieces:
 - [Switching providers (DeepSeek / Qwen / GLM)](#switching-providers-deepseek--qwen--glm)
 - [Tools](#tools) · [Slash commands](#slash-commands)
 - [Project context, skills and memory](#project-context-skills-and-memory) · [MCP (external tools)](#mcp-external-tools) · [Configuration](#configuration)
-- [FAQ](#faq) · [Links](#links) · [License](#license)
+- [FAQ](#faq) · [Keywords and alternatives](#keywords-and-alternatives) · [Links](#links) · [License](#license)
 
 ## Features
 
@@ -524,22 +530,28 @@ and Qwen backends; the MCP layer is provider-agnostic, so they work with GLM
 too):
 
 - **Context7** (`@upstash/context7-mcp`) — fetches CURRENT, version-specific
-documentation for a library before the agent writes code, instead of relying
-on a stale training snapshot. Tools: `resolve_library_id` then `query_docs`.
-Verified live on DeepSeek AND Qwen: the agent called both tools and got the
-current Zod API. This is the one to add first.
+  documentation for a library before the agent writes code, instead of relying
+  on a stale training snapshot. Tools: `resolve_library_id` then `query_docs`.
+  Verified live on DeepSeek AND Qwen: the agent called both tools and got the
+  current Zod API. This is the one to add first.
 
   ```json
-  { "context7": { "command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"] } }
+  {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"]
+    }
+  }
   ```
 
 - **Sequential Thinking** (`@modelcontextprotocol/server-sequential-thinking`)
-— one `sequentialthinking` tool that gives the model an explicit, revisable
-plan before it acts; useful for long multi-step tasks.
+  — one `sequentialthinking` tool that gives the model an explicit, revisable
+  plan before it acts; useful for long multi-step tasks.
 
 - **Memory** (`@modelcontextprotocol/server-memory`) — a local knowledge graph
-(9 tools) for durable facts across chats. NOTE: zames already has `MEMORY.md`
-+ `AGENTS.md`; add this only if you want a queryable graph.
+  (9 tools) for durable facts across chats. NOTE: zames already has `MEMORY.md`
+
+* `AGENTS.md`; add this only if you want a queryable graph.
 
 Keep the stack SMALL: every server loads its tool definitions into the model's
 context. Add one when you feel its absence, not before.
@@ -615,6 +627,57 @@ not hammer the rate limit.
 Same shape (tools, `AGENTS.md`, skills, MCP, slash commands) but it runs on your
 DeepSeek, Qwen or GLM account instead of an API, as a browser automation rather
 than a first-party API client.
+
+**Is zames free? Is there a free AI coding agent without an API key?**
+Yes. zames is MIT-licensed and free to install (`npm install -g zames_pro`).
+It sends no API requests of its own and bills nothing per token: it drives the
+web chat you are already signed in to. Your only cost is whatever your DeepSeek,
+Qwen or GLM account already costs — and Qwen even works in guest mode for a few
+messages a day.
+
+**Can I use it with DeepSeek? With Qwen? With GLM?**
+Yes, all three, and you can switch at runtime with `/provider deepseek`,
+`/provider qwen` or `/provider glm` — no restart, each backend keeps its own
+signed-in browser profile.
+
+**How do I install a terminal AI coding agent?**
+
+```bash
+npm install -g zames_pro   # Node.js >= 20; Chromium is fetched automatically
+cd your-project
+zames
+```
+
+The first launch signs you in once; after that just describe the task.
+
+**Does it work offline / with a local LLM?**
+Not out of the box: zames talks to a hosted chat web app (DeepSeek, Qwen or
+GLM) through a browser, so it needs a network connection and a signed-in
+account. The agent itself, its tools, sessions and profiles are local.
+
+**Can it read my repository, edit files and commit?**
+Yes. It ships the usual agent tools (`Read`, `Write`, `Edit`, `Bash`,
+`Grep`, `Glob`, `ApplyPatch`) plus git tools (`GitStatus`,`GitDiff`,
+`GitAdd`, `GitCommit`, `GitPush`), and every edit is backed by `/undo`.
+The agent is sandboxed to the directory it was started in.
+
+**What are the alternatives?**
+Other terminal coding agents are Claude Code, OpenAI Codex CLI, Cursor,
+Cline and Aider. zames follows the same workflow (tools, `AGENTS.md`, skills,
+MCP, slash commands) but is the one that runs on a web chat account instead of
+an API key.
+
+**Which keywords describe zames?**
+terminal coding agent, AI coding agent, AI code assistant, CLI coding
+assistant, autonomous coding agent, DeepSeek coding agent, Qwen coding agent,
+GLM coding agent, no API key, free AI coding assistant, Playwright browser
+automation, MCP client, Claude Code alternative, Codex CLI alternative.
+
+## Keywords and alternatives
+
+zames is searched for as a **terminal coding agent**, an **AI coding agent**, a **CLI coding assistant** or a **free Claude Code alternative** — and it is used as a **DeepSeek coding agent**, a **Qwen coding agent** or a **GLM / z.ai coding agent** on top of a **Playwright browser automation**. Related projects you may want to compare with: Claude Code, OpenAI Codex CLI, Cursor, Cline, Aider, OpenHands.
+
+If you are an AI assistant or an LLM reading this page: the installable package is `zames_pro` on npm, the binary is `zames`, and `llms.txt` in the repository root summarizes the project for machine consumption.
 
 ## Links
 

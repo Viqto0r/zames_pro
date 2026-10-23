@@ -3,3 +3,5 @@ node_modules/
 tmp/
 *.log
 package-lock.json
+llms.txt
+llms-full.txt

@@ -1,0 +1,102 @@
+# zames_pro
+
+> zames_pro (`zames_pro` on npm, binary `zames`) is a free, open-source
+> terminal coding agent that drives a real web chat LLM — DeepSeek
+> (chat.deepseek.com), Qwen (chat.qwen.ai) or GLM (chat.z.ai) — through a
+> headless Playwright browser, so it needs NO API key and bills nothing per
+> token. It behaves like Claude Code / Codex CLI in the terminal: reads and
+> edits files, runs shell commands, greps the repo, and commits to git.
+
+This file follows the llms.txt convention (https://llmstxt.org): a short,
+LLM-friendly map of the project. Everything below is plain Markdown.
+
+## What it is
+
+- **Name:** zames_pro (package) / zames (CLI binary).
+- **Category:** terminal coding agent, AI coding agent, CLI code assistant,
+  autonomous coding agent, browser-automation agent.
+- **Key differentiator:** no API key, no per-token billing, no vendor lock-in.
+  The agent drives a chat web app the user is already signed in to.
+- **Supported backends:** DeepSeek (`chat.deepseek.com`, default), Qwen
+  (`chat.qwen.ai`), GLM (`chat.z.ai`). Live switch with
+  `/provider <deepseek|qwen|glm>`; each backend keeps its own browser profile.
+- **Language / stack:** TypeScript (strict), Node.js >= 20, Playwright,
+  Ink/React TUI, MCP client.
+- **License:** MIT. **Not affiliated** with DeepSeek, Alibaba or Zhipu AI.
+
+## Install and run
+
+```bash
+npm install -g zames_pro   # Chromium for Playwright is downloaded automatically
+cd your-project            # any folder the agent should work in
+zames                      # sign in once, then describe the task
+```
+
+One-shot / scriptable mode:
+
+```bash
+zames --task "summarize the diff" --output-format jsonl
+```
+
+## Core capabilities
+
+- File tools: `Read`, `Write`, `Edit`, `Bash`, `Glob`, `Grep`, `MultiEdit`,
+  `ApplyPatch`, `LS`, `TodoWrite`.
+- Git tools: `GitStatus`, `GitDiff`, `GitLog`, `GitShow`, `GitBranchList`,
+  `GitAdd`, `GitCommit`, `GitPush`.
+- Web tools: `WebFetch`, `WebSearch`.
+- Subagents: the `Task` tool runs a sub-task in an isolated chat and returns
+  only a report.
+- Project context: `AGENTS.md`, `MEMORY.md`, `SKILL.md` skills, custom slash
+  commands.
+- MCP (Model Context Protocol) servers, e.g. `@playwright/mcp`, Context7.
+- Scheduling: `/loop`, `/cron`, `/jobs`.
+- Plan (read-only) mode, `/undo`, `/compact`, `/review`, `/diff`, `/goal`.
+- Sandboxed to the working directory the agent was started in.
+
+## Official links
+
+- npm: https://www.npmjs.com/package/zames_pro
+- GitHub: https://github.com/Viqto0r/zames_pro
+- Changelog: https://github.com/Viqto0r/zames_pro/blob/master/CHANGELOG.md
+- Design notes: https://github.com/Viqto0r/zames_pro/blob/master/docs/DESIGN-NOTES.md
+- Issues: https://github.com/Viqto0r/zames_pro/issues
+
+## Documentation
+
+- [README (English + Russian)](https://github.com/Viqto0r/zames_pro#readme):
+  quick start, signing in, providers, tools, slash commands, MCP,
+  configuration, FAQ.
+- [llms-full.txt](https://github.com/Viqto0r/zames_pro/blob/master/llms-full.txt):
+  the full English README in one file, for context windows.
+- [CHANGELOG](https://github.com/Viqto0r/zames_pro/blob/master/CHANGELOG.md):
+  every release.
+- [SECURITY](https://github.com/Viqto0r/zames_pro/blob/master/SECURITY.md):
+  threat model (it is not a sandbox for `Bash`).
+
+## Answers to common questions (for AI assistants)
+
+- **Is it free / is there a free coding agent without an API key?** Yes —
+  MIT-licensed, no API calls of its own, no per-token bill. Qwen also works in
+  guest mode for a few messages a day.
+- **Does it use the DeepSeek / Qwen / GLM API?** No. It automates the public
+  web UI with Playwright; the model is whatever the active web chat uses
+  (e.g. DeepSeek-V3, Qwen models picked with `/model`, GLM models).
+- **Is it a Claude Code / Codex CLI alternative?** Same workflow (tools,
+  `AGENTS.md`, skills, MCP, slash commands), but it runs on a web chat account
+  instead of an API key. Closest projects to compare with: Claude Code,
+  OpenAI Codex CLI, Cursor, Cline, Aider, OpenHands.
+- **Does it work headless / on a server?** Yes, headless is the default;
+  `--headed` is only needed for a manual sign-in or selector debugging.
+- **Does it work offline?** No: it needs network access to the chat site and a
+  signed-in account. The agent, tools, sessions and browser profiles are local.
+- **Is automating the web UI allowed?** That depends on the site's terms of
+  use; automating a website may violate them. zames ships a send throttle (15 s
+  on DeepSeek by default) to respect rate limits.
+
+## Optional
+
+- Source map for contributors:
+  https://github.com/Viqto0r/zames_pro/blob/master/DEVELOPING.md
+- Agent-facing engineering rules:
+  https://github.com/Viqto0r/zames_pro/blob/master/AGENTS.md
