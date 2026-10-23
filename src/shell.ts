@@ -37,7 +37,12 @@ export function assertCommandInsideRoot(root: string, command: string): void {
   const cdRe = /(?:^|[;&|(\s`])(?:cd|pushd)\s*([^;&|)]+)/gi
   let m
   while ((m = cdRe.exec(cmd))) {
-    const raw = m[1].trim().replace(/^["']|["']$/g, '')
+    // The shell removes EVERY quote in the word, wherever it sits —
+    // `cd "a"/"../../.."` is one word whose value is `a/../../..`. Stripping
+    // only a matching PAIR at the ENDS left the inner quotes in place, so the
+    // target was compared as the literal `a/"/../../..` (which normalizes to
+    // a path INSIDE the root), passed the guard, and then escaped for real.
+    const raw = m[1].trim().replace(/["']/g, '')
     if (!raw || raw === '-') continue
     // A `cd` target we cannot RESOLVE statically is rejected: the shell would
     // expand it AFTER this scan, so `d=/; cd $d` would otherwise slip past as
