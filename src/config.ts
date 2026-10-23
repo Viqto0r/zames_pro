@@ -651,11 +651,21 @@ export function getConfigField(path: string): ConfigField | undefined {
 
 export function getByPath(obj: unknown, path: string): unknown {
   const parts = path.split('.')
+  // Same guard as setByPath: a dotted path must never reach the PROTOTYPE
+  // chain. `__proto__` used to return Object.prototype (an object), and
+  // `constructor` / `toString` the corresponding FUNCTION — the /config list
+  // then rendered `{}` for a field whose path did not exist instead of the
+  // default marker. Reading those keys is never meaningful for a config path.
+  // `toString`, `valueOf`, `hasOwnProperty`, ... are inherited METHODS, not
+  // config values: reading them through a dotted path returned a FUNCTION.
+  // Only an OWN property counts.
+  if (parts.some((p) => UNSAFE_PATH_KEYS.has(p))) return undefined
   let cur: unknown = obj
   for (const p of parts) {
     if (cur === null || cur === undefined || typeof cur !== 'object') {
       return undefined
     }
+    if (!Object.prototype.hasOwnProperty.call(cur, p)) return undefined
     cur = (cur as Record<string, unknown>)[p]
   }
   return cur
