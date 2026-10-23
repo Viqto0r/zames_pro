@@ -9,6 +9,7 @@
 // costs nothing.
 
 import type { LogEntry } from './store.js'
+import { charWidth } from '../input/layout.js'
 
 /** Visible width of a line without ANSI escapes (wide chars count 2). */
 function visWidth(s: string): number {
@@ -44,12 +45,14 @@ function visWidth(s: string): number {
       continue
     }
     const cp = s.codePointAt(i) as number
-    // Wide ranges (CJK/emoji) count 2; combining marks 0. Approximate — a log
-    // windowing error of one cell is invisible.
-    if (cp >= 0x1f300 && cp <= 0x1faff) w += 2
-    else if (cp >= 0x1100 && cp <= 0x9fff) w += 2
-    else if ((cp >= 0x300 && cp <= 0x36f) || cp === 0x200d) w += 0
-    else w += 1
+    // Use the SAME width rule as the input/status layout (charWidth in
+    // src/input/layout.ts). The old table here counted EVERYTHING up to
+    // U+9FFF as two cells, so a line of box arrows (`→`, U+2192), the
+    // hourglass `⧗` (U+29D7) or Cyrillic/Greek letters over-estimated its
+    // rows; at a narrow width that reserves an extra row per entry and the
+    // pane believes it is full, stopping the scroll early. Sharing ONE table
+    // keeps the viewport and the rest of the TUI from disagreeing.
+    w += charWidth(cp)
     i += cp > 0xffff ? 2 : 1
   }
   return w
