@@ -36,6 +36,16 @@ export function applyBrowserLiveConfig(
   const field = BROWSER_LIVE_CONFIG[path]
   if (!field || !(field in browser)) return false
   browser[field] = value
+  // `answerTimeoutMs` is DERIVED into the watchdog (`askDeadlineMs` = the
+  // answer timeout + 60s) by the Qwen/GLM constructors. Pushing only the field
+  // left the deadline at its old value, so a LARGER timeout made the agent
+  // give up before the browser's own timeout ever fired. Re-derive it the same
+  // way the constructor does.
+  if (field === 'answerTimeoutMs' && 'askDeadlineMs' in browser) {
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+      browser.askDeadlineMs = value + 60_000
+    }
+  }
   return true
 }
 
