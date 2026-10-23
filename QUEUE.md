@@ -8164,3 +8164,35 @@ lint (0 errors, 2 прежних warning), format:check, build, sched-smoke —
 
 - src/commands.ts — длинный настоящий ответ не пропадает из восстановленного
   диалога (2026-10-23).
+
+### Такт 313 (2026-10-23) — исправлено
+
+**Цель:** слэш-команды — `/diffstat` (`formatDiffStat` в src/commands.ts).
+
+**Баг:** общий git-раннер сообщает о пустом результате строкой-сентинелом
+`(command produced no output)`. `formatDiff` сравнивал её с ОБРЕЗАННЫМ текстом,
+а `formatDiffStat` — с сырым: сентинел, пришедший с отступами/переводами
+строк, не совпадал, и `/diffstat` печатал оператору внутренний маркер вместо
+`(no changes)`. Проверено запуском: `"  (command produced no output)  "` →
+`"  (command produced no output)"`.
+
+**Фикс:** сравнение по `trimmed.trim()`, как в `formatDiff`.
+
+**Тест:** test/diffstat-sentinel-padded.test.ts (2 кейса: сентинел с
+пробелами и с переводами строк скрывается; реальная статистика выводится).
+RED до фикса, GREEN после; diff/commands наборы — 55 тестов зелёные.
+
+**Гейты:** npm test 1764 теста (1754 pass, 0 fail, 10 skip), typecheck,
+lint (0 errors, 2 прежних warning), format:check, build, sched-smoke —
+зелёные.
+
+**Коммит:** 7761327, релиз v2.82.59 (b11d601).
+
+**Статус:** исправлено (2026-10-23).
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- src/commands.ts — /diffstat скрывает сентинел пустого вывода с отступами
+  (2026-10-23).
