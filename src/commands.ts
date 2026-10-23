@@ -579,6 +579,13 @@ export interface RestoredMessage {
 export const RESTORED_HISTORY_LIMIT = 20
 
 /**
+ * Longest restored message KEPT for display. The system prompt (leaked into
+ * history) is far bigger and is filtered by the noise checks below; a real
+ * answer above this size is shortened instead of being dropped.
+ */
+export const RESTORED_MESSAGE_MAX = 100_000
+
+/**
  * DeepSeek stores the assistant turn VERBATIM: either a raw tool-call JSON
  * ({"tool":"Read","args":{...}}, frequently dirty/truncated) or a `respond`
  * call that carries the real message for the operator
@@ -648,9 +655,16 @@ export function unescapeJsonString(s: string): string {
 export function normalizeRestoredMessage(
   m: RestoredMessage,
 ): RestoredMessage | null {
-  const text = String((m && m.text) || '').trim()
+  let text = String((m && m.text) || '').trim()
   if (!text) return null
-  if (text.length > 100_000) return null // the system-prompt / a giant blob
+  // The size cap exists to keep a leaked SYSTEM PROMPT (or another giant
+  // protocol blob) out of the restored dialogue. It must NOT drop a real
+  // answer: a long report/diff/document easily exceeds the cap, and dropping
+  // it silently left the operator with a dialogue where the agent's own reply
+  // was missing. Keep such a message but shorten it for display.
+  if (text.length > RESTORED_MESSAGE_MAX) {
+    text = text.slice(0, RESTORED_MESSAGE_MAX) + '…'
+  }
   if (m.role === 'user') {
     if (/^Tool result for /.test(text)) return null
     if (/^You are a coding agent running in a terminal/.test(text)) return null
