@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.60] - 2026-10-23
+
+### Fixed
+
+- **permissions:** scan nested path arguments for every tool, not only MCP
+
 ## [2.82.59] - 2026-10-23
 
 ### Fixed
