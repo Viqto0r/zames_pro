@@ -220,7 +220,27 @@ export function parseQwenHistory(json: unknown): ChatMessage[] {
   // The map is UNORDERED; `timestamp` (seconds) restores the dialogue order.
   const sorted = arr
     .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
-    .sort((a, b) => (Number(a.timestamp) || 0) - (Number(b.timestamp) || 0))
+    // A message WITHOUT a usable timestamp must not be forced to 0: that put
+    // it BEFORE every dated turn, so a partially stamped payload reordered the
+    // dialogue (the operator's question surfaced after the model's answer).
+    // Order by index first — the map is in insertion order — and only then by
+    // stamp; a missing stamp inherits its neighbour's position instead of
+    // jumping to the front. A stable sort keeps the original order on a tie.
+    .map((m, i) => ({ m, i }))
+    .sort((a, b) => {
+      const ta = Number(a.m.timestamp)
+      const tb = Number(b.m.timestamp)
+      const va = Number.isFinite(ta) ? ta : NaN
+      const vb = Number.isFinite(tb) ? tb : NaN
+      if (Number.isFinite(va) && Number.isFinite(vb)) {
+        if (va !== vb) return va - vb
+        return a.i - b.i
+      }
+      // Only ONE side is dated: keep the insertion order (a half-stamped
+      // payload has no trustworthy clock to sort by).
+      return a.i - b.i
+    })
+    .map((x) => x.m)
   const out: ChatMessage[] = []
   for (const m of sorted) {
     // Role detection is DEFENSIVE: the field has been `role` (string,
