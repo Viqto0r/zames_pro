@@ -145,7 +145,33 @@ export function createTools(
         // Binary guard (N35): reading an image/archive as utf-8 produced
         // mojibake the model tried to reason about. Detect a binary buffer
         // BEFORE decoding and answer with useful metadata instead.
-        const buf = await fs.readFile(file)
+        // A read FAILURE (a missing file, a directory, EACCES) is answered in
+        // the tool's own words: the raw Node error carries the ABSOLUTE server
+        // path and a POSIX-only message, and the loop would wrap it as
+        // `Error: ENOENT: …`, which tells the model nothing actionable.
+        let buf: Buffer
+        try {
+          buf = await fs.readFile(file)
+        } catch (e) {
+          const code = (e as NodeJS.ErrnoException).code
+          if (code === 'ENOENT') {
+            return (
+              'File not found: ' +
+              p +
+              ' (check the path; it must be inside the working directory)'
+            )
+          }
+          if (code === 'EISDIR') {
+            return (
+              p +
+              ' is a directory, not a file. Use LS or Glob to list its contents.'
+            )
+          }
+          if (code === 'EACCES' || code === 'EPERM') {
+            return 'Permission denied reading ' + p
+          }
+          return 'Error reading ' + p + ': ' + (e as Error).message
+        }
         if (isImageName(file)) {
           return (
             '[image: ' +
