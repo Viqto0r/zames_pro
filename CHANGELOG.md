@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.51] - 2026-10-23
+
+### Added
+
+- **seo:** make the project findable by search engines and AI crawlers
+- **scripts:** glm-warmup opens a visible z.ai window to pass the captcha once
+
+### Fixed
+
+- **subagent:** do not log subagent_start twice per Task call
+- **web:** parse DuckDuckGo results whose attributes are single-quoted
+- **mcp:** keep a schema whose type is a list in the tool description
+- **attach:** honour the @ref total budget instead of inlining a whole file over it
+- **context:** clip AGENTS.md/MEMORY.md without splitting a surrogate pair
+- **loop:** a plain-text answer is re-asked with a real reason, watchdog retry no longer resends the task
+- **tools:** reject a non-string path instead of writing [object Object]
+
+### Changed
+
+- **comments:** drop dead backlog ids from source comments
+
 ## [2.82.50] - 2026-10-23
 
 ### Fixed
