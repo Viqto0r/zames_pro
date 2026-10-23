@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.50] - 2026-10-23
+
+### Fixed
+
+- **i18n:** a prototype member is not a translation
+- **path-token:** split semicolon-separated @file lists
+- **tui:** keep a tall log entry inside the viewport when scrolling
+- **resume:** refuse a session owned by another provider
+- **tui:** skip OSC sequences when measuring log rows
+- **layout:** wrapToWidth keeps every line within the width
+- **tools:** trim allowed-tools entries before matching
+- **config:** getByPath must not walk the prototype chain
+- **context:** strip a BOM before parsing the frontmatter
+- **telemetry:** a provider id must not escape the log directory
+- **throttle:** a non-finite retryAfterMs must not block forever
+- **auth:** do not migrate a legacy GLM marker to deepseek
+- **qwen:** accept a bare array under chat.history
+- **qwen:** a quota_limit mention inside an answer is not a rate limit
+- **glm:** a quota phrase inside an answer is not a quota error
+- **glm:** order the restored dialogue by an ISO timestamp too
+- **attach:** a throwing preview lookup must not abort the attach
+- **handoff:** clear the side handoff files too
+- **loop:** resolve a padded or upper-cased tool name
+- **mcp:** honour a profile flag given inside the command
+- **config:** re-derive the ask deadline when the answer timeout changes live
+- **diff:** compare lines with an LCS instead of by position
+- **goal:** a verdict must not match the head of a word
+- **telemetry:** ignore a send event dated in the future
+- **tui:** show a sandbox refusal as a failed tool call
+- **config:** the list does not mask a whitespace-only password
+- **attach:** never treat a URL as a local file path
+- **chats:** reject a negative accumulated_token_usage on restore
+- **qwen:** never return a thinking-phase object as the answer
+- **glm:** reject a negative token usage
+- **undo:** tolerate a corrupt undo index
+- **permissions:** match a command rule in nested MCP args
+- **status:** fall back to the default context window on an invalid limit
+- **input:** count blank lines at the end of a paste
+
 ## [2.82.49] - 2026-10-22
 
 ### Fixed
