@@ -71,7 +71,13 @@ export type TranslateFn = (key: string, params?: TranslateParams) => string
 export function translate(locale: Locale): TranslateFn {
   const loc = isLocale(locale) ? locale : DEFAULT_LOCALE
   return (key: string, params?: TranslateParams): string => {
-    const entry = CATALOG[key]
+    // A plain-object lookup ALSO resolves Object.prototype members, so a key
+    // like 'toString' returned the inherited FUNCTION: the caller got
+    // `undefined` (no params) or a TypeError (`.replace is not a function`).
+    // Only an OWN entry is a translation.
+    const entry = Object.prototype.hasOwnProperty.call(CATALOG, key)
+      ? CATALOG[key]
+      : undefined
     const template = entry ? entry[loc] || entry[DEFAULT_LOCALE] : key
     if (!params) return template
     return template.replace(/\{(\w+)\}/g, (m, name) => {
