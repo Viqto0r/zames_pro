@@ -74,9 +74,13 @@ export async function awaitUploadPreview(
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     for (const name of clean) {
-      const n = await page
-        .getByText(name, { exact: false })
-        .count()
+      // The lookup itself can THROW synchronously (Playwright: "Execution
+      // context was destroyed" while the page navigates). `.catch` handles a
+      // rejected promise, not a synchronous throw — without the try/catch the
+      // error escaped into `_attachFiles` and the whole attach failed. A
+      // lookup error means "not visible yet", exactly like a failed count.
+      const n = await Promise.resolve()
+        .then(() => page.getByText(name, { exact: false }).count())
         .catch(() => 0)
       if (n > 0) return
     }
