@@ -293,7 +293,7 @@ export const RATE_LIMIT_RE =
 // rate limit, these usually clear in seconds, so we retry quickly instead of
 // waiting minutes.
 export const SERVER_BUSY_RE =
-  /(server (is )?busy|server error|service (is )?unavailable|temporarily unavailable|internal server error|502|503|504|server overloaded|сервер занят|сервер перегружен|сервис недоступен|внутренняя ошибка|попробуйте позже)/i
+  /(server (is )?busy|server error|service (is )?unavailable|temporarily unavailable|internal server error|\b50[234]\b|server overloaded|сервер занят|сервер перегружен|сервис недоступен|внутренняя ошибка|попробуйте позже)/i
 
 // The chat's CONTEXT WINDOW is exhausted. DeepSeek refuses to continue the
 // conversation and answers with a non-retryable notice instead of a model
