@@ -221,7 +221,13 @@ export function parseGlmHistory(json: unknown): ChatMessage[] {
     else if (Array.isArray(m.fragments)) {
       const want = role === 'assistant' ? 'RESPONSE' : 'REQUEST'
       for (const fr of m.fragments as Array<Record<string, unknown>>) {
-        if (fr && fr.type === want && typeof fr.content === 'string') {
+        // Case-insensitive, like the DeepSeek parser: a payload spelling the
+        // fragment type `response`/`request` used to contribute nothing.
+        if (
+          fr &&
+          String(fr.type ?? '').toUpperCase() === want &&
+          typeof fr.content === 'string'
+        ) {
           text += fr.content
         }
       }

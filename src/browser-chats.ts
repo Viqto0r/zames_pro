@@ -68,7 +68,11 @@ export function parseHistoryMessages(messages: unknown): {
     const want = role === 'assistant' ? 'RESPONSE' : 'REQUEST'
     let text = ''
     for (const fr of (raw && raw.fragments) || []) {
-      if (!fr || fr.type !== want) continue
+      // The fragment TYPE is matched case-insensitively, like the role: a
+      // payload spelling it `response`/`request` (a proxy build, a JSON
+      // round-trip through a normalizer) skipped EVERY fragment and the
+      // restored dialogue came back empty although it carried the answer.
+      if (!fr || String(fr.type ?? '').toUpperCase() !== want) continue
       if (typeof fr.content === 'string') text += fr.content
     }
     text = tidyFragmentText(text)
