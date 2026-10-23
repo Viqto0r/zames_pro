@@ -188,7 +188,18 @@ export function parseGlmHistory(json: unknown): ChatMessage[] {
   }
   const sorted = arr
     .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
-    .sort((a, b) => stampOf(a) - stampOf(b))
+    // Order by INSERTION INDEX first and by stamp only when BOTH messages
+    // carry one. `stampOf` answers 0 for a missing stamp, so a half-stamped
+    // payload pushed every undated turn BEFORE all dated ones and the dialogue
+    // came back as "the model answered before it was asked".
+    .map((m, i) => ({ m, i, t: stampOf(m) }))
+    .sort((a, b) => {
+      const da = a.t !== 0
+      const db = b.t !== 0
+      if (da && db && a.t !== b.t) return a.t - b.t
+      return a.i - b.i
+    })
+    .map((x) => x.m)
   const out: ChatMessage[] = []
   for (const m of sorted) {
     // The role comes from `role` (confirmed by the live fixture). Only the
