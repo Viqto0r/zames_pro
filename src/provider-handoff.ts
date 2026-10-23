@@ -168,9 +168,23 @@ function sameDir(a: string | undefined, b: string | undefined): boolean {
   return real(x) === real(y)
 }
 
-/** Remove the handoff once it has been posted (or is stale). Best-effort. */
+/** Remove the handoff once it has been posted (or is stale). Best-effort.
+ *
+ *  The GLOBAL file and every per-workdir SIDE file are removed. Clearing only
+ *  the global one left a displaced record readable through its side file, so
+ *  an already-consumed summary was posted again on a later switch in that
+ *  project ("the summary came back from the dead"). Side files are small and
+ *  their whole purpose is a pending handoff, so removing all of them is safe. */
 export function clearProviderHandoff(): void {
   try {
     fs.unlinkSync(HANDOFF_FILE)
+  } catch {}
+  try {
+    for (const f of fs.readdirSync(ZAMES_HOME)) {
+      if (!f.startsWith('provider-handoff-') || !f.endsWith('.json')) continue
+      try {
+        fs.unlinkSync(path.join(ZAMES_HOME, f))
+      } catch {}
+    }
   } catch {}
 }
