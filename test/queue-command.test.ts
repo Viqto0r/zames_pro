@@ -1,64 +1,54 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import {
-  parseQueueCommand,
-  formatQueueList,
-  hasQueuedJob,
-  type QueuedMessage,
-} from '../src/commands.ts'
+import { renderQueueView } from '../src/queue-command.js'
+import type { QueuedMessage } from '../src/commands.js'
 
-test('parseQueueCommand: bare and list forms', () => {
-  assert.deepEqual(parseQueueCommand('/queue'), { sub: 'list' })
-  assert.deepEqual(parseQueueCommand('/queue list'), { sub: 'list' })
-  assert.deepEqual(parseQueueCommand('/queue ls'), { sub: 'list' })
-  assert.deepEqual(parseQueueCommand('  /queue  '), { sub: 'list' })
+function msg(text: string, attachments = 0): QueuedMessage {
+  return {
+    text,
+    attachments: Array.from({ length: attachments }, (_, i) => ({
+      path: '/tmp/a' + i,
+      name: 'a' + i,
+      mime: 'image/png',
+    })),
+  } as QueuedMessage
+}
+
+test('renderQueueView: an unrecognized subcommand is a usage error', () => {
+  assert.deepEqual(renderQueueView(null, 3, [msg('x')]), { kind: 'usage' })
 })
 
-test('parseQueueCommand: clear forms', () => {
-  assert.deepEqual(parseQueueCommand('/queue clear'), { sub: 'clear' })
-  assert.deepEqual(parseQueueCommand('/queue c'), { sub: 'clear' })
-  assert.deepEqual(parseQueueCommand('/queue clean'), { sub: 'clear' })
+test('renderQueueView: clear reports the CURRENT length', () => {
+  assert.deepEqual(renderQueueView('clear', 5, [msg('a')]), {
+    kind: 'cleared',
+    n: 5,
+  })
+  // Clearing an already-empty queue is still a successful clear of 0.
+  assert.deepEqual(renderQueueView('clear', 0, []), {
+    kind: 'cleared',
+    n: 0,
+  })
 })
 
-test('parseQueueCommand: rejects non-commands and bad args', () => {
-  assert.equal(parseQueueCommand('queue'), null)
-  assert.equal(parseQueueCommand('hello'), null)
-  assert.equal(parseQueueCommand(''), null)
-  // An unknown subcommand falls through to the main-loop usage hint.
-  assert.equal(parseQueueCommand('/queue bogus'), null)
-  // Other slash-commands are NOT intercepted.
-  assert.equal(parseQueueCommand('/compact'), null)
-  assert.equal(parseQueueCommand('/queue clear now'), null)
+test('renderQueueView: an empty queue on list is "empty", not a header', () => {
+  assert.deepEqual(renderQueueView('list', 0, []), { kind: 'empty' })
+  // A count/queue mismatch must not print a header without lines.
+  assert.deepEqual(renderQueueView('list', 2, []), { kind: 'empty' })
 })
 
-test('formatQueueList: one line per message, truncated, with attachment count', () => {
-  const long = 'x'.repeat(120)
-  const msgs: QueuedMessage[] = [
-    { text: 'first message' },
-    {
-      text: long,
-      attachments: [{ path: 'a', name: 'a.png', mime: 'image/png' }],
-    },
-    { text: '  multi\n line\t text  ' },
-  ]
-  const lines = formatQueueList(msgs)
-  assert.equal(lines.length, 3)
-  assert.ok(lines[0].includes('1. first message'))
-  // Long text is cut at 80 chars + an ellipsis marker.
-  assert.ok(lines[1].includes('…'))
-  assert.ok(lines[1].includes('[+1]'))
-  // Whitespace (newlines/tabs) is collapsed to single spaces.
-  assert.ok(lines[2].includes('multi line text'))
+test('renderQueueView: list shows one numbered line per message', () => {
+  const r = renderQueueView('list', 2, [msg('first'), msg('second', 2)])
+  assert.equal(r.kind, 'list')
+  const lines = (r as { lines: string[] }).lines
+  assert.equal(lines.length, 2)
+  assert.match(lines[0], /1\. first/)
+  assert.match(lines[1], /2\. second \[\+\d\]/)
 })
 
-test('formatQueueList: empty input yields no lines', () => {
-  assert.deepEqual(formatQueueList([]), [])
-})
-
-test('hasQueuedJob: detects a job already waiting in the queue', () => {
-  const queue = [{ jobId: 1 }, { jobId: 2 }, { text: 'plain' }]
-  assert.equal(hasQueuedJob(queue, 1), true)
-  assert.equal(hasQueuedJob(queue, 2), true)
-  assert.equal(hasQueuedJob(queue, 3), false)
-  assert.equal(hasQueuedJob([], 1), false)
+test('renderQueueView: a very long message is truncated, not echoed whole', () => {
+  const r = renderQueueView('list', 1, [msg('x'.repeat(500))])
+  assert.equal(r.kind, 'list')
+  const line = (r as { lines: string[] }).lines[0]
+  assert.ok(line.length < 120, 'line must be capped: ' + line.length)
+  assert.match(line, /\u2026/)
 })

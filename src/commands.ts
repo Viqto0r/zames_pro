@@ -404,7 +404,7 @@ export interface DoctorInput {
   uiMissingCritical?: string[]
   /** Active chat provider ('deepseek' | 'qwen'). */
   provider?: string
-  /** Configured Qwen model id (only meaningful when provider is qwen). */
+  /** Configured model id of the ACTIVE provider (shown next to its label). */
   providerModel?: string
 }
 

@@ -131,6 +131,20 @@ import {
   saveHistory,
   isInternalChat,
 } from './sessions.js'
+import { parseModelIntent, emptyModelListMessage } from './model-command.js'
+import {
+  parseResumeId,
+  filterSessions,
+  resumeProviderRefusal,
+} from './resume-command.js'
+import { formatLimits, limitsEmptyMessage } from './limits-command.js'
+import { renderContextReport } from './context-command.js'
+import { renderQueueView } from './queue-command.js'
+import {
+  parseProviderIntent,
+  providerUsageMessage,
+} from './provider-command.js'
+import { formatStatus } from './status-command.js'
 import type { ChatInfo, ChatProvider } from './types.js'
 import type { McpPool } from './mcp.js'
 
@@ -2077,17 +2091,17 @@ async function main(): Promise<void> {
       if (ed.busy) {
         const q = mod.commands.parseQueueCommand(text)
         if (q) {
-          if (q.sub === 'clear') {
-            const n = pendingQueue.length
+          const view = renderQueueView(q.sub, pendingQueue.length, pendingQueue)
+          if (view.kind === 'cleared') {
             pendingQueue.length = 0
-            ed.printAbove(theme.system(t('msg.queue_cleared') + ' (' + n + ')'))
-          } else if (!pendingQueue.length) {
+            ed.printAbove(
+              theme.system(t('msg.queue_cleared') + ' (' + view.n + ')'),
+            )
+          } else if (view.kind === 'empty') {
             ed.printAbove(theme.dim(t('msg.queue_empty')))
-          } else {
+          } else if (view.kind === 'list') {
             ed.printAbove(theme.system(t('msg.queue_title')))
-            for (const line of mod.commands.formatQueueList(pendingQueue)) {
-              ed.printAbove(theme.assistant(line))
-            }
+            for (const line of view.lines) ed.printAbove(theme.assistant(line))
             ed.printAbove(theme.dim(t('msg.queue_cleared_hint')))
           }
           return
@@ -3004,8 +3018,11 @@ async function main(): Promise<void> {
     }
 
     if (lower === '/provider' || lower.startsWith('/provider ')) {
-      const arg = trimmed.slice('/provider'.length).trim().toLowerCase()
-      if (!arg || arg === 'status') {
+      const intent = parseProviderIntent(
+        trimmed.slice('/provider'.length),
+        config.provider,
+      )
+      if (intent.kind === 'status') {
         const model = providerModelOf(config.provider) || '(default)'
         console.log(
           theme.system(
@@ -3018,7 +3035,7 @@ async function main(): Promise<void> {
         )
         continue
       }
-      if (arg === 'login') {
+      if (intent.kind === 'login') {
         try {
           await browser.waitForLogin()
           console.log(theme.system(t('provider.login_done')))
@@ -3027,9 +3044,10 @@ async function main(): Promise<void> {
         }
         continue
       }
-      if (isProviderId(arg)) {
+      if (intent.kind === 'switch') {
+        const arg = intent.provider
         const from = config.provider
-        if (arg === from) {
+        if (intent.same) {
           console.log(theme.system(t('provider.switched', { v: arg })))
           continue
         }
@@ -3169,9 +3187,7 @@ async function main(): Promise<void> {
         }
         continue
       }
-      console.error(
-        theme.warn(t('provider.usage', { providers: PROVIDER_IDS.join('|') })),
-      )
+      console.error(theme.warn(providerUsageMessage(t)))
       continue
     }
 
@@ -3180,14 +3196,9 @@ async function main(): Promise<void> {
       // `/model` is available to ANY provider that exposes a model picker
       // (Qwen, GLM). DeepSeek has none, so the command is hidden from the
       // hints there and only explains itself when typed by hand.
-      if (!providerHasModelPicker(config.provider)) {
-        console.log(
-          theme.system(
-            t('model.unsupported', {
-              provider: providerLabel(config.provider),
-            }),
-          ),
-        )
+      const intent = parseModelIntent(config.provider, arg, t)
+      if (intent.kind === 'unsupported') {
+        console.log(theme.system(intent.message))
         continue
       }
       const section = providerConfigSection(config.provider)
@@ -3198,10 +3209,10 @@ async function main(): Promise<void> {
         listModels?: () => Promise<Array<{ id: string; name: string }>>
         model?: string
       }
-      if (!arg) {
+      if (intent.kind === 'list') {
         const models = qb.listModels ? await qb.listModels() : []
         if (!models.length) {
-          console.log(theme.system(t('model.list', { v: '(none)' })))
+          console.log(theme.system(emptyModelListMessage(t)))
           continue
         }
         // In the TUI, open a proper SELECT LIST instead of dumping text.
@@ -3258,9 +3269,9 @@ async function main(): Promise<void> {
         console.log(theme.system(t('model.list', { v: lines })))
         continue
       }
-      sectionObj.model = arg
-      if (typeof qb.model === 'string') qb.model = arg
-      applyModelContextLimit(arg)
+      sectionObj.model = intent.model
+      if (typeof qb.model === 'string') qb.model = intent.model
+      applyModelContextLimit(intent.model)
       if (editor) {
         editor.setContextLimit(effectiveContextLimit())
         editor.refreshStatus()
@@ -3270,7 +3281,10 @@ async function main(): Promise<void> {
       } catch {}
       console.log(
         theme.system(
-          t('model.set', { provider: providerLabel(config.provider), v: arg }),
+          t('model.set', {
+            provider: providerLabel(config.provider),
+            v: intent.model,
+          }),
         ),
       )
       continue
@@ -3305,12 +3319,7 @@ async function main(): Promise<void> {
         .toLowerCase()
       // /sessions <query> filters by title or workdir (substring). Sorted by
       // recency already (listSessions).
-      const all = listSessions().filter(
-        (s) =>
-          !filter ||
-          (s.title || '').toLowerCase().includes(filter) ||
-          (s.workdir || '').toLowerCase().includes(filter),
-      )
+      const all = filterSessions(listSessions(), filter)
       console.log(theme.system(t('sessions.dir', { v: sessionsDir() })))
       if (!all.length) {
         console.log(theme.system(t('sessions.none')))
@@ -3371,9 +3380,17 @@ async function main(): Promise<void> {
     }
 
     if (lower.startsWith('/resume-id ')) {
-      const id = trimmed.slice('/resume-id'.length).trim()
+      const id = parseResumeId(trimmed.slice('/resume-id'.length))
       if (!id) {
         console.error(theme.error(t('sessions.resume_id_usage')))
+        continue
+      }
+      // A chat id only exists on the backend that created it, so opening a
+      // session saved by ANOTHER provider fails deep inside the browser with a
+      // confusing error. Refuse up front and name the right /provider command.
+      const refusal = resumeProviderRefusal(readSession(id), config.provider, t)
+      if (refusal) {
+        console.error(theme.error(refusal))
         continue
       }
       if (editor) editor.lock(t('msg.input_locked'))
@@ -3548,24 +3565,26 @@ async function main(): Promise<void> {
 
     if (lower === '/queue' || lower.startsWith('/queue ')) {
       const q = mod.commands.parseQueueCommand(trimmed)
-      if (!q) {
+      const view = renderQueueView(
+        q ? q.sub : null,
+        pendingQueue.length,
+        pendingQueue,
+      )
+      if (view.kind === 'usage') {
         console.error(theme.error(t('msg.queue_usage')))
         continue
       }
-      if (q.sub === 'clear') {
-        const n = pendingQueue.length
+      if (view.kind === 'cleared') {
         pendingQueue.length = 0
-        console.log(theme.system(t('msg.queue_cleared') + ' (' + n + ')'))
+        console.log(theme.system(t('msg.queue_cleared') + ' (' + view.n + ')'))
         continue
       }
-      if (!pendingQueue.length) {
+      if (view.kind === 'empty') {
         console.log(theme.dim(t('msg.queue_empty')))
         continue
       }
       console.log(theme.system(t('msg.queue_title')))
-      for (const line of mod.commands.formatQueueList(pendingQueue)) {
-        console.log(theme.assistant(line))
-      }
+      for (const line of view.lines) console.log(theme.assistant(line))
       console.log(theme.dim(t('msg.queue_cleared_hint')))
       continue
     }
@@ -3816,107 +3835,34 @@ async function main(): Promise<void> {
     }
 
     if (lower === '/status') {
-      const yes = t('common.yes')
-      const no = t('common.no')
-      console.log(theme.system(t('status.workdir', { v: currentWorkdir })))
-      console.log(
-        theme.system(
-          t('status.review_mode', {
-            v: reviewMode ? reviewMode.snapName : t('status.review_none'),
-          }),
-        ),
-      )
-      if (reviewMode) {
-        console.log(
-          theme.system(t('status.orig_dir', { v: reviewMode.originalWorkdir })),
-        )
-      }
-      console.log(
-        theme.system(
-          t('status.chat', { v: currentChatId || t('common.none') }),
-        ),
-      )
-      console.log(
-        theme.system(t('status.fresh_next', { v: freshChatNext ? yes : no })),
-      )
-      console.log(
-        theme.system(
-          t('status.prompt_next', { v: sendSystemPromptNext ? yes : no }),
-        ),
-      )
-      console.log(
-        theme.system(
-          t('status.last_chat', {
-            v: loadLastChat(currentWorkdir) || t('common.none'),
-          }),
-        ),
-      )
-      console.log(theme.system(t('status.sessions', { v: sessionsDir() })))
-      console.log(
-        theme.system(
-          t('status.dev', {
-            v: devMode ? t('common.on') : t('common.off'),
-          }),
-        ),
-      )
-      console.log(theme.system(t('status.max_iter', { v: currentMaxIter() })))
-      console.log(
-        theme.system(t('status.headless', { v: headless ? yes : no })),
-      )
-      console.log(theme.system(t('status.debug', { v: debug ? yes : no })))
       const statusToggles = browser.getToggleStatesSync()
-      console.log(
-        theme.system(
-          t('status.toggles', {
-            think: statusToggles.deepThinking ? yes : no,
-            search: statusToggles.webSearch ? yes : no,
-          }),
-        ),
+      const statusLines = formatStatus(
+        {
+          workdir: currentWorkdir,
+          reviewMode: reviewMode ? reviewMode.snapName : null,
+          origDir: reviewMode ? reviewMode.originalWorkdir : null,
+          chatId: currentChatId,
+          freshNext: freshChatNext,
+          promptNext: sendSystemPromptNext,
+          lastChat: loadLastChat(currentWorkdir),
+          sessionsDir: sessionsDir(),
+          devMode,
+          maxIterations: currentMaxIter(),
+          headless,
+          debug,
+          deepThinking: statusToggles.deepThinking,
+          webSearch: statusToggles.webSearch,
+          undo: config.undo.enabled,
+          checkpoint: config.checkpoint.enabled,
+          transcriptFile: transcript.file,
+          goal: sessionGoal,
+          localeName: localeDisplayName(currentLocale),
+          mcpToolCount: mcpPool ? mcpPool.status().toolCount : null,
+          tokenUsage: browser.getLastTokenUsage(),
+        },
+        t,
       )
-      console.log(
-        theme.system(
-          t('status.undo', {
-            v: config.undo.enabled ? t('common.on') : t('common.off'),
-          }),
-        ),
-      )
-      console.log(
-        theme.system(
-          t('status.checkpoint', {
-            v: config.checkpoint.enabled ? t('common.on') : t('common.off'),
-          }),
-        ),
-      )
-      console.log(
-        theme.system(
-          t('status.transcript', {
-            v: transcript.file || t('common.off'),
-          }),
-        ),
-      )
-      console.log(
-        theme.system(t('status.goal', { v: sessionGoal || t('common.none') })),
-      )
-      console.log(
-        theme.system(
-          t('status.locale', { v: localeDisplayName(currentLocale) }),
-        ),
-      )
-      console.log(
-        theme.system(
-          t('status.mcp', {
-            v: mcpPool ? String(mcpPool.status().toolCount) : t('common.none'),
-          }),
-        ),
-      )
-      const tokens = browser.getLastTokenUsage()
-      console.log(
-        theme.system(
-          t('status.tokens', {
-            v: tokens === null ? t('common.unknown') : String(tokens),
-          }),
-        ),
-      )
+      for (const line of statusLines) console.log(theme.system(line))
       continue
     }
 
@@ -3945,11 +3891,13 @@ async function main(): Promise<void> {
         }).length
         console.log(
           theme.system(
-            mod.commands.formatContextSources(
-              ctx.agents,
-              ctx.memory,
-              ctx.skills,
-              ctx.commands,
+            renderContextReport(
+              {
+                agents: ctx.agents,
+                memory: ctx.memory,
+                skills: ctx.skills,
+                commands: ctx.commands,
+              },
               { systemPromptChars: sysLen },
               t,
             ),
@@ -4092,38 +4040,25 @@ async function main(): Promise<void> {
       if (!events.length) {
         console.log(
           theme.system(
-            t('limits.none', { path: sendLogPath(logsDir, config.provider) }),
+            limitsEmptyMessage(sendLogPath(logsDir, config.provider), t),
           ),
         )
       } else {
         const st = summarizeSends(events)
-        console.log(
-          theme.system(
-            t('limits.title', { provider: providerLabel(config.provider) }),
-          ),
-        )
-        for (const [label, n] of [
-          ['10m', st.last10m],
-          ['30m', st.last30m],
-          ['60m', st.last60m],
-        ] as Array<[string, number]>) {
-          console.log('  ' + t('limits.window', { label, n: String(n) }))
+        for (const line of formatLimits(
+          st,
+          {
+            providerLabel: providerLabel(config.provider),
+            intervalMs: browser.sendIntervalMs(),
+            adaptive: providerAdaptiveThrottle(config.provider),
+          },
+          t,
+        )) {
+          // The title is printed bare; the counters are indented under it.
+          console.log(
+            line.kind === 'title' ? theme.system(line.text) : '  ' + line.text,
+          )
         }
-        console.log(
-          '  ' +
-            t('limits.rate', {
-              n: String(st.rateLimits),
-              sec: String(Math.round(st.avgBlockMs / 1000)),
-            }),
-        )
-        const adaptive = providerAdaptiveThrottle(config.provider)
-        console.log(
-          '  ' +
-            t('limits.interval', {
-              sec: String(Math.round(browser.sendIntervalMs() / 1000)),
-              adaptive: adaptive ? t('limits.adaptive_on') : '',
-            }),
-        )
       }
       continue
     }

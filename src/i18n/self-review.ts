@@ -184,4 +184,8 @@ export const selfReviewMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Использование: /resume-id <chat id>',
     en: 'Usage: /resume-id <chat id>',
   },
+  'sessions.provider_mismatch': {
+    ru: 'Сессия принадлежит провайдеру {owner}, а активен {active}: чат не откроется. Переключись командой /provider {owner} и повтори.',
+    en: 'This session belongs to {owner}, but {active} is active: the chat will not open. Switch with /provider {owner} and retry.',
+  },
 }
