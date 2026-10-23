@@ -503,7 +503,12 @@ export function filterToolsByAllowList(
   allowed: string[] | null | undefined,
 ): ToolDef[] {
   if (!allowed || !allowed.length) return tools
-  const allow = new Set(allowed.map((n) => n.toLowerCase()))
+  // `allowed-tools:` is human-written: an entry may carry surrounding spaces
+  // (a quoted value, a trailing comma). Lower-casing alone left `read `, which
+  // matched nothing and silently reduced the skill to `respond` only.
+  const allow = new Set(
+    allowed.map((n) => String(n).trim().toLowerCase()).filter(Boolean),
+  )
   allow.add('respond')
   return tools.filter((t) => allow.has(t.name.toLowerCase()))
 }
