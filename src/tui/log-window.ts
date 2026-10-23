@@ -101,20 +101,37 @@ export function windowByRows(
   let skip = Math.max(0, Math.floor(scroll))
   const picked: LogEntry[] = []
   let used = 0
+  // The pane above the panel is flexGrow:1 and overflow="hidden" with
+  // justifyContent="flex-end", so only the TAIL of a too-tall entry stays
+  // visible. `used` must therefore count the VISIBLE rows of the entry being
+  // kept, not its full height: counting the full height while scrolling
+  // INSIDE a tall entry exceeded the reserved height and pushed the status /
+  // input rows off a short terminal (the caret then drifted under the box).
   for (let i = entries.length - 1; i >= 0; i--) {
     const r = entryRows(entries[i], cols)
+    let visibleRows = r
     if (skip > 0) {
       if (skip >= r) {
         skip -= r
         continue
       }
-      // Partially scrolled into this entry: keep the hidden part accounted.
+      // Partially scrolled into this entry: the rows above the fold are
+      // hidden and must not be counted against the viewport.
+      visibleRows = r - skip
       skip = 0
     }
-    if (used + r > cap && picked.length > 0) break
+    // The pane is flexGrow:1 + overflow="hidden" + flex-end, so a tall entry
+    // is CLIPPED to its tail and never grows the window. A clipped entry is
+    // therefore always kept — dropping it blanked the pane while the operator
+    // scrolled inside a long answer (the old code required a free row for it).
+    const clipped = r > cap || visibleRows < r
+    if (!clipped && used + visibleRows > cap) break
     picked.push(entries[i])
-    used += r
-    if (used >= cap) break
+    used += visibleRows
+    // Only an EXACT fill stops the walk. A clipped entry already fills the
+    // viewport visually but leaves room in the budget for the shorter entries
+    // above it, which used to be dropped right after a tall one.
+    if (!clipped && used >= cap) break
   }
   picked.reverse()
   return picked

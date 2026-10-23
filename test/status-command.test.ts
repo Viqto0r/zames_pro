@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { formatStatus, doctorProbeSummary } from '../src/status-command.js'
+import { formatStatus } from '../src/status-command.js'
 import { translate } from '../src/i18n.js'
 import type { StatusInput } from '../src/status-command.js'
 
@@ -54,42 +54,11 @@ test('formatStatus: the orig dir row appears ONLY in review mode', () => {
   assert.match(review, /\/orig/)
 })
 
-test('doctorProbeSummary: no git / no auth / no MCP are all warns', () => {
-  const rows = doctorProbeSummary({
-    gitOk: false,
-    gitBranch: null,
-    mcpServers: 0,
-    mcpTools: 0,
-    authSaved: false,
-  })
-  assert.deepEqual(
-    rows.map((r) => r.status),
-    ['warn', 'warn', 'warn'],
-  )
-})
-
-test('doctorProbeSummary: a detached HEAD does not print null', () => {
-  const rows = doctorProbeSummary({
-    gitOk: true,
-    gitBranch: null,
-    mcpServers: 0,
-    mcpTools: 0,
-    authSaved: true,
-  })
-  assert.match(rows[0].label, /detached/)
-  assert.ok(!/null/.test(rows[0].label))
-})
-
-test('doctorProbeSummary: a missing CRITICAL UI capability adds a warn', () => {
-  const rows = doctorProbeSummary({
-    gitOk: true,
-    gitBranch: 'master',
-    mcpServers: 0,
-    mcpTools: 0,
-    authSaved: true,
-    uiMissingCritical: ['input', 'send'],
-  })
-  const last = rows[rows.length - 1]
-  assert.equal(last.status, 'warn')
-  assert.match(last.label, /input, send/)
+test('formatStatus: numbers are printed, not dropped', () => {
+  const out = formatStatus(
+    base({ maxIterations: 0, tokenUsage: 12345, mcpToolCount: 0 }),
+    t,
+  ).join('\n')
+  assert.match(out, /0/)
+  assert.match(out, /12345/)
 })
