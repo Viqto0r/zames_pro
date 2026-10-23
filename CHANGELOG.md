@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.62] - 2026-10-23
+
+### Fixed
+
+- **attachments:** do not inline a binary @file reference as text
+
 ## [2.82.61] - 2026-10-23
 
 ### Fixed
