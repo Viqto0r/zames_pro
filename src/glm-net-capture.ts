@@ -269,8 +269,15 @@ const ERROR_PAYLOAD_RE = /"type"\s*:\s*"error"|"error"\s*:|\{\s*"code"\s*:/i
  * message instead of retrying for the whole budget.
  */
 export function isQuotaExhaustedText(body: string): boolean {
+  const b = String(body || '')
+  if (!b) return false
+  // Same guard as every other z.ai classifier: a normal ANSWER may legitimately
+  // discuss `insufficient_quota` / "exceeded your current quota" (the operator
+  // asked how to handle that API error). Without this the answer was taken for
+  // a refusal and a good turn was abandoned with `glm.quota_exhausted`.
+  if (!ERROR_PAYLOAD_RE.test(b) && hasAnswerContent(b)) return false
   return /insufficient_quota|quota (?:exceeded|exhausted)|exceeded your current quota/i.test(
-    String(body || ''),
+    b,
   )
 }
 
