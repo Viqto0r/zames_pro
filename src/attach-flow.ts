@@ -1,10 +1,11 @@
 import fs from 'fs/promises'
 
-// Shared attachment plumbing for the two providers. The per-provider SELECTORS
-// stay in `<provider>-ui.ts`; only the provider-INDEPENDENT steps live here:
-// reading the files into a Playwright payload and waiting for the upload chip.
-// Keeping them in ONE place stops the two `_attachFiles` implementations from
-// drifting (the Qwen one was a near-copy of DeepSeek's).
+// Shared attachment plumbing for the THREE providers (DeepSeek, Qwen, GLM).
+// The per-provider SELECTORS stay in `<provider>-ui.ts`; only the
+// provider-INDEPENDENT steps live here: reading the files into a Playwright
+// payload and waiting for the upload chip. Keeping them in ONE place stops the
+// `_attachFiles` implementations from drifting (the Qwen one started as a
+// near-copy of DeepSeek's).
 
 export interface AttachInput {
   path: string
