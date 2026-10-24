@@ -32,9 +32,9 @@ export interface ConfigMenuOptions {
 
 const ESC = String.fromCharCode(27)
 
-// Strip ANSI sequences to compute the visible length of a line. (A module-
-// level name distinct from input.ts's internal helper; the old regex had a
-// stray backtick and never matched a real CSI, so visCols was over-counted.)
+// Strip ANSI sequences to compute the visible length of a line. A local copy
+// (input.ts keeps its own private helper): the regex must match a real CSI,
+// otherwise visCols over-counts and the erase moves to the wrong row.
 function stripAnsiLocal(s: string): string {
   return s.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
 }
@@ -230,7 +230,8 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
 
     // Erase the previous block and print the new one. We count VISUAL lines
     // (accounting for wrapping by terminal width), otherwise on narrow
-    // terminals you get "garbage" from unerased tails.
+    // terminals the unerased tails leave garbage behind.
+    //
     // Reserve the last column. A line whose visible width reaches exactly the
     // terminal width hits the autowrap edge: depending on the terminal it
     // either consumes two rows for the following `\n` or keeps a pending wrap,
