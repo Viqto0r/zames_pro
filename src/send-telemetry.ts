@@ -88,14 +88,12 @@ export function summarizeSends(
       const age = now - t
       return age >= 0 && age <= ms
     }).length
-  // `blockMs` may arrive as a NUMBER (the writer) or a string (an older
-  // build, a hand-edited file): a numeric string is accepted so the average
-  // is not silently 0 for a file that records the block.
   const blocks = events
-    // `Number(null)`/`Number(undefined)` — 0/NaN, and 0 IS a finite
-    // non-negative number: an event that carries no block duration (the
-    // rate-limit event only records `blockedAt`) was averaged as a ZERO-length
-    // block, halving the reported average. Only a REAL value counts.
+    // `blockMs` may arrive as a NUMBER (the writer) or a string (an older
+    // build, a hand-edited file), so it is coerced. A missing value must NOT
+    // become 0: 0 is a finite non-negative number, and an event without a
+    // block duration (the rate-limit event only records `blockedAt`) was
+    // averaged as a ZERO-length block, halving the reported average.
     .map((e) =>
       e.blockMs === null || e.blockMs === undefined ? NaN : Number(e.blockMs),
     )
