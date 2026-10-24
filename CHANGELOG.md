@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.108] - 2026-10-24
+
+### Fixed
+
+- **diagnostics:** a mid-line tsc error is not hidden by a zero banner
+
 ## [2.82.107] - 2026-10-24
 
 ### Fixed
