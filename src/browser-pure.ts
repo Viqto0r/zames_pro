@@ -22,7 +22,7 @@ export function cleanAnswer(raw: string): string {
   return raw
 }
 
-// Pure, state-free helpers extracted from browser.ts . Nothing
+// Pure, state-free helpers extracted from browser.ts. Nothing
 // here touches the DeepSeekBrowser instance state, so this module is safe to
 // import anywhere (including hot-reloaded modules) without pulling in the
 // live Playwright context. browser.ts re-exports the public names, so the
@@ -372,15 +372,16 @@ export function normText(s: string): string {
     .trim()
 }
 
-// The "too frequent" error: distinct from others so ask() waits a long time
-// (DeepSeek limits reset over minutes) and retries the send itself.
+// Distinct from the other failures so ask() waits a long time (DeepSeek limits
+// reset over minutes) and then retries the send itself.
 export class RateLimitError extends Error {
   constructor(detail: string) {
     super('Messages too frequent. Try again later. ' + detail)
     this.name = 'RateLimitError'
   }
 }
-// DeepSeek transient server error (Server busy).
+// A transient DeepSeek overload: clears in seconds, so ask() retries it quickly
+// instead of waiting out the rate-limit pause.
 export class ServerBusyError extends Error {
   constructor(detail: string) {
     super('Server busy. Try again later. ' + detail)
@@ -413,8 +414,6 @@ export class GenerationIncompleteError extends Error {
     this.name = 'GenerationIncompleteError'
   }
 }
-
-// ---------- profile cleanup ----------
 
 export async function cleanSingletonFiles(dir: string = USER_DATA_DIR) {
   const names = ['SingletonLock', 'SingletonCookie', 'SingletonSocket']
