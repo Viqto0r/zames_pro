@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.101] - 2026-10-24
+
+### Fixed
+
+- **commands:** a non-string respond message is not shown as the answer
+
 ## [2.82.100] - 2026-10-24
 
 ### Fixed
