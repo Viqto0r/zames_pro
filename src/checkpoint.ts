@@ -127,17 +127,26 @@ function runTar(
   timeout = 60_000,
 ): Promise<{ code: number; stderr: string }> {
   return new Promise((resolve) => {
-    execFile(
-      'tar',
-      args,
-      { cwd, timeout, maxBuffer: 1024 * 1024 * 8, windowsHide: true },
-      (err, _stdout, stderr) => {
-        if (!err) return resolve({ code: 0, stderr: '' })
-        const raw = (err as { code?: unknown }).code
-        const code = typeof raw === 'number' ? raw : 127
-        resolve({ code, stderr: String(stderr || err.message || '') })
-      },
-    )
+    // `execFile` throws SYNCHRONOUSLY on a spawn error (ENOENT for the shell,
+    // ENOTDIR when the cwd is a regular file). A checkpoint must be
+    // BEST-EFFORT: an escaped throw aborted the task it was meant to protect
+    // (create) or crashed /rewind (restore) instead of returning null / a
+    // reason. Normalize it to the same machine failure every caller handles.
+    try {
+      execFile(
+        'tar',
+        args,
+        { cwd, timeout, maxBuffer: 1024 * 1024 * 8, windowsHide: true },
+        (err, _stdout, stderr) => {
+          if (!err) return resolve({ code: 0, stderr: '' })
+          const raw = (err as { code?: unknown }).code
+          const code = typeof raw === 'number' ? raw : 127
+          resolve({ code, stderr: String(stderr || err.message || '') })
+        },
+      )
+    } catch (e) {
+      resolve({ code: 127, stderr: (e as Error).message })
+    }
   })
 }
 

@@ -10,6 +10,28 @@
 
 ## Журнал тактов
 
+### Такт 352 (2026-10-24) — исправлено
+
+**Цель:** undo/checkpoint/rewind — устойчивость `runTar` в src/checkpoint.ts.
+
+**Баг:** `execFile` бросает СИНХРОННО на spawn-ошибке (`ENOTDIR`, когда workdir заменён обычным файлом; `ENOENT` для shell). `runTar` не ловил этот throw и не подписывался на `child.on('error')`, поэтому исключение вылетало наружу: `CheckpointStore.create()` падал вместо `null` (чекпоинт должен быть best-effort), а `restore()`/`/rewind` ронял всю сессию вместо машинного reason. Проверено запуском (`spawn ENOTDIR`).
+
+**Фикс:** `execFile` обёрнут в `try/catch`; spawn-ошибка нормализуется в `{ code: 127, stderr }` — тот же машинный сбой, что уже обрабатывают все вызывающие.
+
+**Тест:** test/checkpoint-tar-spawn-error.test.ts (2 кейса: `restore` возвращает машинный reason, а не бросает; `create` даёт `null`, а не падает). RED до фикса (оба падения), GREEN после; checkpoint*/rewind*/undo* — 34 теста зелёные.
+
+**Гейты:** npm test 1850 тестов (1840 pass, 0 fail, 10 skip), typecheck,
+lint (0 errors, 2 прежних warning), format:check, build, sched-smoke —
+зелёные.
+
+**Статус:** исправлено (2026-10-24).
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- src/checkpoint.ts — spawn-ошибка tar не вылетает из create/restore (2026-10-24).
+
 ### Такт 351 (2026-10-24) — исправлено
 
 **Цель:** Qwen-провайдер — разбор истории чата (parseQwenHistory в src/qwen-chats.ts).
