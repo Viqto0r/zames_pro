@@ -61,7 +61,11 @@ export function parseHistoryMessages(messages: unknown): {
     // old `role === 'ASSISTANT'` fallback read every other turn as the
     // operator's, so a lowercase assistant answer was printed as the operator's
     // text in the restored dialogue.
-    const rawRole = String((raw && raw.role) || '').toUpperCase()
+    // Trim BEFORE upper-casing: a padded field (`" USER "`, `"assistant\\t"`)
+    // used to fail the comparison and the whole turn was dropped.
+    const rawRole = String((raw && raw.role) || '')
+      .trim()
+      .toUpperCase()
     if (rawRole !== 'ASSISTANT' && rawRole !== 'USER') continue
     const role: ChatMessage['role'] =
       rawRole === 'ASSISTANT' ? 'assistant' : 'user'

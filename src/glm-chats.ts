@@ -210,7 +210,12 @@ export function parseGlmHistory(json: unknown): ChatMessage[] {
     // values the API actually uses are matched: a numeric flag or a `from`
     // field was never observed on z.ai and guessing at it would silently
     // re-attribute turns.
-    const roleStr = String(m.role ?? '').toLowerCase()
+    // Trim BEFORE lower-casing: a padded role (" USER ") used to fall
+    // through to the ASSISTANT default, printing the operator's own question
+    // as the model's answer.
+    const roleStr = String(m.role ?? '')
+      .trim()
+      .toLowerCase()
     // A SYSTEM/TOOL turn is neither the operator nor the model's answer: z.ai's
     // own system prompt and the sandbox output of its agent runtime used to be
     // restored as model REPLIES (the Qwen parser drops those roles too).

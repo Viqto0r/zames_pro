@@ -254,7 +254,12 @@ export function parseQwenHistory(json: unknown): ChatMessage[] {
     // cares about the distinction, not the exact enum). A numeric flag uses
     // 1 = user, 2 = assistant (the `String(1) === '1'` form was ignored and
     // every user turn was attributed to the model).
-    const roleStr = String(m.role ?? '').toLowerCase()
+    // Trim BEFORE lower-casing: a padded role (" USER ") used to fall
+    // through to the ASSISTANT default, printing the operator's own question
+    // as the model's answer.
+    const roleStr = String(m.role ?? '')
+      .trim()
+      .toLowerCase()
     // `from` is matched case-insensitively and accepts Qwen's `human`
     // spelling: the exact `from === 'user'` test read an uppercase/human
     // turn as the ASSISTANT's answer, so the operator's own question was
