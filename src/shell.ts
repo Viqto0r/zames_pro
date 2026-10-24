@@ -169,7 +169,7 @@ export function runShell(
   })
 }
 
-// ---------- background processes (N33) ----------
+// ---------- background processes ----------
 //
 // A dev-server / watch / long build cannot be run through the blocking Bash
 // tool (it would sit until the timeout). These helpers start a command, keep

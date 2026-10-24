@@ -377,7 +377,7 @@ const RELOADABLE = [
   'config',
   'fsutil',
   'backlog',
-  // C3 modules index.ts now calls through the mod bag (G2): without this a
+  // Modules index.ts now calls through the mod bag: without this a
   // /reload silently kept the OLD commands/run-task/attach-refs until a restart.
   // 'input/layout' is NOT listed: its only live consumers are input.ts (the
   // long-lived LineEditor, itself not reloadable) and spinner.ts, which already
@@ -775,7 +775,7 @@ async function refreshDynamicCommands(workdir: string): Promise<void> {
     }
     const cmds = await loadCommands(workdir)
     for (const c of cmds) {
-      // B7: carry the declared argument hint as a separate field so the hint is
+      // Carry the declared argument hint as a separate field so the hint is
       // SHOWN in the suggest list but never inserted into the input line.
       out.push({
         name: '/' + c.name,
@@ -808,7 +808,7 @@ async function expandSlashTarget(
       (c) => c.name.toLowerCase() === name.toLowerCase(),
     )
     if (cmd) {
-      // B7: refuse to run when declared positional arguments are missing.
+      // Refuse to run when declared positional arguments are missing.
       const missing = mod.commands.missingCommandArgs(cmd.arguments, rest)
       if (missing.length) return { missing }
       const body = mod.commands.expandCommandArgs(cmd.body, rest, cmd.arguments)
@@ -1721,7 +1721,7 @@ async function main(): Promise<void> {
 
   process.on('SIGINT', async () => {
     running = false
-    // Kill any background processes (N33) so no dev-server outlives the agent.
+    // Kill any background processes so no dev-server outlives the agent.
     killAllBackground()
     await browser.close().catch(() => {})
     // Close the lazy headless browser from web.js, otherwise it would stay
@@ -1794,7 +1794,7 @@ async function main(): Promise<void> {
   // swap. Assigned where the editor is built (see the login wiring below);
   // a no-op until then so /provider before setup is harmless.
   let wireLoginCallbacks: (b: unknown) => void = () => {}
-  // N37 statusLine hook timer (cleared on exit).
+  // statusLine hook timer (cleared on exit).
   let statusLineTimer: ReturnType<typeof setInterval> | null = null
   let waiter: ((v: PendingMessage | null) => void) | null = null
   const takeInput = (): Promise<PendingMessage | null> => {
@@ -1950,7 +1950,7 @@ async function main(): Promise<void> {
       }
     }
     wireLoginCallbacks(browser)
-    // N37 statusLine hook: run the configured command on its own timer (never
+    // statusLine hook: run the configured command on its own timer (never
     // per-render — a spawn would block typing) and show its first stdout line
     // in the status line. Off when ui.statusLineCommand is empty.
     if (config.ui.statusLineCommand) {
@@ -4624,7 +4624,7 @@ async function main(): Promise<void> {
       }
     }
 
-    // B7: a custom command with mandatory `arguments:` refuses to run until the
+    // A custom command with mandatory `arguments:` refuses to run until the
     // operator supplies them (by position).
     if (missingArgs) {
       console.error(
@@ -4646,7 +4646,7 @@ async function main(): Promise<void> {
         ? expandedTask
         : trimmed
 
-    // B5: inline any `@path` references into the task so the agent does not
+    // Inline any `@path` references into the task so the agent does not
     // spend a round-trip reading a file the operator already pointed at. Only
     // existing files are inlined; a bare `@name` in prose is left untouched.
     let finalTaskText = taskText

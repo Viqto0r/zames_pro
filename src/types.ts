@@ -223,7 +223,7 @@ export interface UiConfig {
    */
   answerWidth: number
   /**
-   * Optional status-line command (N37). When set, zames runs it periodically
+   * Optional status-line command. When set, zames runs it periodically
    * (and after each task) with a JSON status on stdin and shows the first line
    * of its stdout in the status line, like Claude Code's statusLine hook.
    * Empty = off. Kept OUT of CONFIG_SCHEMA (a shell command does not belong in
@@ -271,7 +271,7 @@ export interface ZamesConfig {
   diagnostics: DiagnosticsConfig
 }
 
-// Post-edit diagnostics (N38): a check command run after a file-mutating tool.
+// Post-edit diagnostics: a check command run after a file-mutating tool.
 export interface DiagnosticsConfig {
   enabled: boolean
   command: string

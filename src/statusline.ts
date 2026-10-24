@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process'
 
-// N37 statusLine hook. When `ui.statusLineCommand` is set, zames runs it on a
+// statusLine hook. When `ui.statusLineCommand` is set, zames runs it on a
 // timer with a JSON status object on stdin and shows the FIRST line of its
 // stdout in the status line (like Claude Code). The command is deliberately
 // run OUT of the render path: a per-render spawn would block typing, so the

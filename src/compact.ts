@@ -137,7 +137,7 @@ export async function performCompact(
   try {
     if (!quiet) log(t('compact.start'))
 
-    // PreCompact hook (N32): runs BEFORE the chat is summarized/rewritten, so
+    // PreCompact hook: runs BEFORE the chat is summarized/rewritten, so
     // a hook can persist state or notify. Best-effort.
     try {
       const out = await runLifecycleHooks(

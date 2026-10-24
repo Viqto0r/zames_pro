@@ -142,7 +142,7 @@ export function createTools(
       },
       fn: async ({ path: p, offset, limit, numbered }: ToolArgs) => {
         const file = safe(req(p, 'path'))
-        // Binary guard (N35): reading an image/archive as utf-8 produced
+        // Binary guard: reading an image/archive as utf-8 produced
         // mojibake the model tried to reason about. Detect a binary buffer
         // BEFORE decoding and answer with useful metadata instead.
         // A read FAILURE (a missing file, a directory, EACCES) is answered in

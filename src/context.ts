@@ -230,7 +230,7 @@ export interface CustomCommand {
 export interface LoadedContext {
   agents: ContextFile[]
   /** Nested AGENTS.md found in the subdirectories the current task touches
-   *  (B6). Rendered in their own section so it is clear they apply only to
+   *  Rendered in their own section so it is clear they apply only to
    *  part of the tree, not to the whole project. Optional: absent means none. */
   scopedAgents?: ContextFile[]
   memory: ContextFile[]

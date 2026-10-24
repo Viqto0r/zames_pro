@@ -144,7 +144,7 @@ export const DEFAULTS: ZamesConfig = {
     contextLimit: 1_000_000,
     // 0 = auto: terminal width, capped at 100 columns (the historical width).
     answerWidth: 0,
-    // N37 statusLine hook. Off by default; edit config.json to set a command.
+    // statusLine hook. Off by default; edit config.json to set a command.
     statusLineCommand: '',
     statusLineIntervalMs: 10_000,
     // Use the Ink/React TUI for the input area (the rich editor). Set to false

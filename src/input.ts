@@ -242,7 +242,7 @@ export class LineEditor {
   // A callback the editor calls before every render to read the agent's
   // current task-list summary ("tasks: 2/5"), empty when there is no list.
   onTasksQuery: (() => string) | null
-  // Extra status text produced by an external command (N37 statusLine hook).
+  // Extra status text produced by an external command (the statusLine hook).
   // Set via setStatusLine(); shown before the queue/tasks badges. Kept as a
   // plain field because the CALLER runs the command on its own timer (a
   // per-render spawn would block typing).
@@ -430,7 +430,7 @@ export class LineEditor {
     }
   }
 
-  // The statusLine hook text (N37), shown before the queue/tasks badges.
+  // The statusLine hook text, shown before the queue/tasks badges.
   // A trailing space separates it from whatever follows; empty hides it.
   _statusLineBadge(): string {
     return this.statusLine ? theme.system(this.statusLine) + ' ' : ''
@@ -687,7 +687,7 @@ export class LineEditor {
 
   // Update the context window size (from config.ui.contextLimit). The next
   // render recomputes the percentage and its color with the new limit.
-  // Set the statusLine hook text (N37). The caller runs the command on its
+  // Set the statusLine hook text. The caller runs the command on its
   // own timer; this only stores + repaints. An empty string hides the badge.
   setStatusLine(text: string): void {
     const t = String(text || '').trim()

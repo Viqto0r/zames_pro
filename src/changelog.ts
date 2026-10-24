@@ -100,7 +100,7 @@ export function renderChangelogDraft(groups: ChangelogGroups): string {
 
 /**
  * Replace the body between `## [Unreleased]` and the next `## [` heading with
- * a freshly drafted body (D2). PURE so a test can pin the exact behavior.
+ * a freshly drafted body. PURE so a test can pin the exact behavior.
  *
  * When `body` is empty the existing Unreleased section is CLEARED to just the
  * heading (no stray blank content). A changelog without an Unreleased heading

@@ -296,7 +296,7 @@ export function renderCost(
     lines.push(t('cost.by_tool'))
     for (const [name, n] of top) lines.push(' ' + nameLine(name) + ': ' + n)
   }
-  // T-D3: where the time went. Sort by total ms, show the top tools with the
+  // Where the time went. Sort by total ms, show the top tools with the
   // count and a human duration, so Read→Edit cycles and slow Bash calls are
   // visible at a glance.
   const byTime = Object.entries(stats.toolTime || {})

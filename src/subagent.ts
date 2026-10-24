@@ -248,7 +248,7 @@ export function createSubagentRunner(
       browser.onNotice = savedHooks.onNotice
     }
 
-    // SubagentStop hook (N32): fires after the nested loop finishes, so a hook
+    // SubagentStop hook: fires after the nested loop finishes, so a hook
     // can clean up or notify. Best-effort; its stdout is appended to the report.
     let hookOut = ''
     try {

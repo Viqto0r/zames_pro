@@ -33,7 +33,7 @@ export interface HookEntry {
 export interface HooksConfig {
   PreToolUse?: HookEntry[]
   PostToolUse?: HookEntry[]
-  // Lifecycle events (N32), mirroring Claude Code: run at the boundaries of a
+  // Lifecycle events, mirroring Claude Code: run at the boundaries of a
   // task rather than around a single tool call.
   SessionStart?: HookEntry[]
   UserPromptSubmit?: HookEntry[]

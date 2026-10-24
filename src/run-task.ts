@@ -123,7 +123,7 @@ export interface RunTaskDeps {
 }
 
 // Ask the operator to approve a tool call flagged by an `ask` permission rule
-// (C1). While the LineEditor owns the terminal it must be paused first, or the
+// While the LineEditor owns the terminal it must be paused first, or the
 // confirmation prompt and the input line fight for the same keys. A non-TTY run
 // has no way to answer, so it DENIES (never silently allows a guarded call).
 export async function askOperatorConfirm(
@@ -509,7 +509,7 @@ export async function runTask(
     // Set when the loop ends without a real answer (iteration limit / watchdog)
     // so the one-shot mode can exit non-zero. See N5.
     let failure: string | null = null
-    // N31: the machine-readable reason for the last task's outcome.
+    // The machine-readable reason for the last task's outcome.
     let outcomeKind: 'ok' | 'iteration_limit' | 'watchdog' | 'error' = 'ok'
     // How many auto-continue turns a completion goal has already spent.
     let goalTurns = 0
@@ -569,7 +569,7 @@ export async function runTask(
         },
         onWarning: (msg) => ui.warning(msg),
         onAskPermission: async (info) => {
-          // C1: a rule with action "ask". Show the reason and wait for the
+          // A rule with action "ask". Show the reason and wait for the
           // operator. In non-TTY this denies.
           ui.warning(t('perm.ask', { tool: info.tool, reason: info.reason }))
           const ok = await askOperatorConfirm(
@@ -624,7 +624,7 @@ export async function runTask(
                 }
               }
             : onAskUser,
-        // N38: the check command appended to a tool result after an edit
+        // The check command appended to a tool result after an edit
         // (off by default; config.diagnostics).
         diagnostics: deps.config.diagnostics,
       })
@@ -639,7 +639,7 @@ export async function runTask(
         ui.warning(outcome)
         transcript?.log('agent_no_answer', { outcome })
         failure = outcome
-        // N31: a machine-readable reason so `--output-format jsonl` consumers
+        // A machine-readable reason so `--output-format jsonl` consumers
         // (CI) can tell a real error from an exhausted limit / watchdog.
         outcomeKind = outcome.startsWith('Iteration limit reached')
           ? 'iteration_limit'
@@ -755,7 +755,7 @@ export async function runTask(
       }
     }
 
-    // Stop hook (N32): the whole task (including drained queue messages) is
+    // Stop hook: the whole task (including drained queue messages) is
     // done. A cleanup/notification hook runs here. Best-effort.
     try {
       // LOAD the config: `undefined` here made every Stop hook a no-op — the
@@ -768,7 +768,7 @@ export async function runTask(
       if (out) ui.warning(out)
     } catch {}
 
-    // N31: a single terminal event carrying the reason, so a jsonl consumer
+    // A single terminal event carrying the reason, so a jsonl consumer
     // does not have to guess from the exit code alone.
     transcript?.log('task_result', {
       ok: !failure,

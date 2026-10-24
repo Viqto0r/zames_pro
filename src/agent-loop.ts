@@ -134,7 +134,7 @@ export interface RunAgentLoopOptions {
    */
   permissions?: PermissionPolicy | null
   /**
-   * Post-edit diagnostics (N38): after a file-mutating tool, run this command
+   * Post-edit diagnostics: after a file-mutating tool, run this command
    * and append its output to the tool result so the model sees a type error
    * without a separate round-trip. Off when omitted.
    */
@@ -225,7 +225,7 @@ export async function runAgentLoop({
   // hooks entirely.
   const hookConfig: HooksConfig =
     hooks === undefined ? loadHooks(workdir) : (hooks ?? {})
-  // Same for the approval policy (C1): read `.zames/permissions.json` once.
+  // Same for the approval policy: read `.zames/permissions.json` once.
   const permissionPolicy: PermissionPolicy | null =
     permissions === undefined ? loadPermissions(workdir) : permissions
   // UI callbacks must NEVER break the agent loop. A rendering error (a huge
@@ -297,7 +297,7 @@ export async function runAgentLoop({
   if (freshChat) {
     await browser.newChat()
     transcript?.log('new_chat')
-    // SessionStart hook (N32): a fresh chat is the start of a session, so a
+    // SessionStart hook: a fresh chat is the start of a session, so a
     // hook can inject context or set up state. Best-effort, output is logged.
     try {
       const out = await runLifecycleHooks(hookConfig, 'SessionStart', workdir)
@@ -333,7 +333,7 @@ export async function runAgentLoop({
     let context: Awaited<ReturnType<typeof loadProjectContext>> | null
     try {
       // Pass the task text so nested AGENTS.md/MEMORY.md for the directories
-      // this task actually touches are pulled in (B6, path-scoped rules).
+      // this task actually touches are pulled in (path-scoped rules).
       context = await loadProjectContext(workdir, [task])
     } catch {
       context = null
@@ -506,7 +506,7 @@ export async function runAgentLoop({
   let lastAutoCompactTokens = -1
   // Set when an auto-compact returned the SAME chat id it started in — i.e.
   // the "fresh chat" never opened and the compaction did nothing. Without this
-  // guard a broken newChat() (see B2) made the loop compact on EVERY tool call
+  // guard a broken newChat() made the loop compact on EVERY tool call
   // while the context kept growing. Defense in depth: the root cause is fixed,
   // but a future regression must not turn into an endless "compacting" loop.
   let autoCompactDisabled = false
@@ -541,7 +541,7 @@ export async function runAgentLoop({
     // 300s rate-limit wait or the finish loop) while the next iteration
     // started a SECOND ask() against the same page — two sends / two Continue
     // clicks.
-    // UserPromptSubmit hook (N32): runs right before the prompt is sent. Its
+    // UserPromptSubmit hook: runs right before the prompt is sent. Its
     // stdout is appended to the outgoing message as extra context, mirroring
     // Claude Code. Best-effort — a hook failure never blocks the send.
     try {
@@ -1060,7 +1060,7 @@ export async function runAgentLoop({
       continue
     }
 
-    // N34: several READ-ONLY calls in one batch are independent, so run them
+    // Several READ-ONLY calls in one batch are independent, so run them
     // concurrently instead of one-by-one (the model often emits 4-6 Reads in a
     // single answer and each awaited round-trip added latency). The fast path
     // is deliberately NARROW: it is taken only when EVERY call is a known
@@ -1310,7 +1310,7 @@ export async function runAgentLoop({
           continue
         }
 
-        // Approval policy (C1): a `deny` rule blocks the call (like a PreToolUse
+        // Approval policy: a `deny` rule blocks the call (like a PreToolUse
         // denial); an `ask` rule prompts the operator. Hooks stay authoritative
         // for programmatic guards — this is the human-in-the-loop layer.
         const decision = decidePermission(
@@ -1362,7 +1362,7 @@ export async function runAgentLoop({
         // makes Esc feel immediate.
         const poll = setInterval(syncToolAbort, 100)
         if (typeof poll.unref === 'function') poll.unref()
-        // Time the tool (T-D3): the transcript carries durationMs so /cost can
+        // Time the tool: the transcript carries durationMs so /cost can
         // show where the time goes (frequent Read→Edit cycles vs slow Bash).
         const toolStart = Date.now()
         try {
@@ -1392,7 +1392,7 @@ export async function runAgentLoop({
 ${post}`
         }
 
-        // N38: after a file-mutating tool, run the project's own check and
+        // After a file-mutating tool, run the project's own check and
         // append its summary, so a type error reaches the model immediately
         // instead of costing a whole round-trip. Best-effort and capped.
         if (shouldRunDiagnostics(diagnostics, call.tool)) {
