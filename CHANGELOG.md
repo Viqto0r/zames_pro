@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.122] - 2026-10-24
+
+### Fixed
+
+- **context:** a file that does not fit the pool does not drop the rest
+
 ## [2.82.121] - 2026-10-24
 
 ### Fixed
