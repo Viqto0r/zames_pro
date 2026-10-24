@@ -507,7 +507,7 @@ export async function runTask(
 
   try {
     // Set when the loop ends without a real answer (iteration limit / watchdog)
-    // so the one-shot mode can exit non-zero. See N5.
+    // so the one-shot mode can exit non-zero.
     let failure: string | null = null
     // The machine-readable reason for the last task's outcome.
     let outcomeKind: 'ok' | 'iteration_limit' | 'watchdog' | 'error' = 'ok'
@@ -532,7 +532,7 @@ export async function runTask(
     // Calling it here made the spinner run for the whole pre-send phase (chat
     // creation, throttle wait) with no generation in flight.
     while (true) {
-      // T7: per-task summary (duration + number of tool calls + tokens).
+      // Per-task summary: duration, number of tool calls and tokens spent.
       const taskStart = Date.now()
       // Token delta for THIS task: accumulated_token_usage is cumulative for
       // the whole chat, so the per-task spend is after - before. Null when the
@@ -648,8 +648,8 @@ export async function runTask(
         outcomeKind = 'ok'
       }
 
-      // T7: one summary line per task (duration + tool calls + tokens spent).
-      // Printed even on an abort, so the operator sees what happened.
+      // One summary line per task, printed even on an abort, so the operator
+      // sees what happened.
       const tokensAfter = getTokenUsage ? getTokenUsage() : null
       const tokenDelta =
         typeof tokensBefore === 'number' && typeof tokensAfter === 'number'
