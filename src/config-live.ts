@@ -35,6 +35,14 @@ export function applyBrowserLiveConfig(
 ): boolean {
   const field = BROWSER_LIVE_CONFIG[path]
   if (!field || !(field in browser)) return false
+  // A timing value must be a FINITE NON-NEGATIVE number. `applyBrowserLiveConfig`
+  // wrote anything it was given, so a NaN/negative value reached a live field
+  // (a timer with NaN fires immediately), and `answerTimeoutMs = 0` SKIPPED
+  // the derived `askDeadlineMs` update, leaving a deadline that no longer
+  // matches the timeout. Reject the bad value instead of corrupting the field.
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    return false
+  }
   browser[field] = value
   // `answerTimeoutMs` is DERIVED into the watchdog (`askDeadlineMs` = the
   // answer timeout + 60s) by the Qwen/GLM constructors. Pushing only the field
@@ -42,7 +50,9 @@ export function applyBrowserLiveConfig(
   // give up before the browser's own timeout ever fired. Re-derive it the same
   // way the constructor does.
   if (field === 'answerTimeoutMs' && 'askDeadlineMs' in browser) {
-    if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    // ANY accepted number re-derives the deadline; the old `value > 0` guard
+    // left the deadline at its stale value when the timeout was set to 0.
+    if (typeof value === 'number' && Number.isFinite(value)) {
       browser.askDeadlineMs = value + 60_000
     }
   }
