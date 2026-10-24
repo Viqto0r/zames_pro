@@ -403,7 +403,6 @@ export class GlmBrowser {
     return this.sendRuntime.intervalMs()
   }
 
-
   async launch(): Promise<void> {
     if (await profileLooksLocked(GLM_USER_DATA_DIR)) {
       if (this.debug) console.error('glm profile: removing Singleton files')
@@ -569,7 +568,6 @@ export class GlmBrowser {
     }
     throw new Error('glm: the browser profile is still locked')
   }
-
 
   /**
    * A FAST login probe with NO long waits (the old isLoggedIn polled up to
@@ -928,7 +926,6 @@ export class GlmBrowser {
     } catch {}
   }
 
-
   _installNetHook(): void {
     const pg = this.page
     if (!pg) return
@@ -1025,7 +1022,6 @@ export class GlmBrowser {
       }
     } catch {}
   }
-
 
   async newChat(): Promise<void> {
     const before = await this.getCurrentChatId()
@@ -1243,7 +1239,6 @@ export class GlmBrowser {
     return this._lastTokenUsage
   }
 
-
   async _readLastAnswerText(): Promise<string> {
     if (this._netCapture && this._netCaptureAt >= this._lastSentAt) {
       return this._netCapture
@@ -1405,7 +1400,6 @@ export class GlmBrowser {
     } catch {}
   }
 
-
   getToggleStatesSync(): { deepThinking: boolean; webSearch: boolean } {
     return this._toggles
   }
@@ -1467,7 +1461,6 @@ export class GlmBrowser {
     }
   }
 
-
   async dumpDom(
     filePath: string,
   ): Promise<{ file: string; selectors: unknown }> {
@@ -1509,7 +1502,6 @@ export class GlmBrowser {
   chatUrl(id: string): string {
     return chatUrl(id)
   }
-
 
   async _waitForSendSlot(agent: boolean): Promise<void> {
     if (!agent) return
