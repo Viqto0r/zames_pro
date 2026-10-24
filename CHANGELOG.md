@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.112] - 2026-10-24
+
+### Fixed
+
+- **ui-health:** a capability with no selectors is not reported missing
+
 ## [2.82.111] - 2026-10-24
 
 ### Fixed
