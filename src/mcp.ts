@@ -247,7 +247,11 @@ export async function loadConfigFiles(files: string[]): Promise<McpConfig> {
 // We also keep the full schema in the tool description, so the model sees
 // descriptions/enums/required fields that the flat map cannot convey.
 export function jsonSchemaToParams(schema: unknown): ToolParameters {
-  const out: ToolParameters = {}
+  // Property NAMES come from the server and are arbitrary text: assigning to a
+  // plain object, a name like `__proto__` mutates the object's PROTOTYPE and
+  // the parameter silently disappears from the prompt (the same class as the
+  // tool-count maps in /cost). Null-prototype map: every key is an own key.
+  const out: ToolParameters = Object.create(null) as ToolParameters
   if (!schema || typeof schema !== 'object') return out
   const s = schema as {
     properties?: Record<string, unknown>

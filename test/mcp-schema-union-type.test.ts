@@ -36,8 +36,11 @@ test('describeParamsExternally still skips a non-object schema', () => {
 })
 
 test('jsonSchemaToParams reads properties from the union-typed schema', () => {
-  assert.deepEqual(jsonSchemaToParams(UNION_TYPE_SCHEMA), {
-    element: 'string',
-    level: 'value?',
-  })
+  assert.deepEqual(
+    { ...jsonSchemaToParams(UNION_TYPE_SCHEMA) },
+    {
+      element: 'string',
+      level: 'value?',
+    },
+  )
 })

@@ -22,18 +22,22 @@ test('jsonSchemaToParams: обязательные и опциональные �
     },
     required: ['url'],
   })
-  assert.deepEqual(params, {
-    url: 'string',
-    count: 'number?',
-    flag: 'boolean?',
-    mode: 'value?',
-  })
+  // A null-prototype map (a property named `__proto__` is a real key).
+  assert.deepEqual(
+    { ...params },
+    {
+      url: 'string',
+      count: 'number?',
+      flag: 'boolean?',
+      mode: 'value?',
+    },
+  )
 })
 
 test('jsonSchemaToParams: пустая/битая схема не падает', () => {
-  assert.deepEqual(jsonSchemaToParams(null), {})
-  assert.deepEqual(jsonSchemaToParams({}), {})
-  assert.deepEqual(jsonSchemaToParams('nope'), {})
+  assert.deepEqual({ ...jsonSchemaToParams(null) }, {})
+  assert.deepEqual({ ...jsonSchemaToParams({}) }, {})
+  assert.deepEqual({ ...jsonSchemaToParams('nope') }, {})
 })
 
 test('qualifyToolName: префикс сервера и безопасные символы', () => {
