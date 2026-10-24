@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.118] - 2026-10-24
+
+### Fixed
+
+- **subagent:** an empty report is not passed on as a successful result
+
 ## [2.82.117] - 2026-10-24
 
 ### Fixed
