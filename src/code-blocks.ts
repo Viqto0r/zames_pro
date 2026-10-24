@@ -25,15 +25,24 @@ export function extractCodeBlocks(md: string): CodeBlock[] {
   let i = 0
   let n = 0
   while (i < lines.length) {
-    const m = /^(\s*)(`{3,}|~{3,})\s*([^`]*)$/.exec(lines[i])
+    // The info string may contain a BACKTICK (CommonMark forbids it, models
+    // write it anyway: ```` ```ts` ````, ```` ```c++ `std::vector` ````). The
+    // old `[^`]*` rejected such a line, so the block's own CLOSING fence was
+    // read as an OPENING one and the following prose became a bogus block.
+    const m = /^(\s*)(`{3,}|~{3,})\s*(.*)$/.exec(lines[i])
     if (!m) {
       i++
       continue
     }
+    // A BACKTICK fence cannot carry a backtick in its info (that is what makes
+    // it unparseable for CommonMark); treat the trailing text as prose after a
+    // plain fence only when the line is exactly a fence. For our purpose the
+    // pragmatic rule is: any trailing text is the language label, backticks
+    // stripped.
     const fence = m[2]
     const marker = fence[0]
     const minLen = fence.length
-    const lang = (m[3] || '').trim()
+    const lang = (m[3] || '').replace(/`/g, '').trim()
     i++
     const body: string[] = []
     let closed = false
