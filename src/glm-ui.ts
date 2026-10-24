@@ -203,8 +203,8 @@ export const GUEST_LIMIT_RE =
 // The completion body carries the mode flags. `preview_mode` and the
 // `general_agent` flag change the ANSWER FORMAT (they enable z.ai's own agent
 // runtime, which emits its own tool calls), and that would break the zames
-// tool-call protocol. The provider asserts the safe values on every send; the
-// request body is verified per chat (see glm-net-capture.ts).
+// tool-call protocol. The request body is rewritten before the send and then
+// verified (glm-browser's _installRuntimeRewrite/_verifyModes + glm-flags).
 export const SAFE_PREVIEW_MODE = false
 export const SAFE_ENABLE_THINKING = true
 
