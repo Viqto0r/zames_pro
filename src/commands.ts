@@ -700,7 +700,11 @@ export function normalizeRestoredMessage(
     if (/^The user ran \//.test(text)) return null
     return { role: 'user', text }
   }
-  if (/DSML/i.test(text)) return null
+  // Only a real DSML MARKER is protocol noise: a bare mention of the feature
+  // (an answer explaining the DSML parser) is a normal reply, and the old
+  // `/DSML/i` check dropped it from the restored dialogue (the same bug the
+  // /compact summary validator already fixed).
+  if (/[<｜]\s*DSML\s*[>｜]/i.test(text)) return null
   if (/^<system>/i.test(text)) return null
   // The model sometimes emits its own safety-classification block as a plain
   // "answer"; it is not for the operator.
