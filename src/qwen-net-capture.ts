@@ -204,13 +204,10 @@ export function isFinishedWithoutAnswer(body: string): boolean {
 }
 
 // True when the body carries Qwen's rate-limit / busy notice, so ask() can
-// back off instead of waiting out the deadline. Matched against the RAW body.
-// The classifier runs against the RAW body, so a phrase like `please try again
-// later` would also match a NORMAL answer (the model writing about retry
-// logic) and make ask() back off on a good turn. A real notice arrives in an
-// ERROR payload (`event: error` / `"type":"error"`) or as a code; answer text
-// lives in `choices[].delta.content`. We therefore only inspect the body when
-// it is NOT a plain answer stream, or when it carries no answer content.
+// back off instead of waiting out the deadline. The classifier runs against the
+// RAW body, where a phrase like `please try again later` also matches a NORMAL
+// answer (the model writing about retry logic) and made ask() back off on a
+// good turn. So it only counts an ERROR payload or a body with NO answer text.
 export function isRateLimitText(body: string): boolean {
   const b = String(body || '')
   if (!b) return false
