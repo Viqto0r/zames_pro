@@ -1,4 +1,4 @@
-// PURE CLI argument parsing . index.ts used to hold `args` as a
+// PURE CLI argument parsing. index.ts used to hold `args` as a
 // module-level constant plus three helpers closing over it, which made the
 // parsing impossible to unit-test in isolation (index.ts is the entry point and
 // is not covered). `createCliArgs(argv)` binds the argv ONCE and returns the
@@ -45,11 +45,9 @@ export function createCliArgs(argv: string[]): CliArgs {
     fallback: string | null = null,
   ): string | null => {
     const i = args.indexOf(flag)
-    // `args[i + 1]` truthiness means an empty string or a missing value falls
-    // back — the historical behavior (an empty `--task ''` is not a task).
-    // NOTE: this does NOT special-case a following FLAG, so `--task --debug`
-    // returns `--debug` (the original inline helper did the same); we preserve
-    // it rather than "fix" a long-standing quirk in a refactor.
+    // Truthiness, not `!== undefined`: an EMPTY value (`--task ''`) must
+    // fall back too - an empty task is not a task. A following FLAG is not
+    // special-cased either (see the CliArgs doc above).
     return i !== -1 && args[i + 1] ? args[i + 1] : fallback
   }
 
