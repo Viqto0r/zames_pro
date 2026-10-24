@@ -353,6 +353,21 @@ export function extractChatId(body: string): string | null {
   if (!b) return null
   const m1 = b.match(/"chat_id"\s*:\s*"([0-9a-f-]{36})"/i)
   if (m1) return m1[1]
+  // The response envelope nests the chat UNDER a key (`chat:{id}`, `data:{id}`)
+  // while its siblings carry their OWN ids (a request id, a message id). A
+  // plain `"id"` match anywhere in the body could pick one of those: the
+  // saved session then pointed at a chat that does not exist.
+  const nested = b.match(
+    /"(?:chat|data|conversation|session)"\s*:\s*\{[^{}]*?"id"\s*:\s*"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"/i,
+  )
+  if (nested) return nested[1]
+  // A bare `id` is accepted only when the body carries NO other id-like key
+  // that could own it first.
+  const otherId =
+    /"(?:request_id|message_id|msg_id|run_id|trace_id|response_id|event_id)"\s*:/i.test(
+      b,
+    )
+  if (otherId) return null
   const m2 = b.match(
     /"id"\s*:\s*"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"/i,
   )

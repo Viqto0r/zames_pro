@@ -112,14 +112,29 @@ export function backspace(s: EditState): EditState {
   if (s.cursor <= 0) return s
   const chars = charsOf(s)
   chars.splice(s.cursor - 1, 1)
-  return { ...s, buf: chars.join(''), cursor: s.cursor - 1 }
+  const next = { ...s, buf: chars.join(''), cursor: s.cursor - 1 }
+  return dropLostPastes(next)
 }
 
 export function del(s: EditState): EditState {
   const chars = charsOf(s)
   if (s.cursor >= chars.length) return s
   chars.splice(s.cursor, 1)
-  return { ...s, buf: chars.join('') }
+  return dropLostPastes({ ...s, buf: chars.join('') })
+}
+
+/**
+ * Forget the paste bodies whose marker is no longer in the buffer. Deleting a
+ * `[Pasted lines#N]` marker by hand used to leave its body in the list: the
+ * next paste of the SAME line count then matched the old body, and
+ * `expandPastes` sent the DELETED text to the model instead of the new one.
+ * A marker that is merely split by an edit (its text no longer present) is
+ * treated the same way — the body can never be expanded again.
+ */
+function dropLostPastes(s: EditState): EditState {
+  if (!s.pastes.length) return s
+  const kept = s.pastes.filter((p) => s.buf.includes(p.marker))
+  return kept.length === s.pastes.length ? s : { ...s, pastes: kept }
 }
 
 /** Delete the word on the LEFT of the cursor (Ctrl+W / Alt+Backspace). */
