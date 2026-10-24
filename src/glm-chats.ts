@@ -127,6 +127,9 @@ export function parseGlmChatList(json: unknown): ChatInfo[] {
     ? arr.map((c) => ['', c] as [string, unknown])
     : (keyed as Array<[string, unknown]>)
   const out: ChatInfo[] = []
+  // A payload may list the SAME chat twice (a merged page). /chats would then
+  // show it twice and the second row opens the same chat — keep the first.
+  const seenIds = new Set<string>()
   for (const [key, c] of entries) {
     if (!c || typeof c !== 'object') continue
     const m = c as Record<string, unknown>
@@ -137,7 +140,8 @@ export function parseGlmChatList(json: unknown): ChatInfo[] {
         : typeof raw === 'number' && Number.isFinite(raw)
           ? String(raw)
           : key
-    if (!id) continue
+    if (!id || seenIds.has(id)) continue
+    seenIds.add(id)
     const title =
       (typeof m.title === 'string' && m.title) ||
       (typeof m.name === 'string' && m.name) ||
