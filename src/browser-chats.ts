@@ -125,7 +125,10 @@ export function scrapeChatList(limit: number): Array<{
     const titleEl = a.querySelector('[class*="title"], [class*="text"]')
     let title = (titleEl ? titleEl.textContent : a.textContent) || ''
     title = title.trim().replace(/\s+/g, ' ')
-    if (!title) title = '(без названия)'
+    // NO prose here: this function runs inside the page and does not know the
+    // operator's locale. An empty title is localized by the caller
+    // (`chats.untitled`); a hardcoded Russian fallback leaked into the English
+    // UI and could not be translated.
 
     out.push({ id, title, href })
     if (out.length >= limit) break

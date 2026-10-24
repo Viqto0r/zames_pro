@@ -2981,7 +2981,15 @@ async function main(): Promise<void> {
         // Hide subagent chats: they are real DeepSeek chats, but they are
         // internal context-isolation artifacts whose report already lives in
         // the parent chat, so resuming one is never what the operator wants.
-        lastChats = all.filter((c) => !isInternalChat(c.id))
+        // The scraper runs inside the page and cannot localize: a row without
+        // text comes back with an EMPTY title, so the label is applied HERE
+        // (one place, in the operator's language) instead of a hardcoded one.
+        lastChats = all
+          .filter((c) => !isInternalChat(c.id))
+          .map((c) => ({
+            ...c,
+            title: c.title && c.title.trim() ? c.title : t('chats.untitled'),
+          }))
         spin.stop()
         // An optional query filters by title (substring, case-insensitive),
         // so a long chat list does not have to be scanned by eye.

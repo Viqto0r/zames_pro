@@ -121,6 +121,12 @@ export const selfReviewMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Чатов не найдено. Возможно, сайдбар свёрнут или селекторы устарели.',
     en: 'No chats found. The sidebar may be collapsed or the selectors are outdated.',
   },
+  // The chat list is scraped INSIDE the page, which has no locale: a row with
+  // no text is left as an empty title and the CALLER localizes it here.
+  'chats.untitled': {
+    ru: '(без названия)',
+    en: '(untitled)',
+  },
   'chats.fetch_error': {
     ru: 'Не удалось получить список:',
     en: 'Failed to fetch the list:',
