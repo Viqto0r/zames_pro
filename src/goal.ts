@@ -80,14 +80,10 @@ export function buildContinuationDirective(reason: string): string {
     // Collapse whitespace in the model-written reason: a NEWLINE started a new
     // line of the directive, letting the evaluator's text inject an extra
     // instruction into the next turn.
-    (argumentReason(reason)
+    (String(reason ?? '').trim()
       ? 'Evaluator note: ' + String(reason).trim().replace(/\s+/g, ' ')
       : '')
   )
-}
-
-function argumentReason(reason: string): boolean {
-  return String(reason ?? '').trim().length > 0
 }
 
 /**
