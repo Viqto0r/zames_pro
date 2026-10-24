@@ -121,13 +121,10 @@ export function completeSlashCommand(
       prefix = prefix.slice(0, -1)
     }
   }
-  // Stop shrinking at the TYPED text: with an empty buffer the list matches
-  // everything, and the shared prefix used to shrink down to a bare "/" (or a
-  // common first letter like "/h") — Tab then inserted something the operator
-  // never typed. A completion must EXTEND what is already there.
-  // With an EMPTY buffer everything matches and the shared prefix collapses
-  // to a bare "/" (or a common first letter like "/h"): Tab must not guess a
-  // command the operator has not started typing.
+  // A completion must EXTEND what is already typed: with an empty buffer the
+  // list matches everything and the shared prefix used to collapse to a bare
+  // "/" (or a common first letter like "/h"), so Tab inserted something the
+  // operator never typed.
   if (typed.length < 2) return null
   if (!prefix.toLowerCase().startsWith(typed)) return null
   if (prefix.length <= buf.length) return null
