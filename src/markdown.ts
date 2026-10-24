@@ -2,9 +2,8 @@ import { render } from 'markdansi'
 import { highlight } from 'cli-highlight'
 import supportsHyperlinks from 'supports-hyperlinks'
 
-// Renders the model's Markdown answers to the terminal via markdansi.
-// GFM (headings, lists, tables, quotes, task lists) + code highlighting.
-// The theme is built from our calm palette, without acid colors.
+// Renders the model's Markdown answers to the terminal via markdansi (GFM plus
+// code highlighting), with a theme built from the project's calm palette.
 
 interface MdTheme {
   heading: { color: string; bold: boolean }
@@ -36,7 +35,6 @@ const theme: MdTheme = {
   tableCell: { color: '#d0d0d0' },
 }
 
-// Code highlighting via cli-highlight (already present transitively).
 function highlighter(code: string, lang?: string): string {
   try {
     return highlight(code, {
