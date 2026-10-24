@@ -3,8 +3,8 @@
 // WHY a separate class (the same reason QwenBrowser exists): the backends
 // differ in EVERY layer we touch — selectors, the send flow, the SSE format and
 // the chat-id scheme. The shared surface is the ChatProvider interface
-// (types.ts); the agent loop only needs BrowserLike and never sees either
-// concrete class.
+// (types.ts); the agent loop only needs BrowserLike and never sees a concrete
+// class.
 //
 // Verified against a LIVE signed-in session (headless + headed Chromium):
 //   input  -> textarea#chat-input
@@ -403,7 +403,6 @@ export class GlmBrowser {
     return this.sendRuntime.intervalMs()
   }
 
-  // ---------- lifecycle ----------
 
   async launch(): Promise<void> {
     if (await profileLooksLocked(GLM_USER_DATA_DIR)) {
@@ -571,7 +570,6 @@ export class GlmBrowser {
     throw new Error('glm: the browser profile is still locked')
   }
 
-  // ---------- login ----------
 
   /**
    * A FAST login probe with NO long waits (the old isLoggedIn polled up to
@@ -930,7 +928,6 @@ export class GlmBrowser {
     } catch {}
   }
 
-  // ---------- network capture ----------
 
   _installNetHook(): void {
     const pg = this.page
@@ -1029,7 +1026,6 @@ export class GlmBrowser {
     } catch {}
   }
 
-  // ---------- chat management ----------
 
   async newChat(): Promise<void> {
     const before = await this.getCurrentChatId()
@@ -1247,7 +1243,6 @@ export class GlmBrowser {
     return this._lastTokenUsage
   }
 
-  // ---------- answer reading ----------
 
   async _readLastAnswerText(): Promise<string> {
     if (this._netCapture && this._netCaptureAt >= this._lastSentAt) {
@@ -1410,7 +1405,6 @@ export class GlmBrowser {
     } catch {}
   }
 
-  // ---------- toggles ----------
 
   getToggleStatesSync(): { deepThinking: boolean; webSearch: boolean } {
     return this._toggles
@@ -1473,7 +1467,6 @@ export class GlmBrowser {
     }
   }
 
-  // ---------- diagnostics ----------
 
   async dumpDom(
     filePath: string,
@@ -1517,7 +1510,6 @@ export class GlmBrowser {
     return chatUrl(id)
   }
 
-  // ---------- ask ----------
 
   async _waitForSendSlot(agent: boolean): Promise<void> {
     if (!agent) return
