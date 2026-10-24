@@ -25,7 +25,7 @@ function width(s: string): number {
  * widest line (clamped to `maxWidth`), padded by one space each side. Lines
  * longer than the inner width are truncated with an ellipsis.
  */
-function box(lines: string[], maxWidth: number, border = '#c8b06a'): string {
+function box(lines: string[], maxWidth: number): string {
   // A caller may pass 0 ("auto") or a tiny width on a narrow terminal. With
   // `maxWidth - 4` going negative the inner width collapsed to the 10-column
   // floor while every content line was clipped to `inner - 2`, so the title,
@@ -38,7 +38,6 @@ function box(lines: string[], maxWidth: number, border = '#c8b06a'): string {
   const top = theme.prompt('╭' + '─'.repeat(inner) + '╮')
   const bottom = theme.prompt('╰' + '─'.repeat(inner) + '╯')
   const body = lines.map((l) => {
-    // Truncate to the inner width so a long path never breaks the frame.
     const maxContent = Math.max(0, inner - 2)
     const clipped = clip(l, maxContent)
     const w = width(clipped)
@@ -47,15 +46,15 @@ function box(lines: string[], maxWidth: number, border = '#c8b06a'): string {
       theme.prompt('│') + ' ' + clipped + ' '.repeat(pad) + theme.prompt('│')
     )
   })
-  void border
   return [top, ...body, bottom].join('\n')
 }
 
 /** Truncate an (ANSI-carrying) string to `max` visible columns. */
 function clip(s: string, max: number): string {
   if (width(s) <= max) return s
-  // The banner content has at most a couple of ANSI runs; drop the tail by
-  // visible width while keeping escape sequences intact.
+  // The content carries a couple of ANSI runs, so the tail is dropped by
+  // VISIBLE width and escape sequences are copied whole — a plain slice would
+  // cut an escape in half and leak its remainder as text.
   let out = ''
   let visible = 0
   let i = 0
