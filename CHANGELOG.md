@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.94] - 2026-10-24
+
+### Fixed
+
+- **web:** WebFetch cap does not split a surrogate pair
+
 ## [2.82.93] - 2026-10-24
 
 ### Fixed
