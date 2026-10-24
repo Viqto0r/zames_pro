@@ -187,6 +187,20 @@ export function parseQwenChatList(json: unknown): ChatInfo[] {
  * A message's text is taken from `content` (string) or from `fragments[]`
  * (a DeepSeek-style payload: keep REQUEST for user, RESPONSE for assistant).
  */
+const qwenStamp = (m: Record<string, unknown>): number => {
+  const n = Number(m.timestamp)
+  if (Number.isFinite(n)) return n
+  // An ISO stamp (`2026-10-23T10:00:00Z`) is not a number: `Number(...)` is
+  // NaN, the comparator fell back to insertion order, and a map whose order
+  // differs from the real chronology restored the model's answer BEFORE the
+  // operator's question (GLM's parser already falls back to Date.parse).
+  if (typeof m.timestamp === 'string') {
+    const t = Date.parse(m.timestamp)
+    if (Number.isFinite(t)) return t
+  }
+  return NaN
+}
+
 export function parseQwenHistory(json: unknown): ChatMessage[] {
   const root = json as { data?: unknown; messages?: unknown } | null
   // A BARE array (no `data` wrapper) and a top-level `messages` are the same
@@ -231,12 +245,10 @@ export function parseQwenHistory(json: unknown): ChatMessage[] {
     // Order by index first — the map is in insertion order — and only then by
     // stamp; a missing stamp inherits its neighbour's position instead of
     // jumping to the front. A stable sort keeps the original order on a tie.
-    .map((m, i) => ({ m, i }))
+    .map((m, i) => ({ m, i, t: qwenStamp(m) }))
     .sort((a, b) => {
-      const ta = Number(a.m.timestamp)
-      const tb = Number(b.m.timestamp)
-      const va = Number.isFinite(ta) ? ta : NaN
-      const vb = Number.isFinite(tb) ? tb : NaN
+      const va = a.t
+      const vb = b.t
       if (Number.isFinite(va) && Number.isFinite(vb)) {
         if (va !== vb) return va - vb
         return a.i - b.i
