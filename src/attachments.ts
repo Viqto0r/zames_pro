@@ -250,7 +250,21 @@ export function looksLikeFileName(name: string): boolean {
   const n: string = String(name || '').trim()
   if (!n) return false
   if (/[\r\n]/.test(n)) return false
-  return /^[\w.\- ]+\.[A-Za-z0-9]{1,8}$/.test(n)
+  // `\w` without the `u` flag is ASCII-ONLY: a non-Latin name (`отчёт.pdf`,
+  // `文件.txt`, `café.png`) was rejected, so a pasted file stayed plain text
+  // instead of becoming an attachment. Split it instead: the LAST dot must be
+  // followed by a short alnum extension and the stem must be non-empty and
+  // free of path separators/control chars — punctuation legal in downloads
+  // (`report (1).pdf`, `file+1.png`, `a&b.txt`) is allowed, prose without an
+  // extension is not.
+  const dot = n.lastIndexOf('.')
+  if (dot <= 0 || dot >= n.length - 1) return false
+  const ext = n.slice(dot + 1)
+  if (!/^[A-Za-z0-9]{1,8}$/.test(ext)) return false
+  const stem = n.slice(0, dot)
+  if (!stem.trim()) return false
+  if (/[\\/]/.test(n) || /[\u0000-\u001f\u007f]/.test(n)) return false
+  return true
 }
 
 export async function saveToTemp(
