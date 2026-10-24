@@ -25,7 +25,24 @@ export function writeFileAtomic(file: string, data: string | Buffer): void {
   try {
     target = fs.realpathSync(file)
   } catch {
-    // Missing (first write) or broken link: write to the path itself.
+    // Missing (first write) or a BROKEN link. A broken link must still be
+    // written THROUGH: resolve its own target lexically (readlink + dirname)
+    // and create it, otherwise `rename` replaces the LINK with a regular file
+    // and the real target (a dotfiles repo checkout that does not exist yet)
+    // is never created.
+    try {
+      if (fs.lstatSync(file).isSymbolicLink()) {
+        const raw = fs.readlinkSync(file)
+        target = path.resolve(path.dirname(file), raw)
+      }
+    } catch {
+      // Not a link: write to the path itself.
+    }
+  }
+  try {
+    fs.mkdirSync(path.dirname(target), { recursive: true })
+  } catch {
+    // Best-effort: a failed mkdir surfaces as the write error below.
   }
   const tmp = target + '.tmp-' + process.pid
   // fsync the file BEFORE rename: without it a power loss can leave the
