@@ -360,10 +360,13 @@ export function truncateToWidth(s: string, maxCols: number): string {
     used += w
     i += ch.length
   }
-  return out + '…'
+  // The visible text was cut BEFORE any trailing RESET, so the ellipsis and
+  // everything printed after it on the row would inherit the last colour.
+  // Close any style the kept prefix opened (the text may still be plain, in
+  // which case the reset is harmless).
+  const reset = out.includes(ESC + '[') ? ESC + '[0m' : ''
+  return out + reset + '…'
 }
-
-// Layout of the input into visual lines accounting for terminal width.
 // Returns the lines (with prefix) and the cursor position in visual coordinates.
 export interface LayoutRow {
   prefix: string
