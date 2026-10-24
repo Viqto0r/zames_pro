@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.106] - 2026-10-24
+
+### Fixed
+
+- **goal:** a tool call mentioning VERDICT: MET does not clear the goal
+
 ## [2.82.105] - 2026-10-24
 
 ### Fixed
