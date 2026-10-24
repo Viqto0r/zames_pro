@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.78] - 2026-10-24
+
+### Fixed
+
+- **qwen:** keep a duplicated chat id once in the chat list
+
 ## [2.82.77] - 2026-10-24
 
 ### Fixed
