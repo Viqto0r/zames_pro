@@ -132,8 +132,6 @@ async function copyContextFiles(
   }
 }
 
-// ---------- /self-review ----------
-
 export async function selfReview({
   browser,
   focus,
@@ -239,8 +237,6 @@ export async function selfReview({
   return { snapDir, reportPath, changed }
 }
 
-// ---------- /self-diff ----------
-
 export async function selfDiff({
   name,
   locale,
@@ -277,8 +273,6 @@ export async function selfDiff({
     console.log(theme.system(t('self.no_diff')))
   }
 }
-
-// ---------- /self-apply ----------
 
 export async function selfApply({
   name,
@@ -320,8 +314,6 @@ export async function selfApply({
   console.log(theme.warn('\n' + t('self.restart_hint') + '\n'))
 }
 
-// ---------- /self-list ----------
-
 export async function selfList({
   locale,
 }: { locale?: Locale; config?: unknown } = {}): Promise<void> {
@@ -361,8 +353,6 @@ export async function selfList({
   console.log()
   console.log(theme.system(t('self.list_commands') + '\n'))
 }
-
-// ---------- helpers ----------
 
 async function diffFiles(origDir: string, newDir: string): Promise<string[]> {
   const files = await listTsFiles(newDir).catch(() => [])
