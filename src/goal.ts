@@ -101,7 +101,11 @@ function toolCallVerdictText(raw: string): string {
   const hasCallMarkers =
     /"tool"\s*:/.test(raw) ||
     /<[^>]*\b(?:invoke|parameter)\b/i.test(raw) ||
-    /DSML/i.test(raw)
+    // Only a REAL DSML marker means a call: the bare word `DSML` in a prose
+    // answer ("the DSML invoke branch was checked") was taken for a call, its
+    // text was then discarded as "not a judgement", and a real VERDICT line
+    // right below never parsed — the goal loop continued until the budget.
+    /<[|｜]DSML[|｜]/i.test(raw)
   if (!hasCallMarkers) return raw
   // `respond` carries the operator-facing text; unwrap its message only.
   const respond =
