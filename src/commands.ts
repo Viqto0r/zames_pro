@@ -288,9 +288,13 @@ export function renderCost(
     lines.push(t('cost.auto_compacts', { n: String(stats.autoCompacts) }))
   }
   const top = Object.entries(stats.toolCounts).sort((a, b) => b[1] - a[1])
+  // A tool NAME is arbitrary text (the model invents it, an MCP server
+  // declares it): a newline would start a new line of the report and could
+  // spoof an `[OK]` doctor row. Collapse it to one line.
+  const nameLine = (v: string): string => v.replace(/\s+/g, ' ')
   if (top.length) {
     lines.push(t('cost.by_tool'))
-    for (const [name, n] of top) lines.push(' ' + name + ': ' + n)
+    for (const [name, n] of top) lines.push(' ' + nameLine(name) + ': ' + n)
   }
   // T-D3: where the time went. Sort by total ms, show the top tools with the
   // count and a human duration, so Read→Edit cycles and slow Bash calls are
@@ -302,7 +306,9 @@ export function renderCost(
     lines.push(t('cost.by_time', { dur: formatDuration(stats.toolMs) }))
     for (const [name, ms] of byTime.slice(0, 8)) {
       const count = stats.toolCounts[name] ?? 0
-      lines.push(' ' + name + ': ' + formatDuration(ms) + ' ×' + count)
+      lines.push(
+        ' ' + nameLine(name) + ': ' + formatDuration(ms) + ' ×' + count,
+      )
     }
   }
   lines.push(t('cost.duration', { dur: formatDuration(stats.durationMs) }))
