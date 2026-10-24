@@ -107,9 +107,9 @@ export async function getGitContext(
   )
 
   const branch = branchR.trim() || '(detached HEAD)'
-  // The shared runner answers an EMPTY successful run with a sentinel. Storing
-  // it verbatim told the model the tree had a modified "file" that is really
-  // an internal string — every task started with a false dirty-tree premise.
+  // The sentinel is an internal string, not a path: kept verbatim it told the
+  // model the tree had a modified "file" by that name, so every task started
+  // with a false dirty-tree premise.
   const statusText = statusR.trim() === NO_OUTPUT_SENTINEL ? '' : statusR
   const statusLines = statusText
     .split(String.fromCharCode(10))
@@ -337,7 +337,8 @@ export function createGitTools(workdir: string): ToolDef[] {
           return 'Error: message is empty.'
         }
 
-        // We stage everything only if the index is empty (as the description promises).
+        // Stage everything only when the index is empty, which is what the tool
+        // description promises the model.
         const staged = await runGitArgs(
           ['diff', '--cached', '--name-only'],
           workdir,
