@@ -73,10 +73,6 @@ export function runStatusLineCommand(
       // (the row overflows and the cursor arithmetic drifts).
       resolve(clipBadge(first))
     }
-    // Only the FIRST LINE is shown, so there is no reason to keep collecting a
-    // big blob: a chatty command (a JSON dump, `ls -R`) would grow `out`
-    // unboundedly and the status row then repainted megabytes. Stop appending
-    // once a short line is buffered (the rest of that line does not matter).
     const timer = setTimeout(() => {
       try {
         if (process.platform !== 'win32' && child.pid) {
@@ -87,14 +83,14 @@ export function runStatusLineCommand(
       } catch {}
       finish()
     }, timeoutMs)
-    // A status line is a short badge: cap what is buffered so a chatty
-    // command cannot grow it (and the rendered row) without bound.
+    // Only the FIRST line is shown and the status line is a short badge, so the
+    // buffer is capped: a chatty command (a JSON dump, `ls -R`) would otherwise
+    // grow `out` and make the status row repaint megabytes on every tick.
     const MAX_OUT = 400
     child.stdout?.on('data', (c: Buffer) => {
       if (out.length >= MAX_OUT) return
-      // A chunk can be huge (one 64 KB read); clip it to the remaining space
-      // so the buffer never exceeds MAX_OUT. An unbounded `out` made the
-      // status row repaint megabytes on every tick.
+      // A chunk can be huge (one 64 KB read): clip it to the remaining space so
+      // the buffer never exceeds MAX_OUT.
       out += c.toString().slice(0, MAX_OUT - out.length)
     })
     child.on('error', () => {
