@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.72] - 2026-10-24
+
+### Fixed
+
+- **config:** reject a non-finite live timing value and re-derive the deadline
+
 ## [2.82.71] - 2026-10-24
 
 ### Fixed
