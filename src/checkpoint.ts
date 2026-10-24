@@ -5,7 +5,7 @@ import { execFile } from 'child_process'
 import { randomBytes } from 'crypto'
 import { writeJsonAtomic } from './fsutil.js'
 
-// Checkpoints / rewind .
+// Checkpoints / rewind.
 //
 // Undo (src/undo.ts) reverts ONE file write. A checkpoint snapshots the WHOLE
 // working tree at the start of a task, so a risky task can be rolled back with
@@ -50,8 +50,6 @@ export interface CheckpointResult {
   backup?: CheckpointRecord | null
 }
 
-// ---------- pure helpers (unit-tested without tar) ----------
-
 export function tarCreateArgs(archive: string, _dir: string): string[] {
   const args = ['-czf', archive]
   for (const e of CHECKPOINT_EXCLUDES) args.push('--exclude=./' + e)
@@ -70,17 +68,15 @@ export function rotateRecords<T>(records: T[], max: number): T[] {
   return records.slice(records.length - max)
 }
 
-/**
- * Resolve a `/rewind` selector against records sorted NEWEST FIRST.
- * `1` = most recent; a non-numeric selector is matched as a stamp prefix.
- */
 /** True for a selector that is exactly a full epoch-ms stamp (13 digits). */
 export function isFullStampSelector(selector: string): boolean {
   return /^\d{13}$/.test(String(selector ?? '').trim())
 }
 
-const isFullStamp = isFullStampSelector
-
+/**
+ * Resolve a `/rewind` selector against records sorted NEWEST FIRST.
+ * `1` = most recent; a longer number is matched as a stamp prefix.
+ */
 export function pickRecord(
   records: CheckpointRecord[],
   selector: string,
@@ -96,7 +92,7 @@ export function pickRecord(
   // happened to share its first digits with a NEWER one was resolved to that
   // WRONG record. A full stamp is therefore matched against the full set
   // FIRST, and only then treated as an index.
-  if (isFullStamp(sel)) {
+  if (isFullStampSelector(sel)) {
     const pool = allRecords && allRecords.length ? allRecords : records
     const exact = pool.find((r) => String(r.stamp) === sel)
     if (exact) return exact
@@ -118,8 +114,6 @@ export function pickRecord(
     null
   )
 }
-
-// ---------- tar / fs plumbing ----------
 
 function runTar(
   args: string[],
@@ -181,8 +175,6 @@ async function copyTree(from: string, to: string): Promise<void> {
     } else await fs.copyFile(src, dst)
   }
 }
-
-// ---------- store ----------
 
 export class CheckpointStore {
   enabled: boolean
