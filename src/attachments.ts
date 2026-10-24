@@ -40,13 +40,18 @@ export function contentHash(data: Buffer): string {
 }
 
 function sanitize(name: string): string {
-  return (
-    String(name || '')
-      .replace(/[\u0000-\u001f\u007f]/g, '')
-      .replace(/[\\/:*?"<>|]/g, '_')
-      .replace(/\s+/g, '_')
-      .slice(0, 80) || 'file'
-  )
+  const clean = String(name || '')
+    .replace(/[\u0000-\u001f\u007f]/g, '')
+    .replace(/[\\/:*?"<>|]/g, '_')
+    .replace(/\s+/g, '_')
+  if (!clean) return 'file'
+  if (clean.length <= 80) return clean
+  // The cap must not eat the EXTENSION: a long name became a bare stem, so the
+  // temp file had no `.png` and every extension-based check (guessMime,
+  // isImageName, the upload dialog) saw a plain blob instead of an image.
+  const ext = path.extname(clean).slice(0, 16)
+  const stem = clean.slice(0, clean.length - ext.length)
+  return stem.slice(0, Math.max(1, 80 - ext.length)) + ext
 }
 
 export function guessMime(name: string): string {
