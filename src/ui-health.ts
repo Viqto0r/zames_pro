@@ -101,6 +101,11 @@ export async function probeUiHealth(
   const missingCritical: UiCapability[] = []
 
   for (const spec of capabilities) {
+    // A capability with NO selectors cannot be probed at all: the provider does
+    // not have that control (z.ai has no toggles). Reporting it as missing made
+    // the startup/doctor warning scream «not found (toggles)» on every healthy
+    // page. It is N/A, not absent.
+    if (!spec.selectors || spec.selectors.length === 0) continue
     let found = false
     for (const sel of spec.selectors) {
       if (await hasAny(page, sel, spec.textRe)) {
