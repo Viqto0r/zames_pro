@@ -5,9 +5,9 @@
 // is silently a no-op until a restart. The path->target mapping is PURE and
 // unit-tested here; index.ts wires it to the live instances.
 
-/** config path -> field name on the browser instance. Both backends
- *  share these names; a field that is absent on the active backend
- *  (e.g. DeepSeek-only thinkingExtraMs on Qwen) is skipped, not thrown. */
+/** config path -> field name on the browser instance. All three backends
+ *  share these names; a field that is absent on the active backend is skipped
+ *  rather than throwing, so one map serves every provider. */
 export const BROWSER_LIVE_CONFIG: Record<string, string> = {
   'browser.answerTimeoutMs': 'answerTimeoutMs',
   'browser.askRetries': 'askRetries',
@@ -35,11 +35,9 @@ export function applyBrowserLiveConfig(
 ): boolean {
   const field = BROWSER_LIVE_CONFIG[path]
   if (!field || !(field in browser)) return false
-  // A timing value must be a FINITE NON-NEGATIVE number. `applyBrowserLiveConfig`
-  // wrote anything it was given, so a NaN/negative value reached a live field
-  // (a timer with NaN fires immediately), and `answerTimeoutMs = 0` SKIPPED
-  // the derived `askDeadlineMs` update, leaving a deadline that no longer
-  // matches the timeout. Reject the bad value instead of corrupting the field.
+  // A timing value must be a FINITE NON-NEGATIVE number: a NaN reached a live
+  // field (a timer with NaN fires immediately) and a negative one is nonsense.
+  // Reject the value instead of corrupting the field.
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
     return false
   }
@@ -50,11 +48,7 @@ export function applyBrowserLiveConfig(
   // give up before the browser's own timeout ever fired. Re-derive it the same
   // way the constructor does.
   if (field === 'answerTimeoutMs' && 'askDeadlineMs' in browser) {
-    // ANY accepted number re-derives the deadline; the old `value > 0` guard
-    // left the deadline at its stale value when the timeout was set to 0.
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      browser.askDeadlineMs = value + 60_000
-    }
+    browser.askDeadlineMs = value + 60_000
   }
   return true
 }
