@@ -1440,6 +1440,7 @@ export class LineEditor {
     chars.splice(this.cursor - 1, 1)
     this.buf = chars.join('')
     this.cursor--
+    this._dropLostPastes()
   }
 
   _delete() {
@@ -1447,6 +1448,17 @@ export class LineEditor {
     if (this.cursor >= chars.length) return
     chars.splice(this.cursor, 1)
     this.buf = chars.join('')
+    this._dropLostPastes()
+  }
+
+  /** Forget paste bodies whose `[Pasted lines#N]` marker is no longer in the
+   *  buffer: a hand-deleted marker used to keep its body, and the NEXT paste of
+   *  the same line count was then expanded to the DELETED text (the same rule
+   *  as the TUI editor's dropLostPastes). */
+  _dropLostPastes(): void {
+    if (!this.pastes.length) return
+    const kept = this.pastes.filter((p) => this.buf.includes(p.marker))
+    if (kept.length !== this.pastes.length) this.pastes = kept
   }
 
   _left() {
