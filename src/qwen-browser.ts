@@ -6,7 +6,7 @@
 // and the chat-id scheme. DeepSeekBrowser is already large; folding a second
 // site into it would make both harder to audit. The shared surface is the
 // ChatProvider interface (types.ts); the agent loop only needs BrowserLike and
-// never sees either concrete class.
+// never sees a concrete class.
 //
 // Verified against a live session (headless Chromium, guest + logged in):
 //   input  -> textarea.message-input-textarea
@@ -419,8 +419,6 @@ export class QwenBrowser {
     return this.minSendIntervalMs
   }
 
-  // ---------- lifecycle ----------
-
   async launch(): Promise<void> {
     if (await profileLooksLocked(QWEN_USER_DATA_DIR)) {
       if (this.debug) console.error('qwen profile: removing Singleton files')
@@ -673,8 +671,6 @@ export class QwenBrowser {
       }
     } catch {}
   }
-
-  // ---------- login ----------
 
   // Are we signed in? Detected from the PAGE, the same way a human sees it: a
   // signed-out visitor has the header "Log in" / "Sign up" buttons, a signed-in
@@ -1192,8 +1188,6 @@ export class QwenBrowser {
     return false
   }
 
-  // ---------- chat management ----------
-
   async newChat(): Promise<void> {
     const before = await this.getCurrentChatId()
     const btn = this.page.locator(NEW_CHAT_SELECTOR).first()
@@ -1452,8 +1446,6 @@ export class QwenBrowser {
     return this._lastTokenUsage
   }
 
-  // ---------- answer reading ----------
-
   async _readLastAnswerText(): Promise<string> {
     if (this._netCapture && this._netCaptureAt >= this._lastSentAt) {
       return this._netCapture
@@ -1529,8 +1521,6 @@ export class QwenBrowser {
     } catch {}
     return false
   }
-
-  // ---------- toggles (model thinking / search) ----------
 
   getToggleStatesSync(): { deepThinking: boolean; webSearch: boolean } {
     return this._toggles
@@ -1710,8 +1700,6 @@ export class QwenBrowser {
     } catch {}
   }
 
-  // ---------- diagnostics ----------
-
   async dumpDom(
     filePath: string,
   ): Promise<{ file: string; selectors: unknown }> {
@@ -1759,8 +1747,6 @@ export class QwenBrowser {
   chatUrl(id: string): string {
     return chatUrl(id)
   }
-
-  // ---------- ask ----------
 
   async _waitForSendSlot(agent: boolean): Promise<void> {
     if (!agent) return
