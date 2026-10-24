@@ -1537,14 +1537,21 @@ export function buildSlashCommandHints(opts: {
     .filter((c) => !(hideModel && c.name === '/model'))
     .map((c) => ({ name: c.name, description: t(c.key) }))
   const known = new Set(base.map((c) => c.name.toLowerCase()))
-  for (const d of opts.dynamic ?? []) {
-    if (known.has(d.name.toLowerCase())) continue
+  for (const raw of opts.dynamic ?? []) {
+    // A slash hint must BE a slash command: a custom command whose name
+    // omitted the leading `/` showed up as a bare word (`nosl`) that no
+    // `/nosl` invocation ever matched, and an EMPTY name produced a blank row.
+    const trimmed = String(raw.name ?? '').trim()
+    if (!trimmed) continue
+    const name = trimmed.startsWith('/') ? trimmed : '/' + trimmed
+    const key = name.toLowerCase()
+    if (known.has(key)) continue
     // Remember the DYNAMIC name too: two entries that differ only by case
     // (`/foo` and `/FOO`) were both added, so the operator saw the same
     // command twice and the second was unreachable (a slash command is
     // resolved case-insensitively).
-    known.add(d.name.toLowerCase())
-    base.push(d)
+    known.add(key)
+    base.push({ ...raw, name })
   }
   return base
 }
