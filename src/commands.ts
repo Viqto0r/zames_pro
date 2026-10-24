@@ -621,8 +621,13 @@ export function parseAssistantToolCall(
   const greedy = t.match(/"message"\s*:\s*"([\s\S]*)"\s*\}*\s*$/)
   let raw = greedy ? greedy[1] : ''
   if (!greedy) {
-    const idx = t.indexOf('"message"')
-    if (idx >= 0) raw = t.slice(idx + 9).replace(/^\s*:\s*"/, '')
+    // The value is not a quoted string (a number, a boolean, an array, a
+    // nested object): there is no operator-facing MESSAGE here. The old
+    // fallback sliced the raw text from the key and the restored turn printed
+    // `:42}}` / `:[1,2]}}` as if it were the model's answer.
+    const value = t.slice(t.indexOf('"message"') + 9).replace(/^\s*:\s*/, '')
+    if (!value.startsWith('"')) return { tool, message: '' }
+    raw = value.replace(/^"/, '')
   }
   return { tool, message: unescapeJsonString(raw) }
 }
