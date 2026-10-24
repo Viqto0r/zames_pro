@@ -80,9 +80,17 @@ export function askPassword(question: string): Promise<string> {
           return
         }
         // Backspace (0x7f or 0x08): remove the last char and one star.
+        // Delete a WHOLE code point: an emoji is two UTF-16 units, and
+        // removing one left a LONE surrogate in the password — a broken code
+        // point that never matches the real one.
         if (code === 127 || code === 8) {
           if (value.length > 0) {
-            value = value.slice(0, -1)
+            const prev = value.charCodeAt(value.length - 1)
+            const low = prev >= 0xdc00 && prev <= 0xdfff
+            const hi =
+              value.length >= 2 ? value.charCodeAt(value.length - 2) : 0
+            const pair = low && hi >= 0xd800 && hi <= 0xdbff
+            value = value.slice(0, pair ? -2 : -1)
             process.stdout.write('\b \b')
           }
           continue
