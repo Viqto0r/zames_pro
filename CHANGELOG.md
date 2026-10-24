@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.132] - 2026-10-24
+
+### Fixed
+
+- **backlog:** a heading with no text after the id keeps a usable title
+
 ## [2.82.131] - 2026-10-24
 
 ### Fixed
