@@ -117,6 +117,21 @@ export class SendRuntime {
     if (typeof extra.retryAfterMs === 'number') {
       e.retryAfterMs = extra.retryAfterMs
     }
+    // A SUCCESS after a rate limit IS the lift of that block. onBlockLifted()
+    // was the only producer of `blockMs`, but no provider's ask() calls it (a
+    // rate limit is retried IN PLACE and the retry simply succeeds), and the
+    // fold below clears `blockedAt` first. The measured duration is therefore
+    // taken HERE, before the state is folded; it is attached to the SAME event
+    // line, so one block still yields exactly one sample.
+    let blockMs: number | undefined
+    if (
+      outcome === 'ok' &&
+      this.state.blockedAt &&
+      this.now() > this.state.blockedAt
+    ) {
+      blockMs = this.now() - this.state.blockedAt
+      e.blockMs = blockMs
+    }
     if (this.opts.adaptive) {
       this.state = applySendEvent(this.state, e, this.cfg, this.now())
     } else if (outcome === 'rate_limit' && !this.state.blockedAt) {

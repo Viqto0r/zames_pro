@@ -10,6 +10,28 @@
 
 ## Журнал тактов
 
+### Такт 353 (2026-10-24) — исправлено
+
+**Цель:** send-runtime — измерение длительности блока (src/send-runtime.ts).
+
+**Баг:** `blockMs` писала ТОЛЬКО `onBlockLifted()`, а ни один провайдер её не вызывает: rate limit повторяется IN PLACE, ретрай просто успешен, а `onOutcome('ok')` уже обнулил `blockedAt`. В результате `/limits` всегда показывал `average block: 0s` при реальных rate-limit событиях. Проверено запуском (blockMs не появляется в JSONL).
+
+**Фикс:** `onOutcome('ok')` сам измеряет блок (`now - blockedAt`) ДО сворачивания состояния и пишет `blockMs` в ту же строку — один блок даёт ровно один замер; работает и при adaptive=off. Повторный успех блок заново не мерит.
+
+**Тест:** test/send-runtime-block-lift.test.ts (2 кейса: успех после rate limit пишет длительность один раз; то же при adaptive=off). RED до фикса (оба падения), GREEN после; send-runtime*/send-telemetry* — 8 тестов зелёные.
+
+**Гейты:** npm test 1852 теста (1842 pass, 0 fail, 10 skip), typecheck,
+lint (0 errors, 2 прежних warning), format:check, build, sched-smoke —
+зелёные.
+
+**Статус:** исправлено (2026-10-24).
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- src/send-runtime.ts — длительность блока измеряется на успешном ретрае (2026-10-24).
+
 ### Такт 352 (2026-10-24) — исправлено
 
 **Цель:** undo/checkpoint/rewind — устойчивость `runTar` в src/checkpoint.ts.
