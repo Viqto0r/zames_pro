@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.135] - 2026-10-24
+
+### Changed
+
+- **tui:** one pure helper owns the full-screen layout arithmetic
+
 ## [2.82.134] - 2026-10-24
 
 ### Fixed
