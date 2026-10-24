@@ -4,14 +4,14 @@ import type { ToolArgs, ToolDef } from './types.js'
 import { safePath } from './sandbox.js'
 import type { UndoStore } from './undo.js'
 
-// Extra tools that bring zames closer to Claude Code / Codex CLI:
+// Extra tools borrowed from Claude Code / Codex CLI:
 //   * LS         - list a directory (Claude Code has LS; Codex has list_dir)
 //   * MultiEdit  - several edits to ONE file applied atomically (Claude Code)
 //   * ApplyPatch - multi-file V4A-style patch (Codex apply_patch)
 //   * TodoWrite  - session task checklist (Claude Code TodoWrite)
 //
-// The core file tools (Read/Write/Edit/Bash/Glob/Grep) live in tools.ts.
-// These are additive: they do not change the existing tool behaviour.
+// The core file tools (Read/Write/Edit/Bash/Glob/Grep) live in tools.ts; these
+// are additive and do not change their behaviour.
 
 const NL = String.fromCharCode(10)
 
