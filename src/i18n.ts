@@ -2,8 +2,7 @@
 //
 // Goals:
 //   * change the interface language (help, service messages);
-//   * the agent's answer language — via the system-prompt;
-//   * the agent's answer language for a plain language.
+//   * the agent's answer language — via the system-prompt.
 //
 // Strategy: a single key->translation map. New keys are easy to add.
 // Russian texts (ru) are the default, English (en) is the alternative.
