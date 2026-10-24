@@ -258,7 +258,7 @@ export function isFinishedWithAnswer(body: string): boolean {
   if (!FINISHED_STATUS_RE.test(b)) return false
   // A truncated RESPONSE head (a lone `{`) is NOT a complete answer: the
   // finish loop would return it as the model's text and the tool-call parser
-  // would fail on it. Require real content (see MIN_FINISHED_ANSWER_CHARS).
+  // would fail on it. Require real content (see responseTextLength).
   return responseContentLength(b) >= MIN_REAL_ANSWER_CHARS
 }
 
