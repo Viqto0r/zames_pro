@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.77] - 2026-10-24
+
+### Fixed
+
+- **scheduler:** a zero-interval loop no longer fires on every tick
+
 ## [2.82.76] - 2026-10-24
 
 ### Fixed
