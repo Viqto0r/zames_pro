@@ -770,6 +770,18 @@ export function parseDuckDuckGoResults(
   return results.slice(0, limit)
 }
 
+/**
+ * Clip fetched page text WITHOUT splitting a surrogate pair. PURE;
+ * exported so the clip is unit-tested (formatResult itself is private).
+ */
+export function capFetchedText(text: string, limit: number): string {
+  if (text.length <= limit) return text
+  let cut = Math.max(0, limit)
+  const last = text.charCodeAt(cut - 1)
+  if (last >= 0xd800 && last <= 0xdbff) cut--
+  return text.slice(0, cut)
+}
+
 function formatResult(
   status: number,
   url: string,
@@ -779,7 +791,7 @@ function formatResult(
   let out = text
   let truncated = false
   if (out.length > limit) {
-    out = out.slice(0, limit)
+    out = capFetchedText(out, limit)
     truncated = true
   }
   return (
