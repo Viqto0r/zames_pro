@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.137] - 2026-10-24
+
+### Changed
+
+- docs: drop backlog-id references from source comments
+
 ## [2.82.136] - 2026-10-24
 
 ### Fixed
