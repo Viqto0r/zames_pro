@@ -66,7 +66,11 @@ export function formatStatus(
   lines.push(t('status.undo', { v: onoff(s.undo) }))
   lines.push(t('status.checkpoint', { v: onoff(s.checkpoint) }))
   lines.push(t('status.transcript', { v: s.transcriptFile || t('common.off') }))
-  lines.push(t('status.goal', { v: s.goal || none }))
+  // The GOAL is operator text (`/goal <free text>`) and a newline in it would
+  // start a new terminal line, faking another status row (`FAKE: hacked`) —
+  // one status entry must stay on one line.
+  const oneLine = (v: string): string => String(v ?? '').replace(/\s+/g, ' ')
+  lines.push(t('status.goal', { v: s.goal ? oneLine(s.goal) : none }))
   lines.push(t('status.locale', { v: s.localeName }))
   lines.push(
     t('status.mcp', { v: s.mcpToolCount === null ? none : s.mcpToolCount }),
