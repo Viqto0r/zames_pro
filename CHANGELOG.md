@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.65] - 2026-10-24
+
+### Fixed
+
+- **attachments:** show gigabytes and never a non-finite size
+
 ## [2.82.64] - 2026-10-23
 
 ### Fixed
