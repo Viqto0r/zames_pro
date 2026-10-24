@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.91] - 2026-10-24
+
+### Fixed
+
+- **goal:** a goal cannot inject a second Current task section
+
 ## [2.82.90] - 2026-10-24
 
 ### Fixed
