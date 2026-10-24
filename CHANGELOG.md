@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.67] - 2026-10-24
+
+### Fixed
+
+- **tui:** Up/Down in a wrapped input keeps the visual column
+
 ## [2.82.66] - 2026-10-24
 
 ### Fixed
