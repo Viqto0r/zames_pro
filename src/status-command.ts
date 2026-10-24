@@ -71,9 +71,12 @@ export function formatStatus(
   lines.push(
     t('status.mcp', { v: s.mcpToolCount === null ? none : s.mcpToolCount }),
   )
+  // A NEGATIVE count is nonsense (a broken provider counter): show "unknown"
+  // rather than a number that reads like a real measurement.
+  const tokens = s.tokenUsage === null || s.tokenUsage < 0 ? null : s.tokenUsage
   lines.push(
     t('status.tokens', {
-      v: s.tokenUsage === null ? t('common.unknown') : s.tokenUsage,
+      v: tokens === null ? t('common.unknown') : tokens,
     }),
   )
   return lines

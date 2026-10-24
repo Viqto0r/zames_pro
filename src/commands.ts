@@ -268,6 +268,9 @@ export function renderCost(
 ): string {
   const lines: string[] = []
   lines.push(t('cost.title'))
+  // A NEGATIVE count is nonsense (a proxy build wrapping an int, a hand-edited
+  // history): printing `~-5 tokens` reads like a real measurement.
+  if (typeof tokenUsage === 'number' && tokenUsage < 0) tokenUsage = null
   if (typeof tokenUsage === 'number') {
     lines.push(t('cost.context_known', { n: String(tokenUsage) }))
   } else {
