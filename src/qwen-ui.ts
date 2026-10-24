@@ -222,10 +222,6 @@ export const RATE_LIMIT_RE =
 export const SERVER_BUSY_RE =
   /server is busy|service unavailable|try again later/i
 
-// ---------- toggles ----------
-
-// The "Auto" thinking/search toggle and the mode selector. Read-only probing
-// support; the model's thinking mode is set via config when supported.
 // ---------- toggles (thinking mode / web search) ----------
 
 // Qwen exposes thinking as a MODE dropdown (`.qwen-thinking-selector`, label
