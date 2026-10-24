@@ -2,13 +2,11 @@ import type { ToolArgs, ToolCall, ParsedToolCall } from './types.js'
 import { parseXmlToolCalls } from './xml-toolcall.js'
 import { normText } from './browser-pure.js'
 
-// Pure, state-free helpers extracted from agent-loop.ts : the
-// tool-call PARSER (JSON / permissive / XML-DSML repair) and the small answer
-// heuristics. None of them touch the browser or the loop state, so this
-// module is safe to import on its own. agent-loop.ts imports the ones the
-// loop needs and RE-EXPORTS the public ones, so the existing API (tests import
-// parseToolCall / responseLooksLikeToolCall / truncateToolResult from './agent-loop.js')
-// is unchanged.
+// Pure, state-free helpers split out of agent-loop.ts: the tool-call PARSER
+// (JSON / permissive / XML-DSML repair) and the small answer heuristics. None
+// of them touch the browser or the loop state, so the module is safe to import
+// on its own; tests and agent-loop.ts import the functions from here directly.
+
 // Cap a tool result for the model, but make the truncation EXPLICIT: a bare
 // slice() silently hid the tail and the model had no idea it was looking at a
 // partial output (it would act on a half-read file/log).
@@ -525,11 +523,9 @@ function parseToolCallPermissive(
 
   // The model occasionally puts the argument keys INLINE with "tool" —
   // {"tool": "Bash", "command": "..."} — with no "args" wrapper at all.
-  // The strict parser rejects it (no obj.args), and the permissive parser
-  // used to bail out too (indexOf('"args"') === -1). Such a call was
-  // reported as malformed and re-asked up to MAX_MALFORMED_RETRIES times;
-  // after the budget ran out the run stopped with the model's text as the
-  // final answer. Flatten the inline keys into args when "args" is absent.
+  // The strict parser rejects such a call (no obj.args); flatten the inline
+  // keys into args instead of letting the loop re-ask until it gives up and
+  // stops with the model's text as the final answer.
   if (text.indexOf('"args"') === -1) {
     const braceIdx = text.indexOf('{')
     if (braceIdx === -1) return null
@@ -719,15 +715,14 @@ function repairToolCallPreamble(text: string): string | null {
     /(?:^|[^A-Za-z0-9_])(?:\*\*)?(tool)(?:\*\*)?["'`\u2018\u2019\u201c\u201d]*\s*:/,
   )
   if (!m || m.index === undefined) return null
-  // We look for the start from the first quote/bracket around the key, otherwise from the word tool.
   let start = m.index
   const brace = t.indexOf('{', Math.max(0, start - 1))
   if (brace !== -1 && brace < start) start = brace
   let frag = t.slice(start)
-  // If the fragment does not start with `{` — we add it.
+  // The head lost its opening `{`, so rebuild one around the key below.
   if (!frag.startsWith('{')) {
-    // The key may have lost its opening quote: tool": → "tool".
-    // We trim the leading junk up to the word tool and normalize the key quotes.
+    // The key lost its opening quote (`tool":`), so drop the junk before it
+    // and re-add the quote.
     frag = frag.replace(/^[^A-Za-z0-9_]*/, '')
     frag = frag.replace(
       /^(?:\*\*)?(["'`\u2018\u2019\u201c\u201d]*)(tool)(?:\*\*)?["'`\u2018\u2019\u201c\u201d]*\s*:/,
