@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.123] - 2026-10-24
+
+### Fixed
+
+- **mcp:** a duplicate tool rename does not steal a later tool name
+
 ## [2.82.122] - 2026-10-24
 
 ### Fixed
