@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.73] - 2026-10-24
+
+### Fixed
+
+- **telemetry:** do not average a missing block duration as zero
+
 ## [2.82.72] - 2026-10-24
 
 ### Fixed
