@@ -77,7 +77,12 @@ export function buildContinuationDirective(reason: string): string {
     'until it is satisfied. Do not call respond with a final summary until the ' +
     'condition is met.' +
     NL +
-    (argumentReason(reason) ? 'Evaluator note: ' + reason : '')
+    // Collapse whitespace in the model-written reason: a NEWLINE started a new
+    // line of the directive, letting the evaluator's text inject an extra
+    // instruction into the next turn.
+    (argumentReason(reason)
+      ? 'Evaluator note: ' + String(reason).trim().replace(/\s+/g, ' ')
+      : '')
   )
 }
 
