@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.95] - 2026-10-24
+
+### Fixed
+
+- **mcp:** use toolResult when content carries nothing usable
+
 ## [2.82.94] - 2026-10-24
 
 ### Fixed
