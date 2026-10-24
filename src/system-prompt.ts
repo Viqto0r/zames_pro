@@ -185,6 +185,17 @@ export function renderContextSection(
       'into future sessions. Keep entries concise.\n'
   }
 
+  // Metadata is human-written frontmatter and goes INTO the prompt: a
+  // newline in a description would start a new prompt line and let the
+  // description open its own `## ...` section (an instruction the model then
+  // follows). Collapse it to ONE line here, the last line of defence before
+  // the prompt is built (the loader also normalizes, but built-ins and future
+  // callers do not go through it).
+  const oneLine = (v: string | undefined): string =>
+    String(v ?? '')
+      .replace(/\s+/g, ' ')
+      .trim()
+
   if (context.skills.length) {
     const lines = context.skills.map((s) => {
       const tools =
@@ -198,7 +209,7 @@ export function renderContextSection(
         s.name +
         tools +
         ': ' +
-        (s.description || '(no description)') +
+        (oneLine(s.description) || '(no description)') +
         loc
       )
     })
@@ -212,7 +223,8 @@ export function renderContextSection(
 
   if (context.commands.length) {
     const lines = context.commands.map(
-      (c) => '- /' + c.name + ': ' + (c.description || '(no description)'),
+      (c) =>
+        '- /' + c.name + ': ' + (oneLine(c.description) || '(no description)'),
     )
     out +=
       '\n## Custom commands\n\n' +
