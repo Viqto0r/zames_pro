@@ -92,7 +92,13 @@ export function summarizeSends(
   // build, a hand-edited file): a numeric string is accepted so the average
   // is not silently 0 for a file that records the block.
   const blocks = events
-    .map((e) => Number(e.blockMs))
+    // `Number(null)`/`Number(undefined)` — 0/NaN, and 0 IS a finite
+    // non-negative number: an event that carries no block duration (the
+    // rate-limit event only records `blockedAt`) was averaged as a ZERO-length
+    // block, halving the reported average. Only a REAL value counts.
+    .map((e) =>
+      e.blockMs === null || e.blockMs === undefined ? NaN : Number(e.blockMs),
+    )
     .filter((n) => Number.isFinite(n) && n >= 0)
   const avgBlockMs = blocks.length
     ? Math.round(blocks.reduce((a, b) => a + b, 0) / blocks.length)
