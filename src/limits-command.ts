@@ -1,10 +1,10 @@
 import type { SendStats } from './send-telemetry.js'
 import { translate, type TranslateFn } from './i18n.js'
 
-// Pure rendering of `/limits`. `summarizeSends` already aggregates the events;
-// this turns the aggregate into the exact operator-facing lines (window
-// counters, the rate-limit block, the current pause), so every branch — an
-// empty log, a log with only rate limits, a future-stamped line — is testable.
+// Pure rendering of `/limits`: `summarizeSends` aggregates the send events and
+// this turns the aggregate into the operator-facing lines, so every branch (an
+// empty log, only rate limits, a future-stamped line) is testable without a
+// live browser.
 
 /** One output line of `/limits` (before colouring). */
 export interface LimitsLine {
