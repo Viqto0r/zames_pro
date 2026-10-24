@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.111] - 2026-10-24
+
+### Fixed
+
+- **cost:** a tool name with a newline cannot break the /cost report
+
 ## [2.82.110] - 2026-10-24
 
 ### Fixed
