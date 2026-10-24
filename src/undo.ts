@@ -180,3 +180,17 @@ export class UndoStore {
     return history.slice(-count).reverse()
   }
 }
+
+/**
+ * A display date for an undo record. A record from an older format (no
+ * `stamp`) or a hand-edited index (`stamp: "oops"`) made
+ * `new Date(...).toLocaleString()` return the literal "Invalid Date", so
+ * /undo-list printed a broken row. PURE; exported for tests.
+ */
+export function undoDateLabel(stamp: unknown): string {
+  const n = typeof stamp === 'number' ? stamp : Number(stamp)
+  if (!Number.isFinite(n) || n <= 0) return '(unknown time)'
+  const d = new Date(n)
+  const label = d.toLocaleString()
+  return label.includes('Invalid') ? '(unknown time)' : label
+}

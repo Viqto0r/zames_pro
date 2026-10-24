@@ -81,7 +81,7 @@ import {
   type Locale,
 } from './i18n.js'
 import { Transcript } from './transcript.js'
-import { UndoStore } from './undo.js'
+import { UndoStore, undoDateLabel } from './undo.js'
 import {
   CheckpointStore,
   pickRecord as pickCheckpoint,
@@ -4440,7 +4440,7 @@ async function main(): Promise<void> {
         console.log(theme.system(t('undo.empty')))
       } else {
         for (const r of list) {
-          const stamp = new Date(r.stamp).toLocaleString()
+          const stamp = undoDateLabel(r.stamp)
           const flag = r.existed ? t('undo.changed') : t('undo.created')
           console.log(theme.system(`${stamp}  [${flag}]  ${r.originalPath}`))
         }
@@ -4455,7 +4455,7 @@ async function main(): Promise<void> {
       } else {
         console.log(theme.system(t('rewind.list_title')))
         list.forEach((r, i) => {
-          const stamp = new Date(r.stamp).toLocaleString()
+          const stamp = undoDateLabel(r.stamp)
           const label = r.label ? '  [' + t('rewind.label_backup') + ']' : ''
           console.log(
             theme.system(`  ${i + 1}. ${stamp}  ${r.workdir}${label}`),
