@@ -1403,7 +1403,12 @@ export function isDevOnlyCommand(text: string): string | null {
 
 export function buildReviewPrompt(focus: string, hasStaged = false): string {
   const scope = hasStaged ? 'staged' : 'uncommitted'
-  const f = String(focus ?? '').trim()
+  // Collapse ALL whitespace: a NEWLINE in the focus started a new line of the
+  // prompt, so the operator's text could inject an extra instruction instead
+  // of being the "Extra focus" of one sentence.
+  const f = String(focus ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
   let s =
     'Review the ' +
     scope +
