@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.87] - 2026-10-24
+
+### Fixed
+
+- **export:** do not split a surrogate pair when clipping a tool result
+
 ## [2.82.86] - 2026-10-24
 
 ### Fixed
