@@ -1,12 +1,12 @@
 import { spawnSync } from 'node:child_process'
 import type { DiagnosticsConfig } from './types.js'
 
-// Post-edit diagnostics. Claude Code feeds diagnostics back to
-// the model right after an edit, so it learns about a type error WITHOUT
-// spending a whole round-trip asking for `npm run typecheck`. zames has no
-// language server, so the closest equivalent is running the project's own
-// check command after a file-mutating tool and appending its output to the
-// tool result.
+// Post-edit diagnostics. The idea is borrowed from Claude Code: feed
+// diagnostics back to the model right after an edit, so it learns about a type
+// error WITHOUT spending a whole round-trip asking for `npm run typecheck`.
+// zames has no language server, so the closest equivalent is running the
+// project's own check command after a file-mutating tool and appending its
+// output to the tool result.
 //
 // This is OPT-IN (diagnostics.enabled = false by default): a full `tsc
 // --noEmit` costs several seconds, and on a large project that would slow every
@@ -45,13 +45,11 @@ export function summarizeDiagnostics(
   const text = String(raw || '').trim()
   if (!text) return null
   // tsc prints nothing on success, but with `--watch` it prints a banner
-  // ("Found 0 errors. Watching for file changes.") that is longer than the
-  // old 40-char cutoff — so every edit in watch mode appended a pointless
-  // diagnostics block to the tool result. Treat a ZERO-count banner as clean
-  // however long it is; a non-zero count still falls through to the lines.
-  // Strip ANSI colour codes and a leading `[12:00:00]`-style timestamp before
-  // the clean checks: a watch-mode banner is usually coloured and/or
-  // prefixed, and the anchored regexes missed it — every edit then
+  // ("Found 0 errors. Watching for file changes."). Treat a ZERO-count banner
+  // as clean however long it is; a non-zero count still falls through to the
+  // lines. The banner is usually coloured and/or prefixed with a
+  // `[12:00:00]`-style timestamp, so both are stripped before the clean
+  // checks — with them in place the anchored regexes missed it and every edit
   // appended a pointless diagnostics block.
   const plain = text.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
   const cleanCheck = plain.replace(/^\[[^\]]*\]\s*/, '')
