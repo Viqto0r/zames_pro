@@ -19,7 +19,8 @@ import type { TuiStore } from './store.js'
 import { contentWidth } from '../width.js'
 import { translate } from '../i18n.js'
 import { suggestRowCount } from '../input/suggest.js'
-import { inputBoxRows, truncateToWidth, visLen } from '../input/layout.js'
+import { truncateToWidth, visLen } from '../input/layout.js'
+import { fullScreenLayout } from './layout.js'
 import { useMouseWheel } from './useMouseWheel.js'
 
 export type FullInputCallbacks = Omit<
@@ -85,33 +86,20 @@ export function FullScreenApp({
   const { rows } = useWindowSize()
   const termRows = rows || 24
 
-  // Fixed panel height: header (2) + status (1) + the input box (2 borders +
-  // its VISUAL rows) + the suggestion popup rows. The log viewport gets the
-  // rest.
-  const HEADER_ROWS = 2
-  const STATUS_ROWS = 1
+  // ONE pure helper owns the panel arithmetic, so the reserved rows and the
+  // caret row can never drift apart (the component used to compute them
+  // separately and the caret landed below the input box when the panel filled
+  // the terminal).
   const cols = Math.max(1, useWindowSize().columns || 80)
-  // The box height comes from the SAME layoutInput() the box renders with, so
-  // the reserved rows and the drawn rows can never disagree (a logical-line
-  // count missed the word-wrap of a long line and the second line overprinted
-  // the first).
-  const INPUT_BOX_ROWS = inputBoxRows(
-    state.prompt,
-    state.edit.buf,
-    state.edit.cursor,
+  const fsLayout = fullScreenLayout({
+    termRows,
     cols,
-  )
-  // The suggestion popup renders ABOVE the input box; reserve its rows so
-  // opening the list does not push the panel / shift the whole layout.
-  const suggestRows = suggestRowCount(state.edit.buf, state.commands, cols)
-  // A one-line hint UNDER the input box (selection / scroll keys). It is part
-  // of the fixed panel height, so the log viewport shrinks by one row instead
-  // of the panel overflowing; `cursorTop` (measured from the top) is NOT
-  // affected, so the caret cannot move.
-  const HINT_ROWS = 1
-  const panelRows =
-    HEADER_ROWS + STATUS_ROWS + INPUT_BOX_ROWS + suggestRows + HINT_ROWS
-  const logHeight = Math.max(1, termRows - panelRows)
+    prompt: state.prompt,
+    buf: state.edit.buf,
+    cursor: state.edit.cursor,
+    suggestRows: suggestRowCount(state.edit.buf, state.commands, cols),
+  })
+  const logHeight = fsLayout.logHeight
 
   // Window the log BY RENDERED ROW: a long wrapped answer can be taller than
   // one entry, and an entry-count window either overflowed the panel or left
@@ -200,13 +188,7 @@ export function FullScreenApp({
         // after everything above: header + as many log rows as fit + the
         // suggestion popup + status. `cursorTop` counts the rows ABOVE the
         // input rows; the box border row is added by InputLine.
-        cursorTop={
-          HEADER_ROWS +
-          Math.max(1, termRows - panelRows) +
-          suggestRows +
-          STATUS_ROWS +
-          1
-        }
+        cursorTop={fsLayout.cursorTop}
         prompt={state.prompt}
         locale={state.locale}
         commands={state.commands}
