@@ -169,8 +169,6 @@ export function runShell(
   })
 }
 
-// ---------- background processes ----------
-//
 // A dev-server / watch / long build cannot be run through the blocking Bash
 // tool (it would sit until the timeout). These helpers start a command, keep
 // it in a registry keyed by a short id, and let BashOutput poll its output and
