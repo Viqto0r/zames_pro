@@ -172,7 +172,13 @@ export function summarizeTranscript(entries: TranscriptEntry[]): SessionStats {
         stats.toolTime[tool] = (stats.toolTime[tool] || 0) + ms
       }
     }
-    if (typeof e.elapsed === 'number' && e.elapsed > stats.durationMs) {
+    // A FINITE, non-negative elapsed only: `Infinity > 0` is true, so one
+    // entry with a broken timestamp made /cost report `duration: Infinity`.
+    if (
+      typeof e.elapsed === 'number' &&
+      Number.isFinite(e.elapsed) &&
+      e.elapsed > stats.durationMs
+    ) {
       stats.durationMs = e.elapsed
     }
     if (!stats.startedAt && typeof e.ts === 'string') stats.startedAt = e.ts
