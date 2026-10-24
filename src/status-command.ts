@@ -1,9 +1,9 @@
 import { translate, type TranslateFn } from './i18n.js'
 
-// Pure formatting of `/status` and the `/doctor` row values. index.ts gathers
+// Pure formatting of `/status` and the `/doctor` row values: index.ts gathers
 // the live state (browser toggles, transcript file, MCP pool) and this turns it
-// into the exact lines the operator sees, so every branch — a missing chat, no
-// git, no auth marker, no MCP — is unit-tested.
+// into the lines the operator sees, so the empty-state branches (no chat, no
+// git, no auth marker, no MCP) are unit-tested.
 
 export interface StatusInput {
   workdir: string
