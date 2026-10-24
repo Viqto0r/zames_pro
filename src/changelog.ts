@@ -1,8 +1,8 @@
-// Conventional-Commits -> CHANGELOG draft. PURE and
-// unit-tested: the draft is built from git log OUTSIDE the release flow
-// (scripts/changelog-draft.mts), so a misparse never touches CHANGELOG.md.
-// We do NOT auto-write the file: a human (or the agent) reviews the draft
-// first -- the changelog must stay a deliberate document, not a byproduct.
+// Conventional-Commits -> CHANGELOG draft. PURE and unit-tested: the draft is
+// built from git log by scripts/changelog-draft.mts (and the release script),
+// and `syncUnreleased` rewrites the Unreleased section only on the explicit
+// --write flag — the changelog must stay a deliberate document, not a
+// byproduct of whatever landed on the branch.
 
 export type ChangeKind = 'Added' | 'Fixed' | 'Changed' | 'Removed'
 
@@ -21,13 +21,10 @@ export interface ChangelogGroups {
   Removed: string[]
 }
 
-// Parse one commit SUBJECT into a conventional commit, or null when it
-// does not follow the format (a free-form subject is skipped from the draft).
-// Supported forms:
-//   feat: add X            feat(cli): add X
-//   fix!: change Y         feat!: breaking
-// Explicit breaking markers: `!` after the type/scope. A BREAKING CHANGE
-// body footer is beyond a subject-only parser (git log %s only) -- out of scope.
+// Parse one commit SUBJECT into a conventional commit, or null when it does
+// not follow the format (a free-form subject is skipped from the draft).
+// `feat: add X`, `feat(cli): add X` and `fix!: change Y` are all understood. A
+// `BREAKING CHANGE:` body footer is out of scope: git log %s carries no body.
 export function parseConventionalCommit(
   subject: string,
 ): ConventionalCommit | null {
@@ -57,11 +54,9 @@ const KIND_BY_TYPE = {
 // Types that never belong in a user-facing changelog (build/CI/internal).
 const SKIP_TYPES = new Set(['chore', 'ci', 'test', 'build', 'docs', 'internal'])
 
-// Group parsed commits by changelog kind. Each entry is a short
-// imperative line; a scope is prefixed as `**scope:** ` and a breaking marker
-// is appended as `(BREAKING)`. Order within a group is preserved (commit
-// order), and duplicate lines are dropped so a rebase that repeats a subject
-// does not flip the draft twice.
+// Group parsed commits by changelog kind. A scope is prefixed as `**scope:** `
+// and a breaking marker appended as `(BREAKING)`. Duplicate lines are dropped
+// so a rebase that repeats a subject does not list it twice.
 export function groupCommits(forCommit: ConventionalCommit[]): ChangelogGroups {
   const groups: ChangelogGroups = {
     Added: [],
@@ -83,9 +78,8 @@ export function groupCommits(forCommit: ConventionalCommit[]): ChangelogGroups {
   return groups
 }
 
-// Render the groups as a changelog body (the parts under a version
-// heading), with the standard Keep-a-Changelog order and empty groups
-// omitted. Returns '' when there is nothing to report.
+// Render the groups as a changelog body, in the standard Keep-a-Changelog
+// order and with empty groups omitted. Returns '' when there is nothing to report.
 export function renderChangelogDraft(groups: ChangelogGroups): string {
   const order: ChangeKind[] = ['Added', 'Fixed', 'Changed', 'Removed']
   const out: string[] = []
