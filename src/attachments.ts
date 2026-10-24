@@ -309,13 +309,8 @@ export function hasClipboardTool(): boolean {
   return false
 }
 
-// Read an image from the OS clipboard. Tries, in order, every known tool for
-// the current platform. Returns the raw bytes plus a short note about which
-// tool was used (or the reason nothing was found) — the caller shows that note
-// to the user so a failed paste is never silent.
-// True when running inside WSL. There the X11 clipboard is a SEPARATE
-// clipboard from the Windows one: the user copies an image in Windows, so we
-// must read it through powershell.exe, not xclip.
+// True when the Windows filesystem is visible from here, i.e. a
+// powershell.exe call can reach the Windows clipboard.
 export function windowsReachable(): boolean {
   if (process.platform === 'win32') return true
   if (process.platform !== 'linux') return false
@@ -352,6 +347,11 @@ const PS_GET_FILE_DROP =
   'if($d -and $d.GetDataPresent([System.Windows.Forms.DataFormats]::FileDrop)){' +
   '$f=$d.GetData([System.Windows.Forms.DataFormats]::FileDrop); $f -join [Environment]::NewLine}'
 
+// Read an image from the OS clipboard, trying every known tool for the current
+// platform. The returned `via` names the tool that worked, or why nothing was
+// found — the caller shows it to the operator so a failed paste is never
+// silent. On WSL the Windows clipboard comes FIRST: it is a DIFFERENT clipboard
+// from X11, and the user copies the image in Windows, not in the X session.
 export async function readClipboardImageDetailed(): Promise<ClipboardResult> {
   if (
     process.platform === 'linux' ||
@@ -435,7 +435,6 @@ export async function readClipboardImageDetailed(): Promise<ClipboardResult> {
   return { data: null, via: 'unsupported-platform' }
 }
 
-// Backwards-compatible wrapper used elsewhere.
 export async function readClipboardImage(): Promise<Buffer | null> {
   return (await readClipboardImageDetailed()).data
 }
