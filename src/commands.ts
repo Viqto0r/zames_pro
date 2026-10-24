@@ -953,10 +953,17 @@ export function withGoal(
   const g = String(goal ?? '').trim()
   if (!g) return task
   const NL = String.fromCharCode(10)
+  // The goal is operator text and may itself contain a `Current task:` heading
+  // (a pasted prompt). That produced TWO sections and the model worked on the
+  // INJECTED task; re-indent such a heading so only OUR line is structural.
+  const safeGoal = g.replace(
+    /^(\s*)Current task:/gim,
+    '$1Session goal (continued):',
+  )
   return (
     'Session goal (long-lived — keep it in mind for this and every following task):' +
     NL +
-    g +
+    safeGoal +
     NL +
     NL +
     'Current task:' +
