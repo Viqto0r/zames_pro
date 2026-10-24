@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.121] - 2026-10-24
+
+### Fixed
+
+- **tui:** the input history stores the expanded paste, not its marker
+
 ## [2.82.120] - 2026-10-24
 
 ### Fixed
