@@ -195,19 +195,24 @@ export function nextCronTime(expr: string, fromMs: number): number | null {
 // One listing line for a job: "#3 [every 10m, next ~5m] run the tests". Pure,
 // so the /jobs formatting is unit-tested without a live scheduler.
 export function formatJobLine(job: ScheduleJob, now: number): string {
+  // The TASK and the CRON expression are operator text and must stay on ONE
+  // line: a newline would start a new /jobs row and could fake another
+  // report's line. Collapse whitespace in both.
+  const oneLine = (v: string): string => String(v ?? '').replace(/\s+/g, ' ')
   const when =
     job.kind === 'loop'
       ? 'every ' + formatInterval(job.intervalMs || 0)
-      : job.cron || ''
+      : oneLine(job.cron || '')
+  const task = oneLine(job.task)
   // A cron job whose next fire could not be computed stores Infinity (see
   // due()). "next ~-" (formatInterval maps a non-finite value to '-') read
   // like a normal schedule, so the job looked healthy while it could never
   // fire again.
   if (!Number.isFinite(job.nextAt)) {
-    return '  #' + job.id + ' [' + when + ', NEVER fires again] ' + job.task
+    return '  #' + job.id + ' [' + when + ', NEVER fires again] ' + task
   }
   const nextIn = formatInterval(Math.max(0, job.nextAt - now))
-  return '  #' + job.id + ' [' + when + ', next ~' + nextIn + '] ' + job.task
+  return '  #' + job.id + ' [' + when + ', next ~' + nextIn + '] ' + task
 }
 
 // Holds the scheduled jobs. Pure: no timers here. index.ts drives it with a
