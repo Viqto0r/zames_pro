@@ -1,4 +1,4 @@
-// PURE rendering for the /config command's TEXT output . These
+// PURE rendering for the /config command's TEXT output. These
 // helpers format the schema into lines; they touch no browser/terminal state,
 // so they are unit-tested without a live agent (the /config dispatch in
 // index.ts only prints what these return). The interactive menu lives in
@@ -10,8 +10,7 @@ import type { ConfigField } from './config.js'
 
 /**
  * The value shown for a field in the LIST: the default marker, on/off for a
- * boolean, a fixed mask for a password, otherwise the JSON form. Mirrors the
- * long-used inline logic so the output is byte-for-byte identical.
+ * boolean, a fixed mask for a password, otherwise the JSON form.
  */
 export function configListValue(
   field: ConfigField,
