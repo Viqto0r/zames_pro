@@ -374,12 +374,18 @@ export function searchBackspace(s: EditState): EditState {
   return searchRefresh({ ...s, searchQuery: s.searchQuery.slice(0, -1) }, true)
 }
 
-/** Record a submitted message in the history (dedup the last one). */
+/**
+ * Record a submitted message in the history (dedup the last one).
+ *
+ * `text` is the EXPANDED message (the caller resolves `[Pasted lines#N]`
+ * markers first): a marker stored as-is is recalled later into a buffer with
+ * no paste body behind it, and the literal marker is sent to the model.
+ */
 export function recordHistory(s: EditState, text: string): EditState {
-  if (!text.trim() || s.history[s.history.length - 1] === text) {
+  if (!String(text ?? '').trim() || s.history[s.history.length - 1] === text) {
     return { ...s, histIndex: s.history.length, histDraft: '' }
   }
-  const history = s.history.concat(text)
+  const history = s.history.concat(String(text))
   return { ...s, history, histIndex: history.length, histDraft: '' }
 }
 

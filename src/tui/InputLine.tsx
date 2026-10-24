@@ -21,6 +21,7 @@ import {
 import type { Key } from 'ink'
 import { translate, type Locale } from '../i18n.js'
 import {
+  expandPastes,
   inputInnerCols,
   layoutInput,
   SUGGEST_PAGE,
@@ -194,7 +195,12 @@ export function InputLine(props: InputLineProps): React.ReactElement {
     const s = stRef.current
     if (props.locked) return
     if (!s.buf.trim()) return
-    const withHist = recordHistory(s, s.buf)
+    // Record the EXPANDED text in the history: the buffer holds a
+    // `[Pasted lines#N]` marker for a large paste, the adapter expands it from
+    // the paste list, and `afterSubmit` CLEARS that list. Storing the marker
+    // made a later Up recall send the literal marker (no body to expand).
+    const expanded = expandPastes(s.pastes, s.buf)
+    const withHist = recordHistory(s, expanded)
     const next = afterSubmit(withHist)
     setSt(next)
     props.onHistoryChange(withHist.history)
