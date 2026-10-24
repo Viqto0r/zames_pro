@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.66] - 2026-10-24
+
+### Fixed
+
+- **tui:** append a space when Tab completion lands on a full command name
+
 ## [2.82.65] - 2026-10-24
 
 ### Fixed
