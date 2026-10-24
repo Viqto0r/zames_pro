@@ -6,6 +6,8 @@ import { truncateToWidth, wrapToWidth } from './input/layout.js'
 import { contentWidth } from './width.js'
 
 export interface SpinnerUI {
+  /** Live language switch (`/config lang`), like LineEditor.setLocale. */
+  setLocale?: (locale: Locale) => void
   /** Optional task-list badge source ("tasks: 2/5"), like LineEditor. */
   onTasksQuery?: (() => string) | null
   thinking: () => void
@@ -82,7 +84,11 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
 
   // Hint in the status line: while the agent works the terminal is live,
   // so you can type the next message. Without it this is not obvious.
-  const HINT = theme.dim('  ·  ' + translate(locale)('spinner.hint'))
+  // RE-DERIVED on a locale switch: `/config lang` changes the language live,
+  // and a constant built once at construction kept the OLD language (and even
+  // the old locale's separator) until a restart.
+  let localeNow = locale
+  let HINT = theme.dim('  ·  ' + translate(localeNow)('spinner.hint'))
 
   // Run the animated status line: a brown base text plus a growing/shrinking
   // "running" dot sequence. Shared by the thinking spinner and the send-pause
@@ -146,6 +152,13 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
   }
 
   return {
+    // `/config lang` switches the language live; the legacy LineEditor and the
+    // TUI adapter both expose setLocale, and index.ts calls it on EVERY editor.
+    // Without it the non-TTY spinner kept its old-language hint until restart.
+    setLocale: (l: Locale) => {
+      localeNow = l
+      HINT = theme.dim('  ·  ' + translate(localeNow)('spinner.hint'))
+    },
     get onTasksQuery() {
       return onTasksQuery
     },
@@ -167,7 +180,7 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
     // was printed and the dots stayed frozen).
     sendPause: (seconds: number) => {
       if (pending) return
-      const label = translate(locale)('spinner.pause', { n: seconds })
+      const label = translate(localeNow)('spinner.pause', { n: seconds })
       // Update only the base text while the dot animation is already running,
       // so the countdown refreshes without resetting the dots.
       if (animating && dotTimer && spinner) {
@@ -197,7 +210,7 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
       // Keep an animated status while the tool runs (Bash/npm/MCP can take a
       // long time): the operator must see that work is in progress.
       if (pending) return
-      startAnimated(translate(locale)('spinner.running_tool', { name }))
+      startAnimated(translate(localeNow)('spinner.running_tool', { name }))
     },
 
     toolResult: (result: unknown) => {
@@ -217,7 +230,9 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
       const rendered = renderMarkdown(msg)
       // Model answer marker: helps visually separate it from the user's input
       // (which is highlighted by the prompt with a golden arrow).
-      console.log(NL + theme.assistant(translate(locale)('editor.answer')) + NL)
+      console.log(
+        NL + theme.assistant(translate(localeNow)('editor.answer')) + NL,
+      )
       console.log(rendered)
       console.log(theme.dim(divider()) + NL)
     },

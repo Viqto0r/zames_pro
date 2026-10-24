@@ -2263,6 +2263,9 @@ async function main(): Promise<void> {
       // DeepSeek-side message printed later would still come out in the OLD
       // language until a restart.
       browser.setLocale(value)
+      // A NON-TTY run has no editor: its only UI is the spinner, which must
+      // follow the switch too (it is created per command from the locale).
+      mod.createSpinner(value).setLocale?.(value)
       if (editor) {
         editor.setLocale(value)
         editor.setCommands(buildSlashCommands())
