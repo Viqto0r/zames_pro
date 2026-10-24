@@ -55,9 +55,18 @@ export function summarizeDiagnostics(
   // appended a pointless diagnostics block.
   const plain = text.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
   const cleanCheck = plain.replace(/^\[[^\]]*\]\s*/, '')
-  if (/^(?:found\s+)?0\s+errors?\b/im.test(cleanCheck)) return null
-  if (/^no errors?(?: found)?\.?$/im.test(cleanCheck)) return null
-  if (/^0 problems?\b/im.test(cleanCheck)) return null
+  // The banner is only CLEAN when the output carries NO error-looking line:
+  // a webpack/build log prints `ERROR in …` AND its own `Found 0 errors`
+  // summary, and the old whole-text check reported that run as clean — the
+  // real error never reached the model.
+  const hasErrorLine = /(^|\n)\s*(?:error\b|ERROR\b|✖|✗|TS\d{4}\b)/m.test(
+    cleanCheck,
+  )
+  if (!hasErrorLine) {
+    if (/^(?:found\s+)?0\s+errors?\b/im.test(cleanCheck)) return null
+    if (/^no errors?(?: found)?\.?$/im.test(cleanCheck)) return null
+    if (/^0 problems?\b/im.test(cleanCheck)) return null
+  }
   // Keep only error-looking lines when we can recognise them, so a long build
   // log collapses to the actual problems. Fall back to the whole output.
   const lines = text.split(/\r?\n/)
