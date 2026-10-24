@@ -222,6 +222,17 @@ function deepMerge(
         target[key] as Record<string, unknown>,
         source[key] as Record<string, unknown>,
       )
+    } else if (
+      source[key] === null &&
+      target[key] !== null &&
+      typeof target[key] === 'object'
+    ) {
+      // A `null` SECTION must not wipe the defaults it contains: a hand edit
+      // (`"ui": null`) replaced the whole object, so `ui.locale` /
+      // `browser.askRetries` came back undefined and the readers broke. Keep
+      // the default section; a null for a SCALAR still overrides (the caller
+      // validates it).
+      continue
     } else {
       target[key] = source[key]
     }
