@@ -99,8 +99,6 @@ export function scrapeQwenChatMessages(
   return out
 }
 
-// ---------- API payload parsers (pure, unit-tested) ----------
-
 /**
  * Parse the chat list from `GET /api/v2/chats/?page=1&exclude_project=true`.
  * The shape has drifted between builds, so accept several:
