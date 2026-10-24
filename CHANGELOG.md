@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.80] - 2026-10-24
+
+### Fixed
+
+- **history:** trim the role before comparing it (all three providers)
+
 ## [2.82.79] - 2026-10-24
 
 ### Fixed
