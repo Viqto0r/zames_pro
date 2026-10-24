@@ -9,12 +9,11 @@ export function unifiedDiff(
   const lb = b.split(String.fromCharCode(10))
   const out: string[] = []
   if (label) out.push('... ' + label)
-  // A LINE diff, not a positional compare: an insertion at the top of a
-  // file shifts every following line, and comparing line i with line i
-  // reported the WHOLE file as removed AND added (a 20-line file with one
-  // new first line produced 41 diff lines). The undo/`/diff` preview became
-  // unreadable and the model was told everything changed. A longest-common-
-  // subsequence walk emits only the lines that really differ.
+  // A LINE diff, not a positional compare: an insertion at the top shifts
+  // every following line, and comparing line i with line i reported the WHOLE
+  // file as removed AND added (a 20-line file with one new first line produced
+  // 41 diff lines), which made the undo preview unreadable and told the model
+  // that everything changed.
   for (const op of diffOps(la, lb)) {
     if (op.kind === 'same') continue
     out.push((op.kind === 'del' ? '-' : '+') + op.line)
@@ -25,10 +24,9 @@ export function unifiedDiff(
 type DiffOp = { kind: 'same' | 'del' | 'add'; line: string }
 
 /**
- * Longest-common-subsequence line diff (Hunt–Szymanski style table, O(n*m)
- * memory). Files here are a handful of lines (a single edit preview), so the
- * simple dynamic-programming table is fine and keeps the module dependency-
- * free. A change pair is emitted as `-old` then `+new`, like a real diff.
+ * Longest-common-subsequence line diff (an O(n*m) dynamic-programming table,
+ * which keeps the module dependency-free). A change pair is emitted as
+ * `-old` then `+new`, like a real diff.
  */
 function diffOps(a: string[], b: string[]): DiffOp[] {
   const n = a.length
