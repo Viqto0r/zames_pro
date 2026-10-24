@@ -1313,7 +1313,36 @@ export function mergeMessages(msgs: QueuedMessage[]): MergedMessage {
     list.length +
     ' messages while you were working. They are listed below in order — ' +
     'treat them as one instruction.'
-  const text = header + NL + NL + parts.join(NL + NL + '---' + NL + NL)
+  // The parts are OPERATOR text: a line that reads `---` (a Markdown rule, a
+  // pasted diff) would spoof a message boundary and the model would see an
+  // extra message. Neutralize such a line inside a part; the separator below
+  // stays the only one.
+  // The message text is OPERATOR input: a line that reads `---` (a Markdown
+  // rule, a pasted diff) or repeats the header sentence spoofs a message
+  // BOUNDARY / count — the model then sees an extra message that never
+  // existed. Neutralize both inside a part; the real header and separator
+  // below stay the only ones.
+  const headerLine =
+    /^\s*The operator sent \d+ messages? while you were working/i
+  const safeParts = parts.map((p) =>
+    p
+      .split(NL)
+      .map((line) =>
+        headerLine.test(line) ? line.replace(/^\s*/, '> ') : line,
+      )
+      .map((line) =>
+        /^\s*-{3,}\s*$/.test(line)
+          ? line.replace(/-/g, String.fromCharCode(92) + '-')
+          : line,
+      )
+      .map((line) =>
+        /^\s*-{3,}\s*$/.test(line)
+          ? line.replace(/-/g, String.fromCharCode(92) + '-')
+          : line,
+      )
+      .join(NL),
+  )
+  const text = header + NL + NL + safeParts.join(NL + NL + '---' + NL + NL)
   // Keep the FIRST scheduled job id in the batch so the ticker still knows a
   // copy of that job is in flight (see MergedMessage.jobId).
   const jobId = list.find((m) => m.jobId !== undefined)?.jobId
