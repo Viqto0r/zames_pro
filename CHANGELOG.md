@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.69] - 2026-10-24
+
+### Fixed
+
+- **attachments:** keep the extension when a temp name is capped
+
 ## [2.82.68] - 2026-10-24
 
 ### Fixed
