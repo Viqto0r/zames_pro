@@ -164,7 +164,7 @@ export class LineEditor {
   // is stored so it can be removed in dispose().
   _onResize: () => void
   _resizeTimer: ReturnType<typeof setTimeout> | null
-  // ESC disambiguation (N29): a read may end on a bare ESC that is really the
+  // ESC disambiguation: a read may end on a bare ESC that is really the
   // head of a control sequence split across two reads. We hold it briefly and
   // fire onEscape only if no tail arrives.
   _escPending: boolean
@@ -730,8 +730,6 @@ export class LineEditor {
     this._render()
   }
 
-  // ---------- rendering ----------
-
   _eraseBlock() {
     if (!this.rendered) return
     const rows = process.stdout.rows || 24
@@ -1025,8 +1023,6 @@ export class LineEditor {
     this._writeBlock()
   }
 
-  // ---------- spinner-compatible interface ----------
-
   setStatus(text: string): void {
     this.statusText = text || ''
     this._render()
@@ -1249,8 +1245,6 @@ export class LineEditor {
     const wrapped = wrapToWidth('⚠ ' + msg, maxW)
     this.printAbove(NL + theme.warn(wrapped))
   }
-
-  // ---------- input ----------
 
   _submit() {
     if (this.locked) {
@@ -1500,7 +1494,7 @@ export class LineEditor {
 
   // Bare ESC: wait a moment for a possible control-sequence tail before firing
   // onEscape. Without this a sequence split across two reads (ESC, then "[A")
-  // looked like a lone Escape and aborted the current generation (N29).
+  // looked like a lone Escape and aborted the current generation.
   _scheduleEscape() {
     this._escPending = true
     if (this._escTimer) clearTimeout(this._escTimer)
@@ -1588,8 +1582,6 @@ export class LineEditor {
     this.buf = chars.join('')
   }
 
-  // ---------- history ----------
-
   _historyUp() {
     if (!this.history.length) return
     if (this._histIndex === this.history.length) this._histDraft = this.buf
@@ -1611,8 +1603,6 @@ export class LineEditor {
     }
     this.cursor = Array.from(this.buf).length
   }
-
-  // ---------- reverse-search (Ctrl+R) ----------
 
   // Start an incremental reverse search, keeping the current buffer aside so
   // Esc restores it (bash behavior). An empty history leaves the editor
@@ -1727,7 +1717,7 @@ export class LineEditor {
     // A previous read ended on a bare ESC. That is ambiguous: the Escape key
     // or the head of a control sequence split across reads (arrows, Ctrl+Del).
     // Reattach the ESC and parse the whole sequence, so a split arrow does not
-    // abort the generation (N29).
+    // abort the generation.
     if (this._escPending) {
       this._escPending = false
       if (this._escTimer) {
