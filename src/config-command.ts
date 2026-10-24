@@ -1,4 +1,4 @@
-// The /config subcommand DISPATCH . The PURE text rendering lives
+// The /config subcommand DISPATCH. The PURE text rendering lives
 // in config-commands.ts; this module owns the parsing/routing of the text
 // subcommands (list/get/set/reset/lang/path) and prints through injected
 // callbacks. Everything that touches live state (the runtime config object,
@@ -75,7 +75,7 @@ export async function handleConfigCommand(
     : ['/config', ...all]
   const sub = (parts[1] || '').toLowerCase()
 
-  // With no subcommand - the menu (or a text list in non-TTY).
+  // Bare `/config` opens the menu (a text list in non-TTY, via openMenu).
   if (!sub || sub === 'menu') {
     await openMenu()
     return
@@ -95,7 +95,8 @@ export async function handleConfigCommand(
     return
   }
 
-  // /config lang <ru|en> - quick access to ui.locale
+  // `/config lang <ru|en>` is a shortcut for `set ui.locale`; `язык` is an
+  // accepted alias because the operator types the command in their own language.
   if (sub === 'lang' || sub === 'language' || sub === 'язык') {
     const val = parts[2]
     if (!val) {
@@ -195,7 +196,8 @@ export async function handleConfigCommand(
     return
   }
 
-  // Unknown subcommand - show the list.
+  // An unknown subcommand reports the key AND shows the list, so the operator
+  // sees the valid keys without a second command.
   printErr(theme.error(t('cfg.unknown_key', { v: sub })))
   showList()
 }
