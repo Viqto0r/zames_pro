@@ -456,15 +456,11 @@ export async function runAgentLoop({
   // call but was not recognized (e.g. a DSML/XML form the strict parser
   // missed), the tool did NOT run and the echo is the only copy of the
   // call — it must be executed, not discarded as stale.
-  // const ranToolLastTurn follows the previous turn's actual effect.
   let lastTurnRanTool = false
   let justRanTool = false
   let watchdogRetries = 0
   const MAX_WATCHDOG_RETRIES = 3
 
-  // Retry budget for a browser.ask() TIMEOUT (not for content): the send did
-  // not come back in time. This is separate from unparsedRetries because a
-  // timeout is an infrastructure failure, not a model protocol violation.
   // Loop detection: the model sometimes repeats the SAME tool call with the
   // SAME arguments (e.g. Read the same file) turn after turn. There was no
   // explicit detector for that — the stale-answer guard only catches a
@@ -489,6 +485,9 @@ export async function runAgentLoop({
   // AFTER the tool results are formatted (they rebuild `message`).
   let argErrNudge = ''
 
+  // Retry budget for a browser.ask() TIMEOUT (not for content): the send did
+  // not come back in time. Separate from unparsedRetries because a timeout is
+  // an infrastructure failure, not a model protocol violation.
   let afterToolRetries = 0
   // toolsRanInTask: how many tools actually ran in THIS task. The protocol
   // guard uses it to tell "started, then slipped into chat mode" (a reasoning
@@ -1362,8 +1361,6 @@ export async function runAgentLoop({
         // makes Esc feel immediate.
         const poll = setInterval(syncToolAbort, 100)
         if (typeof poll.unref === 'function') poll.unref()
-        // Time the tool: the transcript carries durationMs so /cost can
-        // show where the time goes (frequent Read→Edit cycles vs slow Bash).
         const toolStart = Date.now()
         try {
           result = await tool.fn(call.args, { signal: toolAbort.signal })
