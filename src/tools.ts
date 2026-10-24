@@ -578,6 +578,11 @@ const MCP_MUTATING_WORDS = new Set(
 // never stand alone as ONE `_word_`, so a word-set alone missed them.
 const MCP_MUTATING_PHRASES = ['run_code', 'run_', 'handle_dialog']
 
+// Read-only SCOPES that legitimately prefix a verb-like word (`read_...`,
+// `get_...`, `list_...`, `describe_...`): a name like `read_insert_log` is a
+// read action on a log, not an insert. A writer never puts these first.
+const MCP_READ_SCOPES = new Set(['read', 'get', 'list', 'describe', 'fetch'])
+
 // A camelCase name is split BEFORE it is lowercased: `browserClick` used to
 // become `browserclick` (one word, no verb) and slipped through read-only mode.
 function splitCamelCase(s: string): string {
@@ -593,11 +598,31 @@ export function isMutatingMcpTool(name: string): boolean {
     .replace(/[^a-z0-9]+/g, '_')
   if (MCP_MUTATING_PHRASES.some((p) => norm.includes(p))) return true
   const words = norm.split('_').filter(Boolean)
+  // A read SCOPE (`read_…`, `get_…`) makes the whole name a READ even when a
+  // verb-like word follows: `describe_type` describes a type,
+  // `read_insert_log` reads a log. Dropping them from plan mode removed a tool
+  // the model may use. Checked BEFORE the word match, so the scope word wins.
+  if (MCP_READ_SCOPES.has(words[0])) return false
   if (words.some((w) => MCP_MUTATING_WORDS.has(w))) return true
   // A CONCATENATED style (all lowercase, no separator: `browserclick`,
-  // `pageevaluate`) still hides a writer. A verb as a substring is safe here
-  // because every verb is a whole action word no read-only tool contains.
-  return [...MCP_MUTATING_WORDS].some((v) => norm.includes(v))
+  // `pageevaluate`) still hides a writer. A BARE substring test is too
+  // aggressive, though: `get_settings` contains `set`, `get_keywords`
+  // contains `key`, `read_insert_log` contains `insert`, `describe_type`
+  // contains `type` — genuine READ-ONLY tools were dropped from plan mode.
+  // A concatenated verb is only trusted when it is a PREFIX of the name
+  // (`browserclick` -> after the `browser` scope) or spans the WHOLE name
+  // (`pageevaluate`); a verb buried inside another word is not an action.
+  const compact = norm.replace(/_/g, '')
+  const lastWord = words[words.length - 1]
+  return [...MCP_MUTATING_WORDS].some((v) => {
+    if (lastWord === v) return true
+    // A concatenated writer glues the verb to a SCOPE word: `fileupload`,
+    // `mouseclick`, `codeexecute`. Only the scope+verb pair counts — a bare
+    // word that merely CONTAINS the letters (`readinsertlog`,
+    // `describetype`) is a read action on a thing, not a write.
+    if (!compact.endsWith(v) || compact === v) return false
+    return !MCP_READ_SCOPES.has(compact.slice(0, -v.length))
+  })
 }
 
 // Merge MCP tools into the base set. In read-only (plan) mode the MCP tools
