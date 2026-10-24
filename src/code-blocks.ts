@@ -1,9 +1,6 @@
-// PURE extraction of fenced code blocks from a Markdown answer.
-//
-// The TUI cannot offer a real "copy button", so copying a code block is bound
-// to a key / command. That needs the RAW fenced text (the highlighted render is
-// full of ANSI and must NOT be copied), which is what this module returns.
-// Kept pure so it is unit-tested without a terminal.
+// PURE extraction of fenced code blocks from a Markdown answer. It returns the
+// RAW fenced text: the highlighted render is full of ANSI and must never be
+// what gets copied out of the TUI.
 
 export interface CodeBlock {
   /** The info string after the opening fence (e.g. "ts"), '' when absent. */
