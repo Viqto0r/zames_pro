@@ -55,9 +55,9 @@ export const SEND_SELECTORS = [
 ]
 
 // DeepSeek's own button classes. Used as a coarse "is this a DeepSeek button?"
-// filter in the raw-DOM fallbacks for Stop and for the send/stop icon
-// detection. Kept as a source string because the fallback runs INSIDE
-// page.evaluate, which cannot receive a RegExp object.
+// filter in the raw-DOM fallbacks for Stop and the send/stop icon detection.
+// Passed to page.evaluate as a source string (`.source`), because the in-page
+// callback cannot receive a RegExp object.
 export const BUTTON_CLASS_RE = /ds-button--(circle|primary|filled)/i
 
 // ---------- stop ----------
@@ -131,10 +131,10 @@ export const ASSISTANT_CLASS_RE = /ds-assistant-message|assistant-message/i
 export const ASSISTANT_SELECTOR = '[class*="ds-assistant-message"]'
 export const ANSWER_MARKDOWN_SELECTOR = '[class*="ds-markdown"]'
 
-// A cheap "did the page grow?" signal (_chatSignal): count message nodes and
-// measure the LAST answer node's text length. The old code read
-// document.body.innerText.length every tick, which serializes the WHOLE page
-// (sidebar, history, menus) and forces a layout — expensive on a long chat.
+// The node/markdown selectors for the cheap "did the page grow?" signal
+// (chatSignalInDom): counting message nodes and measuring the LAST answer's
+// length instead of document.body.innerText.length, which serializes the WHOLE
+// page (sidebar, history, menus) and forces a layout on every tick.
 export const CHAT_SIGNAL_NODES_SELECTOR =
   '[class*="ds-message"], [class*="chat-message"], .ds-markdown'
 export const MARKDOWN_SELECTOR = '.ds-markdown'
