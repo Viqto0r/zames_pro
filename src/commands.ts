@@ -1406,10 +1406,15 @@ export function parseBacklogItems(text: string): BacklogItem[] {
     const done = /^\[x\]/i.test(rest.trim())
     // The title is the heading text with the [x] marker and the `~~` strike
     // wrappers removed, so a done item still has a clean label.
-    const title = rest
+    const stripped = rest
       .replace(/^\[x\]\s*/i, '')
       .replace(/~~/g, '')
       .trim()
+    // A heading with NO text after the id (`### A3. [x]`) must not become an
+    // item with an EMPTY title: `/improve` hands the title to the model as the
+    // task, so an empty one produced an empty task, while the `[x]` marked the
+    // item DONE and it silently vanished from the pickable list.
+    const title = stripped || id
     out.push({ id, title, status: done ? 'done' : 'open', priority })
   }
   return out
