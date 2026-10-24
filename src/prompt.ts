@@ -146,10 +146,17 @@ export async function promptOnce(question: string): Promise<string> {
           continue
         }
         if (code === 127 || code === 8) {
-          // Backspace.
+          // Backspace deletes a CODE POINT, not one UTF-16 unit: an emoji is
+          // two units, and removing one left a LONE surrogate in the line — a
+          // broken code point the caller then received as the answer.
           if (cursor > 0) {
-            line = line.slice(0, cursor - 1) + line.slice(cursor)
-            cursor--
+            const prev = line.charCodeAt(cursor - 1)
+            const low = prev >= 0xdc00 && prev <= 0xdfff
+            const hi = cursor >= 2 ? line.charCodeAt(cursor - 2) : 0
+            const pair = low && hi >= 0xd800 && hi <= 0xdbff
+            const cut = pair ? cursor - 2 : cursor - 1
+            line = line.slice(0, cut) + line.slice(cursor)
+            cursor = cut
             redraw()
           }
           continue
