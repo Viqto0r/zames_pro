@@ -104,7 +104,7 @@ import { translate, DEFAULT_LOCALE, type Locale } from './i18n.js'
 // browser.ts).
 export { STOP_NAME_RE, CONTINUE_NAME_RE }
 
-// The pure, state-free helpers live in browser-pure.ts : they are
+// The pure, state-free helpers live in browser-pure.ts: they are
 // imported for the class below and RE-EXPORTED here, so the public API of this
 // module is unchanged (tests and other modules import these names from
 // './browser.js').
@@ -148,8 +148,6 @@ export {
   GenerationIncompleteError,
   ContextLimitError,
 }
-// ---------- class ----------
-
 export interface DeepSeekBrowserOptions {
   headless?: boolean
   debug?: boolean
@@ -526,12 +524,8 @@ export class DeepSeekBrowser {
     }
   }
 
-  // A lightweight IN-PAGE marker so the operator, looking at the browser
-  // window, can tell that the agent is generating (the terminal spinner is not
-  // visible there). We prefix the tab title with a "⏳"; the ORIGINAL title is
-  // saved ONCE on the window and restored when generation ends, so DeepSeek's
-  // own chat title is never lost. Best-effort: a page error must never break
-  // the send loop.
+  // Best-effort: a page error while marking the tab title must never break the
+  // send loop.
   async _setBusyTitle(busy: boolean): Promise<void> {
     try {
       await this.page.evaluate(setBusyTitleInDom, busy)
@@ -1603,8 +1597,8 @@ export class DeepSeekBrowser {
     return this._cleanAnswer(raw)
   }
 
-  // The pure filter lives in browser-pure.ts (cleanAnswer); kept as a method
-  // for the existing `this._cleanAnswer(...)` call sites.
+  // The filter itself is pure (cleanAnswer in browser-pure.ts); the method is
+  // kept so the existing `this._cleanAnswer(...)` call sites stay unchanged.
   _cleanAnswer(raw: string): string {
     return cleanAnswer(raw)
   }
@@ -3201,17 +3195,11 @@ export class DeepSeekBrowser {
   // bottom. Used by /resume and /resume-id so the operator sees the restored
   // context in the terminal instead of just "Chat opened.".
   //
-  // Best-effort DOM scraping: DeepSeek renders every message as a markdown
-  // block (assistant) or a plain bubble (user). Role detection relies on the
-  // ds-assistant-message-* class; anything that is not an assistant block is
-  // treated as a user message. The model's reasoning (.ds-think-content) is
-  // skipped, exactly like in _readLastAnswerText.
-  // Read the WHOLE visible dialogue of the currently open chat, top to
-  // bottom. Used by /resume and /resume-id so the operator sees the restored
-  // context in the terminal instead of just "Chat opened.".
-  //
-  // The in-page scraper (scrapeChatMessages, browser-chats.ts) is a named
-  // export so the class body stays thin; it runs inside the page.
+  // Best-effort DOM scraping (the in-page scrapeChatMessages in
+  // browser-chats.ts, kept as a named export so the class stays thin): role
+  // detection relies on the ds-assistant-message-* class, anything that is not
+  // an assistant block is a user message, and the model's reasoning
+  // (.ds-think-content) is skipped exactly like in _readLastAnswerText.
   async readChatMessages(): Promise<ChatMessage[]> {
     if (!this.page) return []
     const raw = await this.page
