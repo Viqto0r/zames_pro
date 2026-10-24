@@ -164,12 +164,22 @@ function runHook(
       args: args ?? {},
       ...(result === undefined ? {} : { result }),
     }
+    // The env copies are SHORT on purpose: a Write/Edit carries the whole file
+    // in `content`, which exceeds the OS per-variable limit (~128 KB) and made
+    // the spawn fail — a PreToolUse guard then BLOCKED the very call it was
+    // meant to allow. The FULL call is already fed on stdin (below), which has
+    // no such limit, so the env copy is only a convenience for small hooks.
+    const ENV_CAP = 60_000
+    const clipEnv = (v: string): string =>
+      v.length <= ENV_CAP ? v : v.slice(0, ENV_CAP - 1) + '…'
     const env = {
       ...process.env,
       ZAMES_HOOK_EVENT: event,
       ZAMES_TOOL_NAME: tool,
-      ZAMES_TOOL_ARGS: JSON.stringify(args ?? {}),
-      ...(result === undefined ? {} : { ZAMES_TOOL_RESULT: result }),
+      ZAMES_TOOL_ARGS: clipEnv(JSON.stringify(args ?? {})),
+      ...(result === undefined
+        ? {}
+        : { ZAMES_TOOL_RESULT: clipEnv(String(result)) }),
     }
     let child
     try {
