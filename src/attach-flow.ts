@@ -79,8 +79,12 @@ export async function awaitUploadPreview(
       // rejected promise, not a synchronous throw — without the try/catch the
       // error escaped into `_attachFiles` and the whole attach failed. A
       // lookup error means "not visible yet", exactly like a failed count.
+      //
+      // `exact: true`: a SUBSTRING match found a short/common name (`a`,
+      // `image`) in unrelated page text and returned instantly, before the
+      // upload started. The chip carries the FULL name.
       const n = await Promise.resolve()
-        .then(() => page.getByText(name, { exact: false }).count())
+        .then(() => page.getByText(name, { exact: true }).count())
         .catch(() => 0)
       if (n > 0) return
     }
