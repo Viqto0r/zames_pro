@@ -155,7 +155,7 @@ export function renderContextSection(
       '\n'
   }
 
-  // B6: nested AGENTS.md/MEMORY.md from the directories this task touches.
+  // Nested AGENTS.md/MEMORY.md from the directories this task touches.
   // Deliberately a SEPARATE section: these apply only to part of the tree and
   // must not be mistaken for project-wide rules.
   for (const f of context.scopedAgents || []) {
