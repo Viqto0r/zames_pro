@@ -49,6 +49,59 @@ export function rotateTranscripts(
   return removed
 }
 
+/**
+ * Re-serialize an oversized event with its LONG STRING FIELDS cut, so the line
+ * stays VALID JSON. A raw slice + ellipsis produced an unparsable line and
+ * parseTranscript() silently dropped the whole event — /cost and /export lost
+ * the turn that produced a big tool result.
+ */
+function capTranscriptLine(entry: Record<string, unknown>): string {
+  const budget = TRANSCRIPT_LINE_CAP - 2
+  // A binary search over the per-string allowance keeps the result close to
+  // the cap without serializing a 200 KB payload over and over.
+  let lo = 0
+  let hi = budget
+  let best = ''
+  for (let i = 0; i < 24; i++) {
+    const allow = Math.floor((lo + hi) / 2)
+    const line =
+      JSON.stringify(trimStrings(entry, allow)) + String.fromCharCode(10)
+    if (line.length <= TRANSCRIPT_LINE_CAP) {
+      best = line
+      lo = allow
+    } else {
+      hi = allow
+    }
+    if (lo >= hi) break
+  }
+  if (best) return best
+  // Degenerate (the keys alone exceed the cap): keep a VALID minimal event.
+  return (
+    JSON.stringify({ type: entry.type, truncated: true }) +
+    String.fromCharCode(10)
+  )
+}
+
+/** Deep-copy `entry`, cutting every string longer than `allow` (surrogate-safe). */
+function trimStrings(v: unknown, allow: number): unknown {
+  if (typeof v === 'string') {
+    if (v.length <= allow) return v
+    let cut = Math.max(0, allow)
+    const last = v.charCodeAt(cut - 1)
+    if (last >= 0xd800 && last <= 0xdbff) cut--
+    return v.slice(0, cut) + '…'
+  }
+  if (Array.isArray(v)) return v.map((x) => trimStrings(x, allow))
+  if (v && typeof v === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
+      out[k] = trimStrings(x, allow)
+    }
+    return out
+  }
+  return v
+}
+
 function transcriptErrorLine(e: unknown): string {
   return `transcript: failed to create file: ${(e as Error).message}`
 }
@@ -134,10 +187,7 @@ export class Transcript {
     // transcript a LOG: cap each line with a marker (never splitting a
     // surrogate pair).
     if (line.length > TRANSCRIPT_LINE_CAP) {
-      let cut = TRANSCRIPT_LINE_CAP - 2
-      const last = line.charCodeAt(cut - 1)
-      if (last >= 0xd800 && last <= 0xdbff) cut--
-      line = line.slice(0, cut) + '…' + String.fromCharCode(10)
+      line = capTranscriptLine(entry)
     }
     // The mirror runs even when the file is disabled (jsonl mode).
     if (this.onLine) {
