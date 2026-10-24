@@ -117,11 +117,9 @@ export class SendRuntime {
     if (typeof extra.retryAfterMs === 'number') {
       e.retryAfterMs = extra.retryAfterMs
     }
-    // A SUCCESS after a rate limit IS the lift of that block. onBlockLifted()
-    // was the only producer of `blockMs`, but no provider's ask() calls it (a
-    // rate limit is retried IN PLACE and the retry simply succeeds), and the
-    // fold below clears `blockedAt` first. The measured duration is therefore
-    // taken HERE, before the state is folded; it is attached to the SAME event
+    // A SUCCESS after a rate limit IS the lift of that block: the retry happens
+    // IN PLACE and simply succeeds. The duration is therefore measured HERE,
+    // before the fold below clears `blockedAt`, and attached to the SAME event
     // line, so one block still yields exactly one sample.
     let blockMs: number | undefined
     if (
@@ -141,11 +139,9 @@ export class SendRuntime {
       this.state = { ...this.state, blocked: true, blockedAt: this.now() }
     }
     if (outcome === 'rate_limit') {
-      // The block START is only known AFTER the fold above (the adaptive path
-      // sets it there). The event itself carries NO duration: a rate-limit
-      // send is not the END of the block, so any value measured here is a
-      // lower bound that would then be averaged together with the real
-      // duration written by onBlockLifted — the same block counted TWICE.
+      // The event carries NO duration: a rate-limit send is not the END of the
+      // block, so a value measured here would be averaged together with the
+      // real duration measured at the lift — the same block counted TWICE.
       if (!this.state.blockedAt) {
         this.state = { ...this.state, blocked: true, blockedAt: this.now() }
       }
