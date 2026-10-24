@@ -1,6 +1,6 @@
 import type { ChatMessage } from './browser.js'
 
-// PURE parsing of the DeepSeek history/message payloads . These
+// PURE parsing of the DeepSeek history/message payloads. These
 // helpers are extracted from DeepSeekBrowser.fetchChatMessages: they used to be
 // copy-pasted INLINE twice (the in-page evaluate AND the Playwright-request
 // fallback), so the same role/fragment extraction lived in two places and could
@@ -86,9 +86,9 @@ export function parseHistoryMessages(messages: unknown): {
 }
 
 /**
- * Pull `chat_messages` out of a history_messages JSON response, tolerating the
- * two shapes the endpoint has shipped (`data.biz_data.chat_messages`); returns
- * null when the shape does not match, so the caller can report a clear error.
+ * Pull `chat_messages` out of a history_messages JSON response; returns null
+ * when the shape does not match, so the caller can report a clear error
+ * instead of silently restoring an empty dialogue.
  */
 export function extractChatMessages(json: unknown): unknown[] | null {
   const j = json as {
