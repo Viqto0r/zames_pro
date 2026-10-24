@@ -89,15 +89,26 @@ export function extForMime(mime: string): string {
 }
 
 export function formatSize(bytes: number): string {
-  const n: number = Number(bytes) || 0
+  // A non-finite count (a size derived from a broken Content-Length or a
+  // failed stat) used to render as `Infinity MB`.
+  const raw = Number(bytes)
+  const n: number = Number.isFinite(raw) ? raw : 0
   if (n < 1024) return n + ' B'
-  if (n < 1024 * 1024) {
-    const kb = (n / 1024).toFixed(1)
-    // toFixed ROUNDS: just under a megabyte the quotient is 1023.999 KB and
-    // the operator saw "1024.0 KB" — a size that should be "1.0 MB".
-    if (kb !== '1024.0') return kb + ' KB'
+  const units = ['KB', 'MB', 'GB', 'TB']
+  let value = n / 1024
+  let unit = 0
+  // Promote while the ROUNDED value would read as a full next unit: 1023.999
+  // KB rounds to "1024.0 KB", which should be "1.0 MB" (the same for GB/TB).
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit++
   }
-  return (n / (1024 * 1024)).toFixed(1) + ' MB'
+  // Only a ROUNDED 1024.0 needs one more promotion step (1023.999 KB).
+  if (value.toFixed(1) === '1024.0' && unit < units.length - 1) {
+    value /= 1024
+    unit++
+  }
+  return value.toFixed(1) + ' ' + units[unit]
 }
 
 export function isImageName(name: string): boolean {
