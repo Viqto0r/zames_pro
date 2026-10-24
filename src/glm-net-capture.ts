@@ -261,7 +261,6 @@ function hasAnswerContent(body: string): boolean {
 // content; answer text lives in `phase: "answer"` chunks.
 const ERROR_PAYLOAD_RE = /"type"\s*:\s*"error"|"error"\s*:|\{\s*"code"\s*:/i
 
-/** True when the RAW body is z.ai's rate-limit notice. */
 /**
  * True when z.ai answers that the ACCOUNT quota is exhausted
  * (`insufficient_quota`, HTTP 429). Distinct from a transient rate limit:
@@ -281,6 +280,7 @@ export function isQuotaExhaustedText(body: string): boolean {
   )
 }
 
+/** True when the RAW body is z.ai's rate-limit notice. */
 export function isRateLimitText(body: string): boolean {
   const b = String(body || '')
   if (!b) return false
