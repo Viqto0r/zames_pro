@@ -34,7 +34,8 @@ export async function promptOnce(question: string): Promise<string> {
   stdin.setRawMode(true)
   stdin.resume()
 
-  // We enable/disable bracketed paste in pairs.
+  // Bracketed paste is enabled/disabled in pairs, so the terminal is left in
+  // normal mode however the prompt exits.
   stdout.write('\x1b[?2004h')
   stdout.write(question)
 
@@ -45,11 +46,11 @@ export async function promptOnce(question: string): Promise<string> {
   const PASTE_END = '\x1b[201~'
 
   const redraw = () => {
-    // Return to the start of the line, erase and print again.
+    // Redraw in place: CR + erase-to-end, then the prompt and the line again.
     stdout.write(String.fromCharCode(13))
     stdout.write('\x1b[K')
     stdout.write(question + line)
-    // Put the cursor in the right position.
+    // Step back to the cursor, measured in UTF-16 units.
     const back = line.length - cursor
     if (back > 0) stdout.write('\x1b[' + back + 'D')
   }
