@@ -89,11 +89,10 @@ export function nextWaitMs(
   now: number,
 ): number {
   if (state.forcedWaitMs > 0) {
-    // A forced wait must EXPIRE: a long Retry-After used to block every
-    // send forever (the check was `> 0` only), until another event cleared
-    // it. With the request stamp the remaining time is exact; without one
-    // (a caller-built or restored state) the wait is reported ONCE, from
-    // the current call, and expires on the next.
+    // A forced wait must EXPIRE: with only `forcedWaitMs > 0` a long
+    // Retry-After blocked every send until another event cleared it. The
+    // request stamp makes the remaining time exact; without one (a caller-built
+    // or restored state) the wait is reported ONCE, from the current call.
     if (state.forcedWaitAt) {
       const left = state.forcedWaitMs - (now - state.forcedWaitAt)
       return left > 0 ? left : 0
