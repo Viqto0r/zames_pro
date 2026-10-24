@@ -90,12 +90,51 @@ function argumentReason(reason: string): boolean {
   return String(reason ?? '').trim().length > 0
 }
 
+/**
+ * The text a verdict may be read from. A plain answer is returned as-is; a
+ * TOOL CALL (JSON or DSML/XML) yields only its `respond` message, because the
+ * call's ARGUMENTS are data, not a judgement — a Bash/Write argument that
+ * happens to contain `VERDICT: MET` must not clear the goal. Any other call
+ * yields '' (fail closed: the caller treats it as "continue").
+ */
+function toolCallVerdictText(raw: string): string {
+  const hasCallMarkers =
+    /"tool"\s*:/.test(raw) ||
+    /<[^>]*\b(?:invoke|parameter)\b/i.test(raw) ||
+    /DSML/i.test(raw)
+  if (!hasCallMarkers) return raw
+  // `respond` carries the operator-facing text; unwrap its message only.
+  const respond =
+    /"tool"\s*:\s*"respond"[\s\S]*?"message"\s*:\s*"([\s\S]*?)"\s*\}\s*\}/i.exec(
+      raw,
+    )
+  if (respond) return respond[1]
+  const dsml =
+    /invoke[^>]*name\s*=\s*"respond"[^>]*>([\s\S]*?)(?:<\/[^>]*invoke|$)/i.exec(
+      raw,
+    )
+  if (dsml) {
+    const msg = /parameter[^>]*name\s*=\s*"message"[^>]*>([\s\S]*?)</i.exec(
+      dsml[1],
+    )
+    if (msg) return msg[1]
+  }
+  return ''
+}
+
 // Parse the evaluator's reply into a verdict. Tolerant of markdown emphasis
 // and casing (```VErdict: MET``). Returns null when the verdict line is
 // missing, so the caller can fail closed (treat an unparsable answer as
 // "continue", never as "done").
 export function parseGoalVerdict(text: string): GoalVerdict | null {
-  const t = String(text ?? '')
+  const rawText = String(text ?? '')
+  // A TOOL CALL is not a verdict. The evaluator runs as a normal agent turn,
+  // so in reasoning mode it sometimes answers with a tool-call JSON/DSML whose
+  // ARGUMENTS merely MENTION `VERDICT: MET` (a Bash grep, a Write of a summary,
+  // a `respond` echo). Reading that as the verdict CLEARS the goal — an
+  // unfinished task was silently accepted as done. A call is recognized by its
+  // own markers, and the verdict is taken from its `respond` message only.
+  const t = toolCallVerdictText(rawText)
   // The label may be bolded/italicised and the colon may carry surrounding
   // spaces (`**VERDICT:** MET`) — a markdown-model answer did exactly that and
   // the strict `VERDICT:` matcher returned null, so the goal never parsed and
