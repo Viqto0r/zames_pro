@@ -432,8 +432,12 @@ export function renderDoctor(
 ): string {
   const rows: string[] = []
   const row = (ok: boolean, label: string, value: string): void => {
+    // Values come from the ENVIRONMENT and from operator input (the working
+    // directory, a model id, an error message): a newline in one would start
+    // a new terminal line and fake another doctor row. One row = one line.
+    const oneLine = String(value ?? '').replace(/\s+/g, ' ')
     rows.push(
-      ' ' + (ok ? '[OK] ' : '[WARN]') + ' ' + label.padEnd(16) + ' ' + value,
+      ' ' + (ok ? '[OK] ' : '[WARN]') + ' ' + label.padEnd(16) + ' ' + oneLine,
     )
   }
   const onoff = (b: boolean): string => (b ? t('common.on') : t('common.off'))
