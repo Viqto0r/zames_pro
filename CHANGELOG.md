@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.133] - 2026-10-24
+
+### Fixed
+
+- **tui,glm:** a deleted paste body is forgotten; a message id is not a chat id
+
 ## [2.82.132] - 2026-10-24
 
 ### Fixed
