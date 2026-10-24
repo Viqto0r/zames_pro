@@ -270,7 +270,18 @@ export function createSubagentRunner(
     }
     return {
       ok: true,
-      text: capReport(hookOut ? report + '\n\n' + hookOut : report),
+      // An EMPTY report (the model stopped without a final answer, or answered
+      // with whitespace) must not reach the parent as a successful tool result
+      // with no text: the parent would read it as "the sub-task produced
+      // nothing" and continue silently. Say so explicitly.
+      text: capReport(
+        hookOut
+          ? (report.trim() ||
+              '(the subagent finished without a final report)') +
+              '\n\n' +
+              hookOut
+          : report.trim() || '(the subagent finished without a final report)',
+      ),
     }
   }
 }
