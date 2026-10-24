@@ -375,6 +375,22 @@ async function diffFiles(origDir: string, newDir: string): Promise<string[]> {
   return changed
 }
 
+/**
+ * The focus line of the self-review prompt. PURE. A NEWLINE in the focus used
+ * to start new lines of the prompt, so the operator's text could inject a
+ * whole extra instruction; collapse all whitespace into one sentence.
+ */
+export function selfReviewFocusLine(focus?: string): string {
+  const f = String(focus ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+  return f
+    ? `
+The user asked you to focus especially on: ${f}
+`
+    : ''
+}
+
 function buildReviewPrompt({
   focus,
   snapDir,
@@ -382,9 +398,7 @@ function buildReviewPrompt({
   focus?: string
   snapDir: string
 }): string {
-  const focusLine = focus
-    ? `\nThe user asked you to focus especially on: ${focus}\n`
-    : ''
+  const focusLine = selfReviewFocusLine(focus)
 
   return `You are a senior JavaScript/Node.js engineer. You are reviewing your own source code — a Playwright-based coding agent that talks to the DeepSeek web chat as an LLM backend.
 
