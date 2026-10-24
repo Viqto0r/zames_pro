@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.82] - 2026-10-24
+
+### Fixed
+
+- **backlog:** collapse whitespace in an item title
+
 ## [2.82.81] - 2026-10-24
 
 ### Fixed
