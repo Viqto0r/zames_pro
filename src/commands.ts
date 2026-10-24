@@ -4,9 +4,9 @@ import os from 'os'
 import { isImageName } from './attachments.js'
 import { translate, type TranslateFn } from './i18n.js'
 
-// Helpers for the extra slash commands (/diff, /cost, /export, /doctor,
-// /review, /add-dir). Pure functions, unit-tested without a
-// live agent/browser. index.ts only renders their output.
+// Helpers for the slash commands (/diff, /cost, /export, /doctor, /review,
+// /add-dir, /queue, /goal, custom commands). Pure functions, unit-tested
+// without a live agent/browser; index.ts only renders their output.
 
 const NL = String.fromCharCode(10)
 const CR = String.fromCharCode(13)
@@ -35,8 +35,8 @@ export function formatDiff(
   return head + NL + t('diff.more_lines', { n: String(rest) })
 }
 
-// Git arguments for the `/diff` command. An ARRAY (no shell): the caller runs
-// them through runGitArgs(), so nothing is interpreted by a shell. Pure.
+// Git arguments for the `/diff` command. An ARRAY, not a shell string: the
+// caller runs them through runGitArgs(), so nothing is interpreted by a shell.
 export function diffGitArgs(staged = false): string[] {
   return staged ? ['diff', '--staged'] : ['diff']
 }
@@ -1321,10 +1321,6 @@ export function mergeMessages(msgs: QueuedMessage[]): MergedMessage {
     list.length +
     ' messages while you were working. They are listed below in order — ' +
     'treat them as one instruction.'
-  // The parts are OPERATOR text: a line that reads `---` (a Markdown rule, a
-  // pasted diff) would spoof a message boundary and the model would see an
-  // extra message. Neutralize such a line inside a part; the separator below
-  // stays the only one.
   // The message text is OPERATOR input: a line that reads `---` (a Markdown
   // rule, a pasted diff) or repeats the header sentence spoofs a message
   // BOUNDARY / count — the model then sees an extra message that never
