@@ -397,6 +397,12 @@ export function renderMcpResult(
     .filter((p) => p !== '')
     .join(String.fromCharCode(10) + String.fromCharCode(10))
     .trim()
+  // A result may carry BOTH a (blank/empty) `content` list AND the real payload
+  // in `toolResult` (an SDK server that attaches it there). Preferring content
+  // unconditionally reported "(no content)" and DROPPED the real output.
+  if (!text && r.toolResult !== undefined) {
+    return truncateMcpResult(formatResultString(r.toolResult, r.isError), limit)
+  }
   return truncateMcpResult(
     formatResultString(text || '(MCP tool returned no content)', r.isError),
     limit,
