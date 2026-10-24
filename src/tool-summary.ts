@@ -95,12 +95,18 @@ export function looksLikeToolError(result: string): boolean {
     .slice(0, 60)
     .toLowerCase()
   if (!head) return false
+  const whole = String(result ?? '').toLowerCase()
   return (
     head.startsWith('error') ||
     head.startsWith('missing required argument') ||
     head.startsWith('failed') ||
-    head.includes('command failed') ||
-    head.includes('exit code') ||
+    // The run's OWN failure lines are anchored at the start of a line
+    // (`Exit code: N`, the `stdout:/stderr:` blocks follow). A phrase that
+    // merely APPEARS in the output (a log line, a diff, a test summary) is
+    // data, not a failure: a red ✖ on a successful call is just as wrong as a
+    // green ✔ on a refused one.
+    /^exit code\b/m.test(whole) ||
+    /^command failed\b/m.test(whole) ||
     // NOT every failure is a THROWN error: a PreToolUse hook, the permission
     // policy and the operator's denial BLOCK the call and return their message
     // as the result; an unknown tool and an aborted/timed-out run are reported
