@@ -1161,10 +1161,33 @@ export function expandCommandArgs(
   names: string[] = [],
 ): string {
   const parts = splitCommandArgs(rest)
+  // Scan the BODY only: the operator's arguments are DATA and must not be
+  // re-scanned for `$1`/`$name`. Substituting them into the text FIRST and
+  // running the dollar pass over the result rewrote an argument that merely
+  // contained `$1` (`/cmd real $1` sent `real real`). A unique placeholder is
+  // parked for every `{{args}}`/`$ARGUMENTS` occurrence and restored after the
+  // positional pass.
+  const parked: string[] = []
   let out = String(body ?? '')
-  out = out.split('{{args}}').join(rest)
-  out = out.split('$ARGUMENTS').join(rest)
+  const park = (): string => {
+    const key =
+      String.fromCharCode(0x1f) +
+      'a' +
+      parked.length +
+      String.fromCharCode(0x1f)
+    parked.push(rest)
+    return key
+  }
+  out = out.split('{{args}}').join(park())
+  out = out.split('$ARGUMENTS').join(park())
   out = replaceDollarTokens(out, parts, names)
+  for (let i = 0; i < parked.length; i++) {
+    const key = String.fromCharCode(0x1f) + 'a' + i + String.fromCharCode(0x1f)
+    out = out.split(key).join(parked[i])
+  }
+  // The placeholder uses a control character that cannot appear in a normal
+  // body; a body that DOES contain it (a binary snippet) is left untouched
+  // because its text is not a generated key.
   return out.trim()
 }
 
