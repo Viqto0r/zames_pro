@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.90] - 2026-10-24
+
+### Fixed
+
+- **commands:** a dynamic hint name is normalized to a slash command
+
 ## [2.82.89] - 2026-10-24
 
 ### Fixed
