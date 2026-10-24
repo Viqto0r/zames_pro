@@ -225,14 +225,34 @@ export function moveVisualRows(
   if (target < 0 || target >= lay.rows.length) return s
   const row = lay.rows[target]
   const rowChars = Array.from(row.text)
-  const promptW = visLen(row.prefix)
-  const want = Math.max(0, lay.cursorCol - promptW)
+  // `cursorCol` is the column inside the CURRENT row (prompt + its text). The
+  // row above/below has a DIFFERENT indent (`row.start` differs), so the
+  // offset must be measured from the CURRENT row's own text, not as a raw
+  // `cursorCol - promptW` character count: on a wrapped line that put the
+  // caret past the target row's text and onto the NEXT row entirely.
+  const curRow = lay.rows[lay.cursorRow]
+  const curChars = Array.from(curRow.text)
+  let want = 0
+  for (let k = 0; k < lay.cursorCol - visLen(curRow.prefix); k++) {
+    want += charWidth(curChars[k]?.codePointAt(0) ?? 32)
+  }
   let idx = row.start
   let w = 0
-  while (idx < row.start + rowChars.length && w < want) {
-    w += charWidth(rowChars[idx - row.start].codePointAt(0) as number)
+  // Walk the target row and STOP on the first character that no longer fits.
+  // Landing exactly on `row.start + len` is the NEXT row's first character in
+  // the layout (`cur === row end` is only kept when it is a wrap boundary),
+  // so a caret at the end of a SHORT last row must stay on its last character.
+  while (idx < row.start + rowChars.length) {
+    const cw = charWidth(rowChars[idx - row.start].codePointAt(0) as number)
+    if (w + cw > want) break
+    w += cw
     idx++
   }
+  // Keep the caret INSIDE the target row: the layout moves a caret that sits
+  // on the row end onto the next row, which is exactly the "Up jumps two
+  // rows" bug.
+  if (idx > row.start + rowChars.length) idx = row.start + rowChars.length
+  if (idx === row.start + rowChars.length && rowChars.length > 0) idx--
   return { ...s, cursor: idx }
 }
 
