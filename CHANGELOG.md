@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.117] - 2026-10-24
+
+### Fixed
+
+- **commands:** operator text cannot spoof a queued-message boundary
+
 ## [2.82.116] - 2026-10-24
 
 ### Fixed
