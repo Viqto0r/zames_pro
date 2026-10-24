@@ -19,8 +19,6 @@ function packageVersion(): string {
   return '0.0.0'
 }
 
-// ---------- MCP (Model Context Protocol) client ----------
-//
 // MCP lets zames use external tool servers. The canonical example is
 // @playwright/mcp (microsoft/playwright-mcp): it gives the agent a real
 // browser (navigate, click, snapshot, type, ...). The agent already uses
@@ -629,11 +627,8 @@ export async function createMcpPool(opts: McpLoadOptions): Promise<McpPool> {
   }
 
   // Distinct servers can produce the SAME qualified name (server 'a' + tool
-  // 'b__c' vs server 'a__b' + tool 'c'), and agent-loop resolves a call with
-  // tools.find(name) — it takes the FIRST. A duplicate would make the second
-  // tool silently unreachable (the model calls "the right name", a DIFFERENT
-  // tool runs). Rename the later one with a numeric suffix so every name is
-  // unique.
+  // 'b__c' vs server 'a__b' + tool 'c'); dedupeToolNames below explains why
+  // that has to be fixed rather than left to tools.find().
   dedupeToolNames(tools)
 
   let closed = false
