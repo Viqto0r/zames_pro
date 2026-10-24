@@ -9344,3 +9344,34 @@ lint (0 errors, 2 прежних warning), format:check, build, sched-smoke —
 ## Покрытые области (не повторять без причины)
 
 - src/web.ts — WebFetch не рвёт суррогатную пару при обрезке (2026-10-24).
+
+### Такт 349 (2026-10-24) — исправлено
+
+**Цель:** MCP — рендер результата инструмента (`renderMcpResult` в
+src/mcp.ts).
+
+**Баг:** результат отдавался из `content`, а `toolResult` использовался только
+когда `content` ОТСУТСТВОВАЛ. Сервер, приложивший полезную нагрузку в
+`toolResult` и ПУСТОЙ/пробельный `content`, получал `(MCP tool returned no
+content)` — реальный вывод молча терялся. Проверено запуском.
+
+**Фикс:** если из `content` не получилось ничего, используется
+`toolResult`; настоящий `content` по-прежнему побеждает.
+
+**Тест:** test/mcp-toolresult-with-empty-content.test.ts (2 кейса:
+`toolResult` используется при пустом content; реальный content побеждает). RED
+до фикса, GREEN после; mcp* — 32 теста зелёные.
+
+**Гейты:** npm test 1834 теста (1832 pass, 0 fail, 10 skip), typecheck,
+lint (0 errors, 2 прежних warning), format:check, build, sched-smoke —
+зелёные.
+
+**Коммит:** e5dad01, релиз v2.82.95 (5a94833).
+
+**Статус:** исправлено (2026-10-24).
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- src/mcp.ts — toolResult не теряется при пустом content (2026-10-24).
