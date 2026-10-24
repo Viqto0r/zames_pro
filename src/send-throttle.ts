@@ -145,7 +145,12 @@ export function applySendEvent(
       typeof event.retryAfterMs === 'number' &&
       Number.isFinite(event.retryAfterMs) &&
       event.retryAfterMs > 0
-        ? event.retryAfterMs
+        ? // A server may send a Retry-After of DAYS (`86400`); waiting it out
+          // verbatim froze the agent, which the operator sees as a dead run.
+          // Bound it by the same ceiling as the learned interval — a longer
+          // block is not worth sitting through silently, the next send can
+          // try again.
+          Math.min(event.retryAfterMs, cfg.maxMs)
         : cfg.rateLimitWaitMs
     next.forcedWaitAt = now
     const floor = Math.max(cfg.baseMs, cfg.limitFloorMs)
