@@ -55,13 +55,15 @@ export function summarizeDiagnostics(
   // appended a pointless diagnostics block.
   const plain = text.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
   const cleanCheck = plain.replace(/^\[[^\]]*\]\s*/, '')
-  // The banner is only CLEAN when the output carries NO error-looking line:
+  // The banner is only CLEAN when the output carries NO error-looking text:
   // a webpack/build log prints `ERROR in …` AND its own `Found 0 errors`
   // summary, and the old whole-text check reported that run as clean — the
-  // real error never reached the model.
-  const hasErrorLine = /(^|\n)\s*(?:error\b|ERROR\b|✖|✗|TS\d{4}\b)/m.test(
-    cleanCheck,
-  )
+  // real error never reached the model. The check is NOT anchored to the
+  // start of a line: a normal tsc failure is `src/a.ts(1,1): error TS2322: …`
+  // and `error` sits MID-LINE; an anchored pattern missed it and a stray
+  // `Found 0 errors` (a watch banner in the same buffer) swallowed the real
+  // error.
+  const hasErrorLine = /\berror\b|✖|✗|TS\d{4}\b/i.test(cleanCheck)
   if (!hasErrorLine) {
     if (/^(?:found\s+)?0\s+errors?\b/im.test(cleanCheck)) return null
     if (/^no errors?(?: found)?\.?$/im.test(cleanCheck)) return null
