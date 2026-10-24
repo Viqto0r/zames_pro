@@ -283,6 +283,12 @@ export class Scheduler {
       if (job.kind === 'loop' && job.intervalMs && job.intervalMs > 0) {
         const missed = Math.floor((now - job.nextAt) / job.intervalMs)
         job.nextAt = job.nextAt + (missed + 1) * job.intervalMs
+      } else if (job.kind === 'loop') {
+        // A loop with a ZERO/missing interval (a hand-edited or restored job)
+        // matched neither branch, so `nextAt` was never advanced and the job
+        // fired on EVERY 1-second tick. Never fire it again rather than
+        // busy-loop the scheduler.
+        job.nextAt = Number.POSITIVE_INFINITY
       } else if (job.cron) {
         const nxt = nextCronTime(job.cron, now)
         job.nextAt = nxt === null ? Number.POSITIVE_INFINITY : nxt
