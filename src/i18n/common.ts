@@ -202,7 +202,7 @@ export const commonMessages: Record<string, { ru: string; en: string }> = {
     ru: '📎 Вложен файл {marker} {name} ({size}) — {path}',
     en: '📎 Attached file {marker} {name} ({size}) — {path}',
   },
-  // B5: shown when `@path` references in a task were inlined as file contents.
+  // Shown when `@path` references in a task were inlined as file contents.
   'msg.at_refs': {
     ru: '📄 Встроено файлов по @-ссылкам: {n} —',
     en: '📄 Inlined @-referenced files: {n} —',
@@ -310,7 +310,7 @@ export const commonMessages: Record<string, { ru: string; en: string }> = {
   },
   'cost.auto_compacts': { ru: ' авто-сжатий: {n}', en: ' auto-compacts: {n}' },
   'cost.by_tool': { ru: ' по инструментам:', en: ' by tool:' },
-  // T-D3: total time spent inside tools, then a top-N per-tool breakdown.
+  // Total time spent inside tools, then a top-N per-tool breakdown.
   'cost.by_time': {
     ru: ' время в инструментах: {dur}; топ по времени:',
     en: ' time in tools: {dur}; top by time:',
