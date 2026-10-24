@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.119] - 2026-10-24
+
+### Fixed
+
+- **throttle:** cap a huge Retry-After so the agent is not frozen
+
 ## [2.82.118] - 2026-10-24
 
 ### Fixed
