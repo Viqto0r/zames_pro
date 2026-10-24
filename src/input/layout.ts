@@ -499,8 +499,8 @@ export function layoutInput(
 export interface SlashCommand {
   name: string
   description: string
-  /** Optional argument hint shown after the name in the suggest list (B7),
-   *  e.g. `<file> [focus]`. Display only — never inserted into the line. */
+  /** Optional argument hint shown after the name in the suggest list, e.g.
+   *  `<file> [focus]`. Display only — never inserted into the line. */
   hint?: string
 }
 
