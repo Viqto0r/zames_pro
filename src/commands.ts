@@ -346,7 +346,7 @@ export function formatExport(
         ' -> ' +
           String(e.tool ?? '?') +
           ': ' +
-          String((e as { result?: unknown }).result ?? '').slice(0, 500),
+          clipExportText(String((e as { result?: unknown }).result ?? ''), 500),
       )
     } else if (type === 'assistant_final') {
       out.push('## Answer')
@@ -1541,4 +1541,13 @@ export function buildSlashCommandHints(opts: {
     base.push(d)
   }
   return base
+}
+
+/** Cut an exported string WITHOUT splitting a surrogate pair. */
+function clipExportText(s: string, max: number): string {
+  if (s.length <= max) return s
+  let cut = max
+  const last = s.charCodeAt(cut - 1)
+  if (last >= 0xd800 && last <= 0xdbff) cut--
+  return s.slice(0, cut)
 }
