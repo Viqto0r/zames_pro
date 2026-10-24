@@ -183,7 +183,6 @@ function authMarkerExists(provider: ProviderId = config.provider): boolean {
   }
 }
 
-// ---------- CLI parsing ----------
 // The pure helpers live in src/cli-args.ts and are bound to this process's
 // argv ONCE here. Call sites keep using getArg/hasFlag/getPositional.
 const { getArg, hasFlag, getPositional } = createCliArgs(process.argv.slice(2))
@@ -301,7 +300,6 @@ if (jsonMode) {
   }) as typeof console.log
 }
 
-// ---------- session persistence ----------
 // We store sessions (DeepSeek chats) in ~/.zames/.sessions so they survive
 // a restart and are available for explicit restore (--resume-last,
 // --chat <id>, /resume-id <id>). They are NOT brought up automatically on launch.
@@ -351,7 +349,6 @@ async function saveGoal(workdir: string, goal: string | null): Promise<void> {
   }
 }
 
-// ---------- hot reload ----------
 // We keep references to the logic modules in the mod object. The /reload
 // command re-reads them via a dynamic import with a timestamp query — Node
 // caches ESM by URL, so such an import returns a fresh version of the module.
@@ -576,8 +573,6 @@ function warnIfBrowserChanged(): void {
     }
   } catch {}
 }
-
-// ---------- helpers ----------
 
 function printHelp(): void {
   // Self-development commands (backlog / self-review) are shown ONLY in dev
@@ -879,8 +874,6 @@ async function cleanTmpDir(): Promise<void> {
   }
 }
 
-// ---------- workdir resolution ----------
-
 // The agent works in the directory it was launched from (process.cwd()).
 // This is the sandbox root: tools cannot go above it.
 async function resolveWorkdir(): Promise<string> {
@@ -892,8 +885,6 @@ async function resolveWorkdir(): Promise<string> {
   }
   return dir
 }
-
-// ---------- restored dialogue ----------
 
 /**
  * The answer timeout for a one-off provider call (compact summary, etc.).
@@ -1713,7 +1704,6 @@ async function main(): Promise<void> {
   // within 2s escalate from "abort the running tool" to "stop the whole run".
   let lastCtrlCAt = 0
 
-  // ---------- review mode state ----------
   // null — normal mode.
   // { snapDir, snapName, originalWorkdir } — we're inside a snapshot, the chat
   // is already initialized with the review prompt, the user can just type "fix...".
@@ -1784,7 +1774,6 @@ async function main(): Promise<void> {
     }
   }
 
-  // ---------- input: permanent line below + status above ----------
   // In TTY we use LineEditor: it owns the input all the time, shows the
   // status above the input line and prints the agent's answers ABOVE it, so
   // the typed text is never overwritten by output. In non-TTY (pipe) —
@@ -2235,7 +2224,6 @@ async function main(): Promise<void> {
     edAny._origErr = origErr
   }
 
-  // ---------- /config ----------
   // View and edit settings without a restart. Values are validated against
   // CONFIG_SCHEMA (src/config.ts) and written to the project .zamesrc.json.
   // The language (ui.locale) is applied immediately: we change currentLocale,
@@ -2792,8 +2780,6 @@ async function main(): Promise<void> {
       continue
     }
 
-    // ---------- Self-review ----------
-
     if (lower === '/self-review' || lower.startsWith('/self-review ')) {
       const focus = trimmed.slice('/self-review'.length).trim()
 
@@ -2971,8 +2957,6 @@ async function main(): Promise<void> {
       }
       continue
     }
-
-    // ---------- Regular commands ----------
 
     if (lower === '/chats' || lower.startsWith('/chats ')) {
       const filter = trimmed.slice('/chats'.length).trim().toLowerCase()
