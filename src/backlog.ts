@@ -212,9 +212,11 @@ export function appendBacklogItem(
   item: NewBacklogItem,
 ): { text: string; id: string } {
   const src = String(text ?? '')
+  // Collapse ALL whitespace (not just double spaces): a NEWLINE in the title
+  // injected a fake `### ...` heading into the file, adding a phantom item.
   const title = String(item.title ?? '')
     .trim()
-    .replace(/ {2,}/g, ' ')
+    .replace(/\s+/g, ' ')
   const prio = /^P[0-3]$/i.test(String(item.priority ?? '').trim())
     ? String(item.priority).trim().toUpperCase()
     : 'P2'
