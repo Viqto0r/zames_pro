@@ -99,9 +99,19 @@ export function summarizeSends(
     .map((e) =>
       e.blockMs === null || e.blockMs === undefined ? NaN : Number(e.blockMs),
     )
-    .filter((n) => Number.isFinite(n) && n >= 0)
+    // A finite value is not enough: the SUM of many large durations overflows
+    // a JS number (two `Number.MAX_VALUE` entries add up to Infinity), so the
+    // average became Infinity / an out-of-safe-range number and `/limits`
+    // printed "average block: Infinitys". A duration is a millisecond count,
+    // so anything beyond the safe-integer range is corrupt data, not a block.
+    .filter((n) => Number.isFinite(n) && n >= 0 && n <= Number.MAX_SAFE_INTEGER)
+  // Dividing BEFORE summing keeps the total in range for any number of entries
+  // (the largest accepted value alone is already near the overflow point).
   const avgBlockMs = blocks.length
-    ? Math.round(blocks.reduce((a, b) => a + b, 0) / blocks.length)
+    ? Math.min(
+        Number.MAX_SAFE_INTEGER,
+        Math.round(blocks.reduce((a, b) => a + b / blocks.length, 0)),
+      )
     : 0
   return {
     last10m: within(10 * 60_000),

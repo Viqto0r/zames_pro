@@ -10,6 +10,29 @@
 
 ## Журнал тактов
 
+### Такт 350 (2026-10-24) — исправлено
+
+**Цель:** send-telemetry — агрегат для `/limits` (`summarizeSends` в
+src/send-telemetry.ts).
+
+**Баг:** средняя длительность блокировки считалась как `sum(blockMs) / n`. Каждое значение конечно, но СУММА двух `Number.MAX_VALUE` переполняет JS-число в `Infinity`, и `/limits` печатал `average block: Infinitys`. Значение выше `MAX_SAFE_INTEGER` — уже потеря точности. Проверено запуском.
+
+**Фикс:** значение выше `Number.MAX_SAFE_INTEGER` отбрасывается (повреждённые данные, а не блок), сумма берётся после деления (не переполняется), результат зажат в `MAX_SAFE_INTEGER`.
+
+**Тест:** `test/send-telemetry-block-overflow.test.ts` (3 кейса: переполнение не даёт Infinity; выброшенное значение не мешает соседним; нормальное среднее сохраняется). RED до фикса (два падения), GREEN после; `send-telemetry`/`send-throttle`/`limits` — зелёные.
+
+**Гейты:** npm test 1845 тестов (1835 pass, 0 fail, 10 skip), typecheck,
+lint (0 errors, 2 прежних warning), format:check, build, sched-smoke —
+зелёные.
+
+**Статус:** исправлено (2026-10-24).
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- src/send-telemetry.ts — средняя длительность блока не переполняется в Infinity (2026-10-24).
+
 ### Такт 1 (2026-10-17) — чисто
 
 Проверены `src/tui/log-window.ts`, `src/tui/InputLine.tsx`,
