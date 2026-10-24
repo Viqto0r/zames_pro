@@ -570,7 +570,19 @@ export function formatCompactTokens(tokens: number | null | undefined): string {
   if (typeof tokens !== 'number' || !Number.isFinite(tokens) || tokens < 0) {
     return ''
   }
-  const n = Math.round(tokens)
+  let n = Math.round(tokens)
+  // Promote BEFORE rendering when the ROUNDED value would read as a full next
+  // unit: 999 949 -> '1000k' (nonsense kilo) while the percentage beside it
+  // already says 100%, and 999 950 000 -> '1000.0M'. Same rule as
+  // attachments.formatSize.
+  if (Math.round(n / 1000) >= 1000 && n < 1_000_000) n = 1_000_000
+  if (Math.round((n / 1_000_000) * 10) / 10 >= 1000 && n < 1_000_000_000) {
+    n = 1_000_000_000
+  }
+  if (n >= 1_000_000_000) {
+    const b = n / 1_000_000_000
+    return (Number.isInteger(b) ? String(b) : b.toFixed(1)) + 'B'
+  }
   if (n >= 1_000_000) {
     const m = n / 1_000_000
     return (Number.isInteger(m) ? String(m) : m.toFixed(1)) + 'M'
