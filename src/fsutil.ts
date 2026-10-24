@@ -7,10 +7,6 @@ import path from 'path'
 // truncated/broken file behind. The temp name embeds the pid so two
 // concurrent processes never collide on it.
 //
-// Kept in its own module because the pattern used to be copy-pasted in at
-// least three places; drift between the copies is exactly how one of them
-// silently loses its atomicity.
-//
 // The file is created 0o600: ~/.zames/config.json holds the
 // browser password in clear text alongside sessions/undo history, and the
 // default umask (022) would make them readable by other users on a
