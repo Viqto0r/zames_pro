@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.130] - 2026-10-24
+
+### Fixed
+
+- **goal:** a prose answer mentioning DSML still yields its verdict
+
 ## [2.82.129] - 2026-10-24
 
 ### Fixed
