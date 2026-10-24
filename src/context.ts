@@ -684,7 +684,11 @@ export async function loadProjectContext(
     let used = 0
     const kept: ContextFile[] = []
     for (const f of files) {
-      if (used + f.content.length > total) break
+      // SKIP a file that does not fit the remaining pool, do NOT end the
+      // chain: the chain runs global -> root -> ... -> workdir, so one large
+      // file used to drop every SMALLER, MORE SPECIFIC file after it — the
+      // most specific instructions are exactly the ones lost.
+      if (used + f.content.length > total) continue
       used += f.content.length
       kept.push(f)
     }
