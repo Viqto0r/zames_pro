@@ -9028,3 +9028,35 @@ lint (0 errors, 2 прежних warning), format:check, build, sched-smoke —
 ## Покрытые области (не повторять без причины)
 
 - /cost и /status не печатают отрицательный счётчик контекста (2026-10-24).
+
+### Такт 339 (2026-10-24) — исправлено
+
+**Цель:** undo/checkpoint — рендер даты (`/undo-list`, `/checkpoints`).
+
+**Баг:** строки делали `new Date(r.stamp).toLocaleString()`. Запись старого
+формата (без `stamp`) или правленный руками индекс (`stamp: "oops"`) печатали
+`Invalid Date` на всю строку — оператор видел сломанную запись вместо файла,
+который реально можно откатить. Проверено запуском: `stamp: undefined` →
+`Invalid Date`.
+
+**Фикс:** чистая `undoDateLabel(stamp)` в src/undo.ts — нечисловой/нулевой
+stamp даёт `(unknown time)`, настоящий штамп форматируется как раньше; обе
+команды (/undo-list и /checkpoints) используют её.
+
+**Тест:** test/undo-list-invalid-date.test.ts (2 кейса: запись без штампа
+даёт читаемую метку; настоящий штамп форматируется). RED до фикса (обе
+падали), GREEN после; undo*/checkpoint*/rewind* — 32 теста зелёные.
+
+**Гейты:** npm test 1820 тестов (1811 pass, 0 fail, 10 skip), typecheck,
+lint (0 errors, 2 прежних warning), format:check, build, sched-smoke —
+зелёные.
+
+**Коммит:** d31416d, релиз v2.82.85 (db1b5d0).
+
+**Статус:** исправлено (2026-10-24).
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- /undo-list и /checkpoints не печатают `Invalid Date` (2026-10-24).
