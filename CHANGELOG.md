@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.68] - 2026-10-24
+
+### Fixed
+
+- **tools:** do not drop read-only MCP tools from plan mode
+
 ## [2.82.67] - 2026-10-24
 
 ### Fixed
