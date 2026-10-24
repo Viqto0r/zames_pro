@@ -1525,6 +1525,11 @@ export function buildSlashCommandHints(opts: {
   const known = new Set(base.map((c) => c.name.toLowerCase()))
   for (const d of opts.dynamic ?? []) {
     if (known.has(d.name.toLowerCase())) continue
+    // Remember the DYNAMIC name too: two entries that differ only by case
+    // (`/foo` and `/FOO`) were both added, so the operator saw the same
+    // command twice and the second was unreachable (a slash command is
+    // resolved case-insensitively).
+    known.add(d.name.toLowerCase())
     base.push(d)
   }
   return base
