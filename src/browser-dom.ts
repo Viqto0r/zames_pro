@@ -1,4 +1,4 @@
-// Pure in-page DOM helpers extracted from DeepSeekBrowser .
+// Pure in-page DOM helpers extracted from DeepSeekBrowser.
 //
 // Every function here runs INSIDE page.evaluate, so it MUST be fully
 // self-contained: Playwright serializes the function SOURCE and evaluates it in
@@ -78,9 +78,10 @@ export function readMfaAccountInDom(): string {
 }
 
 /**
- * The answer as RENDERED on the page, ALWAYS from the DOM (never the network
- * capture). Reasoning blocks (think class) are skipped and must never be
- * picked up as the answer.
+ * The answer as RENDERED on the page. The freshness checks in `_askOnce` MUST
+ * compare rendered text, not the network capture, so they can see that the DOM
+ * actually changed. Reasoning blocks (think class) are skipped and must never
+ * be picked up as the answer.
  */
 export function readLastAnswerInDom(opts: {
   sels: string[]
@@ -163,10 +164,9 @@ export function continueVisibleCheapInDom(nameRe: string): boolean {
 }
 
 /**
- * Find the Stop button in the DeepSeek UI. We can't rely on the class alone:
- * during generation the send button (the same circle button) changes its icon
- * to a "square" (stop) while keeping the classes, so a square icon (svg rect)
- * also means Stop.
+ * Find the Stop button. The class alone is not enough: during generation the
+ * send button (the same circle button) swaps its icon to a "square" while
+ * keeping its classes, so a square icon (svg rect) also means Stop.
  */
 export function stopButtonVisibleInDom(btnRe: string): boolean {
   const re = new RegExp(btnRe, 'i')
@@ -192,9 +192,10 @@ export function stopButtonVisibleInDom(btnRe: string): boolean {
 }
 
 /**
- * Raw-DOM Stop click with the full pointer/mouse sequence (older builds
- * without a proper role, or a click intercepted by an overlay). Returns true
- * when a square-icon button was found and clicked.
+ * Raw-DOM Stop click with the full pointer/mouse sequence. The label check is
+ * skipped here on purpose — the square-icon button may carry no label at all,
+ * and a plain .click() was swallowed by an overlay. Returns true when a
+ * square-icon button was found and clicked.
  */
 export function clickStopInDom(btnRe: string): boolean {
   const re = new RegExp(btnRe, 'i')
@@ -329,9 +330,8 @@ export function readElementText(el: HTMLElement): string {
 }
 
 /**
- * Lowercased tagName of an element. Runs bound to the element (Playwright's
- * Locator.evaluate), used to tell a native input/textarea from a
- * contenteditable box.
+ * Lowercased tagName of an element, used to tell a native input/textarea from
+ * a contenteditable box. Runs bound to the element.
  */
 export function elementTagNameInDom(el: Element): string {
   return el.tagName.toLowerCase()
@@ -413,7 +413,8 @@ export function submitLoginFormInDom(opts: {
       return true
     }
   }
-  // Fallback: the primary-looking button in the scope.
+  // No labelled submit control matched, so a React-rendered form is the likely
+  // case: click the primary-looking button instead.
   const primary = btns.find((b) => {
     const cls = (b.className || '').toString()
     return /primary|submit|ds-button--primary/i.test(cls)
