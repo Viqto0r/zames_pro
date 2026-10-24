@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.70] - 2026-10-24
+
+### Fixed
+
+- **transcript:** keep a capped line valid JSON so the event is not lost
+
 ## [2.82.69] - 2026-10-24
 
 ### Fixed
