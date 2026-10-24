@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.85] - 2026-10-24
+
+### Fixed
+
+- **undo:** never print Invalid Date in /undo-list and /checkpoints
+
 ## [2.82.84] - 2026-10-24
 
 ### Fixed
