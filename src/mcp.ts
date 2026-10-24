@@ -443,6 +443,11 @@ export function qualifyToolName(server: string, tool: string): string {
 // qualifier is not injective (see the call site), hence this guard. Pure;
 // exported for tests.
 export function dedupeToolNames(tools: Array<{ name: string }>): void {
+  // The rename must avoid EVERY name in the list, not only the ones already
+  // visited: a later tool that already owns `<name>_2` (a server's own `x_2`
+  // tool) was renamed itself, and the model's call to `x_2` then reached the
+  // RENAMED DUPLICATE — the wrong tool.
+  const all = new Set(tools.map((t) => t.name))
   const seen = new Set<string>()
   for (const t of tools) {
     if (!seen.has(t.name)) {
@@ -451,12 +456,16 @@ export function dedupeToolNames(tools: Array<{ name: string }>): void {
     }
     let n = 2
     let candidate = `${t.name}_${n}`
-    while (seen.has(candidate)) {
+    while (seen.has(candidate) || all.has(candidate)) {
       n++
       candidate = `${t.name}_${n}`
     }
+    // The duplicate leaves the pool of ORIGINAL names: its old name belongs to
+    // the first tool of that name.
+    all.delete(t.name)
     t.name = candidate
     seen.add(candidate)
+    all.add(candidate)
   }
 }
 
