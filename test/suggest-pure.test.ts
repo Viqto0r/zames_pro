@@ -69,8 +69,12 @@ test('completeSlashCommand: single match inserts whole', () => {
 
 test('completeSlashCommand: multiple matches complete the common prefix', () => {
   const list = cmds('/status', '/stat')
-  assert.equal(completeSlashCommand('/sta', list, -1), '/stat')
+  // The common prefix here IS a complete command (`/stat`), so the space is
+  // added — the completion is ready for its argument.
+  assert.equal(completeSlashCommand('/sta', list, -1), '/stat ')
   assert.equal(completeSlashCommand('/stat', list, -1), null)
+  const partial = cmds('/help', '/hello')
+  assert.equal(completeSlashCommand('/he', partial, -1), '/hel')
 })
 
 test('completeSlashCommand: no matches -> null', () => {

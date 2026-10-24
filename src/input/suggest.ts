@@ -130,5 +130,13 @@ export function completeSlashCommand(
   // command the operator has not started typing.
   if (typed.length < 2) return null
   if (!prefix.toLowerCase().startsWith(typed)) return null
-  return prefix.length > buf.length ? prefix : null
+  if (prefix.length <= buf.length) return null
+  // The shared prefix may be a COMPLETE command name (`/config` between
+  // `/config` and `/configure`): appending the space makes it ready for its
+  // argument, exactly like a single-match completion. A prefix that only
+  // extends the typed text stays bare.
+  const complete = sugg.some(
+    (c) => c.name.toLowerCase() === prefix.toLowerCase(),
+  )
+  return complete ? prefix + ' ' : prefix
 }
