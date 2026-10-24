@@ -72,9 +72,12 @@ export function formatStatus(
   const oneLine = (v: string): string => String(v ?? '').replace(/\s+/g, ' ')
   lines.push(t('status.goal', { v: s.goal ? oneLine(s.goal) : none }))
   lines.push(t('status.locale', { v: s.localeName }))
-  lines.push(
-    t('status.mcp', { v: s.mcpToolCount === null ? none : s.mcpToolCount }),
-  )
+  // A NEGATIVE tool count is nonsense (a broken MCP server status, a
+  // hand-edited value): "MCP tools: -2" reads like a real measurement, the
+  // same rule the token counter below already follows.
+  const mcpCount =
+    s.mcpToolCount === null || s.mcpToolCount < 0 ? none : s.mcpToolCount
+  lines.push(t('status.mcp', { v: mcpCount }))
   // A NEGATIVE count is nonsense (a broken provider counter): show "unknown"
   // rather than a number that reads like a real measurement.
   const tokens = s.tokenUsage === null || s.tokenUsage < 0 ? null : s.tokenUsage
