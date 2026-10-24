@@ -123,15 +123,11 @@ export function extractAtFileRefs(text: string): string[] {
     }
     let j = i + 1
     let tok = ''
-    // The token is rejected WHOLE when it contains an at-sign that is NOT a
-    // list separator — `@Component` / `user@host` are a decorator and an
-    // email. Trimming the prefix at that at-sign would otherwise inline a
-    // bogus path.
-    let hadInnerAt = false
     // A token that contains an at-sign (`@Component`, `user@host`) is a
-    // decorator / an email, NOT a file reference. The scan used to stop at
-    // that at-sign and hand the PREFIX (`Component` … no) or, worse, the part
-    // BEFORE it to the inliner. Now the whole token is rejected instead.
+    // decorator or an email, NOT a file reference, and the WHOLE token is
+    // rejected: the scan used to stop at that at-sign and hand the part
+    // BEFORE it to the inliner, which inlined a bogus path.
+    let hadInnerAt = false
     const isRef = (t: string): boolean => t.length > 0 && !t.includes('@')
     while (j < n && !isRefEnd(chars[j])) {
       // A COMMA directly followed by another `@` starts the NEXT reference:
@@ -158,12 +154,9 @@ export function extractAtFileRefs(text: string): string[] {
       seen.add(cleaned)
       out.push(cleaned)
     }
-    // The break above leaves `j` ON the comma; step past it so the next `@`
-    // is seen as the start of a reference. When the scan ended on a
-    // terminator instead, continue AFTER it.
-    // The scan stopped ON a separator that split the token (`,`, `;` or a
-    // second at-sign): resume AT it so the next part is scanned as its own
-    // reference. Continuing past it dropped the second file of a list.
+    // The scan may have stopped ON a separator that split the token (`,`, `;`
+    // or a second at-sign): resume AT it so the next part is scanned as its
+    // own reference. Continuing past it dropped the second file of a list.
     const sep = j < n ? chars[j] : ''
     if (j > i + 1 && (sep === ',' || sep === ';' || sep === '@')) i = j
     else i = j > i + 1 ? j : i + 1
