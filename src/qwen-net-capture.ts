@@ -145,6 +145,15 @@ export function extractAnswer(body: string): string {
 // accumulated_token_usage. (`total_tokens` = prompt + answer, so it inflates
 // the number by the answer length; it is only the fallback when input_tokens
 // is absent.) Null when the body carries no usage.
+// A token count is a FINITE NON-NEGATIVE number, the same rule DeepSeek and
+// GLM apply: a negative payload (a nonsense reply, a wrapped `int` in a proxy
+// build) used to become `browser._lastTokenUsage` as-is, so the context badge
+// vanished (tokenStatusLevel rejects a negative count) and the auto-compact
+// percentage went negative and never fired. Treat it as "no usage".
+function isUsageCount(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v) && v >= 0
+}
+
 export function extractTokenUsage(body: string): number | null {
   let lastInput: number | null = null
   let lastTotal: number | null = null
@@ -152,10 +161,8 @@ export function extractTokenUsage(body: string): number | null {
     const usage = (obj as Record<string, unknown>).usage
     if (!usage || typeof usage !== 'object') continue
     const u = usage as Record<string, unknown>
-    if (typeof u.input_tokens === 'number' && Number.isFinite(u.input_tokens))
-      lastInput = u.input_tokens
-    if (typeof u.total_tokens === 'number' && Number.isFinite(u.total_tokens))
-      lastTotal = u.total_tokens
+    if (isUsageCount(u.input_tokens)) lastInput = u.input_tokens
+    if (isUsageCount(u.total_tokens)) lastTotal = u.total_tokens
   }
   if (lastInput !== null) return lastInput
   if (lastTotal !== null) return lastTotal
@@ -164,8 +171,8 @@ export function extractTokenUsage(body: string): number | null {
     const obj = JSON.parse(body) as Record<string, unknown>
     const usage = obj?.usage as Record<string, unknown> | undefined
     if (usage) {
-      if (typeof usage.input_tokens === 'number') return usage.input_tokens
-      if (typeof usage.total_tokens === 'number') return usage.total_tokens
+      if (isUsageCount(usage.input_tokens)) return usage.input_tokens
+      if (isUsageCount(usage.total_tokens)) return usage.total_tokens
     }
   } catch {}
   return null
