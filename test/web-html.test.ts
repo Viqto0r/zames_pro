@@ -64,9 +64,17 @@ test('parseDuckDuckGoResults unwraps the uddg redirect', () => {
 })
 
 test('parseDuckDuckGoResults respects the limit', () => {
-  const one =
-    '<a class="result__a" href="https://a.com">A</a><a class="result__snippet">s</a>'
-  const out = parseDuckDuckGoResults(one.repeat(10), 3)
+  // DISTINCT urls: a repeated URL is collapsed to one result now, so the
+  // limit is exercised with different rows.
+  const rows = Array.from(
+    { length: 10 },
+    (_, i) =>
+      '<a class="result__a" href="https://a' +
+      i +
+      '.com">A</a>' +
+      '<a class="result__snippet">s</a>',
+  ).join('')
+  const out = parseDuckDuckGoResults(rows, 3)
   assert.equal(out.length, 3)
 })
 

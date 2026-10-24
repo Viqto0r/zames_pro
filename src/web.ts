@@ -724,6 +724,9 @@ export function parseDuckDuckGoResults(
     return m ? (m[1] ?? m[2] ?? '') : ''
   }
   let cur: { title: string; url: string; snippet: string } | null = null
+  // The page can repeat the SAME result (a sponsored row mirroring an organic
+  // one): two identical URLs made WebSearch print and cite it twice.
+  const seenUrls = new Set<string>()
   let m: RegExpExecArray | null
   while ((m = anchorRe.exec(body))) {
     const classes = m[1] ?? m[2] ?? ''
@@ -733,8 +736,11 @@ export function parseDuckDuckGoResults(
     const text = m[3] || ''
     if (kind === 'a') {
       if (cur && cur.title && /^https?:\/\//i.test(cur.url)) {
-        results.push(cur)
-        if (results.length >= limit) return results
+        if (!seenUrls.has(cur.url)) {
+          seenUrls.add(cur.url)
+          results.push(cur)
+          if (results.length >= limit) return results
+        }
       }
       cur = { title: htmlToText(text).trim(), url: '', snippet: '' }
       // The href lives in the OPENING tag, which m[0] starts with.
@@ -752,7 +758,15 @@ export function parseDuckDuckGoResults(
     }
     if (cur && !cur.snippet) cur.snippet = htmlToText(text).trim()
   }
-  if (cur && cur.title && /^https?:\/\//i.test(cur.url)) results.push(cur)
+  if (
+    cur &&
+    cur.title &&
+    /^https?:\/\//i.test(cur.url) &&
+    !seenUrls.has(cur.url)
+  ) {
+    seenUrls.add(cur.url)
+    results.push(cur)
+  }
   return results.slice(0, limit)
 }
 
