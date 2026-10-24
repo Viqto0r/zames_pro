@@ -8743,3 +8743,34 @@ lint (0 errors, 2 прежних warning), format:check, build, sched-smoke —
 
 - src/xml-toolcall.ts — экранированная кавычка в атрибуте invoke не режет
   значение (2026-10-24).
+
+### Такт 330 (2026-10-24) — исправлено
+
+**Цель:** вход в браузере — ввод пароля (`askPassword` в src/browser-pure.ts).
+
+**Баг:** тот же класс, что и в promptOnce: Backspace удалял ОДИН UTF-16
+юнит, поэтому после `a` + эмодзи + Backspace в пароле оставался ОДИНОКИЙ
+HIGH-суррогат. Битый code point уходил в форму входа — пароль заведомо не
+совпадал с настоящим. Проверено запуском: результат `"a\ud83d"`.
+
+**Фикс:** Backspace удаляет ЦЕЛЫЙ code point (low surrogate + стоящий перед
+ним high срезаются вместе).
+
+**Тест:** test/ask-password-surrogate.test.ts (Backspace после эмодзи не
+оставляет одинокого суррогата). RED до фикса, GREEN после; browser-pure и
+prompt наборы — 5 тестов зелёные.
+
+**Гейты:** npm test 1800 тестов (1790 pass, 0 fail, 10 skip), typecheck,
+lint (0 errors, 2 прежних warning), format:check, build, sched-smoke —
+зелёные.
+
+**Коммит:** 1fbe4fa, релиз v2.82.76 (e16cda5).
+
+**Статус:** исправлено (2026-10-24).
+
+---
+
+## Покрытые области (не повторять без причины)
+
+- src/browser-pure.ts — Backspace в askPassword удаляет целый code point
+  (2026-10-24).
