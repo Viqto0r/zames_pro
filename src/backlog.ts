@@ -48,11 +48,8 @@ export function parseBacklogNote(note: string): {
       break
     }
   }
-  // A note typed on Windows (or pasted from one) carries CRLF line endings;
-  // the title would keep the trailing `\r` and the heading would get a stray
-  // carriage return.
-  // Normalize BOTH line endings first: a lone `\r` (a classic-Mac paste) is
-  // a line break too, and `body.split(NL)` kept it inside the title.
+  // Normalize CRLF AND a lone `\r` (a classic-Mac paste is a line break too):
+  // left in place, the `\r` stayed in the title and reached the heading.
   const bodyLines = body.split(/\r\n?|\n/).map((l) => l.replace(/\r$/, ''))
   const title = bodyLines[0]
   const rest = bodyLines.slice(1).join(NL).trim()
