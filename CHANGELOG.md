@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.109] - 2026-10-24
+
+### Fixed
+
+- **tui:** a failure phrase inside the output does not mark the call failed
+
 ## [2.82.108] - 2026-10-24
 
 ### Fixed
