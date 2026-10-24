@@ -16,7 +16,9 @@
 //   2. autoLogin() with saved creds     -> done (this is the FIRST step after
 //                                          the probe; credentials are permanent)
 //   3. guest is allowed and no login was requested -> work as a guest
-//   4. not interactive                  -> LoginRequiredError (fast, no window)
+//   4. not interactive                  -> LoginRequiredError (fast, no window,
+//                                          so a cold login fails instead of
+//                                          hanging)
 //   5. no display                       -> fall back to the in-TUI forms
 //   6. headless                         -> relaunchSafe(headed), sign in
 //   7. wait until probeLogin() === 'in' (poll), the operator closes the window
@@ -113,8 +115,9 @@ export async function interactiveBrowserLogin(
   // 4) Non-interactive: fail fast instead of hanging on a window nobody sees.
   if (!deps.interactive) throw new LoginRequiredError(deps.provider)
 
-  // 5) No display: the in-TUI form is the accepted fallback (DESIGN-NOTES
-  //    "Login stays inside the TUI").
+  // 5) No display: the in-TUI form is the accepted fallback — a captcha cannot
+  //    be typed in a terminal, but a password/code form still can. Without one
+  //    there is nothing to offer, so fail like a non-interactive run.
   if (!deps.canShowWindow) {
     if (deps.tuiLogin) {
       const ok = await deps.tuiLogin().catch(() => false)
@@ -165,8 +168,9 @@ async function runHeadedLogin(deps: BrowserLoginDeps): Promise<boolean> {
     if (deps.isAborted()) return false
     const r = await deps.probeLogin().catch(() => 'unknown' as ProbeResult)
     if (r === 'in') return true
-    // A closed window is the operator's "I am done" signal: the browser object
-    // may still hold the session cookies, so verify once more and accept.
+    // A closed window is the operator's "I am done" signal. The session may
+    // have been established while the page was closing, so probe ONCE more —
+    // skipping that probe threw LoginRequiredError on a signed-in operator.
     if (deps.windowClosed()) {
       deps.notice('login.window_closed')
       const again = await deps
