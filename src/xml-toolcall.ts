@@ -36,17 +36,31 @@ function readAttr(attrs: string, name: string): string | null {
 function readAllAttrs(attrs: string): ToolArgs {
   const Q = String.fromCharCode(34)
   const out: ToolArgs = {}
+  // The VALUE may contain an ESCAPED quote (`todos="[{\"content\":\"x\"}]"`):
+  // `[^"]*` stopped at the first one and truncated the argument. Accept a
+  // backslash-escaped quote inside the value, then unescape it.
   const re = new RegExp(
-    '([A-Za-z_][A-Za-z0-9_]*)[ ]*=[ ]*[' + Q + ']([^' + Q + ']*)[' + Q + ']',
+    '([A-Za-z_][A-Za-z0-9_]*)[ ]*=[ ]*[' +
+      Q +
+      ']((?:[^' +
+      Q +
+      '\\\\]|\\\\.)*)[' +
+      Q +
+      ']',
     'g',
   )
   let m: RegExpExecArray | null
   while ((m = re.exec(attrs)) !== null) {
     const key = m[1]
     if (key === 'name') continue
-    if (!(key in out)) out[key] = unescapeXml(m[2])
+    if (!(key in out)) out[key] = unescapeXml(decodeAttrEscapes(m[2]))
   }
   return out
+}
+
+/** Decode the backslash escapes inside an attribute VALUE. */
+function decodeAttrEscapes(s: string): string {
+  return String(s).replace(/\\(.)/g, '$1')
 }
 
 // The model sometimes produces a "hybrid" call: the tool name is an attribute
