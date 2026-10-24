@@ -174,10 +174,9 @@ export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
       startThinking()
     },
 
-    // The agent is waiting out the send-interval pause before a real send.
-    // Show it as an ANIMATED status line with the remaining seconds, so the
-    // spinner keeps moving during the pause (previously a static console line
-    // was printed and the dots stayed frozen).
+    // The agent is waiting out the send-interval pause before a real send: an
+    // ANIMATED status with the remaining seconds, so the spinner keeps moving
+    // (a static line made the pause look frozen).
     sendPause: (seconds: number) => {
       if (pending) return
       const label = translate(localeNow)('spinner.pause', { n: seconds })
