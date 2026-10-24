@@ -155,13 +155,12 @@ function writeIndex({ id, workdir }: { id: string; workdir: string }): void {
   } catch {}
 }
 
-// The last session for the working directory. If there is none —
-// we return the last session overall (useful when launched from a new place).
-// The last session for the working directory, restricted to `provider` when
-// given. A chat id only exists on ITS backend, so restoring a DeepSeek chat
-// while the active provider is Qwen (or vice versa) would fail to open — the
-// filter makes auto-restore and /last pick the right one (and fall back to the
-// global last only within the same provider).
+// The last session for the working directory (the last one overall when the
+// directory has none — useful when launched from a new place), restricted to
+// `provider` when given. A chat id only exists on ITS backend, so restoring a
+// DeepSeek chat while the active provider is Qwen (or vice versa) would fail to
+// open; the filter makes auto-restore and /last pick the right one, and fall
+// back to the global last only within the same provider.
 export function loadLastSession(
   workdir = '',
   provider?: ProviderId,
