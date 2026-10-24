@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.129] - 2026-10-24
+
+### Fixed
+
+- **tui:** a compact token count never renders 1000k or 1000.0M
+
 ## [2.82.128] - 2026-10-24
 
 ### Fixed
