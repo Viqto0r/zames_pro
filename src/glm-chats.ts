@@ -96,8 +96,6 @@ export function scrapeGlmChatMessages(
   return out
 }
 
-// ---------- API payload parsers (pure, unit-tested) ----------
-
 /**
  * Parse `GET /api/v1/chats/?page=1`. The live shape is a BARE ARRAY; older /
  * other builds wrap it in `{data:[...]}` or key it by id. Returns [] for
