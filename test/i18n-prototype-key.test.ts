@@ -3,10 +3,9 @@ import assert from 'node:assert/strict'
 import { translate } from '../src/i18n.js'
 
 // CATALOG is a plain object, so a key that exists on Object.prototype
-// ('toString', 'hasOwnProperty', 'valueOf' …) resolves to a FP�TCTION instead of a
-
-// translation entry. A missing key must fall back to the KEY itself, not to
-// the inherited member.
+// ('toString', 'hasOwnProperty', 'valueOf' ...) resolves to a FUNCTION instead
+// of a translation entry. A missing key must fall back to the KEY itself, not
+// to the inherited member.
 test('translate: an inherited prototype key is not a translation', () => {
   const t = translate('en')
   for (const key of ['toString', 'hasOwnProperty', 'valueOf']) {
