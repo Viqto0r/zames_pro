@@ -4,11 +4,11 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// The CLI parses flags in two places (getPositional's skip-list and the
-// hasFlag/getArg calls) and advertises them in printHelp via help.opt.* keys.
-// This test guards the invariant that every advertised `--flag` is actually
-// recognized, and that the positional parser does not skip a value for a flag
-// that does not exist (the old `--project` bug swallowed its argument).
+// The CLI parses flags in two places (getPositional's SKIP_VALUE_FLAGS list and
+// the hasFlag/getArg calls) and advertises them in printHelp via help.opt.*
+// keys. This test guards the invariant that every advertised `--flag` is
+// actually recognized, and that the positional parser does not skip a value for
+// a flag that does not exist (the old `--project` bug swallowed its argument).
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const src = fs.readFileSync(path.join(root, 'src/index.ts'), 'utf-8')
 // The pure CLI parsing (getArg/hasFlag/getPositional + the value-flag
