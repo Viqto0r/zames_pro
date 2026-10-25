@@ -5,7 +5,7 @@ import path from 'node:path'
 import { loadProjectContext } from '../src/context.ts'
 import { makeTmpDir } from './tmp-dir.ts'
 
-// B6: nested AGENTS.md/MEMORY.md for the directories a task touches. The
+// Nested AGENTS.md/MEMORY.md for the directories a task touches. The
 // touched-path walker starts at the ABSOLUTE path of the token and climbs to
 // the nearest EXISTING DIRECTORY — but it never checks that the resolved token
 // is not a file. A task text like `sub/file.ts` (the normal way to name a file)

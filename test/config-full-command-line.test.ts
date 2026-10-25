@@ -3,13 +3,11 @@ import assert from 'node:assert/strict'
 import { handleConfigCommand } from '../src/config-command.ts'
 import { CONFIG_SCHEMA } from '../src/config.ts'
 
-// `handleConfigCommand` parses with `input.trim().split(/\s+/)` and then reads
-// the SUBCOMMAND from `parts[1]`. The main loop passes the WHOLE typed line
-// (`/config get ui.locale`), so parts[0] is `/config` and parts[1] is the real
-// subcommand — but any caller that passes the text AFTER the command
-// (`get ui.locale`, the form every other parser takes) shifted the split by
-// one: `get` became the subcommand and `ui.locale` … actually worked, while
-// `list`/`path`/`lang` were read as an unknown key.
+// `handleConfigCommand` reads the SUBCOMMAND from `parts[1]`. The main loop
+// passes the WHOLE typed line (`/config get ui.locale`), so parts[0] is
+// `/config` — but a caller that passes only the text AFTER the command
+// (`list`, the form every other parser takes) shifted the split by one and the
+// real subcommand was read as an unknown key. Both spellings are accepted now.
 test('/config list works when the text follows the command name', async () => {
   const lines: string[] = []
   await handleConfigCommand('list', {
