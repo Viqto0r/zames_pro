@@ -1666,9 +1666,21 @@ async function main(): Promise<void> {
   // never bypassing the send throttle). Started lazily on the first job.
   const scheduler = new Scheduler()
   let scheduleTimer: ReturnType<typeof setInterval> | null = null
+  // Ctrl+C on an idle agent EXITS the process. Without this latch a /loop job
+  // whose task was interrupted (and every later fire) would be dropped into
+  // the queue while nobody waits for it, and each tick printed "fired" into a
+  // dying terminal. A loop is meant to outlive a single task, not the agent.
+  let shuttingDown = false
+  const stopScheduleTicker = (): void => {
+    if (scheduleTimer) {
+      clearInterval(scheduleTimer)
+      scheduleTimer = null
+    }
+  }
   const startScheduleTicker = (): void => {
     if (scheduleTimer) return
     scheduleTimer = setInterval(() => {
+      if (shuttingDown) return
       const due = scheduler.due(Date.now())
       for (const job of due) {
         // Do not pile MANY copies of the same job while the agent is busy: if
@@ -1728,6 +1740,8 @@ async function main(): Promise<void> {
 
   process.on('SIGINT', async () => {
     running = false
+    shuttingDown = true
+    stopScheduleTicker()
     // Kill any background processes so no dev-server outlives the agent.
     killAllBackground()
     await browser.close().catch(() => {})
@@ -2193,8 +2207,12 @@ async function main(): Promise<void> {
         }
         lastCtrlCAt = now
       } else {
-        // Not busy — exit. We wake takeInput() so the loop finishes.
+        // Not busy — exit. We wake takeInput() so the loop finishes. The
+        // scheduler must stop too: a live /loop ticker keeps firing into the
+        // queue while the process is shutting down.
         running = false
+        shuttingDown = true
+        stopScheduleTicker()
         if (waiter) {
           const r = waiter
           waiter = null

@@ -94,8 +94,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: 'Ctrl+Shift+V image         paste an image/file (saved to tmp)',
   },
   'help.key.esc': {
-    ru: 'Esc, Ctrl+C              прервать текущую генерацию',
-    en: 'Esc, Ctrl+C               abort current generation',
+    ru: 'Esc, Ctrl+C              Esc — прервать генерацию; Ctrl+C — прервать инструмент, второй раз — весь прогон',
+    en: 'Esc, Ctrl+C               Esc — abort generation; Ctrl+C — abort the tool, twice — the whole run',
   },
   'help.key.scroll': {
     ru: 'PgUp / PgDn              вверх/вниз по диалогу (Home/End — в начало/конец) [full-screen]',
