@@ -20,7 +20,7 @@ LLM-friendly map of the project. Everything below is plain Markdown.
 - **Supported backends:** DeepSeek (`chat.deepseek.com`, default), Qwen
   (`chat.qwen.ai`), GLM (`chat.z.ai`). Live switch with
   `/provider <deepseek|qwen|glm>`; each backend keeps its own browser profile.
-- **Language / stack:** TypeScript (strict), Node.js >= 20, Playwright,
+- **Language / stack:** TypeScript (strict), Node.js >= 22, Playwright,
   Ink/React TUI, MCP client.
 - **License:** MIT. **Not affiliated** with DeepSeek, Alibaba or Zhipu AI.
 

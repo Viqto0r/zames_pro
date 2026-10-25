@@ -132,7 +132,7 @@ Key pieces:
 
 ## Requirements
 
-- Node.js >= 20
+- Node.js >= 22
 - An account on the chat you want to use — **DeepSeek** (`chat.deepseek.com`,
   the default), **Qwen** (`chat.qwen.ai`) or **GLM** (`chat.z.ai`). Qwen also
   works in guest mode for a few messages. On first launch zames asks for your login in the terminal
@@ -629,7 +629,7 @@ signed-in browser profile.
 **How do I install a terminal AI coding agent?**
 
 ```bash
-npm install -g zames_pro   # Node.js >= 20; Chromium is fetched automatically
+npm install -g zames_pro   # Node.js >= 22; Chromium is fetched automatically
 cd your-project
 zames
 ```

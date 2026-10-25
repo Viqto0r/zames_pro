@@ -13,7 +13,7 @@
   <a href="https://www.npmjs.com/package/zames_pro"><img src="https://img.shields.io/npm/dm/zames_pro.svg" alt="npm downloads"></a>
   <a href="https://github.com/Viqto0r/zames_pro/actions/workflows/test.yml"><img src="https://github.com/Viqto0r/zames_pro/actions/workflows/test.yml/badge.svg" alt="tests"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
-  <a href="package.json"><img src="https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg" alt="Node.js"></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg" alt="Node.js"></a>
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-strict-3178c6.svg" alt="TypeScript"></a>
   <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs welcome"></a>
 </p>
@@ -146,7 +146,7 @@ Key pieces:
 
 ## Requirements
 
-- Node.js >= 20
+- Node.js >= 22
 - An account on the chat you want to use — **DeepSeek** (`chat.deepseek.com`,
   the default), **Qwen** (`chat.qwen.ai`) or **GLM** (`chat.z.ai`). Qwen also
   works in guest mode for a few messages. On first launch zames asks for your login in the terminal
@@ -643,7 +643,7 @@ signed-in browser profile.
 **How do I install a terminal AI coding agent?**
 
 ```bash
-npm install -g zames_pro   # Node.js >= 20; Chromium is fetched automatically
+npm install -g zames_pro   # Node.js >= 22; Chromium is fetched automatically
 cd your-project
 zames
 ```
