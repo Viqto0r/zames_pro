@@ -1,6 +1,8 @@
 // Unit tests for the fenced-code-block extractor (src/code-blocks.ts).
-// Used to make a code block copyable in the TUI: the RAW fence text must be
-// recovered from the Markdown answer, not the ANSI-highlighted render.
+// The RAW fence text must be recovered from the Markdown answer, not the
+// ANSI-highlighted render. Nothing in src/ calls the extractor today (the
+// Ctrl+Y / /copy-code feature was removed); it is kept as a pure helper, so
+// these tests are its only consumer.
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

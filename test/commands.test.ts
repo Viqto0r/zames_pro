@@ -537,7 +537,7 @@ test('parseAssistantToolCall returns the tool name and the message', () => {
   assert.equal(parseAssistantToolCall('просто текст'), null)
 })
 
-// ---------- B7: custom-command arguments ----------
+// ---------- custom-command arguments ----------
 
 test('splitCommandArgs splits on spaces and honors quotes', () => {
   assert.deepEqual(splitCommandArgs('a b c'), ['a', 'b', 'c'])
