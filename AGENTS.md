@@ -66,12 +66,12 @@ data entry plus its own modules.
 
 `/provider <id>` switches LIVE: it closes the current backend and builds +
 launches the other one IN PLACE (`createProviderBrowser()` in `index.ts`, the
-ONE factory used at startup too), so no restart is needed. The two providers
-use SEPARATE browser profiles (`~/.zames/profile` vs `~/.zames/qwen-profile`),
-so switching never signs the other one out. A chat id belongs to ONE backend,
-so the new provider opens a FRESH chat; if the old chat had messages they are
-summarized and posted as a handoff with the next task, while an EMPTY chat is
-switched silently (no useless "please compact" message).
+ONE factory used at startup too), so no restart is needed. Each provider has
+its OWN browser profile (`~/.zames/profile`, `~/.zames/qwen-profile`,
+`~/.zames/glm-profile`), so switching never signs the other one out. A chat id
+belongs to ONE backend, so the new provider opens a FRESH chat; if the old chat
+had messages they are summarized and posted as a handoff with the next task,
+while an EMPTY chat is switched silently (no useless "please compact" message).
 
 It runs in the project directory (`process.cwd()`), which is the sandbox
 root: tools cannot read/write above it.
