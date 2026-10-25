@@ -58,7 +58,6 @@ test('маркеры image/file попадают в текст сообщени�
     size: img.data.length,
   })
   assert.equal(att.marker, '[image#1]')
-  // simulate the input line containing the marker plus user text
   const line = 'посмотри на это ' + att.marker + ' что тут?'
   assert.ok(line.includes('[image#1]'))
   assert.equal(store.items[0].path, p)
