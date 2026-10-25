@@ -1,9 +1,9 @@
 # Design notes — why the hard parts are the way they are
 
-Moved out of AGENTS.md (see BACKLOG C2): the deep root-cause write-ups and
-browser/terminal mechanics. AGENTS.md keeps the ACTING rules plus a short
-summary with a pointer here. Read this file when you touch the matching
-module; it is NOT injected into every task.
+Moved out of AGENTS.md to keep it lean (progressive disclosure): the deep
+root-cause write-ups and browser/terminal mechanics. AGENTS.md keeps the
+ACTING rules plus a short summary with a pointer here. Read this file when
+you touch the matching module; it is NOT injected into every task.
 
 ---
 
@@ -525,7 +525,8 @@ every row below it (the inline caret landed on the bottom border).
 
 ### Multi-line keys: LF is NOT `key.return`
 
-Ink maps CR (``) to `key.return` but LF (`
+Ink maps CR (`
+`) to `key.return` but LF (`
 `, which is Ctrl+J) to
 `name='enter'` — and `key.ctrl` stays FALSE, and the public `Key` type does not
 expose `name`. A Ctrl+J binding that matched `input='j' && key.ctrl` therefore
