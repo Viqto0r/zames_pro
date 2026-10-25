@@ -6,8 +6,9 @@ import {
   tidyFragmentText,
 } from '../src/browser-chats.ts'
 
-// C3: the history-payload parsing was copy-pasted inline twice in
-// fetchChatMessages; it now lives in one pure module.
+// The history-payload parsing was copy-pasted inline twice inside
+// fetchChatMessages; it now lives in this one pure module, so a fix (e.g. a new
+// fragment type) cannot land in one copy and miss the other.
 
 test('parseHistoryMessages keeps RESPONSE for assistant and REQUEST for user', () => {
   const { list } = parseHistoryMessages([

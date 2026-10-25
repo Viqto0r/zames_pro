@@ -240,11 +240,12 @@ test('loginIsInteractive rejects one-shot, scheduled and non-TTY runs', () => {
   )
 })
 
-test('classifyLoginProbe: the input field alone never means signed in', () => {
+test('classifyLoginProbe maps the page signals to in/out/challenge', () => {
   assert.equal(classifyLoginProbe({ role: 'user' }), 'in')
   // A guest with no sign-in control is a GUEST SESSION (it is not logged in,
   // but the guest limit, not a login, is what the caller needs to know).
   assert.equal(classifyLoginProbe({ role: 'guest' }), 'in')
+  // With a sign-in control on the page the guest has NOT signed in yet.
   assert.equal(
     classifyLoginProbe({ role: 'guest', signInVisible: true }),
     'out',

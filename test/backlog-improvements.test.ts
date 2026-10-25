@@ -53,8 +53,8 @@ test('writeJsonAtomic пишет валидный JSON с переводом с�
 })
 
 test('writeFileAtomic creates the file with 0o600 permissions', async (t) => {
-  // N22: config.json holds the browser password in clear text, so the file
-  // must not be world-readable (default umask would give 0644).
+  // config.json holds the browser password in clear text, so the file must
+  // not be world-readable (default umask would give 0644).
   if (process.platform === 'win32') return
   const dir = tmpDir(t)
   const file = path.join(dir, 'secret.json')

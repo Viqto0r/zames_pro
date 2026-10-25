@@ -3,9 +3,10 @@ import assert from 'node:assert/strict'
 import * as pure from '../src/browser-pure.ts'
 import * as browser from '../src/browser.ts'
 
-// C3: the pure, state-free helpers were extracted from browser.ts into
+// The pure, state-free helpers were extracted from browser.ts into
 // browser-pure.ts. browser.ts must RE-EXPORT them unchanged, so every existing
-// importer (agent-loop, index, tests) keeps working and gets the SAME binding.
+// importer (agent-loop, index, tests) keeps working and gets the SAME binding;
+// a copy instead of a re-export would silently drift from the original.
 
 test('browser.ts re-exports the pure helpers by identity', () => {
   const names = [
