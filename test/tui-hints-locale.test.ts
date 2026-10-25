@@ -16,7 +16,8 @@ const HINT_PAIR = /\[\s*'([^']*)'\s*,\s*'([^']*)'\s*\]/g
 function cyrillicLabels(source: string): string[] {
   const out: string[] = []
   for (const m of source.matchAll(HINT_PAIR)) {
-    // Only the LABEL is checked: a key could be a foreign letter (e.g. 'д' for the russian "yes"), but that is a key, not prose.
+    // Only the LABEL is checked: a key could be a foreign letter (e.g. `д`
+    // for a Russian "yes"), but that is a key, not prose.
     if (CYRILLIC.test(m[2])) out.push(m[2])
   }
   return out
