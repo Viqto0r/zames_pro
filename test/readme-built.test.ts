@@ -47,7 +47,7 @@ test('the folded Russian block is inside README.md (readable on npm)', () => {
 
 test('only README.md is generated (no second readme file)', () => {
   const distRu = fs.existsSync(path.join(root, 'README.ru.md'))
-  assert.equal(distRu, false, 'README.ru.md must not exist anymore')
+  assert.equal(distRu, false, 'README.ru.md must not exist: npm would not show it')
 })
 
 test('the switcher links to the in-page anchor', () => {
