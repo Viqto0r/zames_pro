@@ -67,7 +67,6 @@ function fakePage(visible: Set<string>) {
 test('awaitUploadPreview returns as soon as a name is visible', async () => {
   const page = fakePage(new Set(['file.png']))
   await awaitUploadPreview(page as never, ['file.png'], 5000)
-  // It returned immediately: no time was spent.
   assert.equal(page._now, 0)
 })
 

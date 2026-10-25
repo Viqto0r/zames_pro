@@ -32,7 +32,7 @@ test('isWsl на этой машине возвращает boolean', () => {
 })
 
 test('readWindowsClipboardFiles вне WSL возвращает []', () => {
-  // This test runs on Linux CI (not WSL), so it must be a safe empty array.
+  // Off WSL there is no Windows clipboard, so an empty array is the answer.
   const res = readWindowsClipboardFiles()
   assert.ok(Array.isArray(res))
 })
