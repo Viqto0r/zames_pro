@@ -792,6 +792,23 @@ toggles such as browser.auth.* must not leak into git and change defaults
 for other users; .zamesrc.json is ignored by git for the same reason).
 Writing does not freeze defaults into the file. After a change the runtime
 config object is updated - the value takes effect immediately.
+
+### Precedence trap: a project `.zamesrc.json` beats the home config
+
+`loadConfig()` merges `~/.zames/config.json` and then `cwd/.zamesrc.json`, so a
+key present in BOTH is decided by the PROJECT file while `/config set` writes
+only the HOME one. The write reports success, the value applies live, and the
+next launch silently reads the old one — the real "`/config lang ru` does not
+survive a restart, English again" bug (a stale `.zamesrc.json` with
+`ui.locale: en`, gitignored and therefore invisible to `git status`).
+
+`overriddenKeys(home, project)` (PURE, `src/config.ts`) lists the clashing
+leaf paths; `loadConfig()` stores them in `shadowedConfigKeys()`. `index.ts`
+prints a warning at startup and the `/config set|lang` dispatcher
+(`config-command.ts`, `shadowedKeys` dep) prints `cfg.shadowed` right after the
+save. Do not "fix" this by writing to the project file — see the paragraph
+above for why it must stay personal. Tests: `test/config-shadowed-keys.test.ts`,
+`test/config-command.test.ts`.
 (the section interface), an entry to `CONFIG_SCHEMA` (with `labelKey`/`groupKey`)
 and the corresponding keys to the i18n `CATALOG`. Do not add secrets and values
 that require a restart (transcript.dir, browserChannel) to the schema.

@@ -253,6 +253,13 @@ export const configMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Язык переключён на {v}.',
     en: 'Language switched to {v}.',
   },
+  // The project `.zamesrc.json` is merged AFTER the home config, so a key it
+  // also sets silently wins — the operator sees "saved", then the old value
+  // after a restart (a stale `ui.locale: en` looked like a lost setting).
+  'cfg.shadowed': {
+    ru: '⚠ Проектный конфиг {file} переопределяет: {keys} — после перезапуска будет его значение. Уберите эти ключи из проектного файла.',
+    en: '⚠ The project config {file} overrides: {keys} — after a restart its value wins. Remove these keys from the project file.',
+  },
   'cfg.lang_usage': {
     ru: 'Использование: /config lang <ru|en>',
     en: 'Usage: /config lang <ru|en>',

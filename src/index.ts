@@ -67,6 +67,7 @@ import {
   writeConfigValue,
   resetConfigValue,
   providerAskDeadlineMs,
+  shadowedConfigKeys,
   type ConfigField,
 } from './config.js'
 import { runConfigMenu } from './config-menu.js'
@@ -243,6 +244,22 @@ let currentLocale: Locale = isLocale(config.ui?.locale)
 // effect immediately, without a restart (for lines printed afterwards).
 const t = (key: string, params?: Record<string, string | number>): string =>
   translate(currentLocale)(key, params)
+
+// A project `.zamesrc.json` wins over the HOME config, so a key it ALSO sets
+// silently defeats `/config set` — the value looks saved and comes back stale
+// after a restart (the reported "language resets to English" case). Say it at
+// startup, before a task, instead of letting the operator hunt for it.
+const shadowedAtStartup = shadowedConfigKeys()
+if (shadowedAtStartup.length) {
+  console.error(
+    theme.warn(
+      t('cfg.shadowed', {
+        file: CONFIG_PATHS.PROJECT_CONFIG,
+        keys: shadowedAtStartup.join(', '),
+      }),
+    ),
+  )
+}
 
 // Headless is the default. --headed forces a visible window (useful for the
 // first sign-in or debugging the DOM). --headless keeps it explicit.
@@ -2532,6 +2549,7 @@ async function main(): Promise<void> {
       schema: CONFIG_SCHEMA,
       homeConfigPath: CONFIG_PATHS.HOME_CONFIG,
       projectConfigPath: CONFIG_PATHS.PROJECT_CONFIG,
+      shadowedKeys: shadowedConfigKeys,
     })
   }
 

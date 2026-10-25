@@ -38,6 +38,12 @@ export interface ConfigCommandDeps {
   /** Config file paths shown by `/config path` and the saved line. */
   homeConfigPath: string
   projectConfigPath: string
+  /**
+   * Keys the PROJECT config file overrides (`shadowedConfigKeys()`), read live
+   * so a warning appears right after the write that made the clash visible.
+   * Optional: a missing callback means "no clash known" (test doubles).
+   */
+  shadowedKeys?: () => string[]
 }
 
 /**
@@ -63,8 +69,26 @@ export async function handleConfigCommand(
     localeDisplayName,
     homeConfigPath,
     projectConfigPath,
+    shadowedKeys,
   } = deps
   const schema = deps.schema
+
+  // A HOME write is not always the value the next launch reads: the project
+  // `.zamesrc.json` is merged last, so a key present in both wins from the
+  // project file. Without this line the operator saw "saved" and then the OLD
+  // value after a restart (the stale `ui.locale: en` bug).
+  const warnShadowed = (key: string): void => {
+    if (!shadowedKeys) return
+    if (!shadowedKeys().includes(key)) return
+    printErr(
+      theme.warn(
+        t('cfg.shadowed', {
+          file: projectConfigPath,
+          keys: key,
+        }),
+      ),
+    )
+  }
   // Accept BOTH spellings: the main loop passes the whole typed line
   // (`/config get ui.locale`), while tests and other callers pass the text
   // after the command (`get ui.locale`). Reading parts[1] blindly made the
@@ -118,6 +142,7 @@ export async function handleConfigCommand(
       return
     }
     print(theme.assistant(t('cfg.lang_set', { v: localeDisplayName(loc) })))
+    warnShadowed('ui.locale')
     return
   }
 
@@ -176,6 +201,7 @@ export async function handleConfigCommand(
         }),
       ),
     )
+    warnShadowed(key)
     return
   }
 

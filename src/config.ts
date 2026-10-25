@@ -176,18 +176,80 @@ export const DEFAULTS: ZamesConfig = {
 
 export function loadConfig(): ZamesConfig {
   const merged = JSON.parse(JSON.stringify(DEFAULTS)) as ZamesConfig
-  for (const file of [HOME_CONFIG, projectConfigPath()]) {
-    try {
-      const data = JSON.parse(fs.readFileSync(file, 'utf-8'))
-      deepMerge(merged as unknown as Record<string, unknown>, data)
-    } catch (e) {
-      const err = e as NodeJS.ErrnoException
-      if (err.code !== 'ENOENT') {
-        console.error(`config: failed to read ${file}: ${err.message}`)
+  // Keys the PROJECT file overrides in the HOME file. Kept so the editor can
+  // say "your change was saved but the project file still wins" — a live
+  // symptom was `/config lang ru` answering "saved", then English after a
+  // restart, because a stale project `.zamesrc.json` pinned `ui.locale: en`.
+  shadowedKeys = []
+  const homeData = readConfigObject(HOME_CONFIG)
+  const projectData = readConfigObject(projectConfigPath())
+  if (projectData) {
+    shadowedKeys = overriddenKeys(homeData, projectData)
+  }
+  for (const data of [homeData, projectData]) {
+    if (!data) continue
+    deepMerge(merged as unknown as Record<string, unknown>, data)
+  }
+  return merged
+}
+
+/** Keys the lower-priority file also sets, from the last loadConfig(). */
+let shadowedKeys: string[] = []
+
+export function shadowedConfigKeys(): string[] {
+  return shadowedKeys.slice()
+}
+
+/**
+ * Every leaf path ("ui.locale", "browser.auth.username") present in BOTH
+ * objects — i.e. a value the PROJECT config overrides over the HOME one.
+ * PURE so the precedence puzzle can be tested without touching the disk.
+ */
+export function overriddenKeys(
+  lower: Record<string, unknown> | null,
+  higher: Record<string, unknown> | null,
+): string[] {
+  if (!lower || !higher) return []
+  const out: string[] = []
+  const walk = (
+    a: Record<string, unknown>,
+    b: Record<string, unknown>,
+    prefix: string,
+  ): void => {
+    for (const key of Object.keys(b)) {
+      if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+        continue
+      }
+      const path2 = prefix ? prefix + '.' + key : key
+      const av = a[key]
+      const bv = b[key]
+      if (isPlainObject(av) && isPlainObject(bv)) {
+        walk(av, bv, path2)
+      } else if (av !== undefined && !isPlainObject(bv)) {
+        out.push(path2)
       }
     }
   }
-  return merged
+  walk(lower, higher, '')
+  return out.sort()
+}
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === 'object' && !Array.isArray(v)
+}
+
+/** Parse one config file; null when it is missing or unreadable. */
+function readConfigObject(file: string): Record<string, unknown> | null {
+  try {
+    const data = JSON.parse(fs.readFileSync(file, 'utf-8'))
+    return isPlainObject(data) ? data : null
+  } catch (e) {
+    const err = e as NodeJS.ErrnoException
+    if (err.code !== 'ENOENT') {
+      console.error(`config: failed to read ${file}: ${err.message}`)
+    }
+    return null
+  }
 }
 
 // The agent-loop watchdog deadline per provider. The loop default (240s) is

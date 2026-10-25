@@ -174,3 +174,33 @@ test('reset write error is surfaced', async () => {
   assert.equal(errors.length, 1)
   assert.ok(plain(errors[0]).includes('disk full'))
 })
+
+test('a project override is called out after the write', async () => {
+  const { deps, printed, errors } = makeDeps({
+    shadowedKeys: () => ['ui.locale'],
+  })
+  await handleConfigCommand('/config lang en', deps)
+  // The save confirmation stays the only normal line and the warning goes to
+  // stderr, so the two channels never interleave in a redirected run.
+  assert.equal(printed.length, 1)
+  assert.equal(errors.length, 1)
+  const warn = plain(errors[0])
+  assert.ok(warn.includes('ui.locale'), warn)
+  assert.ok(warn.includes('/proj/.zamesrc.json'), warn)
+})
+
+test('/config set warns only for the key the project overrides', async () => {
+  // Undo is not in the project file: the usual "Saved" line must not carry a
+  // warning that would send the operator hunting for a clash that is not there.
+  const { deps, errors } = makeDeps({ shadowedKeys: () => ['ui.locale'] })
+  await handleConfigCommand('/config set undo.enabled true', deps)
+  assert.equal(errors.length, 0)
+})
+
+test('no shadowedKeys callback means no warning (test doubles)', async () => {
+  // The dependency is optional, so a caller that never loaded a config (a
+  // test double, a future embedding) keeps the old silent behavior.
+  const { deps, errors } = makeDeps()
+  await handleConfigCommand('/config lang en', deps)
+  assert.equal(errors.length, 0)
+})
