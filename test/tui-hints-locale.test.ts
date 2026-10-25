@@ -5,12 +5,18 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 // The Ink dialogs (SelectList / ConfigMenu / ConfirmDialog) render their
-// key-hint bar on every screen, but the labels were hardcoded Russian ("выбор", "отмена"). An operator running the English UI saw a Russian hint bar and a translator had no way to fix it. The project rule is strict: operator text goes through the i18n CATALOG, and english builds of the dialogs must not contain Cyrillic. This guard reads the actual component sources and checks every HintBar hint label.
+// key-hint bar on every screen, but the labels used to be hardcoded Russian
+// ("выбор", "отмена"): an English-UI operator saw a Russian hint bar and a
+// translator had no way to fix it. Operator text must go through the i18n
+// CATALOG, so this guard reads the actual component sources and checks every
+// HintBar label.
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const CYRILLIC = /[\u0400-\u04FF]/
 
-// A pair like ['↓',',"выбор"] inside a component's `hints={[...]}` literal. The label is the SECOND string of the pair; a key like 'Enter' is ASCII and never flagged.
+// A pair like ['↓', '"выбор"'] inside a component's `hints={[...]}` literal.
+// The label is the SECOND string of the pair; a key like 'Enter' is ASCII and
+// is never flagged.
 const HINT_PAIR = /\[\s*'([^']*)'\s*,\s*'([^']*)'\s*\]/g
 
 function cyrillicLabels(source: string): string[] {
