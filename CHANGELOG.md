@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.140] - 2026-10-25
+
+### Fixed
+
+- **scheduler:** stop the ticker on exit; correct the abort help line
+- **config:** say when a project config overrides the home one
+
 ## [2.82.139] - 2026-10-25
 
 ### Changed
