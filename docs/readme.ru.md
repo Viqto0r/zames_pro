@@ -392,10 +392,12 @@ zames --task "..." --output-format jsonl \
 
 ## Слэш-команды
 
-Введите / в промпте для подсказок (Tab дополняет). Кроме команд сессии и
-конфига (/new, /chats, /resume, /cd, /status, /config, /undo, /transcript,
-/mcp, /skills, /memory, /init, /reload, /debug-dom, /help, /exit) есть
-несколько в духе Claude Code / Codex CLI:
+Введите / в промпте для подсказок (Tab дополняет) — этот список всегда полный,
+а `/help <команда>` описывает любую одну из них. Кроме команд сессии и конфига
+(/new или /clear, /sessions, /chats, /resume-id, /last, /chat, /cd, /pwd,
+/status, /config, /undo, /undo-list, /rewind, /rewind-list, /transcript,
+/tasks, /mcp, /skills, /memory, /remember, /init, /reload, /debug-dom, /help,
+/exit) есть несколько в духе Claude Code / Codex CLI:
 
 - /diff [--staged] — показать git-диф рабочего дерева (--staged для индекса).
 - /diffstat — сводка изменений одной строкой (`git diff --stat`).

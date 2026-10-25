@@ -383,11 +383,12 @@ All file tools stay inside the working directory (sandbox). `Write`/`Edit` and
 
 ## Slash commands
 
-Type / in the prompt for hints (Tab completes). Besides the session and
-config commands (/new, /chats, /resume, /cd, /status, /config,
-/undo, /transcript, /mcp, /skills, /memory, /init, /reload,
-/debug-dom, /help, /exit) there are a few that mirror Claude Code /
-Codex CLI:
+Type / in the prompt for hints (Tab completes) — that list is always complete,
+`/help <command>` describes any single one. Besides the session and config
+commands (/new or /clear, /sessions, /chats, /resume-id, /last, /chat, /cd,
+/pwd, /status, /config, /undo, /undo-list, /rewind, /rewind-list, /transcript,
+/tasks, /mcp, /skills, /memory, /remember, /init, /reload, /debug-dom, /help,
+/exit) there are a few that mirror Claude Code / Codex CLI:
 
 - /diff [--staged] — show the working-tree git diff (--staged for the index).
 - /diffstat — a one-line change summary (`git diff --stat`).
