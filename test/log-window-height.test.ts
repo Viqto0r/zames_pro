@@ -19,10 +19,10 @@ test('never picks more rows than the viewport height', () => {
   }
 })
 
-// THE REAL BUG (this test is RED on the old code): the old check counted the
-// FULL height of a tall entry and demanded a free row (`picked.length > 0`),
-// so scrolling INSIDE one returned NOTHING and the pane went blank while the
-// operator scrolled a long answer. The pane clips a tall entry to its tail.
+// The old check counted the FULL height of a tall entry and demanded a free
+// row (`picked.length > 0`), so scrolling INSIDE one returned NOTHING and the
+// pane went blank while the operator scrolled a long answer. The pane clips a
+// tall entry to its tail instead.
 test('scrolling inside a tall entry never blanks the pane', () => {
   const all = [rows(10)]
   for (let scroll = 0; scroll < 10; scroll++) {

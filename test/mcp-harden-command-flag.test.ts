@@ -7,12 +7,10 @@ import { hardenPlaywrightArgs } from '../src/mcp.ts'
 // SEPARATE value (the documented way to keep the MCP browser apart) must not
 // get a second profile flag: two `--user-data-dir` values make the server use
 // one of them unpredictably, and `--isolated` together with a profile is
-// contradictory (in-memory vs on-disk). The check looked for the flag only at
-// the exact `args` entries — the common `--user-data-dir` `<path>` split form
-// (flag and value as TWO entries) is matched, but a flag glued to its value in
-// a single argument with `=` is what the test pins; the real gap is that the
-// guard never inspects the COMMAND itself when a user passes the profile via a
-// wrapper (e.g. `npx --user-data-dir=/x @playwright/mcp`).
+// contradictory (in-memory vs on-disk). Both spellings must count: the flag and
+// its value as TWO args, and the flag glued to the value with `=` INSIDE the
+// command string (a wrapper such as
+// `npx --user-data-dir=/x @playwright/mcp`), which the guard used to miss.
 test('a profile flag inside the command is respected', () => {
   const args = hardenPlaywrightArgs(
     'npx --user-data-dir=/tmp/mcp-profile @playwright/mcp@1.2.3',
