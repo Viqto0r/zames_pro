@@ -188,8 +188,17 @@ fs.writeFileSync(
   ),
 )
 
-// 7. Commit + tag. The push is intentionally NOT done here.
-git(['add', 'package.json', 'CHANGELOG.md'])
+// 7. Bump CITATION.cff too: GitHub reads the citation from the DEFAULT
+// branch, so a stale version there advertises the wrong release. Only the
+// version line is touched.
+const citePath = path.join(root, 'CITATION.cff')
+if (fs.existsSync(citePath)) {
+  const cite = fs.readFileSync(citePath, 'utf-8')
+  fs.writeFileSync(citePath, cite.replace(/^version: .*$/m, 'version: ' + next))
+}
+
+// 8. Commit + tag. The push is intentionally NOT done here.
+git(['add', 'package.json', 'CHANGELOG.md', 'CITATION.cff'])
 git(['commit', '-m', 'chore: release ' + next])
 git(['tag', tag])
 
