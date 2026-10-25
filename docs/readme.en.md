@@ -113,7 +113,8 @@ Key pieces:
 
 - **Tools like Claude Code / Codex** — `Read`, `Write`, `Edit`, `Bash`,
   `Glob`, `Grep`, plus `MultiEdit`, `ApplyPatch`, `LS`, `TodoWrite`, git and web
-  tools. Every edit is backed by `/undo`.
+  tools. Every edit is backed by `/undo`, and `/rewind` restores the whole
+  working tree from a checkpoint.
 - **Runs while you keep typing** — queue messages during a task; they run right
   after it, in the same chat (like typing during generation on the web).
 - **Plan mode** — `/plan` (or `--plan`) drops all mutating tools, so the agent

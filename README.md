@@ -115,7 +115,8 @@ Key pieces:
 
 - **Tools like Claude Code / Codex** — `Read`, `Write`, `Edit`, `Bash`,
   `Glob`, `Grep`, plus `MultiEdit`, `ApplyPatch`, `LS`, `TodoWrite`, git and web
-  tools. Every edit is backed by `/undo`.
+  tools. Every edit is backed by `/undo`, and `/rewind` restores the whole
+  working tree from a checkpoint.
 - **Runs while you keep typing** — queue messages during a task; they run right
   after it, in the same chat (like typing during generation on the web).
 - **Plan mode** — `/plan` (or `--plan`) drops all mutating tools, so the agent
@@ -807,7 +808,8 @@ zames не вызывает API модели. Он запускает headless C
 
 - **Инструменты как в Claude Code / Codex** — `Read`, `Write`, `Edit`, `Bash`,
   `Glob`, `Grep`, плюс `MultiEdit`, `ApplyPatch`, `LS`, `TodoWrite`, git- и
-  веб-инструменты. Каждая правка подкреплена `/undo`.
+  веб-инструменты. Каждая правка подкреплена `/undo`, а `/rewind` возвращает
+  всё рабочее дерево к чекпойнту.
 - **Работает, пока вы печатаете** — сообщения, набранные во время задачи,
   встают в очередь и уходят сразу после неё, в тот же чат (как набор текста
   во время генерации на сайте).
