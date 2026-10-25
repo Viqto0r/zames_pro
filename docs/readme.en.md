@@ -228,10 +228,10 @@ Notes:
   solved programmatically). zames therefore launches GLM headed by default and
   prints a note about it; `--headless` still forces headless (sends will hit
   the captcha). `--headed` is accepted everywhere.
-- **Send telemetry**: every send is recorded in
+- **Send telemetry** (off by default): when enabled, every send is recorded in
   `~/.zames/logs/sends-<provider>.jsonl` (timing, mode flags, the outcome and
-  the server error — never the prompt or the answer). Turn it off with
-  `/config set browser.sendTelemetry false`. `/limits` shows the recent sends
+  the server error — never the prompt or the answer). Turn it on with
+  `/config set browser.sendTelemetry true`. `/limits` shows the recent sends
   and the current pause. GLM additionally uses an **adaptive pause**: it starts
   at 0 and backs off from a REAL rate limit.
 - **Warning**: automating a web chat may violate the service's terms of use and
@@ -293,11 +293,11 @@ The prompt is a small line editor with persistent history:
 Full-screen mode adds dialog navigation, so a long answer can be read and
 selected without leaving the terminal:
 
-- `ui.mouseScroll=false` (default) — the terminal owns the mouse: normal text
-  selection works and the wheel is inert (it never scrolls the input history —
-  history is arrow keys only).
-- `ui.mouseScroll=true` — the app consumes the wheel and scrolls the dialog;
-  selecting text then needs `Shift`+click (the TUI convention).
+- `ui.mouseScroll=true` (default) — the app consumes the wheel and scrolls the
+  dialog; selecting text then needs `Shift`+click (the TUI convention). The
+  wheel never scrolls the input history — history is arrow keys only.
+- `ui.mouseScroll=false` — the terminal owns the mouse again: normal text
+  selection works and the wheel is inert.
 - `PgUp` / `PgDn` — move up/down the dialog half a screen.
 - `Home` / `End` — jump to the very top / bottom of the dialog (only while the
   input line is empty; with text typed they move the caret as usual).
@@ -585,8 +585,9 @@ Examples:
 /config lang en
 ```
 
-Changes are written to the project `.zamesrc.json` and applied right away
-(where possible without a restart).
+Changes are written to the HOME config (`~/.zames/config.json`), NOT to the
+project `.zamesrc.json` — a personal toggle must not leak into git — and applied
+right away (where possible without a restart).
 
 ### Language
 
