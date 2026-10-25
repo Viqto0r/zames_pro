@@ -367,15 +367,19 @@ zames --task "..." --output-format jsonl \
 
 The agent has the same style of tools as Claude Code / Codex CLI:
 
-- **File tools** — `Read`, `Write`, `Edit`, `Bash`, `Glob`, `Grep`. `Read`
-  returns raw content by default; pass `numbered=true` to get `cat -n`-style
-  line numbers (for reference only — do not paste them into `Edit`).
+- **File tools** — `Read`, `Write`, `Edit`, `Bash`, `BashOutput`, `Glob`,
+  `Grep`. `Read` returns raw content by default; pass `numbered=true` to get
+  `cat -n`-style line numbers (for reference only — do not paste them into
+  `Edit`). `Bash` takes `run_in_background`; `BashOutput` then polls or kills
+  that process.
 - **Extra tools** — `LS` (list a directory), `MultiEdit` (several edits to one
   file applied atomically), `TodoWrite` (session task checklist), `ApplyPatch`
   (multi-file patch in Codex's V4A format: `*** Begin Patch` … `*** End Patch`).
 - **Git** — `GitStatus`, `GitDiff`, `GitLog`, `GitShow`, `GitBranchList`,
   `GitAdd`, `GitCommit`, `GitPush`.
 - **Web** — `WebFetch`, `WebSearch`.
+- **Operator** — `AskUser` (a modal question with options; skipped in plan
+  mode so a plan is never interrupted).
 - **Service** — `respond` (final answer to the operator, ends the task).
 
 All file tools stay inside the working directory (sandbox). `Write`/`Edit` and
