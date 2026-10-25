@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { htmlToText } from '../src/web.ts'
 
-// N12: web.ts holds the SSRF guard and the DuckDuckGo parser but was barely
+// web.ts holds the SSRF guard and the DuckDuckGo parser but was barely
 // covered. These pin the pure htmlToText heuristics (script/style stripping,
 // link rewriting, entities, whitespace collapse).
 
