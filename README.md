@@ -194,8 +194,8 @@ Credentials and toggles can also be edited from `/config`
 
 ## Switching providers (DeepSeek / Qwen / GLM)
 
-zames can drive either **DeepSeek** (`chat.deepseek.com`, the default) or
-**Qwen** (`chat.qwen.ai`):
+zames can drive **DeepSeek** (`chat.deepseek.com`, the default), **Qwen**
+(`chat.qwen.ai`) or **GLM** (`chat.z.ai`):
 
 ```bash
 /provider qwen      # switch to Qwen (persisted) — applied live, no restart
@@ -209,9 +209,10 @@ zames can drive either **DeepSeek** (`chat.deepseek.com`, the default) or
 Notes:
 
 - The switch is **live**: zames closes the current backend and opens the other
-  one in place, so no restart is needed. The two backends use **separate
+  one in place, so no restart is needed. The backends use **separate
   persistent profiles** (`~/.zames/profile` for DeepSeek, `~/.zames/qwen-profile`
-  for Qwen), so switching never signs the other one out.
+  for Qwen, `~/.zames/glm-profile` for GLM), so switching never signs the other
+  one out.
 - A chat id belongs to ONE backend, so the new provider opens a **fresh chat**.
   If the previous chat had messages they are summarized and posted as a
   handoff with the next task; an empty chat is switched silently.
