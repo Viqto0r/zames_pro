@@ -80,7 +80,7 @@ test('renderMcpResult: пустой результат не пустая стр�
 })
 
 test('renderMcpResult truncates a huge result with an explicit marker', () => {
-  // N21: browser_snapshot and friends can return hundreds of KB; the result
+  // browser_snapshot and friends can return hundreds of KB; the result
   // must be capped so one call cannot flood the context.
   const big = 'z'.repeat(50_000)
   const out = renderMcpResult({ content: [{ type: 'text', text: big }] })
@@ -102,7 +102,7 @@ test('truncateMcpResult cuts on a line boundary when possible', () => {
 })
 
 test('dedupeToolNames keeps every tool reachable by a unique name', () => {
-  // N20: two servers can qualify to the SAME name; agent-loop takes the first
+  // Two servers can qualify to the SAME name; agent-loop takes the first
   // match, so the second tool would be silently unreachable.
   const tools = [{ name: 'a__b__c' }, { name: 'a__b__c' }, { name: 'a__b__c' }]
   dedupeToolNames(tools)
@@ -155,7 +155,7 @@ test('describeParamsExternally: схема попадает в описание'
 test('hardenPlaywrightArgs: playwright MCP всегда изолируется', () => {
   const base = ['-y', '@playwright/mcp@latest', '--headless']
   assert.deepEqual(hardenPlaywrightArgs('npx', base), [...base, '--isolated'])
-  // Уже заданный профиль не трогаем.
+  // An explicitly configured profile is left untouched.
   const iso = [...base, '--isolated']
   assert.deepEqual(hardenPlaywrightArgs('npx', iso), iso)
   const udd = [...base, '--user-data-dir', '/tmp/p']
