@@ -9,8 +9,8 @@ import { DeepSeekBrowser, CONTINUE_NAME_RE } from '../src/browser.ts'
 //
 // _clickContinueIfVisible first asks the page for a cheap "is the button there"
 // signal and then clicks by accessible name (CONTINUE_NAME_RE — exactly
-// continue/продолжить/продолжение). Here we drive it with a fake page that
-// simulates those calls: the returned value tells us whether a click ran.
+// continue/продолжить/продолжение). The fake page below answers those two
+// calls, so the result tells whether a click ran.
 
 function fakePage(clicked: boolean): unknown {
   return {
