@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { LineEditor, ESC_DISAMBIGUATE_MS } from '../src/input.ts'
 
-// Regression (N29): a control sequence delivered in two chunks (ESC, then the
+// Regression: a control sequence delivered in two chunks (ESC, then the
 // tail) used to look like a lone Escape and aborted the generation. The editor
 // now holds a bare ESC briefly and re-attaches a following tail.
 

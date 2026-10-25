@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { LineEditor } from '../src/input.ts'
 
-// N30: Ctrl+L (clear) and PageUp/PageDown were silently swallowed. Ctrl+L now
+// Ctrl+L (clear) and PageUp/PageDown were silently swallowed. Ctrl+L now
 // clears the screen; PageUp/PageDown page the suggestion list.
 
 const ESC = String.fromCharCode(27)

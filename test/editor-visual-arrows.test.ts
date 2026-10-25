@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { LineEditor } from '../src/input.ts'
 
-// Regression (N28): Up/Down must move the cursor across VISUAL rows of a
+// Regression: Up/Down must move the cursor across VISUAL rows of a
 // wrapped line, not only across logical lines split by NL. Before the fix a
 // long single-line buffer wrapped over two rows but Up did nothing (there was
 // no logical line above), so the key looked dead on a narrow terminal.
