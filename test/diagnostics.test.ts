@@ -7,7 +7,7 @@ import {
 } from '../src/diagnostics.ts'
 import { DEFAULT_DIAGNOSTICS } from '../src/diagnostics.ts'
 
-// N38: post-edit diagnostics. A check command is run after a file-mutating
+// Post-edit diagnostics. A check command is run after a file-mutating
 // tool and its output is summarized + appended to the tool result.
 
 test('shouldRunDiagnostics: off by default, on when enabled', () => {

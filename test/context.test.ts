@@ -221,7 +221,7 @@ test('a large AGENTS.md does not drop MEMORY.md from the prompt', async (t) => {
   )
 })
 
-// B6: a nested AGENTS.md is pulled in only when the task touches its directory.
+// A nested AGENTS.md is pulled in only when the task touches its directory.
 test('loadProjectContext includes scoped AGENTS.md for touched dirs', async (t) => {
   const root = await mkTmp(t)
   await fs.mkdir(path.join(root, 'src', 'deep'), { recursive: true })
