@@ -7,7 +7,6 @@
 import React from 'react'
 import { Box, Text } from 'ink'
 
-// ---- palette (kept in one place so every menu is consistent) ----
 export const UI = {
   accent: '#c8b06a',
   accentDim: '#7a6b45',
