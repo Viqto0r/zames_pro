@@ -5,11 +5,12 @@ import {
   isFinishedWithAnswer,
 } from '../src/net-capture.ts'
 
-// `MIN_FINISHED_ANSWER_CHARS` (4) exists to reject a truncated RESPONSE head —
-// a lone `{` that DeepSeek sometimes ends a turn with. But the measured length
-// came from `extractFromSse`, which reads only `data:` lines: a plain-JSON body
-// (or one captured without the SSE framing) measured as 0 even when it carried
-// a real SHORT answer (`ok`), so the finished turn was classified as
+// The length check exists to reject a truncated RESPONSE head — a lone `{`
+// that DeepSeek sometimes ends a turn with (`MIN_REAL_ANSWER_CHARS`, plus the
+// bracket-only `TRUNCATED_HEAD_RE`). But the measured length came from
+// `extractFromSse`, which reads only `data:` lines: a plain-JSON body (or one
+// captured without the SSE framing) measured as 0 even when it carried a real
+// SHORT answer (`ok`), so the finished turn was classified as
 // FINISHED-WITHOUT-ANSWER and ask() resent the prompt (a duplicate turn).
 
 function plain(content: string): string {
