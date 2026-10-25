@@ -7,7 +7,7 @@ import { runAgentLoop, type SubagentRequest } from '../src/agent-loop.ts'
 import type { ToolDef, BrowserLike } from '../src/types.ts'
 import { makeTmpDir } from './tmp-dir.ts'
 
-// N36: `Task` is a SEAM, not an ordinary tool. The agent loop must route it
+// `Task` is a SEAM, not an ordinary tool. The agent loop must route it
 // through onSubagent (a separate chat with an isolated context) and feed the
 // returned report back as the tool result — never run it as a local fn.
 

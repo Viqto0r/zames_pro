@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { createTools } from '../src/tools.ts'
 import { buildSystemPrompt } from '../src/system-prompt.ts'
 
-// G3 guard: the system prompt must DERIVE its tool list from the ToolDefs
+// Guard: the system prompt must DERIVE its tool list from the ToolDefs
 // (createTools) instead of carrying a second, hand-maintained copy. The old
 // risk was drift — the prompt promising a tool that no longer exists, or
 // missing one that was added. This test fails the moment either happens.
