@@ -43,8 +43,8 @@ test('readAttachBuffers with no files returns empty structures', async () => {
   assert.deepEqual(failed, [])
 })
 
-// A fake page: getByText(name).count() returns 0 until `visible` has it, and
-// waitForTimeout advances a virtual clock.
+// A fake page whose waitForTimeout advances a VIRTUAL clock, so the tests can
+// assert how long the wait took without sleeping.
 function fakePage(visible: Set<string>) {
   let now = 0
   return {
