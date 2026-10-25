@@ -44,9 +44,8 @@ test('a normal statusLine command is unchanged', async () => {
 // timeout although the line was already printed.
 test('statusLine settles when its OWN stdout closes, not at the timeout', async () => {
   const started = Date.now()
-  // The shell prints the line, closes its OWN stdout and then stays alive
-  // (1s, so the old code decides on its own): a real command that kept the
-  // pipe open forever made the test hung after the assertion.
+  // The shell prints the line, closes its OWN stdout and then stays alive for
+  // a second: settling on the pipe end must not wait for the process to exit.
   const out = await runStatusLineCommand(
     process.cwd(),
     'printf "branch: dev\\n"; exec 1>&- ; sleep 1',
@@ -55,8 +54,7 @@ test('statusLine settles when its OWN stdout closes, not at the timeout', async 
   )
   const ms = Date.now() - started
   assert.equal(out, 'branch: dev')
-  // The fix settles on the pipe end (milliseconds); the old code waited for
-  // the process to exit (about 1s) or for the 4s
-  // timeout.
+  // Settles on the pipe end (milliseconds), not on the process exit (~1s) or
+  // the 4s timeout.
   assert.ok(ms < 800, 'should not wait for timeout, got ' + ms + 'ms')
 })
