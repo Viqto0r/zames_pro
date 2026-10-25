@@ -12,7 +12,7 @@ import { assertCommandInsideRoot } from '../src/shell.ts'
 import type { ToolDef } from '../src/types.ts'
 import { makeTmpDir } from './tmp-dir.ts'
 
-// P0 regression tests: each one failed before the matching fix (a shell
+// Regression tests: each one failed before the matching fix (a shell
 // injection, a symlink escape, or a silent $-pattern corruption in Edit).
 
 const D = String.fromCharCode(36)
