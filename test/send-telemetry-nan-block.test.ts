@@ -1,9 +1,9 @@
 // summarizeSends() averages the `blockMs` of rate-limit events for /limits.
 // The value comes from a JSONL file that a crash, a hand edit or a future
-// writer can corrupt: a non-finite `blockMs` (NaN/Infinity, or a JSON `null`
-// cast) was kept by the `typeof === 'number'` filter, the sum became NaN and
-// /limits printed "average block: NaN s" — a nonsensical number the operator
-// reads as data. Only FINITE positive durations belong in the average.
+// writer can corrupt: a non-finite `blockMs` (NaN/Infinity) was kept by the
+// `typeof === 'number'` filter, the sum became NaN and /limits printed
+// "average block: NaN s" — a nonsensical number the operator reads as data.
+// Only FINITE durations belong in the average.
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
