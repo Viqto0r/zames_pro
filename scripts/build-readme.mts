@@ -15,7 +15,7 @@
 // generated file is committed; test/readme-built.test.ts re-runs buildReadmes()
 // and fails if it drifts from the sources.
 //
-// Usage:  npom run build:readme
+// Usage:  npm run build:readme
 
 import fs from 'node:fs'
 import path from 'node:path'
