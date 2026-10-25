@@ -251,12 +251,13 @@ test('первое сообщение идёт без agent, последующ�
     },
   ]
   await runAgentLoop({ browser, tools, task: 'задача', workdir: dir })
-  // The first ask — the user's task: agent is not set (falsy).
+  // The user's task is not an AGENT send: throttling applies to agent turns,
+  // and the first send in a fresh chat must not wait.
   assert.ok(
     !calls[0].opts || calls[0].opts.agent !== true,
     'первое сообщение не должно быть agent',
   )
-  // The second ask — the agent's tool-result: agent: true.
+  // The tool result goes back as an agent turn.
   assert.equal(calls[1].opts?.agent, true)
 })
 
