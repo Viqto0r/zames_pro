@@ -127,9 +127,9 @@ test('an unknown token count skips auto-compact silently', async () => {
   assert.equal(compactCalls, 0)
 })
 
-// B3: a compaction that returns the SAME chat id (the fresh chat never opened)
-// must not loop. Auto-compact is disabled for the rest of the task after one
-// such result, with a warning to the operator.
+// A compaction that returns the SAME chat id (the fresh chat never opened)
+// must not loop: it would fire again on every following tool call. Auto-compact
+// is disabled for the rest of the task after one such result, with a warning.
 test('auto-compact disables itself when it returns the same chat id', async () => {
   // Several tool calls: without the guard this would compact on every one.
   const script = [

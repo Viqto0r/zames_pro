@@ -46,9 +46,9 @@ test('Transcript without onLine still writes the file', async (t) => {
 })
 
 test('Transcript.close flushes synchronously before resolving', async (t) => {
-  // N9: the one-shot/exit paths used to call end() without waiting for the
+  // The one-shot/exit paths used to call end() without waiting for the
   // flush, so the last events could be lost when the process exited. close()
-  // now resolves only after the data reached the file.
+  // resolves only after the data reached the file.
   const dir = makeTmpDirSync(t, 'zames-tr2-')
   const tr = new Transcript({ dir, enabled: true, sessionName: 't' })
   tr.log('assistant_final', { message: 'done' })
