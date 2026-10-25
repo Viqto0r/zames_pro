@@ -291,10 +291,10 @@ test('JSON-вызовы, разделённые прозой, собираютс
 })
 
 test('inline-args без обёртки "args" распознаётся (реальный кейс)', () => {
-  // Модель положила ключи аргументов рядом с "tool", без "args":
+  // The model put the argument keys next to "tool", with no "args" wrapper:
   // {"tool": "Bash", "command_note": "", "command": "git push ..."}}
-  // Строгий парсер такое отвергал (нет obj.args), а permissive выходил
-  // раньше времени (indexOf('"args"') === -1) — вызов считался malformed.
+  // The strict parser rejected it (no obj.args) and the permissive one bailed
+  // out early (indexOf('"args"') === -1), so the call counted as malformed.
   const res = parseToolCall(
     '{"tool": "Bash", "command_note": "", "command": "git push origin master"}}',
   )

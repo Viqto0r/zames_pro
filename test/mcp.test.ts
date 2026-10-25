@@ -160,14 +160,14 @@ test('hardenPlaywrightArgs: playwright MCP всегда изолируется',
   assert.deepEqual(hardenPlaywrightArgs('npx', iso), iso)
   const udd = [...base, '--user-data-dir', '/tmp/p']
   assert.deepEqual(hardenPlaywrightArgs('npx', udd), udd)
-  // `=`-форма тоже должна распознаваться (иначе добавится --isolated и конфликт).
+  // The `=` form must be recognized too, or --isolated is added on top of it.
   const uddEq = [...base, '--user-data-dir=/tmp/p']
   assert.deepEqual(hardenPlaywrightArgs('npx', uddEq), uddEq)
   const extEq = [...base, '--extension=/tmp/ext']
   assert.deepEqual(hardenPlaywrightArgs('npx', extEq), extEq)
   const isoEq = [...base, '--isolated=true']
   assert.deepEqual(hardenPlaywrightArgs('npx', isoEq), isoEq)
-  // Не-playwright сервер не трогаем.
+  // A non-playwright server is left alone.
   assert.deepEqual(hardenPlaywrightArgs('node', ['server.js']), ['server.js'])
 })
 
