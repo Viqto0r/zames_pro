@@ -8,9 +8,8 @@ import { runAgentLoop } from '../src/agent-loop.ts'
 // `Unknown tool: Bash ` — the model then repeats the same call, because the
 // answer looks valid to it, and the loop burns its retries until it stops.
 //
-// The loop must resolve the name CASE-INSENSITIVELY and after trimming, which
-// is what this test pins through the public agent-loop surface: a call for
-// ` bash ` runs the real Bash tool.
+// The loop must resolve the name CASE-INSENSITIVELY and after trimming, so a
+// call for ` bash ` runs the real Bash tool.
 test('a padded / upper-cased tool name still resolves', async () => {
   const answers = [
     JSON.stringify({ tool: ' bash ', args: { command: 'echo hi' } }),
