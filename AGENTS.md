@@ -97,7 +97,7 @@ When a change touches one concern, start in the module that owns it:
   the `/goal` and `/loop`|`/cron`|`/jobs` commands, the scheduler ticker, and the
   hot-reload `mod` bag (`reloadModules`/`autoReload`). Command _logic_ that can
   be pure lives in `src/commands.ts`; the pure CLI argument parsing lives in
-  `src/cli-args.ts` (`createCliArgs(argv)`, C3); the paste-aware raw-TTY reader
+  `src/cli-args.ts` (`createCliArgs(argv)`); the paste-aware raw-TTY reader
   `promptOnce()` lives in `src/prompt.ts`; `runTask` (task execution + queue
   draining) lives in `src/run-task.ts`; the PURE `/config` text rendering
   (`formatConfigList`/`configGetValue`/`configValueHint`) lives in
@@ -110,7 +110,7 @@ When a change touches one concern, start in the module that owns it:
 - `src/agent-loop.ts` — one task: send → parse → run tools → loop; the retry
   budgets, the protocol/stale guards, the auto-compact seam. The pure half
   (the tool-call PARSER + the answer heuristics) lives in `src/answer-parse.ts`
-  and is imported directly (C3); it is NOT re-exported from here (C3b).
+  and is imported directly; it is NOT re-exported from here.
 - `src/browser.ts` — the DeepSeekBrowser facade over Playwright: send/answer,
   toggles, Continue, login, chats, attachments, history. Large by nature; the
   pure parts (answer cleaning, signal detection) live in `src/net-capture.ts`,
@@ -121,7 +121,7 @@ When a change touches one concern, start in the module that owns it:
   `_chatSignal`, Stop/Continue probes+clicks, /debug-dom counts) in
   `src/browser-dom.ts`. The pure halves are RE-EXPORTED where the old API lived
   (unchanged importers); the browser-dom callbacks have no public API and are
-  simply imported (C3).
+  simply imported.
 - `src/deepseek-ui.ts` — PURE DATA + resolvers: EVERY selector, button-label
   regex and SSE protocol marker for chat.deepseek.com. This is the ONE place to
   audit (and fix) when DeepSeek ships a redesign; `browser.ts` imports the
@@ -248,10 +248,10 @@ When a change touches one concern, start in the module that owns it:
   `/copy-code` feature was removed on the operator's request).
 - `src/context.ts` — AGENTS.md / MEMORY.md / skills / custom commands loading.
   `loadProjectContext(workdir, touchPaths?)` also pulls NESTED AGENTS.md/MEMORY.md
-  from the directories a task touches (B6, path-scoped rules) into a separate
+  from the directories a task touches (path-scoped rules) into a separate
   `scopedAgents` list; `renderContextSection()` renders them as their own
   section.
-- `src/permissions.ts` — PURE approval policy for tool calls (C1): parses
+- `src/permissions.ts` — PURE approval policy for tool calls: parses
   `.zames/permissions.json` (`default` + `rules` with `tool`/`command`/`path`
   regexes and an `allow`|`deny`|`ask` action) and `decidePermission()` returns
   the action. Wired in `agent-loop.ts` BEFORE each tool: `deny` blocks the call,
@@ -259,16 +259,16 @@ When a change touches one concern, start in the module that owns it:
   operator). Unit-tested (test/permissions.test.ts, test/permissions-loop.test.ts).
 - `src/config.ts`, `src/config-menu.ts` — config defaults/schema and the menu.
 - `src/sessions.ts`, `src/transcript.ts`, `src/undo.ts` — persistence.
-- `src/checkpoint.ts` — tar snapshot/restore of the working tree (B3);
+- `src/checkpoint.ts` — tar snapshot/restore of the working tree;
   `/rewind` uses it. `src/hooks.ts` — tool + LIFECYCLE hooks
   (`.zames/hooks.json`): PreToolUse/PostToolUse plus SessionStart (fresh chat),
   UserPromptSubmit (before a send; stdout is appended to the prompt), PreCompact
   (start of /compact), Stop (end of a task) and SubagentStop (after a subagent).
-- `src/diagnostics.ts` — post-edit diagnostics (N38): `shouldRunDiagnostics()`
+- `src/diagnostics.ts` — post-edit diagnostics: `shouldRunDiagnostics()`
   gates by tool, `runDiagnostics()` runs a configured command and
   `summarizeDiagnostics()` collapses its output to error lines (capped). Wired in
   agent-loop after a mutating tool; off by default (`config.diagnostics`).
-- `src/statusline.ts` — the statusLine hook (N37): `runStatusLineCommand()` runs
+- `src/statusline.ts` — the statusLine hook: `runStatusLineCommand()` runs
   `ui.statusLineCommand` with a JSON status on stdin and returns its first
   stdout line. index.ts runs it on its own timer and calls
   `editor.setStatusLine()` (never per-render — a spawn would block typing).
@@ -276,8 +276,8 @@ When a change touches one concern, start in the module that owns it:
 ## Tools
 
 File tools (src/tools.ts): Read, Write, Edit, Bash, BashOutput, Glob, Grep.
-`Read` returns metadata (never mojibake) for an image or a binary file (N35);
-`Bash` takes `run_in_background` and `BashOutput` polls/kills such a process (N33).
+`Read` returns metadata (never mojibake) for an image or a binary file;
+`Bash` takes `run_in_background` and `BashOutput` polls/kills such a process.
 Extra tools (src/extraTools.ts): LS, MultiEdit, TodoWrite, ApplyPatch.
 Git (src/gitTools.ts): GitStatus, GitDiff, GitLog, GitAdd, GitCommit, GitPush.
 Web (src/web.ts): WebFetch, WebSearch.
@@ -460,7 +460,7 @@ the prose there, not in the README. (This file, AGENTS.md, is agent-facing and
 is NOT shipped in the npm package.)
 
 Deep root-cause write-ups and browser/terminal mechanics live in
-`docs/DESIGN-NOTES.md` (C2), NOT here — AGENTS.md keeps the acting rules plus a
+`docs/DESIGN-NOTES.md`, NOT here — AGENTS.md keeps the acting rules plus a
 short summary with a pointer. DESIGN-NOTES is read on demand when you touch the
 matching module, so it is not injected into every task's context.
 
@@ -581,7 +581,7 @@ the matching module. Summary of the ACTING rules:
   `@path` at word boundaries (never `user@host` or `@Component`);
   `inlineAtRefs()` (src/index.ts) appends the file contents under
   `## Files referenced with @ in the task`.
-- **Permissions** (C1): `.zames/permissions.json`, `decidePermission()` runs
+- **Permissions**: `.zames/permissions.json`, `decidePermission()` runs
   BEFORE each tool in `agent-loop.ts`; `deny` blocks, `ask` prompts the operator.
 
 ### `@file`-ссылки в задаче (B5)
