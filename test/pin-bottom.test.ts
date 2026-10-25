@@ -4,8 +4,8 @@ import { LineEditor } from '../src/input.ts'
 
 // The input line should be pinned to the BOTTOM of the terminal from the very
 // start, so output grows upward above it instead of the input sitting at the
-// top and descending. We fill the viewport with empty lines at start and after
-// a clearScreen().
+// top and descending. The editor fills the viewport with empty lines at start
+// and after a clearScreen().
 
 function capture(fn: () => void): string {
   const writes: string[] = []

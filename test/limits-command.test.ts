@@ -54,8 +54,8 @@ test('formatLimits: adaptive appends its suffix, non-adaptive does not', () => {
 })
 
 test('formatLimits: a FUTURE-stamped event never inflates a window (via the caller)', () => {
-  // summarizeSends already drops future stamps; here we pin the rendering to
-  // the aggregate it produces so a wrong window count is visible as 0.
+  // summarizeSends already drops future stamps; this pins the RENDERING of the
+  // aggregate it produces, so a wrong window count shows up as 0.
   const lines = formatLimits(
     stats({ last10m: 0, last30m: 1, last60m: 1 }),
     opts,

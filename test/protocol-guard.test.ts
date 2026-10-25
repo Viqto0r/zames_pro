@@ -50,8 +50,8 @@ const respondTool: ToolDef = {
 
 // STRUCTURAL guard: once a tool ran in the task, a plain-text answer that is
 // neither a tool call nor a real respond must NOT be returned as a clean final
-// answer (the "agent slipped into chat mode" symptom). We key on the structure
-// (a tool already ran), not on matching any particular words.
+// answer (the "agent slipped into chat mode" symptom). The guard keys on the
+// structure (a tool already ran), not on matching any particular words.
 test('текст-рассуждение после инструмента не выдаётся как финал', async () => {
   const script: string[] = [jsonCall('Echo', { v: '1' })]
   for (let i = 0; i < 30; i++) {
