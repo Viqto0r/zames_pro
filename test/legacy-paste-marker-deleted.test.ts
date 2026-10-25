@@ -1,7 +1,7 @@
 // The legacy LineEditor (used when `ui.tui` is false) collapses a large paste
 // into a `[Pasted lines#N]` marker with the body kept in `this.pastes`.
 // Deleting the marker by hand did NOT drop the body, so the next paste of the
-// same line count was expanded to the DELETED text — the same bug just fixed
+// same line count was expanded to the DELETED text — the bug already fixed
 // in the TUI editor (src/tui/edit.ts). Both editors must behave alike.
 
 import { test } from 'node:test'
