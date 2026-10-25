@@ -9,7 +9,7 @@ import { CATALOG } from '../src/i18n.ts'
 // confirm-subsystem removal left `confirm.hint` / `confirm.ask_label` behind;
 // the /resume removal left `help.cmd.resume` and four `chats.*` keys).
 //
-// IMPORTANT: the haystack must EXCLUDE the i18n definition files
+// The haystack must EXCLUDE the i18n definition files
 // (src/i18n/*.ts and src/i18n.ts). A key is DEFINED there, so including those
 // files makes every key match itself and the test can never flag an orphan —
 // it was vacuously green and shipped `chats.resume_usage` et al. unnoticed.
