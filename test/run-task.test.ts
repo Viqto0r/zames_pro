@@ -11,9 +11,9 @@ import type { ToolDef } from '../src/types.ts'
 
 // runTask() (src/run-task.ts) is the piece the main loop delegates every task
 // to: it runs the agent loop, then drains the operator's queue (batching plain
-// messages, stopping at a slash-command) and prints a per-task summary. It was
-// untested while living in index.ts; now it is a free function with explicit
-// deps, so we can pin its CURRENT behavior with fakes.
+// messages, stopping at a slash-command) and prints a per-task summary. Its
+// deps are injected, so the behaviour is pinned here with fakes instead of a
+// live browser.
 
 interface FakeBrowser {
   _stopped: boolean
