@@ -96,7 +96,7 @@ test('_fillLoginForm: fills login+password and submits (returns true)', async ()
   const ok = await b._fillLoginForm('user@example.com', 'secret')
   assert.equal(ok, true)
   const methods = page.calls.map((c) => c.method)
-  // The password field must be filled and the form submitted.
+  // Both the fill and the submit must have happened.
   assert.ok(methods.includes('fill'), 'expected a fill on the inputs')
   assert.ok(
     methods.includes('click') || methods.includes('press'),
