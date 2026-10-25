@@ -335,8 +335,11 @@ instead of staying silent.
 zames --task <task text>
 zames --chat <id>
 zames --new-chat
+zames --resume-last
 zames --resend-prompt
 zames --dir <path>
+zames --provider <deepseek|qwen|glm>
+zames --max-iter <n>
 zames --headless
 zames --headed
 zames --plan

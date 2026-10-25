@@ -342,8 +342,11 @@ base64-блок с узнаваемой сигнатурой изображен�
 zames --task <текст задачи>
 zames --chat <id>
 zames --new-chat
+zames --resume-last
 zames --resend-prompt
 zames --dir <path>
+zames --provider <deepseek|qwen|glm>
+zames --max-iter <n>
 zames --headless
 zames --headed
 zames --plan
