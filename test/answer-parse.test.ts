@@ -6,9 +6,9 @@ import {
   truncateToolResult,
 } from '../src/answer-parse.ts'
 
-// C3: the tool-call parser and the small answer heuristics were extracted from
-// agent-loop.ts into answer-parse.ts. They are imported DIRECTLY from here (the
-// old re-export from agent-loop.ts was removed in C3b).
+// The tool-call parser and the small answer heuristics live in answer-parse.ts
+// and are imported DIRECTLY from it: agent-loop.ts no longer re-exports them,
+// so an accidental re-export (or a regression that moves them back) fails here.
 
 test('answer-parse: the parser still works from its own module', () => {
   const res = parseToolCall('{"tool":"Read","args":{"path":"a.ts"}}')
