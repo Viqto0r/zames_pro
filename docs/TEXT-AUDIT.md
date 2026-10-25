@@ -1,13 +1,18 @@
-# Text audit (docs / i18n / metadata) — protocol for an unattended `/loop` run
+# Text audit — protocol for an unattended `/loop` run
 
 Goal: walk the human-readable texts of zames_pro one file per step, find a
 factual / wording defect, FIX it together with its source of truth, verify,
 commit. Do NOT push, do NOT bump the version.
 
-This is the docs counterpart of `QUEUE.md` (bug-hunting journal). Keep your
-journal in `QUEUE.md` (it is gitignored) under a `### Text-audit step N` entry,
-and keep the "Covered areas" list there up to date so the next step does not
-repeat work.
+Now that the CODE and the CODE COMMENTS are audited, this protocol covers
+everything else: user docs, dev docs, the agent instructions, the bundled skills,
+GitHub metadata, the package metadata and the UI localization (`ru` + `en`).
+
+Keep your journal in `QUEUE.md` (it is gitignored) under a `### Text-audit step
+N (YYYY-MM-DD) — <file>` entry, and keep the "Covered areas" list there up to date
+so the next step does not repeat work. `QUEUE.md` is the QUEUE of texts still to
+check and the journal of what was checked; it may be truncated at any time (see
+section 7).
 
 ## 1. Scope — the files that carry PROSE
 
@@ -25,11 +30,11 @@ Source of truth first, generated files last (never hand-edit a generated one):
 | Bundled skills     | `skills/*/SKILL.md`                                                                                                                                                      | yes (user-visible text)                                         |
 | UI localization    | `src/i18n/*.ts` (`ru` + `en` for EVERY key)                                                                                                                              | yes                                                             |
 | Config labels      | `src/i18n/config.ts` vs `CONFIG_SCHEMA` in `src/config.ts`                                                                                                               | yes                                                             |
-| CLI/help text      | `src/i18n/help.ts` vs `src/i18n/help.ts` keys used in `src/index.ts` and `src/commands.ts` (`SLASH_COMMANDS`)                                                            | yes                                                             |
+| CLI/help text      | `src/i18n/help.ts` vs the keys used in `src/index.ts` and `src/commands.ts` (`SLASH_COMMANDS`)                                                                            | yes                                                             |
 | Terminal chrome    | `src/tui/*.tsx`, `src/spinner.ts`, `src/banner.ts` — only strings that go through `t()`                                                                                  | yes                                                             |
 
-OUT of scope: comments in code, `CHANGELOG.md` history (append-only),
-`QUEUE.md`, `BACKLOG.md`, `dist/`, `node_modules/`.
+OUT of scope: code and code comments (already audited), `CHANGELOG.md` history
+(append-only), `QUEUE.md`, `BACKLOG.md`, `dist/`, `node_modules/`.
 
 ## 2. One step = one file (or one tightly related pair)
 
@@ -142,7 +147,22 @@ A step whose gates are red is NOT done: either fix it or revert the step.
 - Do NOT push, do NOT run `npm run release`, do NOT touch `package.json`
   `version`.
 
-## 7. The `/loop` command to start it
+## 7. Keeping QUEUE.md usable (it is a QUEUE, not an archive)
+
+`QUEUE.md` is gitignored and has grown to thousands of lines of finished bug-hunt
+steps. It is a QUEUE of what is still to be checked plus a SHORT journal; it is not
+an archive. Rules:
+
+- The "Covered areas" list and the last few `Text-audit step` entries are what
+  matter; older bug-hunt steps are HISTORY and may be deleted.
+- When the file is longer than ~2000 lines (or before a long `/loop` run),
+  REPLACE it with a fresh skeleton: a short "Covered areas (texts)" list copied
+  from the old file plus the current queue table. Nothing is lost: the commits
+  and `CHANGELOG.md` are the real history.
+- Never let the journal be the reason a step is skipped: an unreadable queue is
+  worse than no queue.
+
+## 8. The `/loop` command to start it
 
 Run this ONCE in the project directory (the interval is a suggestion — a step
 with a full `npm test` takes minutes, so do not go below `15m`):
@@ -157,7 +177,7 @@ One-liner variant if the task text must fit on one line:
 /loop 20m Text audit step: read docs/TEXT-AUDIT.md and follow it exactly (pick the next uncovered file, audit vs code, fix one defect family in source+both languages, rebuild generated files, run gates, journal in QUEUE.md, update Covered areas, commit, no push, no version bump).
 ```
 
-## 8. Suggested first passes (highest value)
+## 9. Suggested first passes (highest value)
 
 These are the places where a drift is most likely, because the code has
 changed many times since the text was written — check them early:
@@ -166,8 +186,9 @@ changed many times since the text was written — check them early:
    `engines` field and the CI pin are the truth), the provider section (three
    backends, per-provider profiles, GLM headed), every default quoted from
    `DEFAULTS` (throttle, context window, timeouts, `ui.mouseScroll`,
-   `browser.sendTelemetry`), and the `/config` paragraph (where values are
-   written: the HOME config, not `.zamesrc.json`).
+   `browser.sendTelemetry`), the slash-command list, the CLI options block and
+   the `/config` paragraph (where values are written: the HOME config, not
+   `.zamesrc.json`).
 2. `docs/llms.txt`: the stack line, the capability list, the FAQ answers.
 3. `CONTRIBUTING.md`: requirements, the checks list, the commit/release flow.
 4. `CITATION.cff`: `version` / `date-released` vs `package.json` (check whether
@@ -181,3 +202,6 @@ changed many times since the text was written — check them early:
    (`ls src/` is the truth), and a `DEFAULTS` value quoted in the prose.
 8. `DEVELOPING.md` + `docs/DESIGN-NOTES.md`: `wc -l src/*.ts` numbers, default
    values, "two providers" phrasing, removed-flag mentions.
+9. `src/i18n/*.ts`: ru/en drift — compare each pair side by side; the most
+   likely drift is a number, a default, a command name or a path present in one
+   language only.
