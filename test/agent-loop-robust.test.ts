@@ -385,8 +385,8 @@ test('no silent finish: после инструмента лимит сторо�
 
 test('обычный текст после инструмента не печатается оператору как финал', async () => {
   // Strict mode + bounded retries: after a tool, plain text is re-asked a few
-  // times (the SINGLE unparsedRetries budget), then respond finishes. The
-  // budget is small on purpose: the old 11+ re-asks caused the "agent hang".
+  // times (the SINGLE `MAX_UNPARSED_RETRIES` budget, 4), then respond finishes.
+  // The budget is small on purpose: a long re-ask chain looked like a hang.
   const script: string[] = [jsonCall('Echo', { v: '1' })]
   for (let i = 0; i < 3; i++) script.push('Вот что я сделал: всё готово.')
   script.push(jsonCall('respond', { message: 'final' }))
