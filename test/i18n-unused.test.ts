@@ -11,10 +11,9 @@ import { CATALOG } from '../src/i18n.ts'
 //
 // IMPORTANT: the haystack must EXCLUDE the i18n definition files
 // (src/i18n/*.ts and src/i18n.ts). A key is DEFINED there, so including those
-// files made every key match itself and the test could never flag an orphan —
-// it was vacuously green (this was a real bug in the test: it shipped
-// `chats.resume_usage` et al. unnoticed). A key counts as "used" only when a
-// NON-i18n source or test file references it.
+// files makes every key match itself and the test can never flag an orphan —
+// it was vacuously green and shipped `chats.resume_usage` et al. unnoticed.
+// A key counts as "used" only when a NON-i18n source or test file names it.
 //
 // A dynamic key built by concatenation would be a false positive; any such key
 // must be listed in ALLOW with a comment. None do that today.
