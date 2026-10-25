@@ -11,10 +11,10 @@ import { fileURLToPath } from 'node:url'
 // that does not exist (the old `--project` bug swallowed its argument).
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const src = fs.readFileSync(path.join(root, 'src/index.ts'), 'utf-8')
-// C3: the pure CLI parsing (getArg/hasFlag/getPositional + the value-flag
-// skip-list) moved to src/cli-args.ts.
+// The pure CLI parsing (getArg/hasFlag/getPositional + the value-flag
+// skip-list) lives in src/cli-args.ts, the help.opt.* catalog in src/i18n/.
 const cliArgs = fs.readFileSync(path.join(root, 'src/cli-args.ts'), 'utf-8')
-const i18n = fs.readFileSync(path.join(root, 'src/i18n.ts'), 'utf-8')
+const i18n = fs.readFileSync(path.join(root, 'src/i18n/help.ts'), 'utf-8')
 
 // Flags advertised in the help text (the literal `--name` before the help.opt
 // i18n key on the same template line).

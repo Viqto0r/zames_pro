@@ -2,8 +2,9 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createCliArgs, SKIP_VALUE_FLAGS } from '../src/cli-args.ts'
 
-// C3: the CLI parsing is pure and bound to an explicit argv, so it is now
-// unit-tested in isolation (index.ts itself is the entry point, not covered).
+// The CLI parsing is pure and bound to an explicit argv, so it is unit-tested
+// in isolation: index.ts is the process entry point and cannot be imported by
+// a test (it would start the main loop).
 
 test('getArg returns the value after a flag, else the fallback', () => {
   const { getArg } = createCliArgs(['--dir', '/proj', '--debug'])

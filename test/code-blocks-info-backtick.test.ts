@@ -1,10 +1,10 @@
 // extractCodeBlocks() recovers the RAW fenced code from a Markdown answer.
-// The OPENING-fence regex is `^(\s*)(`{3,}|~{3,})\s*([^`]*)$` — the info
-// string forbids a backtick. When a model writes a fence with a backtick in
-// the info (` ```ts` `, ` ```c++ `std::vector` `) the line does NOT match, so
-// the block's own CLOSING ``` is then read as an OPENING fence: the following
-// text (and the next real block) is swallowed into one bogus block with lang
-// '' and wrong index. The operator copied "block 1" and got prose.
+// The OPENING-fence regex used to be `^(\s*)(`{3,}|~{3,})\s*([^`]*)$` — an
+// info string could not contain a backtick. When a model wrote a fence with one
+// in the info (` ```ts` `, ` ```c++ `std::vector` `) the line did not match, so
+// the block's own CLOSING ``` was read as an OPENING fence: the following text
+// (and the next real block) was swallowed into one bogus block with lang '' and
+// a wrong index. The operator copied "block 1" and got prose.
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

@@ -141,7 +141,7 @@ test('the agent loop source awaits the cancelled ask before the next one', () =>
 // Qwen's ask() must ALSO stop when a LONG retry wait (rate limit / server
 // busy / truncated turn) is cut short by stopGeneration()/the watchdog. The
 // DeepSeek path checked the result of _sleepInterruptible and returned the
-// abort sentinel; the Qwen path awaited the sleep and then did ,
+// abort sentinel; the Qwen path awaited the sleep and then ignored its result,
 // so it went straight back into ANOTHER send after Esc.
 function qwenSource(): string {
   const here = dirname(fileURLToPath(import.meta.url))

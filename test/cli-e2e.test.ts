@@ -17,12 +17,12 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
-// The child writes no coverage (NODE_V8_COVERAGE is removed from its
-// env), but V8 still reports the modules it LOADS and never calls to the
-// coverage of the PARENT process. That near-empty data overwrote the real
-// coverage of undo.ts / checkpoint.ts (25% instead of 90%, coverage:gate
-// failed). The clid therefore runs from an ISOLATED copy of the source
-// tree, so the modules it loads are not the modules this test file reports.
+// The child writes no coverage (NODE_V8_COVERAGE is removed from its env),
+// but V8 still reports the modules it LOADS and never calls into the coverage
+// of the PARENT process. That near-empty data overwrote the real coverage of
+// undo.ts / checkpoint.ts (25% instead of 90%, coverage:gate failed). The CLI
+// therefore runs from an ISOLATED copy of the source tree, so the modules it
+// loads are not the modules this test file reports.
 const cliRoot = path.join(os.tmpdir(), 'zames-cli-' + process.pid)
 
 function prepareCliRoot(): void {
@@ -53,8 +53,8 @@ function runCl(
   // it. Redirecting the child at a throwaway dir kept those files out of
   // the report, but NOTHING ever deleted that dir: 4171 files / 9.5 GB had
   // accumulated (and on WSL the freed space never returns to C:). The child's
-  // coverage is worthless anyway, so REMOVE  the variable entirely -- the
-  // child then writes no coverage at all.
+  // coverage is worthless anyway, so REMOVE the variable entirely: the child
+  // then writes no coverage at all.
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     NO_COLOR: '1',

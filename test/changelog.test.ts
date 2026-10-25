@@ -116,7 +116,7 @@ test('groupCommits tolerates an empty list', () => {
   assert.deepEqual(g, { Added: [], Fixed: [], Changed: [], Removed: [] })
 })
 
-// ---------- syncUnreleased (D2) ----------
+// ---------- syncUnreleased ----------
 
 test('syncUnreleased replaces the Unreleased body, keeps the next version', () => {
   const src = [
