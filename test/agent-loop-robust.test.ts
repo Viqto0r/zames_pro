@@ -496,43 +496,6 @@ test('stale-эхо с другим markdown не перезапускает ин
   )
 })
 
-test('stale-эхо с другим markdown не перезапускает инструмент', async () => {
-  // Real transcript signature: DeepSeek echoes the previous answer but with
-  // different markdown emphasis, e.g. "Честно: гарантировать нельзя."
-  // followed by "Честно: гарантировать нельзя." — SAME call. An exact
-  // comparison missed it, the tool ran twice, and the loop stalled. Now the
-  // stale echo is discarded (normalized comparison) and the tool runs once.
-  let echoRuns = 0
-  const countingEcho: ToolDef = {
-    name: 'Echo',
-    description: 'echo',
-    parameters: { v: 'string' },
-    fn: async () => {
-      echoRuns++
-      return 'ok'
-    },
-  }
-  const call = jsonCall('Echo', { v: '1' })
-  const { browser, asks } = makeBrowser([
-    'Честно: гарантировать нельзя.' + String.fromCharCode(10) + call,
-    'Честно: гарантировать нельзя.' + String.fromCharCode(10) + call,
-    jsonCall('respond', { message: 'FIN' }),
-  ])
-  const result = await runAgentLoop({
-    browser,
-    tools: [countingEcho, respondTool],
-    task: 'x',
-    workdir: process.cwd(),
-    maxIterations: 12,
-  })
-  assert.equal(result, 'FIN')
-  assert.equal(
-    echoRuns,
-    1,
-    'инструмент не должен выполняться повторно на stale-эхе',
-  )
-})
-
 test('эхо нераспознанного DSML-вызова выполняется, а не отбрасывается как stale', async () => {
   // Real stall signature: the model answers with a DSML/XML call that the
   // STRICT JSON parser does not recognize, so the tool NEVER ran. DeepSeek

@@ -260,7 +260,7 @@ test('первое сообщение идёт без agent, последующ�
   assert.equal(calls[1].opts?.agent, true)
 })
 
-test('N34: несколько read-only вызовов в батче идут параллельно', async (t) => {
+test('несколько read-only вызовов в батче идут параллельно', async (t) => {
   const dir = await makeTmpDir(t, 'zames-par-')
   let concurrent = 0
   let maxConcurrent = 0
@@ -304,7 +304,7 @@ test('N34: несколько read-only вызовов в батче идут п
   assert.equal(maxConcurrent, 2, 'read-only calls must overlap')
 })
 
-test('N34: abort during a parallel read-only batch does not send results', async (t) => {
+test('abort during a parallel read-only batch does not send results', async (t) => {
   const dir = await makeTmpDir(t, 'zames-par-abort-')
   let runs = 0
   const readTool: ToolDef = {

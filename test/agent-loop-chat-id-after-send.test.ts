@@ -3,7 +3,7 @@
 // turn. `reportChat()` was called right after `newChat()`, when the id is
 // still null, so `onChatReady` never fired for the FIRST task in a fresh
 // session and the session was not saved — `/sessions` and the startup
-// auto-restore did not know about it (the same symptom recorded in BACKLOG).
+// auto-restore did not know about it.
 // After a successful send the id IS known, so the loop must report it then.
 
 import { test } from 'node:test'
