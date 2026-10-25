@@ -1,9 +1,9 @@
-// unifiedDiff() builds an O(n*m) LCS table in memory. The comment says "files
-// here are a handful of lines", but the callers diff ARBITRARY source files
-// (/undo preview, /self-diff over every .ts in src/). A 20 000-line file that
-// changed wholesale allocates ~400M cells (~3.2 GB) and the process dies with
-// an out-of-memory crash instead of showing a diff. The table must be bounded:
-// past a sane size, fall back to a cheap line-by-line diff.
+// unifiedDiff() builds an O(n*m) LCS table in memory. A 20 000-line file that
+// changed wholesale allocates ~400M cells (~3.2 GB) and the process died with
+// an out-of-memory crash instead of showing a diff — the callers diff ARBITRARY
+// source files (the /undo preview, /self-diff over every .ts in src/). The
+// table must be bounded: past `MAX_CELLS` it falls back to a cheap positional
+// diff.
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
