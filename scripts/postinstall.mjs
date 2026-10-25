@@ -1,3 +1,8 @@
+// Post-install step: fetch the Chromium build Playwright drives and, on a
+// Linux box that needs it, its system libraries. It runs BEFORE tsx is
+// guaranteed to be installed, so it stays a plain .mjs script. Every failure
+// is a WARNING, never a non-zero exit: a missing browser must not break
+// `npm install`, and the warning names the manual command to run instead.
 import { spawnSync } from 'node:child_process'
 
 const NL = String.fromCharCode(10)
