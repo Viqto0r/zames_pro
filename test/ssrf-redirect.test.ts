@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { httpFetch, assertPublicUrl } from '../src/web.ts'
 
-// N10 regression: WebFetch used `redirect: 'follow'`, so a public URL could
+// Regression: WebFetch used `redirect: 'follow'`, so a public URL could
 // redirect to a private address (169.254.169.254 / 127.0.0.1) AFTER
 // assertPublicUrl approved the original — a classic SSRF bypass. Now each
 // Location is validated before it is requested.
