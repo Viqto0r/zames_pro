@@ -261,7 +261,7 @@ test('блок ONLY TOOL CALLS локализован (ru/en)', () => {
   assert.ok(!en.includes('ТОЛЬКО ВЫЗОВЫ ИНСТРУМЕНТОВ'))
 })
 
-// U2/U3: wide characters (emoji, CJK) must count as 2 columns so the
+// Wide characters (emoji, CJK) must count as 2 columns so the
 // status-line arithmetic and the input wrapping/cursor agree with the real
 // terminal. The emoji used in the status line are the important case.
 import { charWidth } from '../src/input.ts'

@@ -94,7 +94,7 @@ test('a throwing onToggleQuery does not break the render', () => {
   assert.equal(e.thinkingEnabled, true)
 })
 
-// I2: the task-list summary ("tasks: 2/5") shown before the context counter.
+// The task-list summary ("tasks: 2/5") shown before the context counter.
 // Empty when onTasksQuery is not wired or returns nothing, so an idle status
 // line is not cluttered.
 
