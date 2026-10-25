@@ -231,7 +231,7 @@ async function main() {
     maxAfterToolRetries: cfg.browser.maxAfterToolRetries,
   })
 
-  // Scenario D — subagents (N36): the model delegates via Task; the runner
+  // Scenario D — subagents: the model delegates via Task; the runner
   // opens a separate chat, returns only the report, and restores the parent
   // chat. Requires browser.subagents (off by default).
   const subTools = createTools(WORK, { subagents: true })
@@ -260,7 +260,7 @@ async function main() {
     JSON.stringify(outD.slice(0, 120)),
   )
 
-  // Scenario E — background Bash + BashOutput (N33): start a process that
+  // Scenario E — background Bash + BashOutput: start a process that
   // keeps running, poll its output, then kill it.
   const outE = await runAgentLoop({
     browser,

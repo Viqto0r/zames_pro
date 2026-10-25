@@ -50,7 +50,7 @@ const FLOORS = {
   'store.ts': 85,
   'banner.ts': 85,
   'tool-summary.ts': 85,
-  // N12: web.ts holds the SSRF guard and the DuckDuckGo/HTML parsers — a
+  // web.ts holds the SSRF guard and the DuckDuckGo/HTML parsers — a
   // regression there is silent. Floors sit below the current values.
   'web.ts': 40,
   'spinner.ts': 55,
