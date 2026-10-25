@@ -60,9 +60,9 @@ test('_sleepInterruptible also honors the agent abort flag', async () => {
 })
 
 // The watchdog timer in agent-loop is intentionally `unref()`-ed, so while a
-// test simply awaits a pending ask the event loop can look "drained". Node's
-// test runner (22.x) then CANCELS the test (`cancelled 2`, exit 1) even though
-// the test would pass. Hold the loop open for the duration of the test.
+// test simply awaits a pending ask the event loop can look "drained" and Node's
+// test runner CANCELS the test (exit 1) even though it would pass. Hold the
+// loop open for the duration of the test.
 function keepAlive(): { stop: () => void } {
   const t = setInterval(() => {}, 1000)
   return {
