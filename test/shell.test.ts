@@ -38,7 +38,7 @@ test('runShell returns stdout and an exit code on failure', async () => {
   assert.match(fail, /Exit code: 3/)
 })
 
-test('startBackground/pollBackground/killBackground lifecycle (N33)', async () => {
+test('startBackground/pollBackground/killBackground lifecycle', async () => {
   const { startBackground, pollBackground, killBackground } =
     await import('../src/shell.ts')
   const id = startBackground(process.cwd(), 'echo hello-bg && sleep 30')

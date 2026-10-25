@@ -75,7 +75,7 @@ test('decidePermission matches a path rule', () => {
 })
 
 test('decidePermission extracts ApplyPatch paths from the patch body', () => {
-  // N11: ApplyPatch keeps paths INSIDE the patch text, so a `{path: ...}` rule
+  // ApplyPatch keeps paths INSIDE the patch text, so a `{path: ...}` rule
   // used to silently miss it — the operator thought a path was protected.
   const policy = parsePermissions({
     rules: [{ tool: '^ApplyPatch$', path: '^\\/etc\\/', action: 'deny' }],
@@ -92,7 +92,7 @@ test('decidePermission extracts ApplyPatch paths from the patch body', () => {
 })
 
 test('decidePermission sees paths in arbitrary MCP tool arguments', () => {
-  // N11: MCP tools take arbitrary arg names from their JSON Schema; a path
+  // MCP tools take arbitrary arg names from their JSON Schema; a path
   // rule must still catch a path-looking value.
   const policy = parsePermissions({
     rules: [{ path: '^\\/etc\\/', action: 'deny' }],

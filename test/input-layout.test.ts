@@ -13,7 +13,7 @@ import {
 } from '../src/input/layout.ts'
 import { visLen as visLenReexported } from '../src/input.ts'
 
-// The pure input-line layout lives in src/input/layout.ts (C3 step 3). These
+// The pure input-line layout lives in src/input/layout.ts. These
 // tests pin the module boundary: the helpers are importable directly AND still
 // re-exported from src/input.ts, so no caller import breaks.
 

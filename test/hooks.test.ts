@@ -237,7 +237,7 @@ test('agent-loop: explicit null disables hooks', async (t) => {
   assert.equal(ran, true)
 })
 
-test('loadHooks: parses the N32 lifecycle events', async (t) => {
+test('loadHooks: parses the lifecycle events', async (t) => {
   const dir = await tmpdir(t)
   await writeHooks(dir, {
     SessionStart: [{ command: 'echo hi' }],

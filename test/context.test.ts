@@ -289,7 +289,7 @@ test('buildSystemPrompt includes context sections', async () => {
   assert.match(sp, /\/review/)
 })
 
-test('loadCommands parses argument-hint and arguments frontmatter (B7)', async (t) => {
+test('loadCommands parses argument-hint and arguments frontmatter', async (t) => {
   const root = await mkTmp(t)
   const dir = path.join(root, '.zames', 'commands')
   await fs.mkdir(dir, { recursive: true })

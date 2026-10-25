@@ -165,7 +165,7 @@ test('Write делает backup перед перезаписью (undo)', async
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Read на картинке возвращает маркер, а не utf-8 мусор (N35)', async (t) => {
+test('Read на картинке возвращает маркер, а не utf-8 мусор', async (t) => {
   const dir = await tmpDir(t)
   // A minimal valid PNG header; content is binary, not decodable text.
   const png = Buffer.from([
@@ -180,7 +180,7 @@ test('Read на картинке возвращает маркер, а не utf-
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Read на произвольном бинарнике даёт hex-заголовок, а не мусор (N35)', async (t) => {
+test('Read на произвольном бинарнике даёт hex-заголовок, а не мусор', async (t) => {
   const dir = await tmpDir(t)
   await fs.writeFile(
     path.join(dir, 'blob.bin'),
@@ -193,7 +193,7 @@ test('Read на произвольном бинарнике даёт hex-заг�
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-test('Read обычного текста не задет бинарной защитой (N35)', async (t) => {
+test('Read обычного текста не задет бинарной защитой', async (t) => {
   const dir = await tmpDir(t)
   await fs.writeFile(path.join(dir, 't.txt'), 'hello world', 'utf-8')
   const tools = createTools(dir, {})

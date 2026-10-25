@@ -48,7 +48,7 @@ test('htmlToText turns list items into dashes', () => {
   assert.ok(out.includes('- two'))
 })
 
-// N12: the DuckDuckGo result parser (uddg unwrap, snippet, dedup by regex) is
+// The DuckDuckGo result parser (uddg unwrap, snippet, dedup by regex) is
 // pure and was previously untested (a format change would go unnoticed).
 import { parseDuckDuckGoResults } from '../src/web.ts'
 
@@ -83,7 +83,7 @@ test('parseDuckDuckGoResults skips entries with no title', () => {
   assert.equal(parseDuckDuckGoResults(html, 5).length, 0)
 })
 
-// N15: the headless render context is created ONCE and reused; a single pure
+// The headless render context is created ONCE and reused; a single pure
 // factory backs that cache so the reuse/reset behaviour is testable without a
 // browser.
 import { createReusable } from '../src/web.ts'

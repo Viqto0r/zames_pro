@@ -50,7 +50,7 @@ test('paging: Ctrl+N scrolls the suggestion window', () => {
   assert.ok(e._suggestOffset > 0)
 })
 
-// B7: a custom command's `argument-hint:` frontmatter (e.g. `<file> [focus]`)
+// A custom command's `argument-hint:` frontmatter (e.g. `<file> [focus]`)
 // is DISPLAY ONLY — shown after the name in the «/» list, but Tab completion
 // must insert the NAME. The dynamic entries were built as `{name, description}`
 // objects that DROPPED the hint, so the list showed `/mycmd` with no argument
