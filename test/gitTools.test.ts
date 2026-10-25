@@ -70,7 +70,7 @@ test('GitBranchList перечисляет ветки или сообщает о
 })
 
 test('formatGitContext uses a fence longer than any backticks in the preview', () => {
-  // N16: a filename containing ``` would close the fence early and corrupt the
+  // A filename containing ``` would close the fence early and corrupt the
   // system-prompt markdown.
   const ctx: GitContext = {
     branch: 'main',
