@@ -413,7 +413,7 @@ export interface ChatMessage {
 }
 
 // A chat backend the agent can drive. DeepSeekBrowser is the reference
-// implementation; QwenBrowser is the second one. The agent loop only needs
+// implementation; QwenBrowser and GlmBrowser are the others. The agent loop only needs
 // BrowserLike; the full surface below (chat management, login, health probe,
 // diagnostics) is what index.ts / run-task.ts / compact.ts reach for. Keeping
 // the concrete type behind this interface is what lets the operator switch
@@ -425,8 +425,8 @@ export interface ChatProvider extends BrowserLike {
   getCurrentChatId: () => Promise<string | null>
   listChats: (limit?: number) => Promise<ChatInfo[]>
   openChat: (id: string) => Promise<boolean>
-  // Required history/usage access (both providers implement them, even though
-  // BrowserLike declares them optional for test doubles).
+  // Required history/usage access: every provider implements these, even though
+  // BrowserLike declares them optional so test doubles need not.
   readChatMessages: () => Promise<ChatMessage[]>
   fetchChatMessages: (id: string) => Promise<ChatMessage[]>
   getLastTokenUsage: () => number | null
