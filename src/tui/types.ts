@@ -26,7 +26,6 @@ export interface AttachmentStoreLike {
 }
 
 export interface UiEditor {
-  // ---- state fields the agent reads/writes directly ----
   busy: boolean
   locked: boolean
   history: string[]
@@ -34,7 +33,6 @@ export interface UiEditor {
   rendered: boolean
   attachments: AttachmentStoreLike
 
-  // ---- operator callbacks the agent wires up ----
   onSubmit: ((text: string, attachments: Attachment[]) => void) | null
   onEscape: (() => void) | null
   onCtrlC: (() => void) | null
@@ -48,13 +46,11 @@ export interface UiEditor {
   onToggleQuery:
     (() => { deepThinking: boolean; webSearch: boolean } | null) | null
 
-  // ---- lifecycle ----
   start(): boolean
   dispose(): void
   pause(): void
   resume(): void
 
-  // ---- status / log ----
   printAbove(text: unknown): void
   setStatus(text: string): void
   setSendState(state: string): void
@@ -79,7 +75,6 @@ export interface UiEditor {
   lock(status?: string): void
   unlock(): void
 
-  // ---- spinner-compatible surface ----
   thinking(): void
   sendPause(seconds: number): void
   setPending(text: string | null): void
