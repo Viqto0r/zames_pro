@@ -94,8 +94,8 @@ Key pieces:
 - **A persistent per-provider profile** (`~/.zames/profile` for DeepSeek,
   `~/.zames/qwen-profile` for Qwen) keeps you signed in; the headless
   User-Agent is patched so the site's CDN does not 403 the login.
-- **A send throttle** (15 s on DeepSeek, ~1 s on Qwen, which tolerates rapid
-  sends; GLM uses an adaptive pause that starts at 0) keeps the web chat's rate
+- **A send throttle** (15 s on DeepSeek, 4 s on Qwen, which tolerates a faster
+  pace; GLM uses an adaptive pause that starts at 0) keeps the web chat's rate
   limit happy during long tool-heavy runs.
 - **The agent is sandboxed** to the directory it was started in — no tool can
   read or write above it.

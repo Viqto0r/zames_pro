@@ -96,8 +96,8 @@ Key pieces:
 - **A persistent per-provider profile** (`~/.zames/profile` for DeepSeek,
   `~/.zames/qwen-profile` for Qwen) keeps you signed in; the headless
   User-Agent is patched so the site's CDN does not 403 the login.
-- **A send throttle** (15 s on DeepSeek, ~1 s on Qwen, which tolerates rapid
-  sends; GLM uses an adaptive pause that starts at 0) keeps the web chat's rate
+- **A send throttle** (15 s on DeepSeek, 4 s on Qwen, which tolerates a faster
+  pace; GLM uses an adaptive pause that starts at 0) keeps the web chat's rate
   limit happy during long tool-heavy runs.
 - **The agent is sandboxed** to the directory it was started in — no tool can
   read or write above it.
@@ -788,9 +788,9 @@ zames не вызывает API модели. Он запускает headless C
   `~/.zames/qwen-profile` у Qwen, `~/.zames/glm-profile` у GLM) держит вас
   залогиненным; User-Agent
   headless-браузера подменяется, чтобы CDN сайта не отдавал 403 на вход.
-- **Троттлинг отправки** (15 с у DeepSeek, ~1 с у Qwen, который спокойно
-  переносит частые отправки; у GLM — адаптивная пауза с нуля) щадит рейт-лимит
-  веб-чата во время долгих прогонов с инструментами.
+- **Троттлинг отправки** (15 с у DeepSeek, 4 с у Qwen, который спокойно
+  переносит более частый темп; у GLM — адаптивная пауза с нуля) щадит
+  рейт-лимит веб-чата во время долгих прогонов с инструментами.
 - **Агент запесочен** в директорию запуска — ни один инструмент не может
   читать или писать выше неё.
 
