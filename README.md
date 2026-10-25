@@ -460,9 +460,9 @@ tests`). /cron "<min> <hour> <dom> <month> <dow>" <task> — run on a schedule.
 
 The token context is also shown live: the status line above the input has the
 spinner/text on the left and the context on the right (e.g. `125k · 13%`). The
-percentage is of the ACTIVE provider's window — 1M for DeepSeek, GLM's and
-Qwen's per-model values otherwise (`qwen.contextLimit` / `glm.contextLimit`) —
-and it is COLORED by fill level: green below 50%, yellow 50-80%, red above 80%.
+percentage is of the ACTIVE provider's window — 1M for DeepSeek, a per-model
+value for Qwen and GLM (`qwen.contextLimit` / `glm.contextLimit`) — and it is
+COLORED by fill level: green below 50%, yellow 50-80%, red above 80%.
 It comes from the provider's own token counter (DeepSeek's
 `accumulated_token_usage`, Qwen's `input_tokens`, GLM's `prompt_tokens`) and is
 hidden until the first answer delivers it.
