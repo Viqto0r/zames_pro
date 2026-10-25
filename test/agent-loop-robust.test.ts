@@ -406,7 +406,8 @@ test('обычный текст после инструмента не печа�
 // Regression: respond mixed with a real tool call in ONE answer.
 // DeepSeek returns [{"tool":"Edit",...},{"tool":"respond",...}]. Handling
 // respond first DROPPED the tool call and the agent looked "stopped after a
-// tool call". The tool must run; respond only finishes when it is alone.
+// tool call". The tool must run, and the remembered respond must still be
+// delivered if the model never calls it again (see test/mixed-respond.test.ts).
 // ---------------------------------------------------------------------------
 test('respond в одном ответе с инструментом не теряет инструмент', async () => {
   let echoRuns = 0
