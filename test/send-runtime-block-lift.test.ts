@@ -1,11 +1,10 @@
-// The measured BLOCK duration of a rate limit is written by onBlockLifted().
-// That call is the ONLY producer of `blockMs` besides the zero-length guard,
-// and a real provider's ask() never calls it: a rate limit is retried IN
-// PLACE, the retry succeeds, and onOutcome('ok') has ALREADY cleared
+// The measured BLOCK duration of a rate limit used to come only from
+// onBlockLifted(), which a real provider's ask() never calls: a rate limit is
+// retried IN PLACE, the retry succeeds, and onOutcome('ok') has already cleared
 // `blockedAt` by then. So /limits kept reporting "average block: 0s" for a
 // provider whose telemetry has rate-limit events. When a send succeeds and the
-// runtime still knows the block start, that success IS the lift: record the
-// duration right there (once — a second success must not re-measure it).
+// runtime still knows the block start, that success IS the lift: the duration
+// is recorded right there (once — a second success must not re-measure it).
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
