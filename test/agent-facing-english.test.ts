@@ -7,8 +7,8 @@ import { fileURLToPath } from 'node:url'
 // Enforces the AGENTS.md language policy: agent-facing files (tool
 // descriptions, tool-result strings, the system prompt, MCP tool descriptions)
 // must be ENGLISH and contain no Cyrillic. Operator-facing text goes through
-// src/i18n.ts instead. A stray Russian prose string here would leak into the
-// model's context (and the tool contract the model relies on).
+// the CATALOG in src/i18n/ instead. A stray Russian prose string here would
+// leak into the model's context (and the tool contract the model relies on).
 const AGENT_FACING = [
   'src/tools.ts',
   'src/extraTools.ts',
