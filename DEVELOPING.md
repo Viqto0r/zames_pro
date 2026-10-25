@@ -106,7 +106,7 @@ The pure helpers live in `src/backlog.ts` (unit-tested in
 
 `npm run changelog:sync` writes the `[Unreleased]` section in `CHANGELOG.md`
 from the conventional commits since the last tag, and `npm run changelog:check`
-fails when the committed section is stale (a CI guard, D2).
+fails when the committed section is stale (a CI guard).
 `npm run changelog:draft [ref]` PRINTS a draft without touching the file — use
 it to eyeball the wording before a sync. The sync is idempotent and only
 rewrites the region between `## [Unreleased]` and the next `## [x.y.z]` heading
@@ -117,11 +117,11 @@ lives in
 skipped, `feat`->Added, `fix`->Fixed, `perf`/`refactor`/`style`/`revert`->Changed,
 `remove`->Removed, and a `!` after the type/scope appends `(BREAKING)`.
 
-## Refactoring the big modules (BACKLOG C3)
+## Refactoring the big modules
 
-The core modules grew large: `index.ts` ~4.0k lines, `browser.ts` ~3.35k,
-`input.ts` ~2.1k, `agent-loop.ts` ~1.9k, `commands.ts` ~1.3k. The i18n CATALOG
-has already been split into `src/i18n/*.ts` (~1.7k lines total), so `i18n.ts` is
+The core modules grew large: `index.ts` ~4.8k lines, `browser.ts` ~3.35k,
+`input.ts` ~2.2k, `commands.ts` ~1.6k, `agent-loop.ts` ~1.6k. The i18n CATALOG
+has already been split into `src/i18n/*.ts` (~2.3k lines), so `i18n.ts` is
 no longer a candidate. Break the rest up GRADUALLY — one module per step, never
 a big-bang refactor. (Re-check the real numbers with `wc -l src/*.ts` — the
 values here drift.)
