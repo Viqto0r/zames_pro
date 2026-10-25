@@ -139,7 +139,6 @@ test('auto-compact disables itself when it returns the same chat id', async () =
     jsonCall('respond', { message: 'done' }),
   ]
   const { browser } = makeBrowser(script)
-  // getCurrentChatId() returns 'chat-xyz' (see makeBrowser).
   let compactCalls = 0
   const warnings: string[] = []
   const result = await runAgentLoop({
