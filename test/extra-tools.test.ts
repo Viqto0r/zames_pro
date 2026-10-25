@@ -370,7 +370,7 @@ test('Read сырой вывод подходит для Edit old_string', async
   await fs.rm(dir, { recursive: true, force: true })
 })
 
-// ---------- TodoStore (I2: per-session, persisted checklist) ----------
+// ---------- TodoStore (per-session, persisted checklist) ----------
 
 test('TodoStore: изменения идут в переданный store, а не в модульный', async (t) => {
   resetTodos()
