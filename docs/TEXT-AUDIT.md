@@ -2,7 +2,7 @@
 
 Goal: walk the human-readable texts of zames_pro one file per step, find a
 factual / wording defect, FIX it together with its source of truth, verify,
-commit. Do NOT push, do NOT bump the version.
+commit and PUSH to `master` (`git push origin master`); do NOT bump the version.
 
 Now that the CODE and the CODE COMMENTS are audited, this protocol covers
 everything else: user docs, dev docs, the agent instructions, the bundled skills,
@@ -144,8 +144,10 @@ A step whose gates are red is NOT done: either fix it or revert the step.
 - Add the file to "Covered areas" so the next step skips it.
 - Commit with a conventional subject: `docs(readme): fix the Node.js version`,
   `fix(i18n): align the ru/en text of …`. One commit per step.
-- Do NOT push, do NOT run `npm run release`, do NOT touch `package.json`
-  `version`.
+- Then PUSH it: `git push origin master`. If the push is rejected (the pre-push
+  hooks run lint + format:check + typecheck + build, or it is a non-fast-forward),
+  fix the cause and push again — NEVER force-push.
+- Do NOT run `npm run release`, do NOT touch `package.json` `version`.
 
 ## 7. Keeping QUEUE.md usable (it is a QUEUE, not an archive)
 
@@ -168,13 +170,13 @@ Run this ONCE in the project directory (the interval is a suggestion — a step
 with a full `npm test` takes minutes, so do not go below `15m`):
 
 ```
-/loop 20m Text audit, one step. Read docs/TEXT-AUDIT.md and follow it exactly: pick the next NOT-yet-covered file from its scope table (skip the ones listed under "Covered areas" in QUEUE.md), audit it against the code as the source of truth, fix ONE defect family in the source file(s) plus both languages, regenerate the generated files, run the gates (typecheck, test, lint, format:check, build), append a `### Text-audit step N` entry to QUEUE.md with the finding + gates + commit SHA, update the "Covered areas" list, and commit (docs:/fix: subject). Do NOT push and do NOT bump the version. If the file is clean, add it to "Covered areas", write a `чисто` entry with what you verified, and commit nothing. Stop the loop with /jobs clear when every file in the scope table is covered.
+/loop 20m Text audit, one step. Read docs/TEXT-AUDIT.md and follow it exactly: pick the next NOT-yet-covered file from its scope table (skip the ones listed under "Covered areas" in QUEUE.md), audit it against the code as the source of truth, fix ONE defect family in the source file(s) plus both languages, regenerate the generated files, run the gates (typecheck, test, lint, format:check, build), append a `### Text-audit step N` entry to QUEUE.md with the finding + gates + commit SHA, update the "Covered areas" list, commit (docs:/fix: subject) and push to master (git push origin master). Do NOT bump the version. If the file is clean, add it to "Covered areas", write a `чисто` entry with what you verified, and commit nothing. Stop the loop with /jobs clear when every file in the scope table is covered.
 ```
 
 One-liner variant if the task text must fit on one line:
 
 ```
-/loop 20m Text audit step: read docs/TEXT-AUDIT.md and follow it exactly (pick the next uncovered file, audit vs code, fix one defect family in source+both languages, rebuild generated files, run gates, journal in QUEUE.md, update Covered areas, commit, no push, no version bump).
+/loop 20m Text audit step: read docs/TEXT-AUDIT.md and follow it exactly (pick the next uncovered file, audit vs code, fix one defect family in source+both languages, rebuild generated files, run gates, journal in QUEUE.md, update Covered areas, commit and push to master, no version bump).
 ```
 
 ## 9. Suggested first passes (highest value)
