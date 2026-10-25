@@ -7,6 +7,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.139] - 2026-10-25
+
+### Changed
+
+- docs(test/security-sandbox): drop the backlog priority label
+- docs(test): remove the last backlog ids (I2, U2/U3)
+- docs(test/extra-tools): drop a backlog id from a section header
+- docs(test/cancel-ask): stop quoting a stale watchdog deadline
+- docs(test/send-runtime-block-lift): fix a header that contradicted its own fix
+- docs(test/tui-hints-locale): wrap two over-long comment lines
+- docs(test/tui-hints-locale): wrap the over-long note
+- docs(test): translate leftover Russian comments
+- docs(test/readme-built): say why a second readme is forbidden
+- docs(test/readme-built): say why a second readme is forbidden
+- docs(test/agent-loop): state why the first send is not an agent turn
+- docs(test/statusline-cap): untangle the settle-vs-exit note
+- docs(test/i18n-unused): drop the shouting prefix
+- docs(test/legacy-paste-marker): drop a time-relative word
+- docs(test): replace first-person narration with the subject
+- docs(test/continue-button): drop the first-person narration
+- docs(test/auto-compact): drop a pointer to the fixture value
+- docs(test/run-task): drop the refactor history from the header
+- docs(test/attach-flow-shared): keep only the why of the fake clock
+- docs(test/send-telemetry-nan-block): drop a case that lives in another test
+- docs(test/wsl): state the real reason instead of the CI setup
+- docs(test/agent-loop-robust): name the retry budget constant
+- docs(test/diff-large-file): stop quoting a removed source comment
+- docs(test/auth-login): trim a comment that restated its asserts
+- docs(agents): remove the last backlog ids from the root instructions
+- docs(scripts): remove backlog ids from scenario comments
+- docs(test/generation-incomplete): stop quoting a stale watchdog value
+- docs(test/cancel-ask): drop the runner version from the keep-alive note
+- docs(test/cli-flags): name the skip-list constant
+- docs(test/continue-button): name the real continue constant
+- docs(test/finished-answer-plain-json): name the real constants
+- docs(test/tool-name-resolution): drop the meta clause
+- docs(test/mcp-truncate-surrogate): finish the meta-narration cleanup
+- docs(test): drop meta-narration from test comments
+- docs(test/log-window): state the bug instead of narrating the test
+- docs(readme): mention /rewind next to /undo
+- docs(llms): regenerate llms-full.txt after the readme fixes
+- docs(readme): clarify the per-provider context window sentence
+- docs(readme): the Qwen send pause is 4 s, not 1 s
+- docs(readme): the context percentage is per provider, not always 1M
+- docs(readme): complete the CLI options block
+- docs(readme): list BashOutput and AskUser among the tools
+- docs(readme): make the slash-command list match SLASH_COMMANDS
+- docs(scripts): fix a typo in the build-readme usage line
+- docs(test/agent-loop-robust): fix a section header that contradicted the code
+- docs(test/i18n-unused): tighten the vacuously-green note
+- docs(test/attach-flow): drop a what-comment
+- docs(test/browser-login): drop a duplicated probe walkthrough
+- docs(scripts): document the postinstall contract
+- docs(test/agent-facing-english): point at the split i18n catalog
+- docs(test): remove backlog ids missed by the first sweep
+- docs(developing): refresh module sizes and drop backlog ids
+- docs(agents): drop backlog ids from the module map
+- docs(agents): the providers are three, with three profiles
+- docs(contributing): fix the provider list and the dev-mode description
+- docs(citation): sync the version and keep CITATION.cff updated on release
+- docs(readme): mention GLM in the provider section
+- docs(readme): fix three default/config facts (mouseScroll, telemetry, config write target)
+- docs(readme): state the real Node.js requirement (>= 22)
+- docs(design-notes): replace a backlog id with the actual reason
+- docs(scripts): translate a Russian header and drop backlog ids
+- docs(test/xml): prune and fix stale comments
+- docs(test/subagent): prune stale comments
+- docs(test/ssrf): prune stale comments
+- docs(test/skill): prune and fix stale comments
+- docs(test/mcp): prune stale comments and translate a leftover Russian note
+- docs(test/i18n): repair a corrupted word and prune stale comments
+- docs(test/glm): prune and fix stale comments
+- docs(test/editor): drop remaining backlog ids
+- docs(test/editor): prune and fix stale comments
+- docs(test/context): prune and fix stale comments
+- docs(test/config): prune and fix stale comments
+- docs(test/cli): prune and fix stale comments
+- docs(test/browser): prune and fix stale comments
+- docs(test/backlog): prune and fix stale comments
+- docs(test/answer-parse): prune and fix stale comments
+- docs(test/agent-loop): prune and fix stale comments
+- docs: add a text-audit protocol for an unattended loop run
+
 ## [2.82.138] - 2026-10-25
 
 ### Changed
