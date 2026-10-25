@@ -1,15 +1,14 @@
 # Contributing
 
 Thanks for your interest in zames! This is a small CLI that drives a real
-browser against a web chat LLM (DeepSeek or Qwen by default; see
-`/provider`). Below is how to set up, run and verify a change locally.
+browser against a web chat LLM (DeepSeek, Qwen or GLM; see `/provider`). Below is how to set up, run and verify a change locally.
 
 ## Requirements
 
 - Node.js 24 (see `.nvmrc`; `nvm use`)
 - A logged-in session in the provider's profile (`~/.zames/profile` for
-  DeepSeek, `~/.zames/qwen-profile` for Qwen) for the end-to-end smoke test
-  (the unit suite does not need one)
+  DeepSeek, `~/.zames/qwen-profile` for Qwen, `~/.zames/glm-profile` for GLM)
+  for the end-to-end smoke test (the unit suite does not need one)
 
 ## Setup
 
@@ -22,7 +21,7 @@ node dist/index.js --help
 For development with auto-reload of the logic modules:
 
 ```bash
-npm run dev          # tsx, headless
+npm run dev          # tsx, headed (ZAMES_NET_DEBUG=1)
 ```
 
 ## Checks before committing
