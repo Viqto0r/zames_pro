@@ -167,7 +167,7 @@ test('a truncated body has no answer text but IS detected as truncated', () => {
 // "content":"{"` + the status). The old RESPONSE_CONTENT_RE (one non-quote
 // char) matched that `{`, so the body looked "finished WITH an answer":
 // isFinishedWithoutAnswer() stayed false, the finish loop kept polling for a
-// complete answer and ask() gave up only at the 240s watchdog. The operator
+// complete answer and ask() gave up only at the ask() watchdog. The operator
 // watched a spinner with no tool call. A truncated RESPONSE head must count as
 // "no answer" so the turn is retried immediately.
 test('a FINISHED turn with only a truncated RESPONSE head is retried', () => {
