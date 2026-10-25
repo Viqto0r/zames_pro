@@ -7,6 +7,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.138] - 2026-10-25
+
+### Changed
+
+- docs(types): fix a stale provider count
+- docs(tui/widgets): prune a section divider
+- docs(tui): prune section dividers
+- docs(system-prompt): drop a backlog-id reference
+- docs(statusline): prune and fix stale comments
+- docs(status-command): prune and fix stale comments
+- docs(spinner): prune and fix stale comments
+- docs(shell): prune and fix stale comments
+- docs(sessions): prune and fix stale comments
+- docs(send-throttle): prune and fix stale comments
+- docs(send-telemetry): prune and fix stale comments
+- docs(send-runtime): prune and fix stale comments
+- docs(self-review): prune section dividers
+- docs(run-task): prune and fix stale comments
+- docs(qwen-ui): prune and fix stale comments
+- docs(qwen-net-capture): prune and fix stale comments
+- docs(qwen-chats): prune and fix stale comments
+- docs(qwen-browser): prune section dividers
+- docs(prompt): prune and fix stale comments
+- docs(permissions): prune and fix stale comments
+- docs(path-token): prune and fix stale comments
+- docs(net-capture): prune and fix stale comments
+- docs(mcp): prune and fix stale comments
+- docs(markdown): prune and fix stale comments
+- docs(limits-command): prune and fix stale comments
+- docs(input/suggest): prune and fix stale comments
+- docs(input/layout): drop a backlog-id reference
+- docs(input): prune backlog ids and section dividers
+- docs(index): prune section dividers
+- docs(i18n): prune and fix stale comments
+- docs(i18n): drop backlog-id references from common.ts comments
+- docs(goal): prune and fix stale comments
+- docs(glm-ui): prune and fix stale comments
+- docs(glm-net-capture): prune and fix stale comments
+- docs(glm-chats): prune and fix stale comments
+- docs(glm-browser): prune and fix stale comments
+- docs(glm-browser): prune and fix stale comments
+- docs(gitTools): prune and fix stale comments
+- docs(fsutil): prune and fix stale comments
+- docs(extraTools): prune and fix stale comments
+- docs(diff): prune and fix stale comments
+- docs(diagnostics): prune and fix stale comments
+- docs(deepseek-ui): prune and fix stale comments
+- docs(config): prune and fix stale comments
+- docs(config-menu): prune and fix stale comments
+- docs(config-live): prune and fix stale comments
+- docs(config-commands): prune and fix stale comments
+- docs(config-command): prune and fix stale comments
+- docs(commands): prune and fix stale comments
+- docs(code-blocks): prune and fix stale comments
+- docs(cli-args): prune and fix stale comments
+- docs(checkpoint): prune and fix stale comments
+- docs(changelog): prune and fix stale comments
+- docs(browser): prune and fix stale comments
+- docs(browser-pure): prune and fix stale comments
+- docs(browser-login): prune and fix stale comments
+- docs(browser-dom): prune and fix stale comments
+- docs(browser-chats): prune and fix stale comments
+- docs(banner): prune and fix stale comments
+- docs(backlog): prune and fix stale comments
+- docs(attachments): prune and fix stale comments
+- docs(attach-refs): prune and fix stale comments
+- docs(attach-flow): prune and fix stale comments
+- docs(answer-parse): prune and fix stale comments
+- docs(agent-loop): prune and fix stale comments
+
 ## [2.82.137] - 2026-10-24
 
 ### Changed
