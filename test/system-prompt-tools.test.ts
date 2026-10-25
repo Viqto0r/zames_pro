@@ -4,9 +4,9 @@ import { createTools } from '../src/tools.ts'
 import { buildSystemPrompt } from '../src/system-prompt.ts'
 
 // Guard: the system prompt must DERIVE its tool list from the ToolDefs
-// (createTools) instead of carrying a second, hand-maintained copy. The old
-// risk was drift — the prompt promising a tool that no longer exists, or
-// missing one that was added. This test fails the moment either happens.
+// (createTools) instead of carrying a second, hand-maintained copy. The
+// risk is drift: the prompt promising a tool that no longer exists, or
+// missing one that was added.
 
 test('every createTools() tool appears as a ### heading with its description', () => {
   const tools = createTools(process.cwd())

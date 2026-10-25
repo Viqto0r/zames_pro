@@ -37,7 +37,7 @@ test('unifiedDiff: label is rendered as a leading marker', () => {
 
 test('unifiedDiff: empty inputs do not throw', () => {
   assert.equal(unifiedDiff('', ''), '')
-  // NOTE: an empty string is one empty line for this line-index diff, so it
+  // An empty string is one empty line for this line-index diff, so it
   // is emitted as a removed/added empty line (`-`/`+`) next to the other side.
   assert.equal(unifiedDiff('', 'x'), '-\n+x')
   assert.equal(unifiedDiff('x', ''), '-x\n+')

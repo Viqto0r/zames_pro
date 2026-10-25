@@ -12,8 +12,8 @@ import { fileURLToPath } from 'node:url'
 // catch a class of bug the unit tests miss entirely: the help text advertising
 // a command the code no longer handles (or a removed command still shown).
 //
-// Real case this guards: `/resume <n>` was removed but the help/`/chats`
-// hint kept telling the operator to use it.
+// The case it was written for: `/resume <n>` was removed, yet the help and the
+// `/chats` hint kept telling the operator to use it.
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
