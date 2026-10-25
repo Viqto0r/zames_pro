@@ -152,7 +152,6 @@ test('at most ONE headed<->headless cycle when the session does not carry over',
     deps({
       probeLogin: async (): Promise<ProbeResult> => {
         probes++
-        // First probe: out. Window: in. After the headless relaunch: out.
         // 1: out. 2: the window is up -> in. 3: after the headless
         // relaunch the session did not carry over -> out.
         if (probes === 1) return 'out'
