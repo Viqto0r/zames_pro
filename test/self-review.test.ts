@@ -8,7 +8,7 @@ import { makeTmpDir } from './tmp-dir.ts'
 
 // Regression: self-review used to walk only the TOP level of src/ and take
 // files ending in .ts, so src/i18n/*.ts and src/input/*.ts never entered a
-// snapshot and /self-diff /self-apply silently ignored them (N4).
+// snapshot and /self-diff /self-apply silently ignored them.
 
 test('listTsFiles recurses into subdirectories', async (t) => {
   const dir = await makeTmpDir(t, 'zames-sr-')
