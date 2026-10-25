@@ -1,24 +1,26 @@
-// sched-smoke: ЖИВАЯ проверка планировщика (/loop, /cron, /jobs) в РЕАЛЬНОМ
-// zames.
+// sched-smoke: a LIVE check of the scheduler (/loop, /cron, /jobs) in a REAL
+// zames instance.
 //
-// Ключевая идея: TUI-ввод в песочнице проверить нельзя (Ink требует настоящий
-// интерактивный терминал, а pty.fork/script в CI его не дают — панель ввода
-// просто не рендерится). Поэтому проверяем ДВЕ вещи независимо и по-настоящему:
+// Key idea: TUI input cannot be verified in a sandbox (Ink needs a real
+// interactive terminal, and pty.fork/script do not provide one in CI, so the
+// input panel simply does not render). That is why TWO things are checked
+// independently and for real:
 //
-//   1) ЧИСТЫЕ модули планировщика (src/scheduler.ts) — экспортируемый код
-//      ядра, который вызывает main loop: parseInterval, parseCron, nextCronTime,
-//      Scheduler.addLoop/addCron/due/remove/clear, formatJobLine.
-//   2) ФАКТИЧЕСКУЮ РЕАКЦИЮ main loop: планировщик реально enqueue'ит задачу в
-//      очередь, и она попадает в тот же pendingQueue, что и ввод оператора.
-//      Это воспроизводим без браузера: Scheduler + due() + push в очередь —
-//      ровно то, что делает 1-секундный tick в index.ts.
+//   1) the PURE scheduler modules (src/scheduler.ts) — the exported core the
+//      main loop calls: parseInterval, parseCron, nextCronTime,
+//      Scheduler.addLoop/addCron/due/remove/clear, formatJobLine;
+//   2) the main loop REACTION: the scheduler really enqueues a task into the
+//      same pendingQueue as operator input. Reproducible without a browser:
+//      Scheduler + due() + push is exactly what the 1-second tick in
+//      index.ts does.
 //
-// Плюс: /loop, /cron, /jobs присутствуют в реальном списке команд (SLASH_COMMANDS)
-// и их описания локализованы — чтобы оператор их видел в подсказке и /help.
+// Plus: /loop, /cron and /jobs must be present in the real command list
+// (SLASH_COMMANDS) with localized descriptions, so the operator sees them in
+// the hint list and in /help.
 //
-// Изоляция: HOME -> временная папка ДО импорта модулей (как в self-smoke),
-// живой ~/.zames не трогается. Флагами можно попросить --headed, но браузер
-// здесь не поднимается вообще: сценарии не требуют сети.
+// Isolation: HOME points at a temp dir BEFORE the modules are imported (same
+// as self-smoke), so the live ~/.zames is never touched. A browser is never
+// launched: no scenario needs the network.
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
@@ -100,7 +102,10 @@ const tick = (now: number): number => {
 // The loop is due IMMEDIATELY, so the first tick fires it right away; the
 // cron job is due only at its computed minute.
 check('tick сразу срабатывает loop (первый тик)', tick(1_000_000) === 1)
-check('loop попал в очередь', pendingQueue.some((m) => m.jobId === loop.id))
+check(
+  'loop попал в очередь',
+  pendingQueue.some((m) => m.jobId === loop.id),
+)
 check('до срока cron tick ничего не даёт', tick(1_000_000 + 1_000) === 0)
 check('cron */2 сработал по сроку', tick(cron!.nextAt) >= 1)
 check(

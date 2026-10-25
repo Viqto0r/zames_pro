@@ -8,7 +8,7 @@ import {
   renderChangelogDraft,
 } from '../src/changelog.js'
 
-// One-command release prep (BACKLOG G4). The manual sequence — bump
+// One-command release prep. The manual sequence — bump
 // package.json, write a dated CHANGELOG section, commit `chore: release X.Y.Z`,
 // tag — is easy to get wrong, so this script does the deterministic parts and
 // STOPS before the push. Pushing the branch and the tag is deliberately a

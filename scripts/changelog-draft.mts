@@ -9,8 +9,8 @@ import {
   syncUnreleased,
 } from '../src/changelog.js'
 
-// Draft a CHANGELOG section from conventional commits since a ref (BACKLOG
-// D2). PRINTS to stdout and never touches CHANGELOG.md -- the operator (or
+// Draft a CHANGELOG section from conventional commits since a ref.
+// PRINTS to stdout and never touches CHANGELOG.md -- the operator (or
 // the agent) pastes the result in by hand, so a bad commit subject can never
 // corrupt the changelog.
 //
@@ -58,7 +58,7 @@ const body = renderChangelogDraft(groupCommits(parsed))
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const changelogPath = path.join(root, 'CHANGELOG.md')
 
-// D2: sync the `## [Unreleased]` section in CHANGELOG.md from the conventional
+// Sync the `## [Unreleased]` section in CHANGELOG.md from the conventional
 // commits since the last tag. `--write` edits the file; `--check` fails when
 // the committed section is out of date (for CI); neither just prints the body.
 if (write || check) {

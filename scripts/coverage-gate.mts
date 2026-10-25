@@ -37,7 +37,7 @@ const FLOORS = {
   // that ceiling (a real drop below it still fails).
   'changelog.ts': 78,
   'attach-refs.ts': 85,
-  // C3: the pure /config subcommand dispatcher — silent routing regressions
+  // The pure /config subcommand dispatcher — silent routing regressions
   // (a wrong subcommand branch) are invisible without tests.
   'config-command.ts': 85,
   // The Ink TUI's PURE halves: the editor state transitions (tui/edit.ts) and

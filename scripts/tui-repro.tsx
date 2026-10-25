@@ -1,6 +1,10 @@
 // Reproduce the LIVE TUI scenario for the input-box geometry bug.
 //
-// The stock probe uses a bare `> ` prompt, an empty command list and no header, which is why the gated pty test stays green while the live agent still overprints the second input line. This probe mounts the same FullScreenApp with a realistic prompt, a non-empty slash command list and a long title.
+// The stock probe uses a bare `> ` prompt, an empty command list and no
+// header, which is why the gated pty test stays green while the live agent
+// still overprints the second input line. This probe mounts the same
+// FullScreenApp with a realistic prompt, a non-empty slash command list and a
+// long title.
 //
 // NOT shipped: a dev probe only.
 
