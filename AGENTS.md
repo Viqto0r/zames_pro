@@ -577,14 +577,14 @@ the matching module. Summary of the ACTING rules:
   `lock()` it. Attachments: `[image#N]`/`[file#N]` markers, files land in
   `<project>/tmp`, `@path` refs are inlined into the task (60 KB/file, 200 KB
   total). No hardcoded Russian in src/input.ts / src/spinner.ts.
-- **@@file-ссылки** (B5): `extractAtFileRefs()` (src/path-token.ts) finds
+- **`@file`-ссылки**: `extractAtFileRefs()` (src/path-token.ts) finds
   `@path` at word boundaries (never `user@host` or `@Component`);
   `inlineAtRefs()` (src/index.ts) appends the file contents under
   `## Files referenced with @ in the task`.
 - **Permissions**: `.zames/permissions.json`, `decidePermission()` runs
   BEFORE each tool in `agent-loop.ts`; `deny` blocks, `ask` prompts the operator.
 
-### `@file`-ссылки в задаче (B5)
+### `@file`-ссылки в задаче
 
 `@path` в тексте задачи — это сокращение «вот этот файл». `extractAtFileRefs()`
 (src/path-token.ts, чистая, без regexp) находит все ссылки: `@` учитывается
@@ -744,7 +744,7 @@ What is loaded, in priority order:
 - **custom commands** — `.md` files under `.zames/commands`, `.claude/commands`,
   `.agents/commands`, `~/.zames/commands`, `~/.claude/commands`. The body
   supports `$ARGUMENTS` and `{{args}}` placeholders, plus positional `$1`..`$N`
-  and named `$name` tokens. Two optional frontmatter fields (B7):
+  and named `$name` tokens. Two optional frontmatter fields:
   `argument-hint:` (e.g. `<file> [focus]`) is shown in the «/» suggest list and
   `/help` as a display-only `hint` on the entry (NEVER inserted into the input
   line), and `arguments:` declares mandatory positional names.
@@ -1226,8 +1226,8 @@ Order:
 2. Push the branch AND the tag (`git push` + `git push origin vX.Y.Z`).
    It is the tag push that triggers the pipeline and the npm publication.
 
-(`scripts/release.mts`, `npm run release`, BACKLOG G4 — added later. It can
-also be done by hand exactly as steps 1-2 above describe.)
+(`scripts/release.mts` / `npm run release` does the same steps. It can also be
+done by hand exactly as steps 1-2 above describe.)
 
 Pipeline requirements: the `NPM_TOKEN` secret in the repository settings.
 
