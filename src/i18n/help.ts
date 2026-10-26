@@ -134,8 +134,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/chats [filter]          recent chats of the active provider',
   },
   'help.cmd.last': {
-    ru: '/last                    открыть последний чат этого каталога',
-    en: '/last                    open the last chat of this directory',
+    ru: '/last                    открыть последний чат этого каталога и напечатать диалог',
+    en: "/last                    open this directory's last chat and print its dialogue",
   },
   'help.cmd.chat': {
     ru: '/chat                    показать текущий chat id и его URL',
