@@ -452,8 +452,9 @@ tests`). /cron "<min> <hour> <dom> <month> <dow>" <task> — run on a schedule.
   "Web search" item in the "+" menu.
   These (and /queue, /jobs, /goal, `/config <sub>`) can be used WHILE the agent
   is working — they do not touch the in-flight generation.
-- /queue [clear] — list or clear the messages waiting to be sent after the
-  current task.
+- /queue [list|ls|clear|c|clean] — list (`list`/`ls`) or clear
+  (`clear`/`c`/`clean`) the messages waiting to be sent after the current
+  task.
 
 The token context is also shown live: the status line above the input has the
 spinner/text on the left and the context on the right (e.g. `125k · 13%`). The

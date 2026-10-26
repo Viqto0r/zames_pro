@@ -467,8 +467,9 @@ tests`). /cron "<min> <hour> <dom> <month> <dow>" <task> — run on a schedule.
   "Web search" item in the "+" menu.
   These (and /queue, /jobs, /goal, `/config <sub>`) can be used WHILE the agent
   is working — they do not touch the in-flight generation.
-- /queue [clear] — list or clear the messages waiting to be sent after the
-  current task.
+- /queue [list|ls|clear|c|clean] — list (`list`/`ls`) or clear
+  (`clear`/`c`/`clean`) the messages waiting to be sent after the current
+  task.
 
 The token context is also shown live: the status line above the input has the
 spinner/text on the left and the context on the right (e.g. `125k · 13%`). The
@@ -1176,8 +1177,8 @@ zames --task "..." --output-format jsonl \
   в меню «+».
   Их (а также /queue, /jobs, /goal, `/config <sub>`) можно использовать, ПОКА
   агент работает — они не трогают текущую генерацию.
-- /queue [clear] — показать или очистить сообщения, ждущие отправки после
-  текущей задачи.
+- /queue [list|ls|clear|c|clean] — показать (`list`/`ls`) или очистить
+  (`clear`/`c`/`clean`) сообщения, ждущие отправки после текущей задачи.
 
 Контекст в токенах показывается и вживую: в строке статуса над вводом слева
 спиннер/текст, справа — контекст (например, `125k · 13%`). Процент считается от
