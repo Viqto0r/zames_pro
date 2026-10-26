@@ -211,8 +211,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/export [file] export the session to Markdown',
   },
   'help.cmd.doctor': {
-    ru: '/doctor диагностика установки и конфига',
-    en: '/doctor diagnose install and config',
+    ru: '/doctor диагностика: node, git, конфиг, браузер, буфер обмена, MCP, провайдер',
+    en: '/doctor diagnose node, git, config, browser, clipboard, MCP and the provider',
   },
   'help.cmd.add_dir': {
     ru: '/add-dir <path> проверить директорию',
