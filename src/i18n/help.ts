@@ -529,8 +529,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/skills                  list skills: name, source, description, path',
   },
   'help.cmd.memory': {
-    ru: '/memory                  показать MEMORY.md и AGENTS.md',
-    en: '/memory                  show MEMORY.md and AGENTS.md',
+    ru: '/memory                  какие AGENTS.md и MEMORY.md реально загружены (пути)',
+    en: '/memory                  which AGENTS.md and MEMORY.md are loaded (paths)',
   },
   'help.cmd.remember': {
     ru: '/remember <текст>        дописать заметку в MEMORY.md проекта (создаст файл)',
