@@ -62,8 +62,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: 'type + Enter              queue a message (sent after the current task)',
   },
   'help.key.history': {
-    ru: '↑ / ↓                    история введённых сообщений',
-    en: '↑ / ↓                     input history',
+    ru: '↑ / ↓                    история введённых сообщений (сохраняется в ~/.zames/history.json)',
+    en: '↑ / ↓                     input history (saved to ~/.zames/history.json)',
   },
   'help.key.search': {
     ru: 'Ctrl+R                   поиск по истории (обратный)',
