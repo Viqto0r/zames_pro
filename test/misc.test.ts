@@ -240,25 +240,26 @@ test('buildSystemPrompt локализует инструкцию о языке 
 
 test('buildSystemPrompt содержит жёсткий блок ONLY TOOL CALLS', () => {
   const sp = buildSystemPrompt({ workdir: '/w', tools: [] })
-  // Default locale is ru; the English heading appears with locale: 'en'.
-  assert.ok(
-    sp.includes('ТОЛЬКО ВЫЗОВЫ ИНСТРУМЕНТОВ'),
-    'блок должен присутствовать',
-  )
+  // AGENT-FACING: the block is ENGLISH in BOTH locales (AGENTS.md "Language
+  // policy"), so the Russian UI still gets the English protocol text.
+  assert.ok(sp.includes('ONLY TOOL CALLS'), 'блок должен присутствовать')
   // The block must explicitly forbid plain prose between calls.
-  assert.ok(/ТОЛЬКО через вызовы инструментов/.test(sp))
+  assert.ok(/ONLY through tool calls/.test(sp))
   assert.ok(/respond/.test(sp))
   // The SILENT OPERATION / NO PROSE sections must remain.
   assert.ok(sp.includes('NO PROSE AROUND TOOL CALLS'))
 })
 
-test('блок ONLY TOOL CALLS локализован (ru/en)', () => {
+test('блок ONLY TOOL CALLS английский в обеих локалях', () => {
   const ru = buildSystemPrompt({ workdir: '/w', tools: [], locale: 'ru' })
   const en = buildSystemPrompt({ workdir: '/w', tools: [], locale: 'en' })
-  assert.ok(ru.includes('ТОЛЬКО ВЫЗОВЫ ИНСТРУМЕНТОВ'))
+  assert.ok(ru.includes('ONLY TOOL CALLS'))
   assert.ok(en.includes('ONLY TOOL CALLS'))
-  // And each locale gets its own text, not the other's.
-  assert.ok(!en.includes('ТОЛЬКО ВЫЗОВЫ ИНСТРУМЕНТОВ'))
+  // Agent-facing text must be English only: no Cyrillic protocol block.
+  assert.ok(!ru.includes('ТОЛЬКО ВЫЗОВЫ ИНСТРУМЕНТОВ'))
+  // The answer LANGUAGE still follows the locale.
+  assert.ok(/русск/i.test(ru))
+  assert.ok(/English/i.test(en))
 })
 
 // Wide characters (emoji, CJK) must count as 2 columns so the
