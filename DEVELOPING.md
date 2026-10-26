@@ -333,8 +333,13 @@ a non-interactive run (or `ZAMES_NONINTERACTIVE_LOGIN=1`) never opens one.
 `src/browser-login.ts` is imported by the browser CLASSES, which `/reload` does
 NOT reload — a change there needs a process restart, like `browser.ts`.
 
-Coverage: `npx tsx --test --experimental-test-coverage test/*.test.ts` (this is
-also what CI runs).
+Coverage: `npx tsx --test --experimental-test-coverage test/*.test.ts`.
+
+This coverage run IS the test step of CI, and CI then runs ONE more check on
+top of it: `npm run coverage:gate` (per-file floors for the critical modules,
+listed in `FLOORS` in `scripts/coverage-gate.mts`; dropping below one fails the
+job). A plain `npm test` is NOT a separate CI step — it is what you run locally,
+and it is the same suite.
 
 See `CONTRIBUTING.md` for the broader contribution flow and `AGENTS.md` for the
 internal module map and design notes.
