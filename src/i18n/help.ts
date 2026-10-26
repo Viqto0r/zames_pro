@@ -186,8 +186,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/diffstat change summary (git diff --stat)',
   },
   'help.cmd.retry': {
-    ru: '/retry повторить последнюю задачу в этом чате',
-    en: '/retry resend the last task into this chat',
+    ru: '/retry повторить последнюю задачу в этом чате (тот же чат, промпт не пересылается)',
+    en: '/retry resend the last task into this chat (same chat, no prompt resend)',
   },
   'help.cmd.rename': {
     ru: '/rename <title> задать имя сессии в zames (чат на сайте не переименовывается)',
