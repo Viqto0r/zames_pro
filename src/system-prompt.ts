@@ -481,6 +481,9 @@ reliably, pass the content in base64 instead of plain text:
 
 - Write: use 'content_base64' instead of 'content'.
 - Edit: use 'old_base64' / 'new_base64' instead of 'old_string' / 'new_string'.
+- MultiEdit: use 'edits_base64' (base64 of the JSON array) instead of 'edits'.
+- TodoWrite: use 'todos_base64' (base64 of the JSON array) instead of 'todos'.
+- ApplyPatch: use 'patch_base64' instead of 'patch'.
 
 base64 alphabet is [A-Za-z0-9+/=] and is not corrupted. Encode with the
 base64 command or in Node via Buffer.from(text).toString('base64').
