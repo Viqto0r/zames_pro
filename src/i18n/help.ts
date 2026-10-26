@@ -198,8 +198,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/context what the prompt loads (AGENTS/MEMORY/skills/commands), their sizes and the prompt size',
   },
   'help.cmd.copy': {
-    ru: '/copy скопировать последний ответ в буфер обмена',
-    en: '/copy copy the last answer to the clipboard',
+    ru: '/copy скопировать последний ответ в буфер обмена (нужна утилита: wl-copy/xclip/xsel, pbcopy, clip)',
+    en: '/copy copy the last answer to the clipboard (needs a clipboard tool: wl-copy/xclip/xsel, pbcopy, clip)',
   },
   'help.cmd.cost': {
     ru: '/cost (/usage) статистика сессии: задачи, инструменты, время, контекст',
