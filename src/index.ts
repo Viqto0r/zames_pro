@@ -665,7 +665,6 @@ ${theme.bold(t('help.while_working'))}
   ${t('help.key.clear_screen')}
   ${t('help.key.slash')}
   ${t('help.key.newline')}
-  ${t('help.key.backslash')}
   ${t('help.key.attach')}
   ${t('help.key.esc')}
   ${t('help.key.bang')}

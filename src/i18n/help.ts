@@ -86,12 +86,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/ + Tab                   slash-command hints and completion (Ctrl+N/P — select)',
   },
   'help.key.newline': {
-    ru: '\\ + Enter / Ctrl+J       новая строка (Ctrl+Enter и Shift+Enter — только в терминалах с kitty-протоколом)',
-    en: '\\ + Enter / Ctrl+J        new line (Ctrl+Enter and Shift+Enter only in terminals with the kitty protocol)',
-  },
-  'help.key.backslash': {
-    ru: '\\ + Enter                тоже новая строка',
-    en: '\\ + Enter                also a new line',
+    ru: '\\ + Enter / Ctrl+J       новая строка (Enter убирает этот \\; Ctrl+Enter и Shift+Enter — только в терминалах с kitty-протоколом)',
+    en: '\\ + Enter / Ctrl+J        new line (Enter drops that \\; Ctrl+Enter and Shift+Enter only in terminals with the kitty protocol)',
   },
   'help.key.attach': {
     ru: 'Ctrl+V / пустая вставка    картинку/файл из буфера обмена в <project>/tmp (вставляется маркер)',
