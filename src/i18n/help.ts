@@ -218,8 +218,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/doctor diagnose node, git, config, browser, clipboard, MCP and the provider',
   },
   'help.cmd.add_dir': {
-    ru: '/add-dir <path> проверить директорию',
-    en: '/add-dir <path> validate a directory',
+    ru: '/add-dir <path> проверить директорию (только проверка — песочницу не меняет)',
+    en: '/add-dir <path> validate a directory (check only — the sandbox is unchanged)',
   },
   'help.cmd.review': {
     ru: '/review [фокус] [--staged] ревью изменений агентом (без правок; --staged — индекс)',
