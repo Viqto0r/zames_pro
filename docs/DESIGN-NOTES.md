@@ -273,8 +273,14 @@ resize handler is debounced (120 ms); the redraw itself is deferred to the NEXT
 `_writeBlock()` via `_resizeRepin`, because the erase must happen on a real
 render, not inside the SIGWINCH callback.
 
-In non-TTY mode (pipe, redirect) `LineEditor` does not start — `promptOnce()`
-(src/index.ts) is used, which reads everything up to EOF.
+In non-TTY mode (pipe, redirect) NEITHER editor starts (`index.ts` builds one
+only when stdin AND stdout are a TTY); the main loop then reads one line per
+turn with the paste-aware `promptOnce()` (src/prompt.ts) — up to EOF, and it
+breaks the loop on an empty read. A `y/N` question (permission `ask`,
+`/rewind` confirmation) has its OWN single-line reader in `src/run-task.ts`
+(same name, raw mode, no paste handling). While the agent runs, the non-TTY
+fallback `watchInput()` (src/run-task.ts) reads stdin raw, shows the typed
+text via `ui.setPending()` and queues a message on Enter.
 
 ### Attachments (images/files)
 
