@@ -4,8 +4,8 @@
 
 export const qwenMessages: Record<string, { ru: string; en: string }> = {
   'qwen.guest_mode': {
-    ru: 'Qwen: вход не выполнен, работаю в гостевом режиме (≈10 сообщений в сутки, без вложений). Войдите через /provider login или запустите с --headed.',
-    en: 'Qwen: not signed in, running in guest mode (~10 messages/day, no attachments). Log in via /provider login or launch with --headed.',
+    ru: 'Qwen: вход не выполнен, работаю в гостевом режиме (суточная квота гостя ограничена, вложения недоступны). Войдите через /provider login или запустите с --headed.',
+    en: 'Qwen: not signed in, running in guest mode (the guest daily quota is limited, attachments are unavailable). Log in via /provider login or launch with --headed.',
   },
   'qwen.login_email_prompt': {
     ru: 'Email для входа в Qwen{def}: ',
