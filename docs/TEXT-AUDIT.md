@@ -44,8 +44,9 @@ At the START of every step:
 2. Read `QUEUE.md` "Covered areas" and the last few steps; pick the next file
    from the scope table that is NOT covered yet. Order: user-facing first
    (readme.en → readme.ru → llms.txt → CONTRIBUTING/SECURITY/CITATION →
-   package.json/SEO → DEVELOPING/DESIGN-NOTES → AGENTS.md → skills →
-   `src/i18n/*` one section file per step).
+   package.json/SEO → DEVELOPING/DESIGN-NOTES → AGENTS.md → this protocol →
+   `skills/*/SKILL.md` one skill per step → `src/i18n/*` one section file per
+   step → TUI chrome).
 
 Then AUDIT the chosen file against the sources of truth below.
 
@@ -131,7 +132,9 @@ npm run build:readme && npm run build:llms && npm test   # drift tests
 When you touched an i18n key, also run the guard tests explicitly:
 
 ```bash
-npx tsx --test test/i18n.test.ts test/i18n-live.test.ts test/i18n-unused.test.ts test/agent-facing-english.test.ts
+npx tsx --test test/i18n.test.ts test/i18n-live.test.ts \
+  test/i18n-unused.test.ts test/i18n-prototype-key.test.ts \
+  test/agent-facing-english.test.ts
 ```
 
 A step whose gates are red is NOT done: either fix it or revert the step.
