@@ -322,8 +322,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/loop <interval> <task> repeat a task periodically (e.g. 10m)',
   },
   'help.cmd.cron': {
-    ru: '/cron <выражение> <задача> запускать по расписанию (5 полей)',
-    en: '/cron <expr> <task> schedule a task (5-field cron)',
+    ru: '/cron "<мин> <час> <день> <мес> <дow>" <задача> запуск по расписанию (5 полей; первый — только после наступления времени)',
+    en: '/cron "<min> <hour> <dom> <month> <dow>" <task> schedule a task (5 fields; the first run waits for the schedule)',
   },
   'help.cmd.jobs': {
     ru: '/jobs [rm <id>|clear] список/удаление запланированных задач',
