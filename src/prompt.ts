@@ -10,6 +10,18 @@
 //      pasted text in the markers \x1b[200~ … \x1b[201~, so we know for sure
 //      that this is a paste, not keyboard typing, and Enter inside it is not
 //      treated as submission.
+//
+// A `data` chunk is a stream of UTF-8 BYTES and a terminal hands them over in
+// whatever sizes the pty chose: an emoji (4 bytes) or any other non-ASCII
+// character can be split between two reads. `Buffer#toString('utf-8')` decodes
+// every read on its own, so a split character became a run of U+FFFD — the
+// operator's answer (a login, a path, a Cyrillic task) arrived corrupted. The
+// decoder below holds back an INCOMPLETE trailing sequence until the bytes
+// that finish it arrive, and every read (keys, paste, the pasted tail) goes
+// through it. The non-TTY path instead CONCATENATES the raw buffers and decodes
+// once at EOF, so a split there heals by itself.
+import { StringDecoder } from 'node:string_decoder'
+
 export async function promptOnce(question: string): Promise<string> {
   const stdin = process.stdin
   const stdout = process.stdout
@@ -76,8 +88,13 @@ export async function promptOnce(question: string): Promise<string> {
       cursor += clean.length
     }
 
+    // One decoder for the WHOLE read loop: it keeps the bytes of a character
+    // that was split between two `data` events and prepends them to the next
+    // read, instead of turning both halves into U+FFFD.
+    const decoder = new StringDecoder('utf8')
+
     const onData = (buf: Buffer) => {
-      let s = buf.toString('utf-8')
+      let s = decoder.write(buf)
 
       // Fallback for terminals without bracketed paste: if the whole chunk is
       // a "bare" newline (one byte), then Enter was pressed → submit.

@@ -1,14 +1,18 @@
-// promptOnce() (the paste-aware raw-TTY reader for one-shot confirmations) is
-// byte/UTF-16 oriented, but it accepted a chunk that ENDS in the middle of a
-// surrogate pair (a read split an emoji between two `data` events, or a
-// Backspace deleted one UTF-16 unit of it). The result carries a LONE
-// surrogate — a broken code point — into whatever the prompt is used for
-// (a login, a path, an answer).
+// promptOnce() (the paste-aware raw-TTY reader for one-shot confirmations) reads
+// UTF-8 BYTES, and a pty can split a multi-byte character between two `data`
+// events. Decoding each read on its own turned both halves into U+FFFD, so an
+// emoji, a Cyrillic letter or any other non-ASCII character in the answer (a
+// login, a path, a task) arrived corrupted. The reader now keeps an incomplete
+// trailing sequence in a StringDecoder until the rest of its bytes arrive.
+//
+// The tests below pin BOTH halves of the contract: a character split between
+// reads is reassembled, and Backspace still deletes a whole code point instead
+// of leaving half of one.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { PassThrough } from 'node:stream'
 
-async function drive(chunks: string[]): Promise<string> {
+async function driveBytes(chunks: Buffer[]): Promise<string> {
   const stdin: any = new PassThrough()
   stdin.isTTY = true
   stdin.isRaw = false
@@ -31,16 +35,16 @@ async function drive(chunks: string[]): Promise<string> {
   try {
     const { promptOnce } = await import('../src/prompt.ts')
     const p = promptOnce('> ')
-    let t = 10
-    for (const c of chunks) {
-      const chunk = c
-      setTimeout(() => stdin.write(chunk), t)
-      t += 15
+    for (const chunk of chunks) {
+      stdin.write(chunk)
+      // Let the reader consume the read before the next one arrives, so the
+      // character really IS split between two `data` events.
+      await new Promise((r) => setImmediate(r))
     }
-    setTimeout(() => stdin.write('\r'), t)
+    stdin.write('\r')
     return await Promise.race([
       p,
-      new Promise<string>((r) => setTimeout(() => r('TIMEOUT'), 600)),
+      new Promise<string>((r) => setTimeout(() => r('TIMEOUT'), 800)),
     ])
   } finally {
     Object.defineProperty(process, 'stdin', {
@@ -52,6 +56,12 @@ async function drive(chunks: string[]): Promise<string> {
       configurable: true,
     })
   }
+}
+
+// U+FFFD is what a split byte sequence decodes to: seeing one means the reader
+// decoded the halves of a character SEPARATELY instead of reassembling them.
+function hasReplacementChar(s: string): boolean {
+  return s.includes('\ufffd')
 }
 
 function hasLoneSurrogate(s: string): boolean {
@@ -68,14 +78,30 @@ function hasLoneSurrogate(s: string): boolean {
   return false
 }
 
-test('promptOnce never returns a lone surrogate after a split read', async () => {
-  // The high and low halves of one emoji arrive in SEPARATE data events.
-  const out = await drive(['a\ud83d', '\ude00', 'b'])
-  assert.ok(!hasLoneSurrogate(out), 'lone surrogate: ' + JSON.stringify(out))
+test('promptOnce reassembles a character split between reads', async () => {
+  // The four bytes of one emoji arrive in TWO reads - a real pty does this.
+  const bytes = Buffer.from('a\ud83d\ude00b', 'utf8')
+  const out = await driveBytes([bytes.subarray(0, 2), bytes.subarray(2)])
+  assert.equal(out, 'a\ud83d\ude00b', 'split read: ' + JSON.stringify(out))
+  assert.ok(
+    !hasReplacementChar(out),
+    'replacement char: ' + JSON.stringify(out),
+  )
+})
+
+test('promptOnce reassembles a Cyrillic letter split between reads', async () => {
+  // One Cyrillic letter is TWO bytes: the first read carries only the lead
+  // byte, the second the continuation. The operator's answer is a Russian
+  // word, and a lost letter changes it.
+  const bytes = Buffer.from('\u044b', 'utf8')
+  const out = await driveBytes([bytes.subarray(0, 1), bytes.subarray(1)])
+  assert.equal(out, '\u044b', 'split read: ' + JSON.stringify(out))
 })
 
 test('promptOnce never returns a lone surrogate after Backspace', async () => {
-  // `a😀` then Backspace: one UTF-16 unit is removed, leaving half an emoji.
-  const out = await drive(['a\ud83d\ude00', '\x7f'])
+  // `a` + emoji + Backspace: a whole code point must go, not half of one.
+  const bytes = Buffer.from('a\ud83d\ude00\x7f', 'utf8')
+  const out = await driveBytes([bytes])
+  assert.equal(out, 'a', 'backspace: ' + JSON.stringify(out))
   assert.ok(!hasLoneSurrogate(out), 'lone surrogate: ' + JSON.stringify(out))
 })
