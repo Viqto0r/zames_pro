@@ -169,6 +169,13 @@ export class TuiEditor {
       // printAbove), so Ink must not patch them: an unmount (clearScreen)
       // would otherwise restore the native console and lose that routing.
       patchConsole: false,
+      // Shift+Enter is INDISTINGUISHABLE from a plain Enter unless the
+      // terminal disambiguates escape codes: both arrive as CR. The kitty
+      // keyboard protocol makes the modified form a distinct CSI-u
+      // sequence, which is what `dispatchKey` maps to a newline.
+      // 'auto' probes the terminal (CSI ? u) and stays silent when the
+      // terminal does not answer, so an unsupporting one is unaffected.
+      kittyKeyboard: { mode: 'auto' },
       alternateScreen: this.alternateScreen,
     })
     this.rendered = true

@@ -276,7 +276,10 @@ The prompt is a small line editor with persistent history:
 - `Ctrl+U` — clear the line, `Ctrl+K` — delete to end of line, `Ctrl+W` —
   delete the word before the cursor, `Ctrl+←`/`Ctrl+→` — move by words,
   `Ctrl+Delete`/`Alt+Delete` — delete the word after the cursor.
-- `\` + `Enter`, `Ctrl+J`, `Ctrl+Enter` or `Shift+Enter` — insert a newline.
+- `\` + `Enter` — insert a newline (the one that works
+  everywhere). `Ctrl+J`, `Ctrl+Enter` and `Shift+Enter` do it too, but
+  only in terminals that implement the kitty keyboard protocol: without it
+  the terminal sends a PLAIN Enter for Shift+Enter and the message is sent.
 - `/` + `Tab` — slash-command hints and completion.
 - `!command` — run a shell command directly, bypassing the model (like
   Claude Code's bash mode). The same sandbox guard as the `Bash` tool applies,

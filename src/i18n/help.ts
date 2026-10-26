@@ -86,8 +86,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/ + Tab                   slash-command hints and completion (Ctrl+N/P — select)',
   },
   'help.key.newline': {
-    ru: 'Ctrl+J / Ctrl+Enter      новая строка (Shift+Enter в терминалах с поддержкой)',
-    en: 'Ctrl+J / Ctrl+Enter       new line (Shift+Enter in capable terminals)',
+    ru: '\\ + Enter               новая строка (также Ctrl+J, Ctrl+Enter и Shift+Enter в терминалах с kitty-протоколом)',
+    en: '\\ + Enter               new line (also Ctrl+J, Ctrl+Enter and Shift+Enter in terminals with the kitty protocol)',
   },
   'help.key.backslash': {
     ru: '\\ + Enter                тоже новая строка',
