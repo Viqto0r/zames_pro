@@ -290,8 +290,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/thinking [on|off] reasoning mode: a toggle on DeepSeek/Qwen, always on for GLM (works while busy)',
   },
   'help.cmd.web': {
-    ru: '/web [on|off] поиск в интернете: DeepSeek — «Smart search», Qwen — пункт «Web search» (можно во время работы)',
-    en: '/web [on|off] web search: DeepSeek "Smart search", Qwen the "Web search" menu item (works while busy)',
+    ru: '/web [on|off] (также /websearch) поиск в интернете: DeepSeek — «Smart search», Qwen — пункт «Web search» (можно во время работы)',
+    en: '/web [on|off] (also /websearch) web search: DeepSeek "Smart search", Qwen the "Web search" menu item (works while busy)',
   },
   'help.cmd.goal': {
     ru: '/goal <условие> задать цель (работает, пока не выполнена; clear/off — снять, без аргумента или on — показать)',
