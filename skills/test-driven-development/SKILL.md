@@ -32,3 +32,8 @@ RED → GREEN → REFACTOR. The order is the point, not a formality.
   CODE was wrong; do not just move the assertion.
 - If the code was written before its test, delete and rewrite it driven by
   the test — otherwise the test is shaped around the implementation.
+- A test that writes a temp dir or file cleans it up itself: in this repo
+  always go through `test/tmp-dir.ts` (`makeTmpDir(t, prefix)` /
+  `makeTmpDirSync`), which registers the `t.after` cleanup. On WSL a leaked
+  `os.tmpdir()` entry lives inside ext4.vhdx and never returns its space to
+  the Windows host, so an abandoned temp dir fragments the disk permanently.

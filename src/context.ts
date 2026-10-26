@@ -167,7 +167,12 @@ const BUILTIN_SKILLS: Array<{
       'for ONE reason with a message that says what broke. In this project a ' +
       'bug fix ALWAYS gets a regression test reproducing the original bug. ' +
       'When a test needs fixing, ask whether the TEST or the CODE was wrong; ' +
-      'if the code was written before its test, rewrite it driven by the test.',
+      'if the code was written before its test, rewrite it driven by the test.\n' +
+      'A test that writes a temp dir or file cleans it up itself: in this repo ' +
+      'always go through test/tmp-dir.ts (makeTmpDir(t, prefix) / ' +
+      'makeTmpDirSync), which registers the t.after cleanup. On WSL a leaked ' +
+      'os.tmpdir() entry lives inside ext4.vhdx and never returns its space to ' +
+      'the Windows host, so an abandoned temp dir fragments the disk permanently.',
   },
   {
     name: 'systematic-debugging',
