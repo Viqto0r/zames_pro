@@ -306,8 +306,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/plan [on|off] plan mode (read-only); no argument toggles it',
   },
   'plan.on': {
-    ru: 'Режим плана ВКЛ: доступны только инструменты чтения. Правки и команды запрещены. /plan off — выключить.',
-    en: 'Plan mode ON: only read tools are available. Edits and commands are disabled. /plan off to disable.',
+    ru: 'Режим плана ВКЛ: доступны только инструменты чтения. Правки, команды и MCP-инструменты с мутирующим именем запрещены. /plan off — выключить.',
+    en: 'Plan mode ON: only read tools are available. Edits, commands and MCP tools with a mutating name are disabled. /plan off to disable.',
   },
   'plan.off': {
     ru: 'Режим плана ВЫКЛ: агент снова может писать и запускать команды.',

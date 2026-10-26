@@ -432,8 +432,9 @@ commands (/new or /clear, /sessions, /chats, /resume-id, /last, /chat, /cd,
 - /review [focus] [--staged] — ask the agent to review uncommitted changes
   and report findings (no code changes).
 - /plan [on|off] — plan (read-only) mode. While it is on, the mutating tools
-  (Write/Edit/MultiEdit/ApplyPatch/Bash, GitAdd/GitCommit/GitPush) are removed
-  from the tool set, so the agent can investigate without touching the tree.
+  (Write/Edit/MultiEdit/ApplyPatch/Bash/BashOutput, GitAdd/GitCommit/GitPush,
+  AskUser) are removed from the tool set, and so are MCP tools with a mutating
+  name, so the agent can investigate without touching the tree.
   Start in it with `--plan`.
 - /compact — ask the active backend to compress the current chat into a handover
   summary, then open a NEW chat, resend the system prompt and post the summary
@@ -1128,9 +1129,10 @@ zames --task "..." --output-format jsonl \
 - /review [focus] [--staged] — попросить агента проверить незакоммиченные
   изменения и сообщить находки (без правок кода).
 - /plan [on|off] — режим плана (только чтение). Пока он включён, мутирующие
-  инструменты (Write/Edit/MultiEdit/ApplyPatch/Bash, GitAdd/GitCommit/GitPush)
-  убраны из набора, чтобы агент изучал код, не трогая дерево. Стартовать в нём
-  можно с `--plan`.
+  инструменты (Write/Edit/MultiEdit/ApplyPatch/Bash/BashOutput,
+  GitAdd/GitCommit/GitPush, AskUser) убраны из набора вместе с MCP-инструментами
+  с мутирующим именем, чтобы агент изучал код, не трогая дерево. Стартовать в
+  нём можно с `--plan`.
 - /compact — попросить активный бэкенд сжать текущий чат в передаточное резюме,
   затем открыть НОВЫЙ чат, заново отправить системный промпт и положить резюме как
   перенесённый контекст. Используйте, когда контекст разрастается.
