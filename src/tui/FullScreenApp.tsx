@@ -12,11 +12,10 @@
 import React, { useSyncExternalStore } from 'react'
 import { Box, Text, useWindowSize, useInput } from 'ink'
 import { LogList } from './LogView.js'
-import { windowByRows, totalRows, entryRows } from './log-window.js'
+import { windowByRows, totalRows } from './log-window.js'
 import { StatusBar } from './StatusBar.js'
 import { InputLine, type InputLineProps } from './InputLine.js'
 import type { TuiStore } from './store.js'
-import { contentWidth } from '../width.js'
 import { translate } from '../i18n.js'
 import { suggestRowCount } from '../input/suggest.js'
 import { truncateToWidth, visLen } from '../input/layout.js'
@@ -106,23 +105,13 @@ export function FullScreenApp({
   // it half empty. `scroll` is measured in ROWS here (0 = newest at the
   // bottom).
   const all = state.log
-  // The viewport height is RESERVED with the floor (never more rows than the
-  // pane can hold) and the box is allowed to take the slack: rounding the
-  // reservation UP on every entry made the panel taller than the terminal on a
-  // short window, so the input rows fell below the last screen row and the
-  // caret drifted under the box while a long multi-line buffer was typed.
-  const totalFloor = totalRows(all, cols, 'floor')
+  // The scroll bound uses the EXACT row count: it is what the content really
+  // renders, so the newest row stays reachable. (Reserving the viewport with
+  // the floor is a separate concern, handled in `fullScreenLayout`.)
   const total = totalRows(all, cols)
   const maxScroll = Math.max(0, total - logHeight)
   const scroll = Math.max(0, Math.min(state.scroll, maxScroll))
   const visible = windowByRows(all, logHeight, scroll, cols)
-  // Rows the WINDOWED content really needs. The reservation above rounds DOWN
-  // per entry (floor), so the difference is the slack the content needs. The
-  // box takes at most `logHeight` and at least one row; never more, because
-  // that is exactly what pushed the input rows off a short screen.
-  const filledRows = visible.reduce((n, e) => n + entryRows(e, cols), 0)
-  const logBoxHeight = Math.max(1, Math.min(logHeight, Math.max(filledRows, 1)))
-
   // Scroll the log with PgUp/PgDn; Home/End jump to the very top/bottom. The
   // input line OWNS Home/End while its buffer is non-empty (they move the
   // caret), so the jump only applies to an EMPTY buffer — which is exactly
@@ -208,5 +197,3 @@ export function FullScreenApp({
     </Box>
   )
 }
-
-void contentWidth
