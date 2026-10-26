@@ -130,8 +130,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/resume-id <id>          open a session by full id and print its dialogue',
   },
   'help.cmd.chats': {
-    ru: '/chats [фильтр]          список последних чатов провайдера',
-    en: '/chats [filter]          recent chats of the active provider',
+    ru: '/chats [фильтр]          последние чаты провайдера (в TUI — выбор и открытие, с диалогом)',
+    en: '/chats [filter]          recent chats of the active provider (the TUI opens the pick list and prints the dialogue)',
   },
   'help.cmd.last': {
     ru: '/last                    открыть последний чат этого каталога и напечатать диалог',
