@@ -112,8 +112,8 @@ export const commonMessages: Record<string, { ru: string; en: string }> = {
     en: 'The sign-in did not carry over to headless — staying in the visible window (it can be minimised).',
   },
   'msg.first_hint': {
-    ru: 'Подсказка: «/» — список команд, Ctrl+R — поиск по истории, картинку можно вставить через Ctrl+Shift+V.',
-    en: 'Hint: "/" lists commands, Ctrl+R searches history, paste an image with Ctrl+Shift+V.',
+    ru: 'Подсказка: «/» — список команд, Ctrl+R — поиск по истории, картинку можно вставить через Ctrl+V (пустая вставка).',
+    en: 'Hint: "/" lists commands, Ctrl+R searches history, paste an image with Ctrl+V (or an empty paste).',
   },
   'msg.queue_hint': {
     ru: 'Пока агент работает, можно печатать следующее сообщение — оно уйдёт в очередь (Enter — отправить, Esc — прервать).',
