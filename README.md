@@ -563,8 +563,7 @@ too):
 
 - **Memory** (`@modelcontextprotocol/server-memory`) — a local knowledge graph
   (9 tools) for durable facts across chats. NOTE: zames already has `MEMORY.md`
-
-* `AGENTS.md`; add this only if you want a queryable graph.
+  + `AGENTS.md`; add this only if you want a queryable graph.
 
 Keep the stack SMALL: every server loads its tool definitions into the model's
 context. Add one when you feel its absence, not before.
