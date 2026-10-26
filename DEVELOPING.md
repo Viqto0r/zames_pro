@@ -119,9 +119,9 @@ skipped, `feat`->Added, `fix`->Fixed, `perf`/`refactor`/`style`/`revert`->Change
 
 ## Refactoring the big modules
 
-The core modules grew large: `index.ts` ~4.8k lines, `browser.ts` ~3.35k,
+The core modules grew large: `index.ts` ~4.9k lines, `browser.ts` ~3.3k,
 `input.ts` ~2.2k, `commands.ts` ~1.6k, `agent-loop.ts` ~1.6k. The i18n CATALOG
-has already been split into `src/i18n/*.ts` (~2.3k lines), so `i18n.ts` is
+has already been split into `src/i18n/*.ts` (~2.6k lines), so `i18n.ts` is
 no longer a candidate. Break the rest up GRADUALLY — one module per step, never
 a big-bang refactor. (Re-check the real numbers with `wc -l src/*.ts` — the
 values here drift.)
@@ -243,9 +243,10 @@ Qwen specifics worth knowing when you touch it:
   240 s default. The guest **daily** limit is a separate, non-retryable
   failure (`isGuestLimitText`), surfaced as a clear "sign in" message instead
   of the rate-limit wait.
-- **No 15 s throttle.** Qwen tolerated 4 back-to-back sends at 0 ms gap, so
-  `qwen.minSendIntervalMs` defaults to 1000 ms (a courtesy, not a limit) — do
-  not copy DeepSeek's 15 s value.
+- **No 15 s throttle.** Qwen tolerated 4 back-to-back sends at 0 ms gap, but
+  the 5th hit "too frequent" (a 5-min back-off), so
+  `qwen.minSendIntervalMs` defaults to 4000 ms — far below DeepSeek's 15 s, so
+  do not copy that value.
 
 ## Checks before a release
 
