@@ -66,8 +66,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '↑ / ↓                     input history (saved to ~/.zames/history.json)',
   },
   'help.key.search': {
-    ru: 'Ctrl+R                   поиск по истории (обратный)',
-    en: 'Ctrl+R                    reverse-search the history',
+    ru: 'Ctrl+R                   поиск по истории ввода (обратный; Ctrl+R — дальше, Enter — принять, Esc — отмена)',
+    en: 'Ctrl+R                    reverse search the input history (Ctrl+R next, Enter accept, Esc cancel)',
   },
   'help.key.undo': {
     ru: 'Ctrl+_                   отменить правку в строке ввода',
