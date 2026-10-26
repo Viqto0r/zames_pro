@@ -106,8 +106,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: 'ui.mouseScroll            on (default) — wheel scrolls the dialog (select: Shift); off — select with the mouse',
   },
   'help.key.bang': {
-    ru: '!команда                  выполнить shell-команду напрямую (мимо модели)',
-    en: '!command                  run a shell command directly (bypass the model)',
+    ru: '!команда                  выполнить shell-команду напрямую, без модели (вывод в транскрипт)',
+    en: '!command                  run a shell command directly, no model (output goes to the transcript)',
   },
   'help.commands': { ru: 'Команды:', en: 'Commands:' },
   'help.sec.session': { ru: 'Сессия', en: 'Session' },
