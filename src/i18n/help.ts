@@ -286,8 +286,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/tasks the agent task list (TodoWrite)',
   },
   'help.cmd.thinking': {
-    ru: '/thinking [on|off] включить/выключить режим размышления (можно во время работы)',
-    en: '/thinking [on|off] toggle Deep thinking (works while the agent is busy)',
+    ru: '/thinking [on|off] режим размышления: DeepSeek/Qwen — тумблер, GLM — всегда включён (можно во время работы)',
+    en: '/thinking [on|off] reasoning mode: a toggle on DeepSeek/Qwen, always on for GLM (works while busy)',
   },
   'help.cmd.web': {
     ru: '/web [on|off] включить/выключить поиск в интернете (можно во время работы)',
