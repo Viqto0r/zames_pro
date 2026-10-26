@@ -39,6 +39,8 @@ export type BuildSystemPromptFn = (opts: {
 
 export interface PerformCompactOptions {
   browser: BrowserLike
+  /** Human label of the ACTIVE provider ('Qwen'), for operator text. */
+  providerLabel?: string
   currentChatId: string | null
   workdir: string
   locale: Locale
@@ -110,6 +112,11 @@ export async function performCompact(
     contextExhausted = false,
   } = opts
   const t = translate(locale)
+  // The active provider's LABEL for operator-facing text: performCompact is
+  // shared by every backend, so it cannot hardcode "DeepSeek". `providerArg`
+  // comes from the caller (the same registry label the rest of the UI shows);
+  // the browser is only a fallback for direct callers and tests.
+  const providerLabel = opts.providerLabel || 'DeepSeek'
   const log = (msg: string): void => {
     if (!quiet) console.error(msg)
   }
@@ -135,7 +142,7 @@ export async function performCompact(
 
   if (ui && !skipUiLock) ui.lock(t('msg.input_locked'))
   try {
-    if (!quiet) log(t('compact.start'))
+    if (!quiet) log(t('compact.start', { provider: providerLabel }))
 
     // PreCompact hook: runs BEFORE the chat is summarized/rewritten, so
     // a hook can persist state or notify. Best-effort.

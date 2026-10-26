@@ -1520,6 +1520,7 @@ async function main(): Promise<void> {
   const recoverFromContextLimit = async (): Promise<boolean> => {
     const res = await performCompact({
       browser,
+      providerLabel: providerLabel(config.provider),
       currentChatId,
       workdir: currentWorkdir,
       locale: currentLocale,
@@ -4255,6 +4256,7 @@ async function main(): Promise<void> {
       // paths stay identical (same retries, same fallback, same resend).
       const res = await performCompact({
         browser,
+        providerLabel: providerLabel(config.provider),
         currentChatId,
         workdir: currentWorkdir,
         locale: currentLocale,
@@ -4775,6 +4777,7 @@ async function main(): Promise<void> {
             ? async () => {
                 const res = await performCompact({
                   browser,
+                  providerLabel: providerLabel(config.provider),
                   currentChatId,
                   workdir: currentWorkdir,
                   locale: currentLocale,
