@@ -127,7 +127,9 @@ Key pieces:
 - **Subagents** — the `Task` tool delegates a self-contained sub-task to an
   agent in its own separate chat (isolated context), which returns only a
   report, so heavy research does not flood the main context. On by default;
-  tune with `browser.subagents` / `browser.maxSubagents`.
+  `browser.subagents` turns it off and `browser.maxSubagents` caps the runs
+  per TASK (default 3). Calls are sequential, not parallel, and the subtype
+  matters: `explore` is read-only, `general` may edit files.
 - **MCP support** — plug in external tool servers (e.g. `@playwright/mcp`).
 - **Scheduling** — `/loop`, `/cron` and `/jobs` repeat tasks on a timer.
 - **Bilingual UI** — Russian / English (`/config lang`).
@@ -822,7 +824,10 @@ zames не вызывает API модели. Он запускает headless C
 - **Субагенты** — инструмент `Task` поручает самодостаточную подзадачу агенту
   в отдельном чате (изолированный контекст), который возвращает только отчёт,
   так что тяжёлая разведка не засоряет основной контекст. Включены по
-  умолчанию; настраиваются через `browser.subagents` / `browser.maxSubagents`.
+  умолчанию; `browser.subagents` выключает их, а `browser.maxSubagents` ограничивает
+  число запусков на ОДНУ задачу (по умолчанию 3). Вызовы последовательные,
+  не параллельные, и подтип важен: `explore` только читает, `general` может
+  править файлы.
 - **Поддержка MCP** — подключение внешних серверов инструментов (например,
   `@playwright/mcp`).
 - **Планировщик** — `/loop`, `/cron` и `/jobs` повторяют задачи по таймеру.
