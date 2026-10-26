@@ -28,6 +28,10 @@ export const mcpMessages: Record<string, { ru: string; en: string }> = {
     ru: 'MCP-серверы (инструментов: {n}):',
     en: 'MCP servers ({n} tools):',
   },
+  'mcp.floating': {
+    ru: 'MCP-сервер «{v}» использует плавающую версию (@latest/@next); закрепите точную версию, чтобы набор инструментов не менялся между запусками.',
+    en: 'MCP server "{v}" uses a floating version (@latest/@next); pin an exact version so the tool set does not change between runs.',
+  },
   'mcp.status_error': { ru: '(ошибка: {v})', en: '(error: {v})' },
   'status.mcp': { ru: 'MCP-инструменты: {v}', en: 'MCP tools: {v}' },
   'status.toggles': {

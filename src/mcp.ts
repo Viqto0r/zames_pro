@@ -87,10 +87,11 @@ export interface McpStatus {
   servers: McpServerInfo[]
   toolCount: number
   /**
-   * Human-readable warnings about the config itself (not connection errors),
-   * e.g. a server pinned to `@latest`. Shown by /mcp and on startup.
+   * Warnings about the config itself (not connection errors), e.g. a server
+   * pinned to `@latest`. Operator-facing, so they travel as an i18n KEY + its
+   * params and the caller localizes them (the MCP layer has no locale).
    */
-  warnings: string[]
+  warnings: Array<{ key: string; params: Record<string, string> }>
 }
 
 /**
@@ -637,10 +638,10 @@ export async function createMcpPool(opts: McpLoadOptions): Promise<McpPool> {
     status: () => ({
       servers: infos,
       toolCount: tools.length,
-      warnings: floating.map(
-        (n) =>
-          `MCP server "${n}" uses a floating version (@latest/@next); pin an exact version so the tool set does not change between runs.`,
-      ),
+      warnings: floating.map((n) => ({
+        key: 'mcp.floating',
+        params: { v: n },
+      })),
     }),
     close: async () => {
       if (closed) return

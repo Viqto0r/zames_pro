@@ -1314,7 +1314,7 @@ async function main(): Promise<void> {
           ),
         )
     }
-    for (const w of st.warnings) console.error(theme.warn(w))
+    for (const w of st.warnings) console.error(theme.warn(t(w.key, w.params)))
   } catch (e) {
     console.error(theme.warn(t('mcp.load_failed', { v: (e as Error).message })))
   }
@@ -3695,7 +3695,8 @@ async function main(): Promise<void> {
           )
         }
       }
-      for (const w of st.warnings) console.log(theme.warn('  ' + w))
+      for (const w of st.warnings)
+        console.log(theme.warn('  ' + t(w.key, w.params)))
       continue
     }
     if (lower === '/skills') {
