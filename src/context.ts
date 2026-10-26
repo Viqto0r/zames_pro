@@ -148,7 +148,12 @@ const BUILTIN_SKILLS: Array<{
       'plan instead of improvising; a 30-step plan means the task should be ' +
       'split. In zames the plan lives in your reasoning and, for a long task, ' +
       'in a TodoWrite list — one entry per step. Do not narrate it between tool ' +
-      'calls; the todo list IS the visible plan.',
+      'calls; the todo list IS the visible plan. A plan is not a report: the ' +
+      'operator sees ONLY the last respond, so keep the per-step evidence for ' +
+      'that one message. Subagents do not parallelise the plan either — a Task ' +
+      'call is a fresh isolated chat and zames has ONE browser and ONE send ' +
+      'slot, so subagents are sequential and only keep a broad read-only ' +
+      'investigation out of the main context.',
   },
   {
     name: 'test-driven-development',

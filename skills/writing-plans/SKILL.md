@@ -38,3 +38,15 @@ Because there is no separate plan file unless the operator asks for one, the
 plan lives in your reasoning and, for a long task, in a TodoWrite list — one
 entry per step, status updated as you go. Do not narrate the plan to the
 operator between tool calls; the todo list IS the visible plan.
+
+Two more constraints follow from the same design:
+
+- **A plan is not a report.** The operator sees ONLY the last `respond`
+  before the run stops, so the plan and the per-step evidence must not be
+  split across intermediate messages — put the final evidence in that one
+  `respond`.
+- **Subagents do not parallelise the plan.** A `Task` call runs in a FRESH
+  isolated chat and returns only a report; zames has ONE browser and ONE send
+  slot, so subagents are SEQUENTIAL. Use them to keep a broad read-only
+  investigation out of the main context — never to "go faster", and never for
+  a step that must be applied in order with the main chat.
