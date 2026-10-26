@@ -461,8 +461,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/config lang <ru|en>     switch UI and agent language',
   },
   'help.cmd.provider': {
-    ru: '/provider <id>          переключить провайдера чата',
-    en: '/provider <id>           switch the chat provider',
+    ru: '/provider <id> | status | login — сменить бэкенд (сразу), показать состояние или повторить вход',
+    en: '/provider <id> | status | login — switch the backend (live), show the state or re-run the sign-in',
   },
   'help.cmd.model': {
     ru: '/model [id]              показать/выбрать модель провайдера',
