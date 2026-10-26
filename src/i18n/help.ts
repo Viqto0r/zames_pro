@@ -178,8 +178,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/transcript              transcript file path',
   },
   'help.cmd.diff': {
-    ru: '/diff [--staged] показать git diff',
-    en: '/diff [--staged] show working tree git diff',
+    ru: '/diff [--staged] показать git diff (--staged — изменения в индексе)',
+    en: '/diff [--staged] show git diff (--staged — staged changes)',
   },
   'help.cmd.diffstat': {
     ru: '/diffstat [--staged] сводка изменений (git diff --stat)',
