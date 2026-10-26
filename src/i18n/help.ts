@@ -295,8 +295,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/goal <condition> set the goal (runs until met; clear — drop, no argument — show it)',
   },
   'help.cmd.plan': {
-    ru: '/plan [on|off] режим плана: только чтение, без правок и команд',
-    en: '/plan [on|off] plan mode: read-only, no edits or commands',
+    ru: '/plan [on|off] режим плана (чтение без правок); без аргумента — переключить',
+    en: '/plan [on|off] plan mode (read-only); no argument toggles it',
   },
   'plan.on': {
     ru: 'Режим плана ВКЛ: доступны только инструменты чтения. Правки и команды запрещены. /plan off — выключить.',
