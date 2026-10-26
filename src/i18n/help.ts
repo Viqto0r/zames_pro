@@ -182,8 +182,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/diff [--staged] show working tree git diff',
   },
   'help.cmd.diffstat': {
-    ru: '/diffstat сводка изменений (git diff --stat)',
-    en: '/diffstat change summary (git diff --stat)',
+    ru: '/diffstat [--staged] сводка изменений (git diff --stat)',
+    en: '/diffstat [--staged] change summary (git diff --stat)',
   },
   'help.cmd.retry': {
     ru: '/retry повторить последнюю задачу в этом чате (тот же чат, промпт не пересылается)',
