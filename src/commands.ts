@@ -464,7 +464,7 @@ export function renderDoctor(
     'config',
     d.configOk
       ? t('doctor.loaded')
-      : t('doctor.error', { v: d.configError || t('doctor.unknown') }),
+      : t('doctor.error', { v: d.configError || t('common.unknown') }),
   )
   row(
     true,

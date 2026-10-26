@@ -898,7 +898,7 @@ async function resolveWorkdir(): Promise<string> {
   const dir = explicitDir ? path.resolve(explicitDir) : process.cwd()
   const stat = await fs.stat(dir).catch(() => null)
   if (!stat || !stat.isDirectory()) {
-    throw new Error(t('msg.not_dir', { v: dir }))
+    throw new Error(t('cd.not_dir', { v: dir }))
   }
   return dir
 }

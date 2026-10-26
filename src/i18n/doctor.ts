@@ -6,7 +6,6 @@ export const doctorMessages: Record<string, { ru: string; en: string }> = {
   'doctor.not_repo': { ru: 'не репозиторий', en: 'not a repository' },
   'doctor.loaded': { ru: 'загружен', en: 'loaded' },
   'doctor.error': { ru: 'ошибка: {v}', en: 'error: {v}' },
-  'doctor.unknown': { ru: 'неизвестно', en: 'unknown' },
   'doctor.bundled': { ru: 'встроенный chromium', en: 'bundled chromium' },
   'doctor.auth_saved': {
     ru: 'сессия сохранена (авто-вход готов)',
@@ -111,7 +110,6 @@ export const doctorMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Перезагружено модулей: {n}. Браузер и чат не тронуты.',
     en: 'Modules reloaded: {n}. Browser and chat untouched.',
   },
-  'msg.not_dir': { ru: 'Не директория: {v}', en: 'Not a directory: {v}' },
   'prompt.review': { ru: 'REVIEW', en: 'REVIEW' },
   'msg.workdir_error': {
     ru: 'Не удалось определить рабочую директорию:',
