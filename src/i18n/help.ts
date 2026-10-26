@@ -472,8 +472,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/model [id]              show/pick the provider model',
   },
   'help.cmd.debug_dom': {
-    ru: '/debug-dom               сохранить HTML страницы (для отладки)',
-    en: '/debug-dom               dump page HTML (debug)',
+    ru: '/debug-dom               сохранить HTML страницы и найденные селекторы в ~/.zames/logs',
+    en: '/debug-dom               dump page HTML and matched selectors to ~/.zames/logs',
   },
   'help.no_topic': {
     ru: 'Нет команды по запросу «{v}». Попробуй /help без аргумента.',
