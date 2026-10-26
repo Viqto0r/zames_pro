@@ -35,8 +35,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: 'headless browser (default)',
   },
   'help.opt.headed': {
-    ru: 'показать окно браузера (отладка/вход)',
-    en: 'show the browser window (debug/sign-in)',
+    ru: 'показать окно браузера (отладка/вход; GLM и так работает с окном)',
+    en: 'show the browser window (debug/sign-in; GLM already runs headed)',
   },
   'help.opt.provider': {
     ru: 'выбрать провайдера чата (deepseek | qwen | glm) на этот запуск',
