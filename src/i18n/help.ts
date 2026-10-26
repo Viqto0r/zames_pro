@@ -274,8 +274,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: 'Nothing to collapse: there are no archived blocks.',
   },
   'help.cmd.compact': {
-    ru: '/compact сжать историю и открыть новый чат с резюме',
-    en: '/compact compact the history and open a new chat with the summary',
+    ru: '/compact сжать историю в резюме и продолжить в НОВОМ чате (старый остаётся)',
+    en: '/compact summarize the history and continue in a NEW chat (the old one stays)',
   },
   'help.cmd.queue': {
     ru: '/queue [clear] показать/очистить очередь сообщений',
