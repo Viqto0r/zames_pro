@@ -3,8 +3,8 @@
 > zames_pro (`zames_pro` on npm, binary `zames`) is a free, open-source
 > terminal coding agent that drives a real web chat LLM — DeepSeek
 > (chat.deepseek.com), Qwen (chat.qwen.ai) or GLM (chat.z.ai) — through a
-> headless Playwright browser, so it needs NO API key and bills nothing per
-> token. It behaves like Claude Code / Codex CLI in the terminal: reads and
+> Playwright browser (DeepSeek and Qwen headless, GLM in a visible window), so
+> it needs NO API key and bills nothing per token. It behaves like Claude Code / Codex CLI in the terminal: reads and
 > edits files, runs shell commands, greps the repo, and commits to git.
 
 This file follows the llms.txt convention (https://llmstxt.org): a short,
