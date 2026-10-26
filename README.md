@@ -390,6 +390,8 @@ The agent has the same style of tools as Claude Code / Codex CLI:
 - **Git** — `GitStatus`, `GitDiff`, `GitLog`, `GitShow`, `GitBranchList`,
   `GitAdd`, `GitCommit`, `GitPush`.
 - **Web** — `WebFetch`, `WebSearch`.
+- **Subagents** — `Task` (delegate a self-contained sub-task to an agent in
+  its own chat; `explore` is read-only, `general` may edit; capped per task).
 - **Operator** — `AskUser` (a modal question with options; skipped in plan
   mode so a plan is never interrupted).
 - **Service** — `respond` (final answer to the operator, ends the task).
@@ -1092,6 +1094,9 @@ zames --task "..." --output-format jsonl \
 - **Git** — `GitStatus`, `GitDiff`, `GitLog`, `GitShow`, `GitBranchList`,
   `GitAdd`, `GitCommit`, `GitPush`.
 - **Web** — `WebFetch`, `WebSearch`.
+- **Субагенты** — `Task` (делегировать самодостаточную подзадачу агенту в
+  отдельном чате; `explore` только читает, `general` может править; число
+  запусков на задачу ограничено).
 - **Оператор** — `AskUser` (модальный вопрос с вариантами; в режиме плана не
   предлагается, чтобы не прерывать план).
 - **Служебный** — `respond` (финальный ответ оператору, завершает задачу).
