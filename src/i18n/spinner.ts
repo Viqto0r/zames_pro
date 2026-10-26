@@ -39,12 +39,12 @@ export const spinnerMessages: Record<string, { ru: string; en: string }> = {
   // with in-app wheel scroll the mouse belongs to the app, so selection needs
   // Shift; without it the terminal keeps the mouse and the wheel is inert.
   'editor.keys_hint': {
-    ru: 'выделение — Shift+клик · колесо — скролл · PgUp/PgDn — вверх/вниз · Home/End — в начало/конец',
-    en: 'select — Shift+click · wheel — scroll · PgUp/PgDn — up/down · Home/End — top/bottom',
+    ru: 'выделение — Shift+клик · Esc — стоп · PgUp/PgDn — вверх/вниз · Home/End — в начало/конец',
+    en: 'select — Shift+click · Esc — stop · PgUp/PgDn — up/down · Home/End — top/bottom',
   },
   'editor.keys_hint_select': {
-    ru: 'выделение — мышью · PgUp/PgDn — вверх/вниз · Home/End — в начало/конец',
-    en: 'select — drag · PgUp/PgDn — up/down · Home/End — top/bottom',
+    ru: 'выделение — мышью · Esc — стоп · PgUp/PgDn — вверх/вниз · Home/End — в начало/конец',
+    en: 'select — drag · Esc — stop · PgUp/PgDn — up/down · Home/End — top/bottom',
   },
   // Reverse search (Ctrl+R) status line. The query may be empty.
   'editor.search_prompt': {
