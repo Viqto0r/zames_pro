@@ -59,9 +59,6 @@ export function chatHistoryUrl(chatId: string): string {
 /** GET - the current user (or guest) record. */
 export const AUTH_URL = 'https://chat.z.ai/api/v1/auths/'
 
-/** POST - creates a chat and returns { id }. */
-export const NEW_CHAT_URL = 'https://chat.z.ai/api/v1/chats/new'
-
 /** POST - the SSE completion endpoint (the answer stream). */
 export const ANSWER_URL_RE = /\/api\/v2\/chat\/completions/i
 
@@ -175,18 +172,6 @@ export function glmContextWindow(model: string | undefined): number | null {
 
 // ---------- service statuses / errors ----------
 
-// A placeholder that must never be taken for an answer.
-export const STATUS_RE =
-  /^(thinking|generating|thinking\s+process|thought\s+process)[\s.…]*$/i
-
-// z.ai's captcha gate (an Aliyun slider). Visible text on the modal.
-export const CAPTCHA_RE = /security verification|drag the slider/i
-export const CAPTCHA_SELECTORS = [
-  '.aliyun-captcha',
-  '[class*="aliyunCaptcha"]',
-  '[id*="aliyunCaptcha"]',
-]
-
 // Rate limit / busy notices. Kept NARROW: the classifier additionally requires
 // an error payload or an answer-less body (same rule as qwen-net-capture.ts),
 // so a normal answer that merely mentions "try again" is not mistaken for a
@@ -195,18 +180,6 @@ export const RATE_LIMIT_RE =
   /too many requests|rate limit|too frequent|please try again later|слишком часто/i
 export const SERVER_BUSY_RE =
   /server is busy|service unavailable|try again later|high demand/i
-export const GUEST_LIMIT_RE =
-  /guest.*limit|log ?in to continue|sign ?in to continue|гостевой лимит/i
-
-// ---------- mode flags ----------
-
-// The completion body carries the mode flags. `preview_mode` and the
-// `general_agent` flag change the ANSWER FORMAT (they enable z.ai's own agent
-// runtime, which emits its own tool calls), and that would break the zames
-// tool-call protocol. The request body is rewritten before the send and then
-// verified (glm-browser's _installRuntimeRewrite/_verifyModes + glm-flags).
-export const SAFE_PREVIEW_MODE = false
-export const SAFE_ENABLE_THINKING = true
 
 // ---------- attachments ----------
 

@@ -212,10 +212,6 @@ export const LOGIN_SELECTORS = [
 
 // ---------- service statuses / errors ----------
 
-// A generic "generating" label that must never be taken for an answer.
-export const STATUS_RE =
-  /^(thinking|searching|generating|thinking completed|остановить|stop)[\s.…]*$/i
-
 // Qwen's rate-limit / busy notices (best-effort; the toast may be short-lived).
 export const RATE_LIMIT_RE =
   /too many requests|rate limit|too frequent|please try again later|слишком часто/i

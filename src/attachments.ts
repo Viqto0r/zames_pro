@@ -435,10 +435,6 @@ export async function readClipboardImageDetailed(): Promise<ClipboardResult> {
   return { data: null, via: 'unsupported-platform' }
 }
 
-export async function readClipboardImage(): Promise<Buffer | null> {
-  return (await readClipboardImageDetailed()).data
-}
-
 function tryCommand(bin: string, args: string[]): Buffer | null {
   try {
     const out = execFileSync(bin, args, {
