@@ -74,8 +74,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: 'Ctrl+_                    undo the last edit in the input line',
   },
   'help.key.words': {
-    ru: 'Ctrl+← / Ctrl+→          перемещение по словам',
-    en: 'Ctrl+← / Ctrl+→           move by words',
+    ru: 'Ctrl+← / Ctrl+→          перемещение по словам (Ctrl+Delete / Alt+Delete — удалить слово справа)',
+    en: 'Ctrl+← / Ctrl+→           move by words (Ctrl+Delete / Alt+Delete — delete the word right)',
   },
   'help.key.slash': {
     ru: '/ + Tab                  подсказка и автодополнение slash-команд (Ctrl+N/P — выбор)',

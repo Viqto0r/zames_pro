@@ -287,7 +287,8 @@ The prompt is a small line editor with persistent history:
 - `Ctrl+_` — undo the last edit in the input line (a fat-fingered `Ctrl+U` /
   `Ctrl+K` is recoverable).
 - `Ctrl+U` — clear the line, `Ctrl+K` — delete to end of line, `Ctrl+W` —
-  delete the word before the cursor, `Ctrl+←`/`Ctrl+→` — move by words.
+  delete the word before the cursor, `Ctrl+←`/`Ctrl+→` — move by words,
+  `Ctrl+Delete`/`Alt+Delete` — delete the word after the cursor.
 - `\` + `Enter`, `Ctrl+J`, `Ctrl+Enter` or `Shift+Enter` — insert a newline.
 - `/` + `Tab` — slash-command hints and completion.
 - `!command` — run a shell command directly, bypassing the model (like
@@ -979,7 +980,8 @@ zames
 - `Ctrl+_` — отменить последнюю правку строки ввода (случайно нажатые
   `Ctrl+U` / `Ctrl+K` можно вернуть).
 - `Ctrl+U` — очистить строку, `Ctrl+K` — удалить до конца строки, `Ctrl+W` —
-  удалить слово перед курсором, `Ctrl+←`/`Ctrl+→` — переход по словам.
+  удалить слово перед курсором, `Ctrl+←`/`Ctrl+→` — переход по словам,
+  `Ctrl+Delete`/`Alt+Delete` — удалить слово после курсора.
 - `\` + `Enter`, `Ctrl+J`, `Ctrl+Enter` или `Shift+Enter` — вставить новую
   строку.
 - `/` + `Tab` — подсказки и автодополнение слэш-команд.
