@@ -589,13 +589,14 @@ You can view and change settings without leaving the agent — use the
 toggle in place; numbers and strings open an input prompt.
 
 ```
-/config                       interactive settings menu
-/config list                  print all editable settings
+/config                       interactive settings menu (alias: menu)
+/config list                  print all editable settings (aliases: show, ls)
 /config get <path>            show a setting
 /config set <path> <value>    change a setting
-/config reset <path>          reset a setting to its default
-/config path                  show config file paths
+/config reset <path>          reset a setting to its default (alias: unset)
+/config path                  show config file paths (alias: paths)
 /config lang <ru|en>          switch interface and agent language
+                              (aliases: language, язык)
 ```
 
 Examples:

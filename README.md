@@ -591,13 +591,14 @@ You can view and change settings without leaving the agent — use the
 toggle in place; numbers and strings open an input prompt.
 
 ```
-/config                       interactive settings menu
-/config list                  print all editable settings
+/config                       interactive settings menu (alias: menu)
+/config list                  print all editable settings (aliases: show, ls)
 /config get <path>            show a setting
 /config set <path> <value>    change a setting
-/config reset <path>          reset a setting to its default
-/config path                  show config file paths
+/config reset <path>          reset a setting to its default (alias: unset)
+/config path                  show config file paths (alias: paths)
 /config lang <ru|en>          switch interface and agent language
+                              (aliases: language, язык)
 ```
 
 Examples:
@@ -1300,13 +1301,14 @@ MCP-браузер и браузер агента подерутся за оди
 enum переключаются на месте; числа и строки открывают ввод.
 
 ```
-/config                       интерактивное меню настроек
-/config list                  показать все изменяемые настройки
+/config                       интерактивное меню настроек (алиас: menu)
+/config list                  показать все изменяемые настройки (алиасы: show, ls)
 /config get <path>            показать настройку
 /config set <path> <value>    изменить настройку
-/config reset <path>          сбросить настройку к дефолту
-/config path                  показать пути файлов конфига
+/config reset <path>          сбросить настройку к дефолту (алиас: unset)
+/config path                  показать пути файлов конфига (алиас: paths)
 /config lang <ru|en>          переключить язык интерфейса и агента
+                              (алиасы: language, язык)
 ```
 
 Примеры:

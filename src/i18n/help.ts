@@ -462,8 +462,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: 'Directory exists: {v}. Check only — the sandbox is fixed at startup, access is NOT granted (relaunch with --dir to work there).',
   },
   'help.cmd.config': {
-    ru: '/config [list|get|set|reset|path|lang] настройки: меню или подкоманды (пишет в домашний конфиг)',
-    en: '/config [list|get|set|reset|path|lang] settings: menu or subcommands (writes the home config)',
+    ru: '/config [menu|list|show|ls|get|set|reset|unset|path|paths|lang|language] настройки: меню или подкоманды (пишет в домашний конфиг)',
+    en: '/config [menu|list|show|ls|get|set|reset|unset|path|paths|lang|language] settings: menu or subcommands (writes the home config)',
   },
   'help.cmd.lang': {
     ru: '/config lang <ru|en>     сменить язык интерфейса и агента',
