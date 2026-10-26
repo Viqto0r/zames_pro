@@ -142,8 +142,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/chat                    show the current chat id and its URL',
   },
   'help.cmd.cd': {
-    ru: '/cd <path>               сменить рабочую директорию',
-    en: '/cd <path>               change working directory',
+    ru: '/cd <path>               сменить рабочую директорию (без аргумента — вернуться в корень; следующая задача начнёт новый чат)',
+    en: '/cd <path>               change the working directory (no argument — back to the root; the next task starts a fresh chat)',
   },
   'help.cmd.pwd': {
     ru: '/pwd                     текущая директория',
