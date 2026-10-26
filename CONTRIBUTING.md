@@ -64,7 +64,8 @@ It never touches the operator's `~/.zames/profile`.
 
 - Keep commits focused; the subject line is imperative (`fix: ...`).
 - Update `CHANGELOG.md` (Unreleased section) for user-visible changes.
-- A release is a version bump in `package.json`/`package-lock.json` plus a
+- A release is a version bump in `package.json` (the same version is written
+  into the two root fields of `package-lock.json`) plus a dated
   `CHANGELOG.md` section, tagged `vX.Y.Z`. Pushing the tag triggers the npm
   publish workflow.
 
