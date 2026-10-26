@@ -3,15 +3,16 @@ message: "If you use zames in your work or research, please cite it as below."
 title: "zames_pro — terminal coding agent for DeepSeek, Qwen and GLM (no API key)"
 abstract: >-
   A terminal coding agent that drives a real web chat LLM (DeepSeek, Qwen,
-  GLM) through a headless Playwright browser. It reads and edits files, runs
-  shell commands and commits to git like Claude Code / Codex CLI, but needs no
-  API key and bills nothing per token.
+  GLM) through a Playwright browser (DeepSeek and Qwen headless, GLM in a
+  visible window). It reads and edits files, runs shell commands and commits
+  to git like Claude Code / Codex CLI, but needs no API key and bills nothing
+  per token.
 type: software
 license: MIT
 repository-code: "https://github.com/Viqto0r/zames_pro"
 url: "https://www.npmjs.com/package/zames_pro"
 version: 2.82.140
-date-released: "2026-10-23"
+date-released: "2026-10-25"
 keywords:
   - terminal coding agent
   - ai coding agent
