@@ -82,7 +82,7 @@ function cutHookText(s: string, max: number): string {
   return s.slice(0, cut)
 }
 
-export function hooksConfigPath(workdir: string): string {
+function hooksConfigPath(workdir: string): string {
   return path.join(workdir, '.zames', 'hooks.json')
 }
 

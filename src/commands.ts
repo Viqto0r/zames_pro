@@ -605,7 +605,7 @@ export const RESTORED_HISTORY_LIMIT = 20
  * history) is far bigger and is filtered by the noise checks below; a real
  * answer above this size is shortened instead of being dropped.
  */
-export const RESTORED_MESSAGE_MAX = 100_000
+const RESTORED_MESSAGE_MAX = 100_000
 
 /**
  * DeepSeek stores the assistant turn VERBATIM: either a raw tool-call JSON

@@ -84,7 +84,7 @@ export interface SubagentRunnerOptions {
  * standard system prompt itself (tool list + call format), and the model needs
  * exactly that to work. The persona only adds role + output contract.
  */
-export function subagentPersona(type: 'explore' | 'general'): string {
+function subagentPersona(type: 'explore' | 'general'): string {
   const base =
     'You are a SUBAGENT launched by a main coding agent to complete ONE ' +
     'self-contained sub-task in an ISOLATED chat. You do NOT see the main ' +

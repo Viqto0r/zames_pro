@@ -199,7 +199,7 @@ export function normalizeServerConfig(raw: unknown): McpServerConfig | null {
 }
 
 /** Candidate config paths, ordered from global to project-local. */
-export async function discoverConfigFiles(workdir: string): Promise<string[]> {
+async function discoverConfigFiles(workdir: string): Promise<string[]> {
   const path = await import('path')
   const os = await import('os')
   const fsMod = await import('fs/promises')
@@ -216,7 +216,7 @@ export async function discoverConfigFiles(workdir: string): Promise<string[]> {
 }
 
 /** Read and merge every config file. Later files override earlier ones. */
-export async function loadConfigFiles(files: string[]): Promise<McpConfig> {
+async function loadConfigFiles(files: string[]): Promise<McpConfig> {
   const merged: Record<string, McpServerConfig> = {}
   const fsMod = await import('fs/promises')
   for (const f of files) {

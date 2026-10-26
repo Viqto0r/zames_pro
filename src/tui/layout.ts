@@ -9,7 +9,7 @@ import { inputBoxRows } from '../input/layout.js'
 /** Rows of the fixed header: the title row + the divider. */
 export const HEADER_ROWS = 2
 /** Rows of the status bar above the input box. */
-export const STATUS_ROWS = 1
+const STATUS_ROWS = 1
 /** Rows of the key hint UNDER the input box. */
 export const HINT_ROWS = 1
 

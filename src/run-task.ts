@@ -238,7 +238,7 @@ async function promptOnce(question: string): Promise<string> {
 // Enter sends the buffer to onQueue; an empty Enter is ignored. Backspace,
 // Ctrl+U, Esc sequences (arrows/Home/End/Delete are ignored) and bracketed
 // paste are supported. Returns a cleanup function.
-export function watchInput({
+function watchInput({
   onEscape,
   onChange,
   onQueue,

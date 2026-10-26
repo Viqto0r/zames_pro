@@ -339,7 +339,7 @@ export function searchStart(s: EditState): EditState {
   return searchRefresh(st, true)
 }
 
-export function searchRefresh(s: EditState, resetToNewest: boolean): EditState {
+function searchRefresh(s: EditState, resetToNewest: boolean): EditState {
   const q = s.searchQuery
   const index = resetToNewest ? s.history.length - 1 : s.searchIndex
   for (let i = index; i >= 0; i--) {

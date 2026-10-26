@@ -13,7 +13,7 @@ import type { LogEntry } from './store.js'
 
 /** One log entry. `raw` items already carry ANSI colors and are printed
  *  verbatim; structured items get a themed prefix. */
-export function LogRow({ entry }: { entry: LogEntry }): React.ReactElement {
+function LogRow({ entry }: { entry: LogEntry }): React.ReactElement {
   if (entry.raw) {
     // Pre-rendered (markdown answer, tool preview). Print as-is; Ink passes
     // embedded ANSI escape sequences through to the terminal.

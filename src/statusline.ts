@@ -11,11 +11,11 @@ import { spawn } from 'node:child_process'
 
 // Longest status text that still fits a typical terminal row together with
 // the rest of the status bar.
-export const STATUS_BADGE_MAX = 80
+const STATUS_BADGE_MAX = 80
 
 /** Clip a status badge to STATUS_BADGE_MAX with an ellipsis (never splits a
  *  surrogate pair). */
-export function clipBadge(text: string, max = STATUS_BADGE_MAX): string {
+function clipBadge(text: string, max = STATUS_BADGE_MAX): string {
   const s = String(text ?? '')
   if (s.length <= max) return s
   let cut = max - 1

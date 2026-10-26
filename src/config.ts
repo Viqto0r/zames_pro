@@ -808,7 +808,7 @@ export function validateConfigValue(field: ConfigField, raw: string): unknown {
 
 export type ConfigScope = 'project' | 'home'
 
-export function configPathFor(scope: ConfigScope): string {
+function configPathFor(scope: ConfigScope): string {
   return scope === 'project' ? projectConfigPath() : HOME_CONFIG
 }
 

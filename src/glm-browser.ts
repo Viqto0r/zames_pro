@@ -110,11 +110,7 @@ import {
   type ProbeResult,
 } from './browser-login.js'
 
-export const GLM_USER_DATA_DIR = path.join(
-  os.homedir(),
-  '.zames',
-  'glm-profile',
-)
+const GLM_USER_DATA_DIR = path.join(os.homedir(), '.zames', 'glm-profile')
 
 const MAX_NET_BODY = 64 * 1024
 function capNetBody(body: string): string {

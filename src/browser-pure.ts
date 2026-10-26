@@ -247,7 +247,7 @@ export function sanitizeHeadlessUA(ua: string): string {
 // reported "no session" for whichever provider had signed in second. A legacy
 // record without `providers` still reads: `{provider:'qwen'}` means Qwen and a
 // bare `{at}` means DeepSeek (the only writer before the second backend).
-export const AUTH_MARKER_FILE = path.join(os.homedir(), '.zames', 'auth.json')
+const AUTH_MARKER_FILE = path.join(os.homedir(), '.zames', 'auth.json')
 
 export type AuthMarkerProvider = 'deepseek' | 'qwen' | 'glm'
 
@@ -311,7 +311,7 @@ export function mergeAuthMarker(
 }
 
 // Best-effort: read the marker text from disk ('' when absent/unreadable).
-export async function readAuthMarker(): Promise<string> {
+async function readAuthMarker(): Promise<string> {
   try {
     return await fs.readFile(AUTH_MARKER_FILE, 'utf-8')
   } catch {

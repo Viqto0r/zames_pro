@@ -116,11 +116,7 @@ import {
 // contexts on ONE --user-data-dir cannot coexist (SingletonLock), and keeping
 // Qwen's cookies apart also means switching providers never logs the other
 // one out.
-export const QWEN_USER_DATA_DIR = path.join(
-  os.homedir(),
-  '.zames',
-  'qwen-profile',
-)
+const QWEN_USER_DATA_DIR = path.join(os.homedir(), '.zames', 'qwen-profile')
 
 // Escape a string for use inside a RegExp (the model id may carry dots).
 function escapeRegExp(s: string): string {

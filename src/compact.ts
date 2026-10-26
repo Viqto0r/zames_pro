@@ -13,7 +13,7 @@ import { loadHooks, runLifecycleHooks } from './hooks.js'
 const NL = String.fromCharCode(10)
 
 /** How many times the summary call is retried before the local fallback. */
-export const COMPACT_SUMMARY_ATTEMPTS = 3
+const COMPACT_SUMMARY_ATTEMPTS = 3
 /** How many restored messages the local fallback keeps. */
 export const COMPACT_FALLBACK_LIMIT = 40
 
