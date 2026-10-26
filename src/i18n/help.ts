@@ -170,8 +170,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/rewind [n|stamp]        roll the working tree back to a checkpoint (asks first)',
   },
   'help.cmd.rewind_list': {
-    ru: '/rewind-list             список чекпойнтов',
-    en: '/rewind-list             list checkpoints',
+    ru: '/rewind-list (/checkpoints) список чекпойнтов (штамп и каталог)',
+    en: '/rewind-list (/checkpoints) list checkpoints (stamp and directory)',
   },
   'help.cmd.transcript': {
     ru: '/transcript              путь к файлу транскрипта',
