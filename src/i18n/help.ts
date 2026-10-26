@@ -326,8 +326,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/cron "<min> <hour> <dom> <month> <dow>" <task> schedule a task (5 fields; the first run waits for the schedule)',
   },
   'help.cmd.jobs': {
-    ru: '/jobs [rm <id>|clear] список/удаление запланированных задач',
-    en: '/jobs [rm <id>|clear] list/remove scheduled tasks',
+    ru: '/jobs [rm <id>|clear] список запланированных задач; rm <id> — удалить, clear — снять все',
+    en: '/jobs [rm <id>|clear] list scheduled jobs; rm <id> removes one, clear removes all',
   },
   'sched.loop_usage': {
     ru: 'Использование: /loop <интервал> <задача>, например /loop 10m проверь тесты',
