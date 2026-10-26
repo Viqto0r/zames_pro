@@ -114,7 +114,7 @@ const BUILTIN_SKILLS: Array<{
   {
     name: 'brainstorming',
     description:
-      'Use when the request is a GOAL, not a spec — "add X", "make it better", "integrate Y" — and it is unclear what "done" means.',
+      'Use when the operator\'s request is a GOAL, not a spec — "add X", "make it better", "integrate Y" — and it is unclear what "done" means. Draws out the intent and plays it back before building.',
     body:
       'When a request is a goal ("make scrolling feel right"), building ' +
       'immediately produces the wrong thing fast. First make the intent concrete.\n' +
@@ -133,7 +133,7 @@ const BUILTIN_SKILLS: Array<{
   {
     name: 'writing-plans',
     description:
-      'Use when a task needs more than one or two tool calls — a multi-file change, a new feature, a refactor. Breaks it into small ordered steps with exact paths and a verification for each.',
+      'Use when a task is large enough to need more than one or two tool calls — a multi-file change, a new feature, a refactor. Breaks the work into small ordered steps with exact paths and a verification for each.',
     body:
       'A plan is a sequence of steps a careful engineer with NO project ' +
       'context could follow. Each step (2-5 minutes) names: the EXACT file ' +
@@ -153,7 +153,7 @@ const BUILTIN_SKILLS: Array<{
   {
     name: 'test-driven-development',
     description:
-      'Use when writing or changing testable behaviour — a bug fix, a new function, a parser, a formatter. Write the failing test first, watch it fail, then make it pass.',
+      'Use when writing or changing behaviour that can be tested — a bug fix, a new function, a parser, a formatter. Write the failing test first, watch it fail, then make it pass. Prevents tests that only pass because they were written against the finished code.',
     body:
       'RED -> GREEN -> REFACTOR. The order is the point, not a formality.\n' +
       '1. RED — write the smallest test that expresses the new behaviour and ' +
@@ -172,7 +172,7 @@ const BUILTIN_SKILLS: Array<{
   {
     name: 'systematic-debugging',
     description:
-      'Use when something is broken and the cause is not obvious — a failing test, a wrong result, a hang, a crash. Four phases: reproduce, isolate, hypothesize, fix.',
+      'Use when something is broken and the cause is not obvious — a failing test, a wrong result, a hang, a crash. Four phases: reproduce, isolate, hypothesize, fix. Prevents guessing.',
     body:
       'Do NOT start by editing code. Work the four phases in order; each ' +
       'produces an artifact you can point at.\n' +
@@ -197,7 +197,7 @@ const BUILTIN_SKILLS: Array<{
   {
     name: 'verification-before-completion',
     description:
-      'Use BEFORE declaring a task done — a feature, a bug fix, a generated file. Forces you to run the verification you promised instead of trusting the code looks right.',
+      'Use BEFORE declaring a task done or reporting success — a feature, a bug fix, a file you generated. Forces you to run the verification you promised instead of trusting that the code looks right.',
     body:
       '"It should work" is not done. Before reporting success, produce ' +
       'EVIDENCE from the real artifact, not from your intent.\n' +
