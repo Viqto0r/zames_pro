@@ -150,8 +150,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/pwd                     current directory',
   },
   'help.cmd.status': {
-    ru: '/status                  состояние сессии',
-    en: '/status                  session state',
+    ru: '/status                  состояние сессии: каталог, чат, лимиты, пауза, флаги, MCP, токены',
+    en: '/status                  session state: dir, chat, limits, pause, toggles, MCP, tokens',
   },
   'help.cmd.reload': {
     ru: '/reload                  перечитать модули логики (browser.ts и login — только после перезапуска)',
