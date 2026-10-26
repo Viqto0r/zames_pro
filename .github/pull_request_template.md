@@ -7,7 +7,8 @@
 - [ ] `npm run typecheck` passes
 - [ ] `npm test` passes
 - [ ] `npm run lint` and `npm run format:check` pass
-- [ ] `CHANGELOG.md` updated (for a user-visible change)
+- [ ] `CHANGELOG.md` updated (`npm run changelog:sync`; check with
+      `npm run changelog:check`) for a user-visible change
 
 ## Notes
 
