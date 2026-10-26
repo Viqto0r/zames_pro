@@ -190,8 +190,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/retry resend the last task into this chat',
   },
   'help.cmd.rename': {
-    ru: '/rename <title> задать имя текущей сессии',
-    en: '/rename <title> set the current session title',
+    ru: '/rename <title> задать имя сессии в zames (чат на сайте не переименовывается)',
+    en: '/rename <title> set the session title in zames (the web chat is not renamed)',
   },
   'help.cmd.context': {
     ru: '/context что загружено в промпт (AGENTS/MEMORY/skills/commands)',
