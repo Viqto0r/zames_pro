@@ -138,8 +138,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/last                    open the last chat of this directory',
   },
   'help.cmd.chat': {
-    ru: '/chat                    показать текущий chat id',
-    en: '/chat                    show current chat id',
+    ru: '/chat                    показать текущий chat id и его URL',
+    en: '/chat                    show the current chat id and its URL',
   },
   'help.cmd.cd': {
     ru: '/cd <path>               сменить рабочую директорию',
