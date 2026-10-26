@@ -5,8 +5,8 @@
 
 export const glmMessages: Record<string, { ru: string; en: string }> = {
   'glm.guest_mode': {
-    ru: 'GLM: вход не выполнен, работаю гостем (сообщения может блокировать капча). Войдите через /provider login или запустите с --headed.',
-    en: 'GLM: not signed in, running as a guest (a captcha may block messages). Log in via /provider login or launch with --headed.',
+    ru: '✖ GLM: гостевой лимит z.ai исчерпан (без входа доступно лишь несколько сообщений), сообщение не отправлено. Войдите через /provider login или запустите с --headed.',
+    en: '✖ GLM: the z.ai guest limit is exhausted (a signed-out visitor gets only a few messages), the message was not sent. Log in via /provider login or launch with --headed.',
   },
   'glm.login_ok': {
     ru: 'GLM: вход выполнен.',
