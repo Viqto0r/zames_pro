@@ -1,7 +1,7 @@
 {
   "name": "zames_pro",
   "version": "2.82.140",
-  "description": "Terminal coding agent that drives a real browser to chat with DeepSeek, Qwen and other web LLMs — no API key required. Reads and edits files, runs commands, commits to git, like Claude Code / Codex CLI.",
+  "description": "Terminal coding agent that drives a real browser to chat with DeepSeek, Qwen or GLM — no API key required. Reads and edits files, runs commands, commits to git, like Claude Code / Codex CLI.",
   "type": "module",
   "bin": {
     "zames": "dist/index.js"
