@@ -69,8 +69,8 @@ export const configMessages: Record<string, { ru: string; en: string }> = {
     en: 'Full-screen TUI mode (alternate screen)',
   },
   'cfg.f.ui_mouseScroll': {
-    ru: 'Колесо: лог или терминал (выкл = выделение без Shift)',
-    en: 'Wheel: log or terminal (off = select without Shift)',
+    ru: 'Колесо мыши: вкл (по умолчанию) — скроллит диалог, выделение через Shift; выкл — мышью владеет терминал (обычное выделение, колесо инертно)',
+    en: 'Mouse wheel: on (default) — scrolls the dialog, select with Shift; off — the terminal owns the mouse (normal selection, wheel inert)',
   },
   'cfg.f.maxIterations': {
     ru: 'Лимит итераций на задачу',
