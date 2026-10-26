@@ -16,7 +16,6 @@ export const commonMessages: Record<string, { ru: string; en: string }> = {
     en: 'Working directory: {v}',
   },
   'status.review_mode': { ru: 'Режим ревью: {v}', en: 'Review mode: {v}' },
-  'status.review_none': { ru: 'нет', en: 'no' },
   'status.orig_dir': {
     ru: 'Исходная директория: {v}',
     en: 'Original directory: {v}',

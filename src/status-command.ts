@@ -40,9 +40,7 @@ export function formatStatus(
   const onoff = (b: boolean): string => (b ? t('common.on') : t('common.off'))
   const lines: string[] = []
   lines.push(t('status.workdir', { v: s.workdir }))
-  lines.push(
-    t('status.review_mode', { v: s.reviewMode || t('status.review_none') }),
-  )
+  lines.push(t('status.review_mode', { v: s.reviewMode || no }))
   if (s.reviewMode && s.origDir) {
     lines.push(t('status.orig_dir', { v: s.origDir }))
   }
