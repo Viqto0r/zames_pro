@@ -24,6 +24,11 @@ from the real artifact — not from your intent.
 5. **State the evidence** in the final report — the exact command and its
    result — so the operator can reproduce it. "Tests pass" without the
    command is not evidence.
+6. **In zames the report is ONE `respond` call.** A long task may have
+   produced several findings along the way; the operator only ever reads the
+   LAST `respond` before the run stops, so put the complete evidence there —
+   never split it across intermediate messages, and never end a turn on a
+   bare text update with work still pending.
 
 ## The two failure modes this prevents
 

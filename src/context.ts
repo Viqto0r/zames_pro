@@ -212,7 +212,10 @@ const BUILTIN_SKILLS: Array<{
       'result — so the operator can reproduce it. "Tests pass" without the ' +
       'command is not evidence.\n' +
       'If you cannot run the verification, SAY SO explicitly and describe what ' +
-      'you did instead; never report "done" implying a check you did not run.',
+      'you did instead; never report "done" implying a check you did not run.\n' +
+      'In zames the report is ONE respond call: the operator reads only the ' +
+      'LAST respond, so put the complete evidence there and never end a turn ' +
+      'on a bare text update with work still pending.',
   },
 ]
 
