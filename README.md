@@ -313,8 +313,8 @@ Set `NO_COLOR=1` to disable colors (a calm default palette is used otherwise).
 
 ### Images and files
 
-You can paste an image or a file into the input line (Ctrl+Shift+V / Shift+Insert
-or the terminal's own paste). zames saves it under `<project>/tmp` and shows a
+You can paste an image or a file into the input line (Shift+Insert or the
+terminal's own paste; for a FILE from the clipboard press Ctrl+V). zames saves it under `<project>/tmp` and shows a
 marker in the line - `[image#1]` for images, `[file#1]` for other files - then
 uploads the real file to the chat together with your message. These are the
 same formats the DeepSeek / Qwen / GLM web chat accepts (PNG, JPEG, GIF, WEBP, BMP,
@@ -1007,8 +1007,8 @@ zames
 
 ### Картинки и файлы
 
-В строку ввода можно вставить картинку или файл (Ctrl+Shift+V / Shift+Insert
-или собственной вставкой терминала). zames сохраняет его в `<project>/tmp` и
+В строку ввода можно вставить картинку или файл (Shift+Insert или
+собственной вставкой терминала; файл из буфера обмена — по Ctrl+V). zames сохраняет его в `<project>/tmp` и
 показывает маркер в строке — `[image#1]` для картинок, `[file#1]` для прочих
 файлов — затем загружает реальный файл в чат вместе с вашим сообщением. Это те
 же форматы, что принимает веб-чат DeepSeek / Qwen / GLM (PNG, JPEG, GIF, WEBP, BMP,

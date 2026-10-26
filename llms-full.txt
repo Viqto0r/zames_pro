@@ -298,8 +298,8 @@ Set `NO_COLOR=1` to disable colors (a calm default palette is used otherwise).
 
 ### Images and files
 
-You can paste an image or a file into the input line (Ctrl+Shift+V / Shift+Insert
-or the terminal's own paste). zames saves it under `<project>/tmp` and shows a
+You can paste an image or a file into the input line (Shift+Insert or the
+terminal's own paste; for a FILE from the clipboard press Ctrl+V). zames saves it under `<project>/tmp` and shows a
 marker in the line - `[image#1]` for images, `[file#1]` for other files - then
 uploads the real file to the chat together with your message. These are the
 same formats the DeepSeek / Qwen / GLM web chat accepts (PNG, JPEG, GIF, WEBP, BMP,
