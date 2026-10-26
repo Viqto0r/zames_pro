@@ -188,7 +188,24 @@ fs.writeFileSync(
   ),
 )
 
-// 7. Bump CITATION.cff too: GitHub reads the citation from the DEFAULT
+// 7a. Bump the TWO root version fields of package-lock.json as well.
+// CONTRIBUTING.md documents that a release writes them, but this script
+// did not: the lock kept an old version and `npm ci` then disagreed with
+// package.json. Only the root name/version pair is touched, never the
+// dependency entries.
+const lockPath = path.join(root, 'package-lock.json')
+if (fs.existsSync(lockPath)) {
+  const lockText = fs.readFileSync(lockPath, 'utf-8')
+  fs.writeFileSync(
+    lockPath,
+    lockText.replaceAll(
+      '\"version\": \"' + pkg.version + '\"',
+      '\"version\": \"' + next + '\"',
+    ),
+  )
+}
+
+// 7b. Bump CITATION.cff too: GitHub reads the citation from the DEFAULT
 // branch, so a stale version there advertises the wrong release. Only the
 // version line is touched.
 const citePath = path.join(root, 'CITATION.cff')
@@ -198,7 +215,13 @@ if (fs.existsSync(citePath)) {
 }
 
 // 8. Commit + tag. The push is intentionally NOT done here.
-git(['add', 'package.json', 'CHANGELOG.md', 'CITATION.cff'])
+git([
+  'add',
+  'package.json',
+  'package-lock.json',
+  'CHANGELOG.md',
+  'CITATION.cff',
+])
 git(['commit', '-m', 'chore: release ' + next])
 git(['tag', tag])
 
