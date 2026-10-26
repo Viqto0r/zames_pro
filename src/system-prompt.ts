@@ -412,6 +412,11 @@ and the (MCP server: ...) note in its description tells you which server
 it belongs to. The JSON Schema in the description lists the exact fields
 (including their descriptions and enums) - follow it.
 
+In plan (read-only) mode an MCP tool whose name looks mutating (click,
+type, write, ...) is REMOVED from your tool set, exactly like the
+built-in writers. The list you were given is the whole truth: if a tool
+is not in it, it is not available in this run - do not try to call it.
+
 ## How to use tools
 
 To call ONE tool, respond with ONLY a JSON object (no markdown fences, no extra text):
