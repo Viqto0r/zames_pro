@@ -33,7 +33,9 @@ export const mcpMessages: Record<string, { ru: string; en: string }> = {
     en: 'MCP server "{v}" uses a floating version (@latest/@next); pin an exact version so the tool set does not change between runs.',
   },
   'mcp.status_error': { ru: '(ошибка: {v})', en: '(error: {v})' },
-  'status.mcp': { ru: 'MCP-инструменты: {v}', en: 'MCP tools: {v}' },
+  // `{v}` is a COUNT (or 'unknown' when no pool is configured) — not a
+  // list of tool names, so the label must not read as one.
+  'status.mcp': { ru: 'MCP-инструментов: {v}', en: 'MCP tools: {v}' },
   'status.toggles': {
     ru: 'Размышление: {think} · Поиск: {search}',
     en: 'Deep thinking: {think} · Search: {search}',

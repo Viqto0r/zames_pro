@@ -75,8 +75,12 @@ export function formatStatus(
   // A NEGATIVE tool count is nonsense (a broken MCP server status, a
   // hand-edited value): "MCP tools: -2" reads like a real measurement, the
   // same rule the token counter below already follows.
+  // `none` ("(none)") would claim that the tools themselves are absent;
+  // with no MCP pool configured the COUNT is simply unknown.
   const mcpCount =
-    s.mcpToolCount === null || s.mcpToolCount < 0 ? none : s.mcpToolCount
+    s.mcpToolCount === null || s.mcpToolCount < 0
+      ? t('common.unknown')
+      : s.mcpToolCount
   lines.push(t('status.mcp', { v: mcpCount }))
   // A NEGATIVE count is nonsense (a broken provider counter): show "unknown"
   // rather than a number that reads like a real measurement.
