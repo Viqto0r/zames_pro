@@ -222,8 +222,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/add-dir <path> validate a directory',
   },
   'help.cmd.review': {
-    ru: '/review [focus] ревью незакоммиченных изменений',
-    en: '/review [focus] review uncommitted changes',
+    ru: '/review [фокус] [--staged] ревью изменений агентом (без правок; --staged — индекс)',
+    en: '/review [focus] [--staged] agent review of the changes (no edits; --staged — the index)',
   },
   'help.cmd.improve': {
     ru: '/improve [id] взять следующий пункт BACKLOG и довести до тестов',
