@@ -468,8 +468,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/provider <id> | status | login — switch the backend (live), show the state or re-run the sign-in',
   },
   'help.cmd.model': {
-    ru: '/model [id]              показать/выбрать модель провайдера',
-    en: '/model [id]              show/pick the provider model',
+    ru: '/model [id]              список моделей или выбор по id (Qwen/GLM; в TUI — список выбора)',
+    en: '/model [id]              list models or pick one by id (Qwen/GLM; the TUI shows a pick list)',
   },
   'help.cmd.debug_dom': {
     ru: '/debug-dom               сохранить HTML страницы и найденные селекторы в ~/.zames/logs',
