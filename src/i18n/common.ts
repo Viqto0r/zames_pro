@@ -146,7 +146,9 @@ export const commonMessages: Record<string, { ru: string; en: string }> = {
   'askuser.your_answer': { ru: 'Ваш ответ:', en: 'Your answer:' },
   'askuser.hint_select': { ru: 'выбор', en: 'select' },
   'askuser.hint_ok': { ru: 'ок', en: 'ok' },
-  'askuser.hint_dismiss': { ru: 'закрыть', en: 'dismiss' },
+  // Not 'dismiss': Esc in the option list returns NOTHING, so the model gets
+  // no answer at all -- the same outcome as Esc while typing the own answer.
+  'askuser.hint_dismiss': { ru: 'без ответа', en: 'no answer' },
   'askuser.hint_send': { ru: 'отправить', en: 'send' },
   'askuser.hint_cancel': { ru: 'отмена', en: 'cancel' },
   'askuser.enter_send': {
