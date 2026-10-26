@@ -279,9 +279,11 @@ File tools (src/tools.ts): Read, Write, Edit, Bash, BashOutput, Glob, Grep.
 `Read` returns metadata (never mojibake) for an image or a binary file;
 `Bash` takes `run_in_background` and `BashOutput` polls/kills such a process.
 Extra tools (src/extraTools.ts): LS, MultiEdit, TodoWrite, ApplyPatch.
-Git (src/gitTools.ts): GitStatus, GitDiff, GitLog, GitAdd, GitCommit, GitPush.
+Git (src/gitTools.ts): GitStatus, GitDiff, GitLog, GitShow, GitBranchList,
+GitAdd, GitCommit, GitPush.
 Web (src/web.ts): WebFetch, WebSearch.
-Service: respond (final answer to the user, finishes the task).
+Operator: AskUser (a modal question; handled by the caller, dropped in plan
+mode). Service: respond (final answer to the user, finishes the task).
 
 `Read` returns RAW file content by default (the contract Edit relies on: the
 model copies `old_string` from the Read output). Optional `numbered=true`
@@ -637,8 +639,9 @@ interactive launch.
 - `/new`, `/clear` — new chat (reset context)
 - `/sessions` — list of saved sessions (folder `~/.zames/.sessions`)
 - `/resume-id <id>` — restore a session by full chat id
-- `/chats` — list of recent DeepSeek chats
-- `/resume <n>` — open chat #n from `/chats`
+- `/chats` — list of recent chats of the active provider; in the TUI it
+  opens a pick list (the chat is opened directly)
+- `/last` — reopen the last chat of the current directory
 - `/chat` — current chat id
 - `/cd <path>`, `/pwd` — working directory
 - `/status` — session state
