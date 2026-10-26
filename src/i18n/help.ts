@@ -309,9 +309,12 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Режим плана ВЫКЛ: агент снова может писать и запускать команды.',
     en: 'Plan mode OFF: the agent can edit and run commands again.',
   },
+  // BOTH accepted values produce the SAME wire format: JSON Lines, one
+  // event per line (there is no single-document mode). `jsonl` is the
+  // canonical name, `json` a synonym kept for convenience.
   'help.opt.output_format': {
-    ru: 'события в stdout как JSON-строки (json|jsonl; человеческий текст — в stderr)',
-    en: 'events on stdout as JSON lines (json|jsonl; human text goes to stderr)',
+    ru: 'поток событий в stdout как JSON Lines — по одному событию на строку (jsonl — каноничное имя, json — его синоним; человеческий текст — в stderr)',
+    en: 'event stream on stdout as JSON Lines, one event per line (jsonl is the canonical name, json a synonym; human text goes to stderr)',
   },
   'help.opt.plan': {
     ru: 'стартовать в режиме плана (только чтение)',
