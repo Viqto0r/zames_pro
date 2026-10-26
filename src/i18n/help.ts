@@ -282,8 +282,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/queue [clear] messages waiting to be sent: list / clear (works while the agent is busy)',
   },
   'help.cmd.tasks': {
-    ru: '/tasks список задач агента (TodoWrite)',
-    en: '/tasks the agent task list (TodoWrite)',
+    ru: '/tasks текущий чек-лист агента (TodoWrite): статусы шагов (можно во время работы)',
+    en: "/tasks the agent's current checklist (TodoWrite): step statuses (works while the agent is busy)",
   },
   'help.cmd.thinking': {
     ru: '/thinking [on|off] режим размышления: DeepSeek/Qwen — тумблер, GLM — всегда включён (можно во время работы)',
