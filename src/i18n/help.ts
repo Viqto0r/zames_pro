@@ -210,8 +210,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/limits                  send, rate-limit and current-pause stats',
   },
   'help.cmd.export': {
-    ru: '/export [file] выгрузить сессию в Markdown',
-    en: '/export [file] export the session to Markdown',
+    ru: '/export [file] выгрузить сессию в Markdown (по умолчанию zames-export-<время>.md)',
+    en: '/export [file] export the session to Markdown (default zames-export-<stamp>.md)',
   },
   'help.cmd.doctor': {
     ru: '/doctor диагностика: node, git, конфиг, браузер, буфер обмена, MCP, провайдер',
