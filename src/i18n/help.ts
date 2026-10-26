@@ -122,8 +122,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/new, /clear             new chat (reset context)',
   },
   'help.cmd.sessions': {
-    ru: '/sessions [фильтр]        список сохранённых сессий (можно фильтровать)',
-    en: '/sessions [filter]        list saved sessions (optionally filtered)',
+    ru: '/sessions [фильтр]        список сохранённых сессий (в TUI — выбор и открытие)',
+    en: '/sessions [filter]        list saved sessions (in the TUI — pick and open)',
   },
   'help.cmd.resume_id': {
     ru: '/resume-id <id>          восстановить сессию по полному id',
