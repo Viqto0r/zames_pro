@@ -21,8 +21,8 @@ export const mcpMessages: Record<string, { ru: string; en: string }> = {
     en: 'No MCP servers configured.',
   },
   'mcp.hint': {
-    ru: 'Добавь ~/.zames/mcp.json или <project>/.zames/mcp.json.',
-    en: 'Add ~/.zames/mcp.json or <project>/.zames/mcp.json.',
+    ru: 'Добавь ~/.zames/mcp.json, <project>/.zames/mcp.json или <project>/.mcp.json.',
+    en: 'Add ~/.zames/mcp.json, <project>/.zames/mcp.json or <project>/.mcp.json.',
   },
   'mcp.title': {
     ru: 'MCP-серверы (инструментов: {n}):',
