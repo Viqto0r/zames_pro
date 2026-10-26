@@ -162,8 +162,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/undo                    revert the last write/edit',
   },
   'help.cmd.undo_list': {
-    ru: '/undo-list               список того, что можно откатить',
-    en: '/undo-list               list revertable changes',
+    ru: '/undo-list (/history)    список того, что можно откатить',
+    en: '/undo-list (/history)    list revertable changes',
   },
   'help.cmd.rewind': {
     ru: '/rewind [n|<штамп>]     откатить рабочее дерево к чекпойнту (спросит подтверждение)',
