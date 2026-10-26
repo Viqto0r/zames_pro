@@ -291,8 +291,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/web [on|off] toggle Smart search (works while the agent is busy)',
   },
   'help.cmd.goal': {
-    ru: '/goal <условие> задать условие завершения; агент работает, пока оно не выполнено (снимается автоматически)',
-    en: '/goal <condition> set a completion condition; the agent works until it is met (auto-cleared)',
+    ru: '/goal <условие> задать цель (работает, пока не выполнена; clear — снять, без аргумента — показать)',
+    en: '/goal <condition> set the goal (runs until met; clear — drop, no argument — show it)',
   },
   'help.cmd.plan': {
     ru: '/plan [on|off] режим плана: только чтение, без правок и команд',
