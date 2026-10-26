@@ -39,8 +39,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: 'show the browser window (debug/sign-in; GLM already runs headed)',
   },
   'help.opt.provider': {
-    ru: 'выбрать провайдера чата (deepseek | qwen | glm) на этот запуск',
-    en: 'select the chat provider (deepseek | qwen | glm) for this run',
+    ru: 'выбрать провайдера чата на этот запуск (deepseek | qwen | glm; сохраняется в конфиг)',
+    en: 'select the chat provider for this run (deepseek | qwen | glm; saved to the config)',
   },
   'help.opt.debug': { ru: 'подробный лог', en: 'verbose log' },
   'help.opt.dev': {
