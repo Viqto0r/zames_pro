@@ -8,10 +8,16 @@ export const doctorMessages: Record<string, { ru: string; en: string }> = {
   'doctor.error': { ru: 'ошибка: {v}', en: 'error: {v}' },
   'doctor.bundled': { ru: 'встроенный chromium', en: 'bundled chromium' },
   'doctor.auth_saved': {
-    ru: 'сессия сохранена (авто-вход готов)',
-    en: 'session saved (auto re-login ready)',
+    ru: 'сессия сохранена — авто-вход готов',
+    en: 'session saved — auto re-login ready',
   },
-  'doctor.auth_none': { ru: 'нет сохранённой сессии', en: 'no saved session' },
+  // Says what the row checks: the per-provider marker written AFTER a sign-in.
+  // A profile with a live cookie but no marker also lands here, so "no saved
+  // session" would be wrong (and the fix is to open the chat, not to sign in).
+  'doctor.auth_none': {
+    ru: 'нет отметки о входе (отметка пишется после входа этого провайдера)',
+    en: 'no sign-in marker (written after this provider signs in)',
+  },
   'doctor.clipboard_none': {
     ru: 'инструмент не найден (вставка картинок отключена)',
     en: 'no tool found (image paste disabled)',
