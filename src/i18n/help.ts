@@ -206,8 +206,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/cost (/usage) session stats: tasks, tools, time, context',
   },
   'help.cmd.limits': {
-    ru: '/limits                  телеметрия отправок и текущая пауза',
-    en: '/limits                  send telemetry and the current pause',
+    ru: '/limits                  статистика отправок, лимитов и текущая пауза',
+    en: '/limits                  send, rate-limit and current-pause stats',
   },
   'help.cmd.export': {
     ru: '/export [file] выгрузить сессию в Markdown',
