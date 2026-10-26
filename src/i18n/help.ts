@@ -278,8 +278,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/compact summarize the history and continue in a NEW chat (the old one stays)',
   },
   'help.cmd.queue': {
-    ru: '/queue [clear] показать/очистить очередь сообщений',
-    en: '/queue [clear] list/clear the pending message queue',
+    ru: '/queue [clear] очередь сообщений, ждущих отправки: показать / очистить (можно во время работы)',
+    en: '/queue [clear] messages waiting to be sent: list / clear (works while the agent is busy)',
   },
   'help.cmd.tasks': {
     ru: '/tasks список задач агента (TodoWrite)',
