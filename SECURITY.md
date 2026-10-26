@@ -19,8 +19,8 @@ is not a sandbox:
   your user. Treat every task you give the agent as code you are willing to
   run.
 - The chat-provider credentials in `~/.zames/config.json` and the browser
-  profiles (`~/.zames/profile`, `~/.zames/qwen-profile`) are sensitive. They
-  never leave your machine. Files
+  profiles (`~/.zames/profile`, `~/.zames/qwen-profile`, `~/.zames/glm-profile`)
+  are sensitive. They never leave your machine. Files
   written by the agent's own state/config writers are created with `0600`
   permissions, but files created by your own tools or by `Bash` follow your
   umask.
