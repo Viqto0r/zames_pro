@@ -1523,6 +1523,8 @@ export const SLASH_COMMANDS: SlashCommandEntry[] = [
   { name: '/new', key: 'help.cmd.new' },
   { name: '/clear', key: 'help.cmd.new' },
   { name: '/sessions', key: 'help.cmd.sessions' },
+  // ALIAS: /session is handled by the same branch in src/index.ts.
+  { name: '/session', key: 'help.cmd.sessions' },
   { name: '/chats', key: 'help.cmd.chats' },
   { name: '/resume-id', key: 'help.cmd.resume_id' },
   { name: '/last', key: 'help.cmd.last' },
@@ -1543,6 +1545,8 @@ export const SLASH_COMMANDS: SlashCommandEntry[] = [
   { name: '/diff', key: 'help.cmd.diff' },
   { name: '/diffstat', key: 'help.cmd.diffstat' },
   { name: '/cost', key: 'help.cmd.cost' },
+  // ALIAS: /usage takes the same branch as /cost.
+  { name: '/usage', key: 'help.cmd.cost' },
   { name: '/limits', key: 'help.cmd.limits' },
   { name: '/export', key: 'help.cmd.export' },
   { name: '/doctor', key: 'help.cmd.doctor' },
