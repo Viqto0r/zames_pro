@@ -94,8 +94,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: 'Ctrl+V / empty paste       an image/file from the clipboard (saved to tmp)',
   },
   'help.key.esc': {
-    ru: 'Esc, Ctrl+C              Esc — прервать генерацию; Ctrl+C — прервать инструмент, второй раз — весь прогон',
-    en: 'Esc, Ctrl+C               Esc — abort generation; Ctrl+C — abort the tool, twice — the whole run',
+    ru: 'Esc, Ctrl+C              Esc — прервать генерацию; Ctrl+C — прервать инструмент, второй раз (в 2с) — весь прогон; без задачи — выход',
+    en: 'Esc, Ctrl+C               Esc — abort generation; Ctrl+C — abort the tool, twice (within 2s) — the whole run; idle — exit',
   },
   'help.key.scroll': {
     ru: 'PgUp / PgDn              вверх/вниз по диалогу (Home/End — в начало/конец) [full-screen]',
