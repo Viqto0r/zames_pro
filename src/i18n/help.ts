@@ -154,8 +154,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/status                  session state',
   },
   'help.cmd.reload': {
-    ru: '/reload                  перечитать модули логики без перезапуска',
-    en: '/reload                  hot-reload logic modules',
+    ru: '/reload                  перечитать модули логики (browser.ts и login — только после перезапуска)',
+    en: '/reload                  hot-reload logic modules (browser.ts and login need a restart)',
   },
   'help.cmd.undo': {
     ru: '/undo                    откатить последнюю запись/правку',
