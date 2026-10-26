@@ -142,8 +142,10 @@ export function HintBar({
  *
  * The agent's answers are printed as pre-rendered ANSI (markdown.ts already
  * highlights with cli-highlight), so the live log does NOT use this component —
- * it exists for menus/panels that show a snippet inline (and for a future
- * structured log).
+ * it exists for menus/panels that show a snippet inline. No call site today:
+ * the Ctrl+Y / `/copy-code` feature that used it was removed, and plain `/copy`
+ * copies the whole answer, so `extractCodeBlocks` (src/code-blocks.ts) is only
+ * reached from its own tests.
  */
 export function CodeBlock({
   code,
