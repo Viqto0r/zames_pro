@@ -2316,7 +2316,13 @@ export class DeepSeekBrowser {
           this.onSendPause(secs)
         } catch {}
       } else {
-        console.error(theme.warn(`⏳ send pause ${secs}s`))
+        // Fallback when no UI hook is wired (a direct ask() from a script):
+        // localize it — the pause is operator-facing text.
+        console.error(
+          theme.warn(
+            translate(this.locale)('spinner.pause', { n: String(secs) }),
+          ),
+        )
       }
     }
     report(gap)
