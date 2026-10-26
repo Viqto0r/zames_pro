@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.82.141] - 2026-10-26
+
+### Fixed
+
+- **i18n:** /rewind help names --yes and the default point
+- **i18n:** /web help lists the /websearch alias
+- **i18n:** /config help lists its subcommand aliases
+- **i18n:** /queue help lists its list/clear aliases
+- **i18n:** /goal help lists the off and on forms
+- **i18n:** json and jsonl are the same event stream
+- **i18n:** the /loop floor is not a 15s provider throttle
+- **help:** list the /session and /usage aliases
+- **i18n:** drop the duplicate backslash newline hint
+- **tui:** enable the kitty keyboard protocol so Shift+Enter works
+- **i18n:** drop the duplicate status.review_none key
+- **i18n:** /status says MCP tools is a count, not a list
+- **i18n:** the empty-screen hint names a working newline key
+- **prompt:** say that plan mode also hides mutating MCP tools
+- **prompt:** list every *_base64 escape hatch
+- **i18n:** plan mode lists every dropped tool, MCP included
+- **prompt:** decode the terminal bytes across reads, not per read
+- **i18n:** the clipboard hint names the real Wayland and Windows tools
+- **i18n:** the doctor auth row describes the sign-in marker it actually reads
+- **i18n:** the Qwen guest notice says /provider login opens the window itself
+- **i18n:** each full-screen key hint names its own mouse mode
+- **i18n:** the TUI key hint does not advertise a wheel that is off
+- **i18n:** Esc in the AskUser modal means no answer, not dismiss
+- **i18n:** keep prompt.answer_language English in both locales
+- **mcp:** localize the floating-version warning
+- **browser:** localize the send-pause fallback line
+- **browser:** DeepSeek login notices go through the UI hook
+- **compact:** fill the {provider} placeholder in compact.start
+- **i18n:** AskUser free-text mode explains how to send
+- **llms:** generated header says GLM runs headed too
+- **i18n:** suggestion hint says Ctrl+N/P select, not scroll
+- **i18n:** startup hint shows Ctrl+V for clipboard images too
+- **i18n:** /last says there is no session for THIS directory
+- **i18n:** drop the unverified ~10 messages/day guest quota claim
+- **i18n:** keep the agent-facing ONLY TOOL CALLS block English in both locales
+- **i18n:** MCP hint lists the .mcp.json path too
+- **i18n:** help shows the real clipboard paste binding (Ctrl+V)
+- **i18n:** GLM guest_limit message says the quota is exhausted
+- **i18n:** deepseek send_no_start states the real ~50s budget
+- **i18n:** describe both mouseScroll states and the real default
+- **i18n:** translate the English /status labels into Russian
+
+### Changed
+
+- **i18n:** drop the duplicate doctor.unknown and msg.not_dir keys
+
 ## [2.82.140] - 2026-10-25
 
 ### Fixed
