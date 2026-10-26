@@ -3387,7 +3387,7 @@ async function main(): Promise<void> {
       // finding it meant /chats (a network fetch) or copying the id.
       const last = loadLastSession(currentWorkdir, config.provider)
       if (!last || !last.id) {
-        console.error(theme.error(t('sessions.none')))
+        console.error(theme.error(t('sessions.none_here')))
         continue
       }
       if (editor) editor.lock(t('msg.input_locked'))

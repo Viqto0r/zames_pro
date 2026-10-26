@@ -178,6 +178,10 @@ export const selfReviewMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Сохранённых сессий нет. Они появятся после первой задачи/чата.',
     en: 'No saved sessions. They appear after the first task/chat.',
   },
+  'sessions.none_here': {
+    ru: 'Для этого каталога сохранённых сессий нет — сначала выполните здесь задачу.',
+    en: 'No saved session for this directory — run a task here first.',
+  },
   'sessions.restore_hint': {
     ru: 'Восстановить: /resume-id <id> (полный id) или выбери сессию в списке /sessions.',
     en: 'Restore: /resume-id <id> (full id) or pick a session from the /sessions list.',
