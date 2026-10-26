@@ -201,7 +201,10 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     ru: '/copy скопировать последний ответ в буфер обмена',
     en: '/copy copy the last answer to the clipboard',
   },
-  'help.cmd.cost': { ru: '/cost статистика сессии', en: '/cost session stats' },
+  'help.cmd.cost': {
+    ru: '/cost (/usage) статистика сессии: задачи, инструменты, время, контекст',
+    en: '/cost (/usage) session stats: tasks, tools, time, context',
+  },
   'help.cmd.limits': {
     ru: '/limits                  телеметрия отправок и текущая пауза',
     en: '/limits                  send telemetry and the current pause',
