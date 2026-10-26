@@ -194,8 +194,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/rename <title> set the session title in zames (the web chat is not renamed)',
   },
   'help.cmd.context': {
-    ru: '/context что загружено в промпт (AGENTS/MEMORY/skills/commands)',
-    en: '/context what is loaded into the prompt (AGENTS/MEMORY/skills/commands)',
+    ru: '/context что загружено в промпт (AGENTS/MEMORY/skills/commands), размеры и объём промпта',
+    en: '/context what the prompt loads (AGENTS/MEMORY/skills/commands), their sizes and the prompt size',
   },
   'help.cmd.copy': {
     ru: '/copy скопировать последний ответ в буфер обмена',
