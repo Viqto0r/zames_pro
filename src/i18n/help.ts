@@ -525,16 +525,16 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
   'help.cmd.skill': { ru: 'навык (SKILL.md)', en: 'skill (SKILL.md)' },
   'help.cmd.custom': { ru: 'пользовательская команда', en: 'custom command' },
   'help.cmd.skills': {
-    ru: '/skills                  список найденных навыков',
-    en: '/skills                  list discovered skills',
+    ru: '/skills                  список навыков: имя, источник, описание, путь',
+    en: '/skills                  list skills: name, source, description, path',
   },
   'help.cmd.memory': {
     ru: '/memory                  показать MEMORY.md и AGENTS.md',
     en: '/memory                  show MEMORY.md and AGENTS.md',
   },
   'help.cmd.remember': {
-    ru: '/remember <текст>        дописать заметку в MEMORY.md',
-    en: '/remember <text>         append a note to MEMORY.md',
+    ru: '/remember <текст>        дописать заметку в MEMORY.md проекта (создаст файл)',
+    en: '/remember <text>         append a note to the project MEMORY.md (creates it)',
   },
   'help.cmd.init': {
     ru: '/init [--force]          изучить проект и создать AGENTS.md',
