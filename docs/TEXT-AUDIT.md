@@ -31,10 +31,18 @@ Source of truth first, generated files last (never hand-edit a generated one):
 | UI localization    | `src/i18n/*.ts` (`ru` + `en` for EVERY key)                                                                                                                              | yes                                                             |
 | Config labels      | `src/i18n/config.ts` vs `CONFIG_SCHEMA` in `src/config.ts`                                                                                                               | yes                                                             |
 | CLI/help text      | `src/i18n/help.ts` vs the keys used in `src/index.ts` and `src/commands.ts` (`SLASH_COMMANDS`)                                                                            | yes                                                             |
-| Terminal chrome    | `src/tui/*.tsx`, `src/spinner.ts`, `src/banner.ts` — only strings that go through `t()`                                                                                  | yes                                                             |
+| Terminal chrome    | `src/tui/*.tsx`, `src/tui/*.ts` (non-tsx halves), `src/spinner.ts`, `src/banner.ts` — only strings that go through `t()`                                                 | yes                                                             |
+| Terminal layout    | `src/markdown.ts`, `src/width.ts` — the docstrings that promise a user-visible width behaviour                                                                            | yes (only if the text is WRONG, not to restyle)                 |
+| REPL prompt        | `src/prompt.ts` — the non-TUI line-editing path; only strings that go through `t()`                                                                                      | yes (only if the text is WRONG, not to restyle)                 |
 
 OUT of scope: code and code comments (already audited), `CHANGELOG.md` history
 (append-only), `QUEUE.md`, `BACKLOG.md`, `dist/`, `node_modules/`.
+
+NOTE on the non-`t()` halves: `src/tui/*.ts`, `src/markdown.ts`, `src/width.ts`
+and `src/prompt.ts` carry prose (docstrings, module notes) but almost no
+operator-visible strings — a step over them usually ends `чисто`. They are in
+the scope so that a later change which DOES add a hardcoded string to them is
+caught on the next pass.
 
 ## 2. One step = one file (or one tightly related pair)
 
