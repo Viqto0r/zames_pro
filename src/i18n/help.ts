@@ -77,6 +77,10 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Ctrl+← / Ctrl+→          перемещение по словам (Ctrl+Delete / Alt+Delete — удалить слово справа)',
     en: 'Ctrl+← / Ctrl+→           move by words (Ctrl+Delete / Alt+Delete — delete the word right)',
   },
+  'help.key.clear_screen': {
+    ru: 'Ctrl+L                   очистить экран и перерисовать блок ввода',
+    en: 'Ctrl+L                    clear the screen and repaint the input block',
+  },
   'help.key.slash': {
     ru: '/ + Tab                  подсказка и автодополнение slash-команд (Ctrl+N/P — выбор)',
     en: '/ + Tab                   slash-command hints and completion (Ctrl+N/P — select)',

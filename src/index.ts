@@ -662,6 +662,7 @@ ${theme.bold(t('help.while_working'))}
   ${t('help.key.search')}
   ${t('help.key.words')}
   ${t('help.key.undo')}
+  ${t('help.key.clear_screen')}
   ${t('help.key.slash')}
   ${t('help.key.newline')}
   ${t('help.key.backslash')}
