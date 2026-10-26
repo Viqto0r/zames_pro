@@ -234,8 +234,11 @@ test('buildSystemPrompt содержит требования к формату 
 test('buildSystemPrompt локализует инструкцию о языке ответа', () => {
   const ru = buildSystemPrompt({ workdir: '/w', tools: [], locale: 'ru' })
   const en = buildSystemPrompt({ workdir: '/w', tools: [], locale: 'en' })
-  assert.ok(/русск/i.test(ru))
-  assert.ok(/English/i.test(en))
+  // AGENT-FACING: the instruction itself is English in BOTH locales, only the
+  // language NAME differs (Cyrillic prose must not reach the prompt).
+  assert.ok(/answer the operator in Russian/i.test(ru))
+  assert.ok(/answer the operator in English/i.test(en))
+  assert.ok(!/на русском/i.test(ru), 'промпт не должен содержать русскую прозу')
 })
 
 test('buildSystemPrompt содержит жёсткий блок ONLY TOOL CALLS', () => {
@@ -258,8 +261,8 @@ test('блок ONLY TOOL CALLS английский в обеих локалях
   // Agent-facing text must be English only: no Cyrillic protocol block.
   assert.ok(!ru.includes('ТОЛЬКО ВЫЗОВЫ ИНСТРУМЕНТОВ'))
   // The answer LANGUAGE still follows the locale.
-  assert.ok(/русск/i.test(ru))
-  assert.ok(/English/i.test(en))
+  assert.ok(/answer the operator in Russian/i.test(ru))
+  assert.ok(/answer the operator in English/i.test(en))
 })
 
 // Wide characters (emoji, CJK) must count as 2 columns so the

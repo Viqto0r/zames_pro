@@ -1,8 +1,11 @@
 // System-prompt fragments.
 export const promptMessages: Record<string, { ru: string; en: string }> = {
+  // AGENT-FACING: the model reads this, so neither locale may carry Cyrillic
+  // prose (see AGENTS.md "Language policy"). Only the LANGUAGE NAME differs,
+  // which is what actually steers the answer language.
   'prompt.answer_language': {
-    ru: 'ВАЖНО: отвечай оператору на русском языке. Весь текст в поле message инструмента respond, а также любые пояснения — на русском.',
-    en: 'IMPORTANT: reply to the operator in English. All text in the respond tool message field, and any explanations, must be in English.',
+    ru: 'IMPORTANT: answer the operator in Russian. All text in the message field of the respond tool, and any explanations, must be in Russian.',
+    en: 'IMPORTANT: answer the operator in English. All text in the message field of the respond tool, and any explanations, must be in English.',
   },
   // The hard "ONLY TOOL CALLS" block. All prose around a tool call is a
   // protocol violation: the operator never sees it (only tool calls and the
