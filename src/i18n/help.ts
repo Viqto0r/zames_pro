@@ -537,8 +537,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/remember <text>         append a note to the project MEMORY.md (creates it)',
   },
   'help.cmd.init': {
-    ru: '/init [--force]          изучить проект и создать AGENTS.md',
-    en: '/init [--force]          analyze the project and create AGENTS.md',
+    ru: '/init [--force]          агент изучит проект и напишет AGENTS.md (--force — перезаписать)',
+    en: '/init [--force]          the agent explores the repo and writes AGENTS.md (--force — overwrite)',
   },
   'help.skills': {
     ru: 'Навыки и свои команды:',
