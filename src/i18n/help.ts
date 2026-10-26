@@ -307,8 +307,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: 'Plan mode OFF: the agent can edit and run commands again.',
   },
   'help.opt.output_format': {
-    ru: 'формат вывода: text|json|jsonl (для скриптов)',
-    en: 'output format: text|json|jsonl (for scripts)',
+    ru: 'события в stdout как JSON-строки (json|jsonl; человеческий текст — в stderr)',
+    en: 'events on stdout as JSON lines (json|jsonl; human text goes to stderr)',
   },
   'help.opt.plan': {
     ru: 'стартовать в режиме плана (только чтение)',
