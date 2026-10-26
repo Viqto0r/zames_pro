@@ -41,7 +41,7 @@ export function stripEllipsis(phrase: string): string {
 // (3 dots) so the trailing hint does not "jump" when the phase changes. Kept in
 // one place so the two status lines animate identically.
 export const DOTS = ['', '.', '..', '...']
-export const DOTS_PAD = '   '
+const DOTS_PAD = '   '
 
 // The colored dot string for a phase (brown, matching the base text).
 export function renderDots(n: number): string {

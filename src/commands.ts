@@ -213,7 +213,7 @@ export interface DurationUnits {
   s: string
 }
 
-export const EN_DURATION_UNITS: DurationUnits = { h: 'h', m: 'm', s: 's' }
+const EN_DURATION_UNITS: DurationUnits = { h: 'h', m: 'm', s: 's' }
 
 // Human-readable duration: "8s", "5m 12s", "1h 01m 01s". Seconds are padded
 // only when a larger unit is present, so a lone "45s" is not "45s" padded.

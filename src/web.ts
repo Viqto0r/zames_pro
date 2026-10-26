@@ -109,7 +109,7 @@ export function htmlToText(html: string): string {
 // accept) into a uint32, or null when it is not one. Rules: 1-4 parts; each
 // part may be hex (0x…), octal (leading 0) or decimal; the LAST part fills all
 // remaining bytes, so `127.1` == 127.0.0.1 and `2130706433` == 127.0.0.1.
-export function parseLegacyIpv4(host: string): number | null {
+function parseLegacyIpv4(host: string): number | null {
   const h = String(host || '').trim()
   if (!h) return null
   const parts = h.split('.')

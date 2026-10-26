@@ -20,12 +20,12 @@ import type { runAgentLoop as RunAgentLoopFn } from './agent-loop.js'
 // browser.ts, which owns the live Playwright context) — out of scope here.
 
 /** Hard cap on iterations for one subagent run. */
-export const SUBAGENT_MAX_ITER = 30
+const SUBAGENT_MAX_ITER = 30
 
 // The report is fed back into the PARENT chat as a tool result, so a runaway
 // subagent must not be able to blow up the parent's context with one answer.
 // The tail is trimmed with a marker, not silently dropped.
-export const SUBAGENT_REPORT_CAP = 20_000
+const SUBAGENT_REPORT_CAP = 20_000
 
 /** Cap a subagent report before it becomes a parent-context tool result. */
 export function capReport(text: string, cap = SUBAGENT_REPORT_CAP): string {

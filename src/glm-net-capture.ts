@@ -209,7 +209,7 @@ export function extractTokenUsage(body: string): number | null {
 }
 
 /** True when a chunk marks the end of the stream (`done: true`). */
-export function isDoneChunk(obj: SseLine): boolean {
+function isDoneChunk(obj: SseLine): boolean {
   const d = completionData(obj)
   if (!d) return false
   return d.done === true || d.phase === 'done'

@@ -41,7 +41,7 @@ export function parseInterval(text: string): number | null {
 }
 
 /** Largest delay setInterval accepts (32-bit signed milliseconds). */
-export const MAX_TIMER_MS = 2_147_483_647
+const MAX_TIMER_MS = 2_147_483_647
 
 // Render an interval back to the shortest human form (used in listings).
 // Non-finite input (a cron job whose next fire could not be computed sets

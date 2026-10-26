@@ -81,7 +81,7 @@ function safeName(id: string): string {
 // Save/update a session. workdir is needed so that when launched from the same
 // project we restore exactly its last chat.
 /** Hard cap on the todo checklist stored with a session. */
-export const SESSION_TODOS_CAP = 1000
+const SESSION_TODOS_CAP = 1000
 
 export function saveSession({
   id,

@@ -242,7 +242,7 @@ export function renderContextSection(
 // of truth for `### <Tool>` blocks; the prose that cannot be derived
 // ("Choosing the right tool", the call formats) stays hard-coded below.
 // Guarded by test/system-prompt-tools.test.ts.
-export function renderToolSection(tools: ToolDef[]): string {
+function renderToolSection(tools: ToolDef[]): string {
   return tools
     .map(
       (t2: ToolDef) =>

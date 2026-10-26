@@ -8,7 +8,7 @@
 // A longer line is harder to read and the eye loses the start of the next
 // line on a wide terminal, so there is a cap.
 // > 0 = an explicit cap (still never wider than the terminal).
-export const DEFAULT_CONTENT_WIDTH = 100
+const DEFAULT_CONTENT_WIDTH = 100
 
 let configured = 0
 

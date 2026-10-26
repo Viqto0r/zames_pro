@@ -17,8 +17,8 @@ const NEW_ITEM_PREFIX = 'N'
 
 // Past these thresholds BACKLOG.md costs more tokens (on /improve) than it is
 // worth, so the operator is nudged to collapse it.
-export const BACKLOG_WARN_LINES = 500
-export const BACKLOG_WARN_CHARS = 60_000
+const BACKLOG_WARN_LINES = 500
+const BACKLOG_WARN_CHARS = 60_000
 
 // Parse a `/backlog <text>` note into the shape appendBacklogItem() wants. An
 // optional leading `P0..P3` token sets the priority; the first line becomes the

@@ -8,7 +8,7 @@ import { extractPathToken } from './path-token.js'
 
 export { extractPathToken }
 
-export const IMAGE_EXTS = [
+const IMAGE_EXTS = [
   '.png',
   '.jpg',
   '.jpeg',
@@ -19,7 +19,7 @@ export const IMAGE_EXTS = [
   '.ico',
 ]
 
-export const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
+const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
 
 export interface Attachment {
   index: number
@@ -311,7 +311,7 @@ export function hasClipboardTool(): boolean {
 
 // True when the Windows filesystem is visible from here, i.e. a
 // powershell.exe call can reach the Windows clipboard.
-export function windowsReachable(): boolean {
+function windowsReachable(): boolean {
   if (process.platform === 'win32') return true
   if (process.platform !== 'linux') return false
   try {
@@ -522,7 +522,7 @@ export function winPathToWsl(winPath: string): string | null {
 }
 
 // Run the embedded PowerShell script and return the clipboard image bytes.
-export async function readWindowsClipboardImage(): Promise<Buffer | null> {
+async function readWindowsClipboardImage(): Promise<Buffer | null> {
   if (!isWsl()) return null
   const out = tryCommand('powershell.exe', [
     '-STA',
