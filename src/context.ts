@@ -187,7 +187,12 @@ const BUILTIN_SKILLS: Array<{
       '2. ISOLATE — shrink to the smallest failing unit (bisect, stub, ' +
       'binary-search). Read the code the failing path ACTUALLY executes. Check ' +
       'the obvious first: wrong file, stale build, cached state, different ' +
-      'config, an error swallowed by a catch.\n' +
+      'config, an error swallowed by a catch. In zames the evidence is already ' +
+      'on disk: the transcript (~/.zames/logs/*.jsonl, /transcript prints this ' +
+      "run's path), the raw answer bodies in ~/.zames/net-log with " +
+      'ZAMES_NET_DEBUG=1 (npm run dev sets it), and the per-send telemetry ' +
+      '(~/.zames/logs/sends-<provider>.jsonl, dev mode or ' +
+      'browser.sendTelemetry). Read them BEFORE guessing.\n' +
       '3. HYPOTHESIZE — state it in one sentence and predict what you should ' +
       'see if it is right; test exactly that. One change at a time; prefer an ' +
       'observation (log, test assertion) over an edit. If the prediction is ' +

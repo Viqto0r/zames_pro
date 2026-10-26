@@ -27,6 +27,13 @@ Shrink the failure to the smallest unit that still fails.
   remember writing.
 - Check the obvious causes FIRST: wrong file, stale build, cached state,
   different config, an earlier error swallowed by a catch.
+- In zames the evidence is already on disk: the transcript at
+  `~/.zames/logs/*.jsonl` (`/transcript` prints the exact path of THIS run),
+  the raw answer bodies under `~/.zames/net-log` when started with
+  `ZAMES_NET_DEBUG=1` (`npm run dev` sets it), and the per-send telemetry at
+  `~/.zames/logs/sends-<provider>.jsonl` (written in dev mode and when
+  `browser.sendTelemetry` is on). Read them BEFORE guessing — most "it hangs
+  / it stopped" reports are visible there.
 
 ## Phase 3 — Hypothesize (one at a time)
 
