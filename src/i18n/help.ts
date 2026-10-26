@@ -78,8 +78,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: 'Ctrl+← / Ctrl+→           move by words',
   },
   'help.key.slash': {
-    ru: '/ + Tab                  подсказка и автодополнение slash-команд (Ctrl+N/P — вверх/вниз)',
-    en: '/ + Tab                   slash-command hints and completion (Ctrl+N/P — up/down)',
+    ru: '/ + Tab                  подсказка и автодополнение slash-команд (Ctrl+N/P — выбор)',
+    en: '/ + Tab                   slash-command hints and completion (Ctrl+N/P — select)',
   },
   'help.key.newline': {
     ru: 'Ctrl+J / Ctrl+Enter      новая строка (Shift+Enter в терминалах с поддержкой)',
