@@ -44,8 +44,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
   },
   'help.opt.debug': { ru: 'подробный лог', en: 'verbose log' },
   'help.opt.dev': {
-    ru: 'режим разработки: авто-перечитывание модулей',
-    en: 'dev mode: auto-reload modules',
+    ru: 'режим разработки: dev-команды, BACKLOG-заметки в промпте и авто-перечитывание модулей',
+    en: 'dev mode: dev-only commands, BACKLOG notes in the prompt and module auto-reload',
   },
   'help.opt.version': { ru: 'показать версию', en: 'show version' },
   'help.opt.no_color': {
