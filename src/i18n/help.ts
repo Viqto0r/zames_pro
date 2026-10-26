@@ -166,8 +166,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/undo-list               list revertable changes',
   },
   'help.cmd.rewind': {
-    ru: '/rewind [n]              откатить рабочее дерево к чекпойнту',
-    en: '/rewind [n]              roll the working tree back to a checkpoint',
+    ru: '/rewind [n|<штамп>]     откатить рабочее дерево к чекпойнту (спросит подтверждение)',
+    en: '/rewind [n|stamp]        roll the working tree back to a checkpoint (asks first)',
   },
   'help.cmd.rewind_list': {
     ru: '/rewind-list             список чекпойнтов',
