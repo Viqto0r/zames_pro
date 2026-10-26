@@ -318,8 +318,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: 'start in plan mode (read-only)',
   },
   'help.cmd.loop': {
-    ru: '/loop <интервал> <задача> периодически повторять задачу (напр. 10m)',
-    en: '/loop <interval> <task> repeat a task periodically (e.g. 10m)',
+    ru: '/loop <интервал> <задача> повторять задачу (s/m/h; без единицы — секунды; первый запуск сразу; минимум 15с)',
+    en: '/loop <interval> <task> repeat a task (s/m/h; no unit means seconds; the first run is immediate; minimum 15s)',
   },
   'help.cmd.cron': {
     ru: '/cron "<мин> <час> <день> <мес> <дow>" <задача> запуск по расписанию (5 полей; первый — только после наступления времени)',
