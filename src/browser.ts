@@ -875,7 +875,11 @@ export class DeepSeekBrowser {
         } catch {}
       },
       persistSession: () => this._persistSessionIfNeeded(),
-      notice: (key) => console.log(theme.system(this._t(key))),
+      // Route login notices through the SAME notice hook as every other
+      // message: a raw console.log is painted OVER by the LineEditor status
+      // line, so the operator saw a frozen spinner instead of "a browser
+      // window opened" / "login timed out" (see DESIGN-NOTES, onNotice).
+      notice: (key) => this._notice(this._t(key)),
       isAborted: () => this._abort,
       windowClosed: () => this._windowClosed,
       sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
