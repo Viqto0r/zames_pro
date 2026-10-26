@@ -341,9 +341,12 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Интервал «{v}» не распознан — задача НЕ добавлена. Единицы: s/sec, m/min, h (например, /loop 10m проверь тесты). Без единицы — СЕКУНДЫ (120 = 120с), для минут нужен суффикс m.',
     en: 'Interval "{v}" was not recognized — NO job was added. Units: s/sec, m/min, h (e.g. /loop 10m run the tests). Without a unit it means SECONDS (120 = 120s); use the m suffix for minutes.',
   },
+  // The floor is zames' OWN (MIN_LOOP_MS), not the provider throttle: that
+  // one is 15s on DeepSeek, 4s on Qwen and 0 on GLM, so quoting a single
+  // number here was wrong on two of the three backends.
   'sched.loop_too_short': {
-    ru: 'Слишком часто: минимум {min} (троттлинг отправок 15с).',
-    en: 'Too frequent: minimum {min} (the send throttle is 15s).',
+    ru: 'Слишком часто: минимальный интервал /loop — {min} (реже — бессмысленно: отправка всё равно ждёт троттлинга провайдера).',
+    en: 'Too frequent: the minimum /loop interval is {min} (anything faster is pointless: sending still waits for the provider throttle).',
   },
   'sched.added': {
     ru: '⏰ Задача #{id} добавлена ({when}): {task}',
