@@ -90,8 +90,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '\\ + Enter                also a new line',
   },
   'help.key.attach': {
-    ru: 'Ctrl+Shift+V картинки      вставить изображение/файл (сохранится в tmp)',
-    en: 'Ctrl+Shift+V image         paste an image/file (saved to tmp)',
+    ru: 'Ctrl+V / пустая вставка    картинку/файл из буфера обмена (сохранится в tmp)',
+    en: 'Ctrl+V / empty paste       an image/file from the clipboard (saved to tmp)',
   },
   'help.key.esc': {
     ru: 'Esc, Ctrl+C              Esc — прервать генерацию; Ctrl+C — прервать инструмент, второй раз — весь прогон',
