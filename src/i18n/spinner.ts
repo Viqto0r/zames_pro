@@ -25,8 +25,8 @@ export const spinnerMessages: Record<string, { ru: string; en: string }> = {
   },
   'editor.more': { ru: '…ещё {n}', en: '…{n} more' },
   'editor.page_hint': {
-    ru: '(Ctrl+N/Ctrl+P — вверх/вниз, Tab — вставить)',
-    en: '(Ctrl+N/Ctrl+P — up/down, Tab — insert)',
+    ru: '(Ctrl+N/Ctrl+P — выбор, Tab — вставить)',
+    en: '(Ctrl+N/Ctrl+P — select, Tab — insert)',
   },
   'editor.answer': { ru: '● Ответ', en: '● Answer' },
   // Shown in the full-screen log viewport before the first turn, so a fresh
