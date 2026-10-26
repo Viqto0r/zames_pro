@@ -1,11 +1,10 @@
 // Reusable Ink UI WIDGETS — the building blocks that make the TUI look like a
-// real app instead of plain text: checkboxes, selects, toggle rows, key hints
-// and a framed panel. All pure presentational components (no terminal I/O), so
-// they are reused by the config menu and any future menu (model picker, login,
-// confirm dialogs).
+// real app instead of plain text: checkboxes, selects and key-hint rows. All
+// pure presentational components (no terminal I/O), so they are reused by the
+// config menu and any future menu (model picker, login, confirm dialogs).
 
 import React from 'react'
-import { Box, Text } from 'ink'
+import { Text } from 'ink'
 
 export const UI = {
   accent: '#c8b06a',
@@ -57,51 +56,6 @@ export function Select({
   )
 }
 
-/** A framed panel (rounded border) with an optional title bar and footer. */
-export function Panel({
-  title,
-  subtitle,
-  footer,
-  width,
-  children,
-}: {
-  title?: string
-  subtitle?: string
-  footer?: React.ReactNode
-  width?: number
-  children: React.ReactNode
-}): React.ReactElement {
-  return (
-    <Box
-      flexDirection="column"
-      borderStyle="round"
-      borderColor={UI.border}
-      paddingX={1}
-      width={width}
-    >
-      {title ? (
-        <Box justifyContent="space-between">
-          <Text color={UI.title} bold>
-            {title}
-          </Text>
-          {subtitle ? <Text color={UI.dim}>{subtitle}</Text> : null}
-        </Box>
-      ) : null}
-      {title ? (
-        <Text color="#3a3f4b">{'─'.repeat(panelInnerCols(width))}</Text>
-      ) : null}
-      {children}
-      {footer ? footer : null}
-    </Box>
-  )
-}
-
-/** Inner width (minus border + paddingX) the panel divider should span. */
-function panelInnerCols(width?: number): number {
-  const cols = width || process.stdout.columns || 80
-  return Math.max(1, cols - 6)
-}
-
 /** A single hint chip: `↑/↓ select`. */
 export function Hint({
   keys,
@@ -134,51 +88,5 @@ export function HintBar({
         </Text>
       ))}
     </Text>
-  )
-}
-
-/**
- * A CODE BLOCK with a syntax-highlighted body and an optional title label.
- *
- * The agent's answers are printed as pre-rendered ANSI (markdown.ts already
- * highlights with cli-highlight), so the live log does NOT use this component —
- * it exists for menus/panels that show a snippet inline. No call site today:
- * the Ctrl+Y / `/copy-code` feature that used it was removed, and plain `/copy`
- * copies the whole answer, so `extractCodeBlocks` (src/code-blocks.ts) is only
- * reached from its own tests.
- */
-export function CodeBlock({
-  code,
-  lang,
-  highlighted,
-  width,
-  hint,
-  focused,
-}: {
-  code: string
-  lang?: string
-  /** Pre-highlighted ANSI for the body; falls back to the raw `code`. */
-  highlighted?: string
-  width?: number
-  /** A short label shown on the right of the title bar. */
-  hint?: string
-  focused?: boolean
-}): React.ReactElement {
-  return (
-    <Box
-      flexDirection="column"
-      borderStyle="round"
-      borderColor={focused ? UI.accent : UI.border}
-      paddingX={1}
-      width={width}
-    >
-      <Box justifyContent="space-between">
-        <Text color={UI.dim}>{lang || 'code'}</Text>
-        {hint ? <Text color={UI.accent}>{hint}</Text> : null}
-      </Box>
-      {(highlighted || code).split(String.fromCharCode(10)).map((line, i) => (
-        <Text key={i}>{line || ' '}</Text>
-      ))}
-    </Box>
   )
 }

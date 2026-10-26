@@ -240,13 +240,10 @@ When a change touches one concern, start in the module that owns it:
   (all unit-tested): `FullScreenApp.tsx` (the alternate-screen layout) +
   `log-window.ts` (row-based log windowing),
   `login-pure.ts` + `LoginForm.tsx`/`TextPrompt.tsx`/`run-login.tsx` (in-TUI
-  login / one-time code), `widgets.tsx` (Checkbox/Select/Panel/HintBar/
-  CodeBlock), `SelectList.tsx`/`run-select.tsx` (list menus for `/model`,
+  login / one-time code), `widgets.tsx` (Checkbox/Select/Hint/HintBar),
+  `SelectList.tsx`/`run-select.tsx` (list menus for `/model`,
   `/chats`, `/sessions`), `ConfirmDialog.tsx`/`run-confirm.tsx` (permission
-  ask), `useMouseWheel.ts` (SGR wheel + DECSET 1007 off). `src/code-blocks.ts`
-  extracts fenced blocks from an answer (kept as a pure helper; the Ctrl+Y /
-  `/copy-code` feature was removed on the operator's request, so `CodeBlock` and
-  `extractCodeBlocks` currently have no call site outside the tests).
+  ask), `useMouseWheel.ts` (SGR wheel + DECSET 1007 off).
 - `src/context.ts` — AGENTS.md / MEMORY.md / skills / custom commands loading.
   `loadProjectContext(workdir, touchPaths?)` also pulls NESTED AGENTS.md/MEMORY.md
   from the directories a task touches (path-scoped rules) into a separate
