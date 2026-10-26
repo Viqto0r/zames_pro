@@ -294,8 +294,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/web [on|off] web search: DeepSeek "Smart search", Qwen the "Web search" menu item (works while busy)',
   },
   'help.cmd.goal': {
-    ru: '/goal <условие> задать цель (работает, пока не выполнена; clear — снять, без аргумента — показать)',
-    en: '/goal <condition> set the goal (runs until met; clear — drop, no argument — show it)',
+    ru: '/goal <условие> задать цель (работает, пока не выполнена; clear/off — снять, без аргумента или on — показать)',
+    en: '/goal <condition> set the goal (runs until met; clear/off — drop, no argument or on — show it)',
   },
   'help.cmd.plan': {
     ru: '/plan [on|off] режим плана (чтение без правок); без аргумента — переключить',
