@@ -32,8 +32,8 @@ export const spinnerMessages: Record<string, { ru: string; en: string }> = {
   // Shown in the full-screen log viewport before the first turn, so a fresh
   // chat is not a blank screen with no hint of what to do.
   'editor.empty_hint': {
-    ru: 'Напишите задачу и нажмите Enter. /help — команды, Ctrl+J — новая строка.',
-    en: 'Type a task and press Enter. /help for commands, Ctrl+J for a new line.',
+    ru: 'Напишите задачу и нажмите Enter. /help — команды, Shift+Enter — новая строка.',
+    en: 'Type a task and press Enter. /help for commands, Shift+Enter for a new line.',
   },
   // One-line key hint UNDER the input box (full-screen mode). Two variants:
   // with in-app wheel scroll the mouse belongs to the app, so selection needs
