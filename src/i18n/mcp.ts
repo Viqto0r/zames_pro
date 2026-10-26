@@ -1,8 +1,8 @@
 // MCP server messages.
 export const mcpMessages: Record<string, { ru: string; en: string }> = {
   'help.cmd.mcp': {
-    ru: '/mcp                     показать MCP-серверы и их инструменты',
-    en: '/mcp                     show MCP servers and their tools',
+    ru: '/mcp                     MCP-серверы: число инструментов, ошибки и предупреждения',
+    en: '/mcp                     MCP servers: tool count, errors and warnings',
   },
   'mcp.loaded': {
     ru: 'MCP: подключено инструментов {n} ({servers})',
