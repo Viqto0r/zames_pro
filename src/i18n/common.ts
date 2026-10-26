@@ -149,6 +149,10 @@ export const commonMessages: Record<string, { ru: string; en: string }> = {
   'askuser.hint_dismiss': { ru: 'закрыть', en: 'dismiss' },
   'askuser.hint_send': { ru: 'отправить', en: 'send' },
   'askuser.hint_cancel': { ru: 'отмена', en: 'cancel' },
+  'askuser.enter_send': {
+    ru: 'Enter — отправить ответ (многострочный — через вставку)',
+    en: 'Enter sends the answer (multi-line: paste it)',
+  },
   'confirm.yes': { ru: 'Да', en: 'Yes' },
   'confirm.no': { ru: 'Нет', en: 'No' },
   'perm.ask_sub': {

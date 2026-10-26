@@ -133,6 +133,7 @@ export function AskQuestion({
       {typing ? (
         <Box flexDirection="column">
           <Text color={UI.dim}>{t('askuser.your_answer')}</Text>
+          <Text color={UI.dim}>{t('askuser.enter_send')}</Text>
           <Text color={UI.accent}>
             {'❯ '}
             {text}
