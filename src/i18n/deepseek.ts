@@ -77,8 +77,8 @@ export const deepseekMessages: Record<string, { ru: string; en: string }> = {
     en: '✖ Could not paste the whole text into the input ({got} of {want} chars). The message was not sent to avoid sending a truncated text. Retry or split the message.',
   },
   'ds.send_no_start': {
-    ru: '✖ Ответ не начал генерироваться за 35с даже после повторной отправки. Проверь чат {provider} вручную (возможно, кнопка отправки не нажимается или сессия разлогинилась).',
-    en: '✖ The answer did not start generating within 35s even after resending. Check the {provider} chat manually (the send button may not be clickable or the session may have expired).',
+    ru: '✖ Ответ не начал генерироваться примерно за 50с (30с + 20с после повторного Enter). Проверь чат {provider} вручную (возможно, кнопка отправки не нажимается или сессия разлогинилась).',
+    en: '✖ The answer did not start generating within about 50s (30s + 20s after a second Enter). Check the {provider} chat manually (the send button may not be clickable or the session may have expired).',
   },
   'ds.send_no_new_answer': {
     ru: '✖ Новый ответ не получен — на странице остался прежний текст. Возможно, сообщение не отправилось. Проверь чат {provider} вручную.',
