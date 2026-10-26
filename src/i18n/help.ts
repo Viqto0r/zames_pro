@@ -247,8 +247,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: 'BACKLOG collapsed: {n} archived block(s) removed.',
   },
   'help.cmd.backlog': {
-    ru: '/backlog <текст> записать идею в BACKLOG.md',
-    en: '/backlog <text> record an idea in BACKLOG.md',
+    ru: '/backlog <текст> записать идею в BACKLOG.md (collapse — свернуть архив)',
+    en: '/backlog <text> record an idea in BACKLOG.md (collapse — prune archive)',
   },
   'backlog.usage': {
     ru: 'Использование: /backlog <текст идеи>',
