@@ -43,8 +43,18 @@ push and pull request.
 npx tsx --test --experimental-test-coverage test/*.test.ts
 ```
 
-Prints per-file line/branch coverage. Informational - the main suite stays the
-pass/fail signal.
+Prints per-file line/branch coverage.
+
+The report itself is informational, but CI has ONE hard coverage step:
+`npm run coverage:gate` compares the per-file line % of the critical modules
+(`commands.ts`, `scheduler.ts`, `markdown.ts`, `tools.ts`, `system-prompt.ts` ... -
+the full list is `FLOORS` in `scripts/coverage-gate.mts`) against a floor set a
+few points below the current value, and FAILS the build when a module drops
+below it - i.e. when a module silently loses its tests. Run it locally with:
+
+```bash
+npm run coverage:gate
+```
 
 ## End-to-end smoke test
 
