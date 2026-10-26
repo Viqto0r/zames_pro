@@ -291,10 +291,10 @@ The prompt is a small line editor with persistent history:
 - `Ctrl+U` — clear the line, `Ctrl+K` — delete to end of line, `Ctrl+W` —
   delete the word before the cursor, `Ctrl+←`/`Ctrl+→` — move by words,
   `Ctrl+Delete`/`Alt+Delete` — delete the word after the cursor.
-- `\` + `Enter` — insert a newline (the one that works
-  everywhere). `Ctrl+J`, `Ctrl+Enter` and `Shift+Enter` do it too, but
-  only in terminals that implement the kitty keyboard protocol: without it
-  the terminal sends a PLAIN Enter for Shift+Enter and the message is sent.
+- `\` + `Enter` and `Ctrl+J` — insert a newline; these two work in
+  every terminal. `Ctrl+Enter` and `Shift+Enter` do it too, but only where the
+  terminal implements the kitty keyboard protocol: without it the terminal
+  sends a PLAIN Enter for Shift+Enter and the message is sent.
 - `/` + `Tab` — slash-command hints and completion.
 - `!command` — run a shell command directly, bypassing the model (like
   Claude Code's bash mode). The same sandbox guard as the `Bash` tool applies,
@@ -991,10 +991,11 @@ zames
 - `Ctrl+U` — очистить строку, `Ctrl+K` — удалить до конца строки, `Ctrl+W` —
   удалить слово перед курсором, `Ctrl+←`/`Ctrl+→` — переход по словам,
   `Ctrl+Delete`/`Alt+Delete` — удалить слово после курсора.
-- `\` + `Enter` — вставить новую строку (работает везде).
-  `Ctrl+J`, `Ctrl+Enter` и `Shift+Enter` тоже вставляют строку, но
-  только в терминалах с kitty-протоколом клавиатуры: без него Shift+Enter
-  приходит как обычный Enter, и сообщение отправляется.
+- `\` + `Enter` и `Ctrl+J` — вставить новую строку; эти две
+  работают в любом терминале. `Ctrl+Enter` и `Shift+Enter` тоже вставляют
+  строку, но только там, где терминал поддерживает kitty-протокол
+  клавиатуры: без него Shift+Enter приходит как обычный Enter, и
+  сообщение отправляется.
 - `/` + `Tab` — подсказки и автодополнение слэш-команд.
 - `!команда` — выполнить shell-команду напрямую, минуя модель (как bash-режим
   Claude Code). Действует та же песочница, что и для инструмента `Bash`, так
