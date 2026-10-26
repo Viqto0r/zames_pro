@@ -40,7 +40,10 @@ is not a sandbox:
   tools from the model's tool set. Since this release it also drops MCP tools
   whose names look mutating (click/type/write/...); the classification is a
   heuristic deny-list, so treat plan mode as a strong hint rather than a hard
-  guarantee for third-party MCP servers.
+  guarantee for third-party MCP servers. It is NOT a security boundary:
+  it only makes those tools INVISIBLE to the model for that task —
+  `.zames/permissions.json` is unchanged, no OS isolation is added, and a
+  server whose tool name the heuristic does not recognise is still offered.
 - `Write`/`Edit` and the multi-file tools keep a backup (`/undo`,
   `/undo-list`), but that is an undo safety net, not a security boundary. Give
   the agent only tasks you are willing to run.
