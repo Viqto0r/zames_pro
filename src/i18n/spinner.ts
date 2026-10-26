@@ -38,13 +38,18 @@ export const spinnerMessages: Record<string, { ru: string; en: string }> = {
   // One-line key hint UNDER the input box (full-screen mode). Two variants:
   // with in-app wheel scroll the mouse belongs to the app, so selection needs
   // Shift; without it the terminal keeps the mouse and the wheel is inert.
+  // Kept SHORT: the row is truncated, and the long "up/down" / "top/bottom"
+  // tails pushed the MODE-specific part (wheel vs inert) off a narrow screen.
   'editor.keys_hint': {
-    ru: 'выделение — Shift+клик · Esc — стоп · PgUp/PgDn — вверх/вниз · Home/End — в начало/конец',
-    en: 'select — Shift+click · Esc — stop · PgUp/PgDn — up/down · Home/End — top/bottom',
+    // The wheel belongs to the app ONLY in this mode; in SELECT mode the
+    // terminal keeps it (see useMouseWheel.ts), so that hint never advertises
+    // a wheel scroll.
+    ru: 'колесо — скролл · выделение — Shift+клик · Esc — стоп · PgUp/PgDn · Home/End',
+    en: 'wheel — scroll · select — Shift+click · Esc — stop · PgUp/PgDn · Home/End',
   },
   'editor.keys_hint_select': {
-    ru: 'выделение — мышью · Esc — стоп · PgUp/PgDn — вверх/вниз · Home/End — в начало/конец',
-    en: 'select — drag · Esc — stop · PgUp/PgDn — up/down · Home/End — top/bottom',
+    ru: 'выделение — мышью · колесо инертно · Esc — стоп · PgUp/PgDn · Home/End',
+    en: 'select — drag · wheel inert · Esc — stop · PgUp/PgDn · Home/End',
   },
   // Reverse search (Ctrl+R) status line. The query may be empty.
   'editor.search_prompt': {
