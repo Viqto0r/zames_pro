@@ -126,8 +126,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: '/sessions [filter]        list saved sessions (in the TUI — pick and open)',
   },
   'help.cmd.resume_id': {
-    ru: '/resume-id <id>          восстановить сессию по полному id',
-    en: '/resume-id <id>          resume a session by full id',
+    ru: '/resume-id <id>          открыть сессию по полному id и напечатать диалог',
+    en: '/resume-id <id>          open a session by full id and print its dialogue',
   },
   'help.cmd.chats': {
     ru: '/chats [фильтр]          список последних чатов провайдера',
