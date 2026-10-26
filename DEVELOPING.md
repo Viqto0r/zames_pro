@@ -106,7 +106,10 @@ The pure helpers live in `src/backlog.ts` (unit-tested in
 
 `npm run changelog:sync` writes the `[Unreleased]` section in `CHANGELOG.md`
 from the conventional commits since the last tag, and `npm run changelog:check`
-fails when the committed section is stale (a CI guard).
+fails when the committed section is stale. It is a LOCAL guard, not a CI one:
+`.github/workflows/test.yml` runs lint, format:check, typecheck, the tests with
+coverage, the coverage gate and the build — no changelog step — so run it
+yourself before a release.
 `npm run changelog:draft [ref]` PRINTS a draft without touching the file — use
 it to eyeball the wording before a sync. The sync is idempotent and only
 rewrites the region between `## [Unreleased]` and the next `## [x.y.z]` heading

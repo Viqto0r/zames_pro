@@ -1138,8 +1138,10 @@ When you touch QwenBrowser, run it before a commit.
 
 - Syntax/types: `npm run typecheck` (tsc --noEmit, includes src/, test/ and scripts/**/*.mts)
 - Changelog sync: `npm run changelog:sync` (writes the Unreleased section from
-  conventional commits since the last tag), `npm run changelog:check` (CI: fails
-  when it is stale). Helper scripts are `.mts` (run via tsx); `postinstall.mjs`
+  conventional commits since the last tag), `npm run changelog:check` (fails when
+  it is stale). Not wired into CI (`.github/workflows/test.yml` runs
+  lint/format/typecheck/tests/coverage/build), so run it before a release. Helper
+  scripts are `.mts` (run via tsx); `postinstall.mjs`
   stays plain `.mjs` because it runs before tsx is guaranteed to be installed.
 - Tests: `npm test` (tsx --test test/*.test.ts); watch — `npm run test:watch`
 - Build: `npm run build` (tsc -p tsconfig.build.json → dist/, no sourcemap)
