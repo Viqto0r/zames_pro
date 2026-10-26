@@ -293,9 +293,10 @@ selected without leaving the terminal:
   wheel never scrolls the input history — history is arrow keys only.
 - `ui.mouseScroll=false` — the terminal owns the mouse again: normal text
   selection works and the wheel is inert.
-- `PgUp` / `PgDn` — move up/down the dialog half a screen.
-- `Home` / `End` — jump to the very top / bottom of the dialog (only while the
-  input line is empty; with text typed they move the caret as usual).
+- the mouse wheel, `PgUp` / `PgDn` (half a screen) and `Home` / `End` (the very
+  top / bottom) scroll the dialog; the wheel needs `ui.mouseScroll=true` (the default), and
+  Home/End jump only while the input line is empty (with text typed they
+  move the caret as usual).
 - To copy a LARGE block, use `/export` (writes the whole session as Markdown)
   or the transcript file (`/transcript` shows the path) — the terminal's own
   drag-select cannot reach past one screen.

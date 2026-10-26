@@ -308,9 +308,10 @@ selected without leaving the terminal:
   wheel never scrolls the input history — history is arrow keys only.
 - `ui.mouseScroll=false` — the terminal owns the mouse again: normal text
   selection works and the wheel is inert.
-- `PgUp` / `PgDn` — move up/down the dialog half a screen.
-- `Home` / `End` — jump to the very top / bottom of the dialog (only while the
-  input line is empty; with text typed they move the caret as usual).
+- the mouse wheel, `PgUp` / `PgDn` (half a screen) and `Home` / `End` (the very
+  top / bottom) scroll the dialog; the wheel needs `ui.mouseScroll=true` (the default), and
+  Home/End jump only while the input line is empty (with text typed they
+  move the caret as usual).
 - To copy a LARGE block, use `/export` (writes the whole session as Markdown)
   or the transcript file (`/transcript` shows the path) — the terminal's own
   drag-select cannot reach past one screen.
@@ -1011,9 +1012,10 @@ zames
   никогда не листает историю ввода — история только стрелками.
 - `ui.mouseScroll=false` — мышью снова владеет терминал: обычное выделение
   текста работает, колесо инертно.
-- `PgUp` / `PgDn` — вверх/вниз по диалогу на пол-экрана.
-- `Home` / `End` — прыжок в самый верх / низ диалога (только когда строка ввода
-  пуста; при набранном тексте они двигают курсор, как обычно).
+- колесо мыши, `PgUp` / `PgDn` (пол-экрана) и `Home` / `End` (самый верх / низ)
+  прокручивают диалог; колесо работает при `ui.mouseScroll=true` (по умолчанию), а
+  Home/End прыгают только когда строка ввода пуста (при набранном тексте
+  они двигают курсор, как обычно).
 - Чтобы скопировать БОЛЬШОЙ кусок, используйте `/export` (пишет всю сессию в
   Markdown) или файл транскрипта (`/transcript` покажет путь) — собственным
   выделением терминала за пределы одного экрана не выделить.

@@ -98,8 +98,8 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     en: 'Esc, Ctrl+C               Esc — abort generation; Ctrl+C — abort the tool, twice (within 2s) — the whole run; idle — exit',
   },
   'help.key.scroll': {
-    ru: 'PgUp / PgDn              вверх/вниз по диалогу на пол-экрана (Home/End — в начало/конец при пустом вводе) [full-screen]',
-    en: 'PgUp / PgDn               half a screen up/down the dialog (Home/End — top/bottom with an empty input) [full-screen]',
+    ru: 'колесо / PgUp / PgDn    прокрутка диалога (колесо — при ui.mouseScroll=on, умолч.; Home/End — в начало/конец при пустом вводе) [full-screen]',
+    en: 'wheel / PgUp / PgDn      scroll the dialog (the wheel needs ui.mouseScroll=on, the default; Home/End — top/bottom with an empty input) [full-screen]',
   },
   'help.key.wheel': {
     ru: 'ui.mouseScroll            on (умолч.) — колесо скроллит диалог (выделение Shift); off — выделение мышью',
