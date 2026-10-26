@@ -218,8 +218,8 @@ export const commonMessages: Record<string, { ru: string; en: string }> = {
     en: '⚠ No image found in the clipboard (tried: {via}).',
   },
   'msg.clip_hint': {
-    ru: '   Проще всего: вставьте путь к файлу (например tmp/pic.png) — файл приложится к сообщению. Для клипборда нужна утилита (Linux/X11 — xclip или xsel, Wayland — wl-clipboard; Windows — PowerShell, macOS — pngpaste).',
-    en: '   Easiest: paste a path to a file (e.g. tmp/pic.png) — it will be attached to the message. Clipboard paste needs a tool (Linux/X11 — xclip or xsel, Wayland — wl-clipboard; Windows — PowerShell, macOS — pngpaste).',
+    ru: '   Проще всего: вставьте путь к файлу (например tmp/pic.png) — файл приложится к сообщению. Для клипборда нужна утилита: Linux/X11 — xclip или xsel, Wayland — wl-paste (пакет wl-clipboard), Windows — powershell.exe, macOS — pngpaste.',
+    en: '   Easiest: paste a path to a file (e.g. tmp/pic.png) — it will be attached to the message. Clipboard paste needs a tool: Linux/X11 — xclip or xsel, Wayland — wl-paste (the wl-clipboard package), Windows — powershell.exe, macOS — pngpaste.',
   },
   'msg.clip_container': {
     ru: '   Похоже, вы в контейнере/Dev Container: клипборд Windows отсюда недоступен. Вставьте путь к файлу (например tmp/pic.png) — он приложится к сообщению.',
