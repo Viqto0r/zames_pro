@@ -21,6 +21,7 @@ import { suggestRowCount } from '../input/suggest.js'
 import { truncateToWidth, visLen } from '../input/layout.js'
 import { fullScreenLayout } from './layout.js'
 import { useMouseWheel } from './useMouseWheel.js'
+import { UI } from './ui-colors.js'
 
 export type FullInputCallbacks = Omit<
   InputLineProps,
@@ -35,6 +36,9 @@ function Header({ store }: { store: TuiStore }): React.ReactElement {
     .filter(Boolean)
     .join(' ')
   const left = '❯ ' + state.title + (state.version ? ' v' + state.version : '')
+  // Referencing the nonce keeps the React dependency honest: the header colors
+  // come from the shared UI map, which is mutated in place on a theme switch.
+  void state.themeNonce
   const rawDir = state.workdir ? '  ' + state.workdir : ''
   // The header MUST stay exactly ONE text row: FullScreenApp reserves
   // HEADER_ROWS = 2 (title + divider) and the whole panel height is computed
@@ -55,10 +59,10 @@ function Header({ store }: { store: TuiStore }): React.ReactElement {
   return (
     <Box flexDirection="column">
       <Box>
-        <Text color="#c8b06a" bold>
+        <Text color={UI.accent} bold>
           {left}
         </Text>
-        <Text color="#7fc4f0">{finalDir}</Text>
+        <Text color={UI.accent}>{finalDir}</Text>
         <Text>
           {' '.repeat(
             Math.max(
@@ -67,9 +71,9 @@ function Header({ store }: { store: TuiStore }): React.ReactElement {
             ),
           )}
         </Text>
-        {right ? <Text color="#6fd0b0">{right}</Text> : null}
+        {right ? <Text color={UI.on}>{right}</Text> : null}
       </Box>
-      <Text color="#3a3f4b">{'─'.repeat(cols)}</Text>
+      <Text color={UI.border}>{'─'.repeat(cols)}</Text>
     </Box>
   )
 }
@@ -161,7 +165,7 @@ export function FullScreenApp({
         justifyContent="flex-end"
       >
         {all.length === 0 ? (
-          <Text color="#5b616e">
+          <Text color={UI.dim}>
             {translate(state.locale)('editor.empty_hint')}
           </Text>
         ) : (
@@ -188,7 +192,7 @@ export function FullScreenApp({
           never shifts the caret. Truncated so it cannot wrap. The hint names
           the ACTIVE mouse mode, so the operator can tell why selection needs
           Shift (wheel scroll on) or why the wheel is inert (it is off). */}
-      <Text color="#5b616e" wrap="truncate">
+      <Text color={UI.dim} wrap="truncate">
         {' ' +
           translate(state.locale)(
             state.mouseScroll ? 'editor.keys_hint' : 'editor.keys_hint_select',

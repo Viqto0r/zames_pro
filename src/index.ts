@@ -4,7 +4,7 @@ import path from 'path'
 import fs from 'fs/promises'
 import { readFileSync, statSync } from 'fs'
 import { fileURLToPath } from 'url'
-import { theme } from './theme.js'
+import { theme, applyTheme, themeColors } from './theme.js'
 
 import { DeepSeekBrowser, headlessUACacheReady } from './browser.js'
 import { QwenBrowser } from './qwen-browser.js'
@@ -235,6 +235,11 @@ if (providerArg !== null) {
 
 // Apply the configured answer width to the markdown renderer (0 = auto).
 setAnswerWidth(config.ui?.answerWidth ?? 0)
+
+// The color palette must be selected BEFORE the first line is rendered (the
+// banner, startup notices): theme.ts starts on the default and every call site
+// reads the live object, so one apply here repaints the whole session.
+applyTheme(config.ui?.theme)
 
 // Current interface/agent language. Changed by the /config lang <ru|en> command.
 let currentLocale: Locale = isLocale(config.ui?.locale)
@@ -2296,6 +2301,18 @@ async function main(): Promise<void> {
         editor.setPrompt(buildPrompt())
       }
     }
+    // Repaint the WHOLE terminal in the new palette immediately. The theme
+    // object is shared and mutated in place, so every later render uses it;
+    // the editor is asked for a full redraw because the rows already on screen
+    // (status, prompt, hints) were painted with the OLD colors.
+    if (path === 'ui.theme') {
+      const applied = applyTheme(value)
+      config.ui.theme = applied
+      if (editor) {
+        editor.setTheme?.(themeColors())
+        editor.refreshStatus()
+      }
+    }
     // Apply a live change to the answer width immediately, so the next
     // rendered answer uses the new width without a restart.
     if (path === 'ui.answerWidth') {
@@ -2535,6 +2552,12 @@ async function main(): Promise<void> {
       getDefault: (path: string) => getByPath(DEFAULTS, path),
       set: (field: ConfigField, raw: string) => configSetRaw(field, raw),
       reset: (field: ConfigField) => configResetField(field),
+      // The menu itself must repaint when the THEME row changes: its widgets
+      // read the shared UI map, and without a bump the operator would cycle
+      // palette ids while the colors stayed those of the previous one.
+      onAfterChange: (field: ConfigField) => {
+        if (field.path === 'ui.theme') editor?.setTheme?.(themeColors())
+      },
       locale: currentLocale,
     }
     try {

@@ -11,6 +11,7 @@ import React from 'react'
 import { Box, Text, useAnimation, useWindowSize } from 'ink'
 import { translate, type Locale } from '../i18n.js'
 import { DOTS, stripEllipsis } from '../spinner.js'
+import { UI } from './ui-colors.js'
 import { truncateToWidth, visLen } from '../input/layout.js'
 import type { TuiState } from './store.js'
 
@@ -84,7 +85,7 @@ function Badges({
     add(
       'sl',
       visLen(state.statusLine) + 1,
-      <Text key="sl" color="#808896">
+      <Text key="sl" color={UI.system}>
         {state.statusLine}{' '}
       </Text>,
     )
@@ -93,7 +94,7 @@ function Badges({
     add(
       'prov',
       visLen('[' + state.provider + '] '),
-      <Text key="prov" color="#808896">
+      <Text key="prov" color={UI.system}>
         {'[' + state.provider + '] '}
       </Text>,
     )
@@ -102,7 +103,7 @@ function Badges({
     add(
       'q',
       visLen('⧗' + state.queueLength + ' '),
-      <Text key="q" color="#c9a86a">
+      <Text key="q" color={UI.warn}>
         {'⧗' + state.queueLength}{' '}
       </Text>,
     )
@@ -111,7 +112,7 @@ function Badges({
     add(
       't',
       visLen(state.tasks) + 1,
-      <Text key="t" color="#808896">
+      <Text key="t" color={UI.system}>
         {state.tasks}{' '}
       </Text>,
     )
@@ -124,7 +125,7 @@ function Badges({
     add(
       'tg',
       visLen(label),
-      <Text key="tg" color="#6fd0b0">
+      <Text key="tg" color={UI.on}>
         {label}
       </Text>,
     )
@@ -132,10 +133,10 @@ function Badges({
   if (state.contextText) {
     const color =
       state.contextLevel === 'high'
-        ? '#c98a80'
+        ? UI.err
         : state.contextLevel === 'warn'
-          ? '#c9a86a'
-          : '#a9c08c'
+          ? UI.warn
+          : UI.ok
     const marker =
       state.contextLevel === 'high'
         ? '⛔ '
@@ -224,9 +225,9 @@ export function StatusBar({
   return (
     <Box flexDirection="column">
       {/* A thin divider separates the scrollback log from the live panel. */}
-      {divider ? <Text color="#3a3f4b">{'─'.repeat(cols)}</Text> : null}
+      {divider ? <Text color={UI.border}>{'─'.repeat(cols)}</Text> : null}
       <Box flexDirection="row" width={Math.max(1, cols - 2)} height={1}>
-        <Text color="#a1723f">{leftOut || ' '}</Text>
+        <Text color={UI.accentDim}>{leftOut || ' '}</Text>
         <Box flexGrow={1} />
         <Badges
           state={state}

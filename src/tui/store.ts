@@ -109,6 +109,13 @@ export interface TuiState {
   statusLine: string
   /** Terminal columns (resize-aware). */
   columns: number
+  /**
+   * Bumped by setTheme() after a palette switch. It carries no data of its
+   * own: the Ink color map (ui-colors.ts) is mutated in place, and changing
+   * this value is what makes every subscribed component RE-RENDER with the
+   * new colors (Ink does not observe a plain object).
+   */
+  themeNonce: number
 }
 
 function initialState(): TuiState {
@@ -142,6 +149,7 @@ function initialState(): TuiState {
     searchEnabled: false,
     statusLine: '',
     columns: process.stdout.columns || 80,
+    themeNonce: 0,
   }
 }
 

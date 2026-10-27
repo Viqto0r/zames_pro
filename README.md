@@ -620,6 +620,15 @@ right away (where possible without a restart).
 (help, messages, spinner) and the language the agent answers you in. The
 locale lives in `ui.locale` in the config file.
 
+### Themes
+
+`/config set ui.theme <id>` (or the `/config` menu, row «Terminal color theme»)
+repaints the whole terminal in a different palette, live — no restart. `zames`
+is the default; the bundled palettes are ports of well-known editor schemes:
+
+`zames` (default), `one-dark`, `dracula`, `gruvbox`, `nord`, `monokai`,
+`solarized-dark`, `tokyo-night`.
+
 Agent data is stored in `~/.zames`: browser profile, logs, undo history, sessions.
 
 ## FAQ
@@ -1329,6 +1338,16 @@ enum переключаются на месте; числа и строки от
 `/config lang ru` или `/config lang en` переключает и язык интерфейса
 (справка, сообщения, спиннер), и язык, на котором агент вам отвечает. Локаль
 хранится в `ui.locale` в файле конфига.
+
+### Темы
+
+`/config set ui.theme <id>` (или меню `/config`, строка «Цветовая тема
+терминала») перекрашивает весь терминал в другую палитру, сразу — без
+перезапуска. Тема по умолчанию — `zames`; в комплекте порты известных схем
+редакторов:
+
+`zames` (по умолчанию), `one-dark`, `dracula`, `gruvbox`, `nord`, `monokai`,
+`solarized-dark`, `tokyo-night`.
 
 Данные агента хранятся в `~/.zames`: профиль браузера, логи, история undo,
 сессии.

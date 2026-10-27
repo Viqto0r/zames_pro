@@ -67,6 +67,12 @@ export interface UiEditor {
   setContextStatus(tokens: number | null | undefined): void
   setContextLimit(limit: number): void
   setLocale(locale: Locale): void
+  /**
+   * Swap the TUI's own color palette (the Ink `UI` map, which is plain hex
+   * strings rather than chalk functions). Optional: the legacy LineEditor
+   * renders through `theme` and needs no repaint hook.
+   */
+  setTheme?(colors: Record<string, string>): void
   setCommands(commands: SlashCommand[]): void
   setTmpDir(dir: string): void
   clear(): void

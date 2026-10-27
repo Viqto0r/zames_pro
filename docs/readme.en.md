@@ -618,6 +618,15 @@ right away (where possible without a restart).
 (help, messages, spinner) and the language the agent answers you in. The
 locale lives in `ui.locale` in the config file.
 
+### Themes
+
+`/config set ui.theme <id>` (or the `/config` menu, row «Terminal color theme»)
+repaints the whole terminal in a different palette, live — no restart. `zames`
+is the default; the bundled palettes are ports of well-known editor schemes:
+
+`zames` (default), `one-dark`, `dracula`, `gruvbox`, `nord`, `monokai`,
+`solarized-dark`, `tokyo-night`.
+
 Agent data is stored in `~/.zames`: browser profile, logs, undo history, sessions.
 
 ## FAQ

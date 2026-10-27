@@ -92,7 +92,7 @@ export function SelectList({
         </Text>
         <Text color={UI.dim}>{items.length}</Text>
       </Box>
-      <Text color="#3a3f4b">{'─'.repeat(innerCols)}</Text>
+      <Text color={UI.border}>{'─'.repeat(innerCols)}</Text>
       {items.slice(win.top, win.end).map((it, i) => {
         const idx = win.top + i
         const sel = idx === cursor

@@ -6,20 +6,11 @@
 import React from 'react'
 import { Text } from 'ink'
 
-export const UI = {
-  accent: '#c8b06a',
-  accentDim: '#7a6b45',
-  text: '#cfc9b0',
-  dim: '#5b616e',
-  border: '#4a5058',
-  on: '#6fd0b0',
-  off: '#5b616e',
-  ok: '#a9c08c',
-  warn: '#c9a86a',
-  err: '#c98a80',
-  system: '#808896',
-  title: '#9fb8d8',
-} as const
+// The color map lives in ui-colors.ts because it is DERIVED from the active
+// terminal palette and mutated in place on a /config theme switch. Re-exported
+// here so every existing `import { UI } from './widgets.js'` keeps working.
+export { UI } from './ui-colors.js'
+import { UI } from './ui-colors.js'
 
 /** `[x]` / `[ ]` — a checkbox for a boolean value. */
 export function Checkbox({

@@ -15,23 +15,16 @@
 import { chromium } from 'playwright'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { PALETTES, DEFAULT_THEME } from '../src/theme.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const out = path.join(root, 'docs', 'demo.png')
 
-const C = {
-  bg: '#23272e',
-  user: '#8fd4f0',
-  prompt: '#c8b06a',
-  dir: '#7fc4f0',
-  assistant: '#cfc9b0',
-  tool: '#c6a97e',
-  toolResult: '#8a9bb5',
-  system: '#808896',
-  dim: '#5b616e',
-  taskSummary: '#8fa3c8',
-  toggleOn: '#6fd0b0',
-}
+// The palette is READ from src/theme.ts instead of duplicated by hand: the
+// screenshot must show the REAL default theme, and a hand-copied map drifted
+// every time a role was touched. `bg` is the one value the theme object does
+// not own (the terminal paints the background); it comes from the palette.
+const C: Record<string, string> = { ...PALETTES[DEFAULT_THEME] }
 
 const esc = (s: unknown): string =>
   String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')

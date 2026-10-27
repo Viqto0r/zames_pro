@@ -405,6 +405,16 @@ export class TuiEditor {
     this.store.set({ locale })
   }
 
+  /**
+   * Repaint the Ink widgets after a palette switch. The hex map (UI) is
+   * mutated in place by theme.applyTheme(), but Ink only re-renders when the
+   * store emits — bump a nonce so every subscribed component redraws with the
+   * new colors.
+   */
+  setTheme(_colors: Record<string, string>): void {
+    this.store.set({ themeNonce: Date.now() })
+  }
+
   setCommands(commands: SlashCommand[]): void {
     this.commands = commands
     this.store.set({ commands })

@@ -66,6 +66,7 @@ import {
   completeSlashCommand,
 } from '../input/suggest.js'
 import type { Attachment } from '../attachments.js'
+import { UI } from './ui-colors.js'
 
 export interface InputLineProps {
   prompt: string
@@ -115,7 +116,7 @@ function InputRows({
     <Box flexDirection="column">
       {lay.rows.map((r, i) => (
         <Text key={i}>
-          <Text color="#c8b06a" bold>
+          <Text color={UI.accent} bold>
             {r.prefix}
           </Text>
           {r.text}
@@ -470,14 +471,14 @@ export function InputLine(props: InputLineProps): React.ReactElement {
             const selected = suggestOffset + i === suggestSelected
             return (
               <Text key={c.name}>
-                <Text color="#c8b06a">{selected ? ' ▸ ' : '   '}</Text>
-                <Text color="#c8b06a">{label}</Text>
-                <Text color="#5b616e">{'  ' + c.description}</Text>
+                <Text color={UI.accent}>{selected ? ' ▸ ' : '   '}</Text>
+                <Text color={UI.accent}>{label}</Text>
+                <Text color={UI.dim}>{'  ' + c.description}</Text>
               </Text>
             )
           })}
           {moreCount > 0 && (
-            <Text color="#5b616e">
+            <Text color={UI.dim}>
               {'   ' +
                 t('editor.more', { n: String(moreCount) }) +
                 '  ' +
@@ -488,7 +489,7 @@ export function InputLine(props: InputLineProps): React.ReactElement {
       )}
       <Box
         borderStyle="round"
-        borderColor={props.locked ? '#5b616e' : '#c8b06a'}
+        borderColor={props.locked ? UI.dim : UI.accent}
         paddingLeft={1}
         paddingRight={1}
         flexDirection="column"

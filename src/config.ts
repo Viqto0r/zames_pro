@@ -6,6 +6,7 @@ import { DEFAULT_DIAGNOSTICS } from './diagnostics.js'
 import { DEFAULT_LOCALE } from './i18n.js'
 import { writeJsonAtomic } from './fsutil.js'
 import { PROVIDER_IDS } from './providers.js'
+import { DEFAULT_THEME, themeNames } from './theme.js'
 
 const ZAMES_HOME = path.join(os.homedir(), '.zames')
 const HOME_CONFIG = path.join(ZAMES_HOME, 'config.json')
@@ -141,6 +142,7 @@ export const DEFAULTS: ZamesConfig = {
 
   ui: {
     locale: DEFAULT_LOCALE,
+    theme: DEFAULT_THEME,
     contextLimit: 1_000_000,
     // 0 = auto: terminal width, capped at 100 columns (the historical width).
     answerWidth: 0,
@@ -346,6 +348,13 @@ export const CONFIG_SCHEMA: ConfigField[] = [
     max: 100000,
     labelKey: 'cfg.f.maxIterations',
     groupKey: 'cfg.group.agent',
+  },
+  {
+    path: 'ui.theme',
+    type: 'enum',
+    values: themeNames(),
+    labelKey: 'cfg.f.ui_theme',
+    groupKey: 'cfg.group.ui',
   },
   {
     path: 'ui.answerWidth',

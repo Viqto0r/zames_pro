@@ -145,6 +145,21 @@ import type { Locale } from './i18n.js'
 import type { UiHealthResult } from './ui-health.js'
 import type { ProviderId } from './providers.js'
 
+/**
+ * A color palette id offered by /config (src/theme.ts owns the palettes).
+ * Kept as a string union so a typo in the config is a compile error where it
+ * matters and `isThemeName()` can validate a hand-edited value at runtime.
+ */
+export type ThemeName =
+  | 'zames'
+  | 'one-dark'
+  | 'dracula'
+  | 'gruvbox'
+  | 'nord'
+  | 'monokai'
+  | 'solarized-dark'
+  | 'tokyo-night'
+
 // Qwen Chat (chat.qwen.ai) provider settings. The shared timings (timeouts,
 // throttle, retries) live in `browser`; only Qwen-only knobs are here.
 // Per-provider credentials. DeepSeek keeps `browser.auth` (so an old config
@@ -209,6 +224,11 @@ export interface QwenConfig {
 export interface UiConfig {
   /** Language of the interface and the agent's answers. */
   locale: Locale
+  /**
+   * Color palette id (see src/theme.ts). Applied live by /config, so the whole
+   * terminal repaints with the new scheme without a restart.
+   */
+  theme: ThemeName
   /**
    * The context window size (tokens) used to render the status-bar fill
    * percentage and to color it. DeepSeek's web context is advertised around

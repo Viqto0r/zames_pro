@@ -41,6 +41,12 @@ export interface ConfigMenuInkOptions {
   set: (field: ConfigField, raw: string) => void
   reset: (field: ConfigField) => void
   onExit: () => void
+  /**
+   * Fired AFTER a value was written (set/cycle/reset). The caller uses it to
+   * repaint side effects the menu cannot see — the palette switch mutates the
+   * shared UI map, which React does not observe on its own.
+   */
+  onAfterChange?: (field: ConfigField) => void
   /** Language of the key-hint bar (labels already go through `t`). */
   locale?: Locale
 }
@@ -60,6 +66,7 @@ function displayValue(
 
 export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
   const { fields, t, get, set, reset, getDefault, locale = 'en' } = opts
+  const { onAfterChange } = opts
   const { exit } = useApp()
   // The hint bar is operator text: it follows the SAME locale the labels use
   // (a hardcoded Russian bar showed up in an English UI).
@@ -113,6 +120,7 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
     try {
       set(f, raw)
       bump()
+      onAfterChange?.(f)
       setMessage(
         t('cfg.menu.saved', {
           v: f.path,
@@ -130,6 +138,7 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
     if (f.type === 'boolean') {
       set(f, get(f.path) === true ? 'false' : 'true')
       bump()
+      onAfterChange?.(f)
       setMessage(null)
       return
     }
@@ -150,6 +159,7 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
     const next = f.values[(base + dir + f.values.length) % f.values.length]
     set(f, next)
     bump()
+    onAfterChange?.(f)
     setMessage(null)
   }
 
@@ -161,6 +171,7 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
     else if (f.type === 'boolean') {
       set(f, get(f.path) === true ? 'false' : 'true')
       bump()
+      onAfterChange?.(f)
       setMessage(null)
     }
   }
@@ -274,6 +285,7 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
       if (pendingReset === f.path) {
         reset(f)
         bump()
+        onAfterChange?.(f)
         setMessage(t('cfg.reset', { v: f.path }))
         setPendingReset(null)
       } else {
@@ -398,11 +410,11 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
           {(visible.length ? cursor + 1 : 0) + '/' + visible.length}
         </Text>
       </Box>
-      <Text color="#3a3f4b">
+      <Text color={UI.border}>
         {'─'.repeat(Math.max(10, (columns || 80) - 6))}
       </Text>
       {items}
-      <Text color="#3a3f4b">
+      <Text color={UI.border}>
         {'─'.repeat(Math.max(10, (columns || 80) - 6))}
       </Text>
       {editing ? (

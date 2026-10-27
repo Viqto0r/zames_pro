@@ -56,6 +56,10 @@ export const configMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Язык интерфейса и ответов агента',
     en: 'Interface and agent reply language',
   },
+  'cfg.f.ui_theme': {
+    ru: 'Цветовая тема терминала',
+    en: 'Terminal color theme',
+  },
   'cfg.f.ui_answerWidth': {
     ru: 'Ширина контента в колонках: ответы, ввод, инструменты (0 — авто, до 100)',
     en: 'Content width in columns: answers, input, tools (0 = auto, capped at 100)',

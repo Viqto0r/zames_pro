@@ -1,5 +1,6 @@
-import chalk from 'chalk'
+import chalk, { type ChalkInstance } from 'chalk'
 import { contentWidth } from './width.js'
+import type { ThemeName } from './types.js'
 
 // Respect NO_COLOR (https://no-color.org): when the operator sets it (any
 // non-empty value) drop ALL SGR codes so the output can be piped into a file
@@ -11,44 +12,312 @@ if (process.env.NO_COLOR) {
   chalk.level = 0
 }
 
-// A calm palette for a dark terminal.
-// Muted, slightly "faded" tones without high saturation
-// (in the spirit of Tokyo Night / Nord). The goal is comfortable reading of
-// long answers, not maximum contrast.
+// ---------- palettes ----------
 //
-// Roles:
-//   - user        — soft lavender-gray (service messages)
-//   - prompt      — warm gold (input prompt, noticeable)
-//   - dir         — light blue (working directory name)
-//   - assistant   — warm sand (model answers)
-//   - tool        — muted amber
-//   - toolResult  — gray-blue
-//   - system      — neutral gray
-//   - warn        — calm ochre
-//   - error       — muted terracotta
+// Roles (the keys every palette must define):
+//   - user        — operator messages
+//   - userBar     — the `▌` bar marking an operator turn
+//   - turnRule / turnLabel — the dim rule + label between conversation turns
+//   - prompt      — the input prompt (noticeable)
+//   - dir         — working directory name
+//   - assistant   — model answers
+//   - tool / toolResult — tool call + its preview
+//   - system / dim — neutral service text, two levels
+//   - taskSummary — the per-task summary line
+//   - warn / error / success — semantics
+//   - brown       — spinner/status base (a calm, non-alarming tone)
+//   - toggleOn    — a live toggle is ON
+//
+// `bg` is the terminal background each palette was designed for; it is NOT used
+// for rendering (the terminal owns the background) but the README screenshot
+// generator (scripts/render-demo.mts) uses it, and it documents the intent.
+//
+// The FIRST palette ('zames') is the historical built-in one and the default;
+// the rest are ports of well-known editor schemes so the operator can pick a
+// familiar look. Only the mapping to OUR semantic roles is adapted (e.g. an
+// editor's "comment" gray becomes `dim`, its "string" color becomes
+// `success`), the hues themselves are the originals.
 
-export const theme = {
-  // Operator messages — a clearly DISTINCT cyan so they never blend with the
-  // model's warm-sand answers or the neutral system text (operator request).
-  user: chalk.hex('#8fd4f0'), // operator text — bright cyan-blue
-  userBar: chalk.hex('#4a8fb5'), // the `▌` bar marking an operator turn
-  // A dim rule + label separating one conversation TURN from the next.
-  turnRule: chalk.hex('#3a3f4b'),
-  turnLabel: chalk.hex('#5b616e'),
-  prompt: chalk.hex('#c8b06a').bold, // input prompt — warm gold, noticeable
-  dir: chalk.hex('#7fc4f0'), // working directory name — noticeably blue
-  assistant: chalk.hex('#cfc9b0'), // warm sand
-  tool: chalk.hex('#c6a97e'), // muted amber
-  toolResult: chalk.hex('#8a9bb5'), // gray-blue
-  system: chalk.hex('#808896'), // neutral gray
-  dim: chalk.hex('#5b616e'), // dark gray
-  taskSummary: chalk.hex('#8fa3c8'), // per-task summary — noticeable but calm, distinct from spinner brown and warn ochre
-  warn: chalk.hex('#c9a86a'), // calm ochre
-  error: chalk.hex('#c98a80'), // muted terracotta
-  success: chalk.hex('#a9c08c'), // soft sage
-  brown: chalk.hex('#a1723f'), // brown (status/spinner)
-  toggleOn: chalk.hex('#6fd0b0'), // teal-green — a toggle is ON
-  bold: chalk.bold,
+/**
+ * A palette indexed by role. The index signature exists ONLY so the raw map
+ * can be handed to the Ink TUI, which takes plain hex strings; the named keys
+ * below are what the rest of the code reads.
+ */
+export interface Palette {
+  [role: string]: string
+  bg: string
+  user: string
+  userBar: string
+  turnRule: string
+  turnLabel: string
+  prompt: string
+  dir: string
+  assistant: string
+  tool: string
+  toolResult: string
+  system: string
+  dim: string
+  taskSummary: string
+  warn: string
+  error: string
+  success: string
+  brown: string
+  toggleOn: string
+}
+
+export const PALETTES: Record<ThemeName, Palette> = {
+  // zames — the original calm palette (Tokyo Night / Nord spirit): muted,
+  // slightly faded tones, comfortable for long answers.
+  zames: {
+    bg: '#23272e',
+    user: '#8fd4f0',
+    userBar: '#4a8fb5',
+    turnRule: '#3a3f4b',
+    turnLabel: '#5b616e',
+    prompt: '#c8b06a',
+    dir: '#7fc4f0',
+    assistant: '#cfc9b0',
+    tool: '#c6a97e',
+    toolResult: '#8a9bb5',
+    system: '#808896',
+    dim: '#5b616e',
+    taskSummary: '#8fa3c8',
+    warn: '#c9a86a',
+    error: '#c98a80',
+    success: '#a9c08c',
+    brown: '#a1723f',
+    toggleOn: '#6fd0b0',
+  },
+  // One Dark — Atom's default theme, the most recognized "modern editor" look.
+  'one-dark': {
+    bg: '#282c34',
+    user: '#61afef',
+    userBar: '#3e6f9e',
+    turnRule: '#3b4048',
+    turnLabel: '#5c6370',
+    prompt: '#e5c07b',
+    dir: '#61afef',
+    assistant: '#abb2bf',
+    tool: '#d19a66',
+    toolResult: '#7f8b9e',
+    system: '#828997',
+    dim: '#5c6370',
+    taskSummary: '#56b6c2',
+    warn: '#e5c07b',
+    error: '#e06c75',
+    success: '#98c379',
+    brown: '#d19a66',
+    toggleOn: '#56b6c2',
+  },
+  // Dracula — high-contrast purple/pink, extremely popular.
+  dracula: {
+    bg: '#282a36',
+    user: '#8be9fd',
+    userBar: '#4f8fa6',
+    turnRule: '#3d4152',
+    turnLabel: '#6272a4',
+    prompt: '#f1fa8c',
+    dir: '#8be9fd',
+    assistant: '#f8f8f2',
+    tool: '#ffb86c',
+    toolResult: '#b0b8d8',
+    system: '#9aa2c0',
+    dim: '#6272a4',
+    taskSummary: '#8be9fd',
+    warn: '#ffb86c',
+    error: '#ff5555',
+    success: '#50fa7b',
+    brown: '#bd93f9',
+    toggleOn: '#50fa7b',
+  },
+  // Gruvbox Dark — warm retro earth tones.
+  gruvbox: {
+    bg: '#282828',
+    user: '#83a598',
+    userBar: '#5a7a6e',
+    turnRule: '#3c3836',
+    turnLabel: '#665c54',
+    prompt: '#fabd2f',
+    dir: '#83a598',
+    assistant: '#ebdbb2',
+    tool: '#fe8019',
+    toolResult: '#a89984',
+    system: '#928374',
+    dim: '#665c54',
+    taskSummary: '#8ec07c',
+    warn: '#fabd2f',
+    error: '#fb4934',
+    success: '#b8bb26',
+    brown: '#d65d0e',
+    toggleOn: '#b8bb26',
+  },
+  // Nord — cool arctic blues, low contrast by design.
+  nord: {
+    bg: '#2e3440',
+    user: '#88c0d0',
+    userBar: '#5e81a8',
+    turnRule: '#3b4252',
+    turnLabel: '#616e88',
+    prompt: '#ebcb8b',
+    dir: '#88c0d0',
+    assistant: '#d8dee9',
+    tool: '#d08770',
+    toolResult: '#9aa7bd',
+    system: '#8b95a8',
+    dim: '#616e88',
+    taskSummary: '#81a1c1',
+    warn: '#ebcb8b',
+    error: '#bf616a',
+    success: '#a3be8c',
+    brown: '#d08770',
+    toggleOn: '#8fbcbb',
+  },
+  // Monokai — the classic Sublime Text scheme.
+  monokai: {
+    bg: '#272822',
+    user: '#66d9ef',
+    userBar: '#3f8c9e',
+    turnRule: '#3e3d32',
+    turnLabel: '#75715e',
+    prompt: '#e6db74',
+    dir: '#66d9ef',
+    assistant: '#f8f8f2',
+    tool: '#fd971f',
+    toolResult: '#a6a695',
+    system: '#a1a19a',
+    dim: '#75715e',
+    taskSummary: '#66d9ef',
+    warn: '#e6db74',
+    error: '#f92672',
+    success: '#a6e22e',
+    brown: '#fd971f',
+    toggleOn: '#a6e22e',
+  },
+  // Solarized Dark — Ethan Schoonover's precision palette.
+  'solarized-dark': {
+    bg: '#002b36',
+    user: '#268bd2',
+    userBar: '#1f6a9e',
+    turnRule: '#073642',
+    turnLabel: '#586e75',
+    prompt: '#b58900',
+    dir: '#2aa198',
+    assistant: '#93a1a1',
+    tool: '#cb4b16',
+    toolResult: '#839496',
+    system: '#839496',
+    dim: '#586e75',
+    taskSummary: '#2aa198',
+    warn: '#b58900',
+    error: '#dc322f',
+    success: '#859900',
+    brown: '#cb4b16',
+    toggleOn: '#2aa198',
+  },
+  // Tokyo Night — the modern neon-on-midnight scheme.
+  'tokyo-night': {
+    bg: '#1a1b26',
+    user: '#7dcfff',
+    userBar: '#3d7fa6',
+    turnRule: '#2a2e3f',
+    turnLabel: '#565f89',
+    prompt: '#e0af68',
+    dir: '#7dcfff',
+    assistant: '#c0caf5',
+    tool: '#ff9e64',
+    toolResult: '#9aa5ce',
+    system: '#787c99',
+    dim: '#565f89',
+    taskSummary: '#7aa2f7',
+    warn: '#e0af68',
+    error: '#f7768e',
+    success: '#9ece6a',
+    brown: '#ff9e64',
+    toggleOn: '#73daca',
+  },
+}
+
+/** The palette id used when the configured theme is unknown/missing. */
+export const DEFAULT_THEME: ThemeName = 'zames'
+
+/**
+ * True for a palette id we actually ship. Used by the config layer to
+ * normalize `ui.theme` (a stale value from an older/newer build must not
+ * leave the operator with an unstyled terminal).
+ */
+export function isThemeName(v: unknown): v is ThemeName {
+  return (
+    typeof v === 'string' && Object.prototype.hasOwnProperty.call(PALETTES, v)
+  )
+}
+
+/** All palette ids, in the order they are offered in /config. */
+export function themeNames(): ThemeName[] {
+  return Object.keys(PALETTES) as ThemeName[]
+}
+
+export interface Theme {
+  [role: string]: ChalkInstance
+}
+
+/** Build the chalk formatters for one palette. */
+function buildTheme(p: Palette): Theme {
+  return {
+    user: chalk.hex(p.user),
+    userBar: chalk.hex(p.userBar),
+    turnRule: chalk.hex(p.turnRule),
+    turnLabel: chalk.hex(p.turnLabel),
+    prompt: chalk.hex(p.prompt).bold,
+    dir: chalk.hex(p.dir),
+    assistant: chalk.hex(p.assistant),
+    tool: chalk.hex(p.tool),
+    toolResult: chalk.hex(p.toolResult),
+    system: chalk.hex(p.system),
+    dim: chalk.hex(p.dim),
+    taskSummary: chalk.hex(p.taskSummary),
+    warn: chalk.hex(p.warn),
+    error: chalk.hex(p.error),
+    success: chalk.hex(p.success),
+    brown: chalk.hex(p.brown),
+    toggleOn: chalk.hex(p.toggleOn),
+    bold: chalk.bold,
+  }
+}
+
+// The LIVE theme object. It is mutated IN PLACE by applyTheme() so that every
+// module that captured the import (`import { theme } from './theme.js'`) sees
+// the switch without being re-imported — this is why the call sites read
+// `theme.x` at RENDER time instead of destructuring a color at module load.
+let activeName: ThemeName = DEFAULT_THEME
+export const theme: Theme = buildTheme(PALETTES[DEFAULT_THEME])
+
+/** The palette id currently rendered. */
+export function currentThemeName(): ThemeName {
+  return activeName
+}
+
+/**
+ * Switch the palette for every subsequent render. Unknown ids fall back to the
+ * default so a hand-edited config can never blank out the colors.
+ * Returns the id actually applied.
+ */
+export function applyTheme(name: unknown): ThemeName {
+  const next = isThemeName(name) ? name : DEFAULT_THEME
+  const built = buildTheme(PALETTES[next])
+  for (const key of Object.keys(built)) {
+    theme[key] = built[key]
+  }
+  activeName = next
+  return next
+}
+
+/**
+ * The active palette's RAW hex map — for the Ink TUI, which needs color
+ * STRINGS (Ink `<Text color>` does not take chalk functions) and for the
+ * README screenshot generator, which renders the real colors as HTML.
+ */
+export function themeColors(): Palette {
+  return PALETTES[activeName]
 }
 
 // Horizontal rule that separates the model's answer from the next block. It

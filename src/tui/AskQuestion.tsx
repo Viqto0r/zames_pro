@@ -129,7 +129,7 @@ export function AskQuestion({
           {line}
         </Text>
       ))}
-      <Text color="#3a3f4b">{'─'.repeat(innerCols)}</Text>
+      <Text color={UI.border}>{'─'.repeat(innerCols)}</Text>
       {typing ? (
         <Box flexDirection="column">
           <Text color={UI.dim}>{t('askuser.your_answer')}</Text>
@@ -151,7 +151,7 @@ export function AskQuestion({
                 {label}
               </Text>
               {isRec ? (
-                <Text color="#6fd0b0">
+                <Text color={UI.on}>
                   {'  (' + t('askuser.recommended') + ')'}
                 </Text>
               ) : null}
