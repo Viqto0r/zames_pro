@@ -7,6 +7,11 @@ import type { BrowserLike, ToolArgs, ToolDef, TranscriptLike } from './types.js'
 import { translate, type Locale } from './i18n.js'
 import { substituteAttachmentMarkers } from './commands.js'
 import {
+  needsCompletionNudge,
+  COMPLETION_NUDGE,
+  type RunStep,
+} from './completion-check.js'
+import {
   loadHooks,
   runPreToolUse,
   runPostToolUse,
@@ -181,6 +186,10 @@ export interface AskUserRequest {
   /** True when the "type my own answer" escape should be shown. */
   allowText: boolean
 }
+
+// The tools that WRITE/EDIT a file (and take a `path`). The completion nudge
+// only cares about these — `Bash`/`Git*` in MUTATING_TOOLS are not edits.
+const EDIT_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'ApplyPatch'])
 
 export async function runAgentLoop({
   browser,
@@ -494,6 +503,11 @@ export async function runAgentLoop({
   // paragraph that is neither a tool call nor a real respond) from a genuine
   // short answer. We key on the STRUCTURE (work already started), not words.
   let toolsRanInTask = 0
+  // Ordered history of the tool calls in this task — feeds the post-edit
+  // "did you verify the artifact?" nudge (src/completion-check.ts).
+  const runSteps: RunStep[] = []
+  // The nudge is sent at most ONCE per task: it is a hint, not a guard.
+  let completionNudgeSent = false
   const MAX_AFTER_TOOL_RETRIES = Math.max(0, Math.floor(maxAfterToolRetries))
   // One-time hint when the context nears full while auto-compact is OFF:
   // the operator is told about /compact instead of silently degrading. Set
@@ -1013,6 +1027,16 @@ export async function runAgentLoop({
         )
         return 'The model produced no final message (empty respond).'
       }
+      // A runnable code file was written/edited and NOTHING ran since: the
+      // model may be finishing on an INCOMPLETE artifact (a real case: a page
+      // with no game loop, reported DONE). Ask ONCE to verify it; the model
+      // can still finish with a confirmed respond.
+      if (!completionNudgeSent && needsCompletionNudge(runSteps)) {
+        completionNudgeSent = true
+        transcript?.log('completion_nudge', { steps: runSteps.length })
+        message = COMPLETION_NUDGE
+        continue
+      }
       safeAssistantMessage(msg)
       transcript?.log('assistant_final', { message: msg })
       return msg
@@ -1466,6 +1490,16 @@ ${diag}`
     // Reset the watchdog so the next empty/repeated answer is nudged.
     justRanTool = true
     toolsRanInTask++
+    // Remember the calls (and whether they mutated a code file) for the
+    // post-edit completion nudge below.
+    for (const r of results) {
+      const callArgs = callsToRun.find((c) => c.tool === r.tool)?.args
+      runSteps.push({
+        tool: r.tool,
+        mutating: EDIT_TOOLS.has(r.tool),
+        path: typeof callArgs?.path === 'string' ? callArgs.path : undefined,
+      })
+    }
     // The tool really executed on this turn. The NEXT iteration will treat
     // a repeat of this answer as stale only because of this flag (see NEXT,
     // not the current, justRanTool check).
