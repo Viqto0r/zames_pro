@@ -43,8 +43,6 @@ test('a real quota_limit error is still a rate limit', () => {
 // negative count) and the auto-compact percentage went negative and never
 // fired — the same bug already fixed in the other two providers.
 
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
 import { extractTokenUsage } from '../src/qwen-net-capture.ts'
 
 test('a negative input_tokens is not a context size', () => {
@@ -66,8 +64,6 @@ test('a valid count is still returned', () => {
   const body = 'data: ' + JSON.stringify({ usage: { input_tokens: 42 } })
   assert.equal(extractTokenUsage(body), 42)
 })
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
 import { isFinishedWithoutAnswer } from '../src/qwen-net-capture.ts'
 
 // Qwen's stream ends with a chunk whose `status` sits on the CHOICE, not on

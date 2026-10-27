@@ -31,8 +31,6 @@ test('a real captcha page is still detected', () => {
   assert.equal(isCaptchaText(html), true)
   assert.equal(isCaptchaText('{"CertifyId":"x"}'), true)
 })
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
 import { isQuotaExhaustedText } from '../src/glm-net-capture.ts'
 
 const NL = String.fromCharCode(10)

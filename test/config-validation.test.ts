@@ -46,14 +46,6 @@ test('a real numeric value is still accepted', () => {
 // first run — the budget prints `0.4` while refusing nothing consistently.
 // The validator must reject a non-integer for a count/ms field.
 
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
-import {
-  CONFIG_SCHEMA,
-  getConfigField,
-  validateConfigValue,
-} from '../src/config.ts'
-
 test('a fractional value is rejected for every numeric field', () => {
   const bad: string[] = []
   for (const f of CONFIG_SCHEMA) {

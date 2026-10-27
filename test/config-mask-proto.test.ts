@@ -37,8 +37,6 @@ test('a missing password field shows the default marker, not a secret', () => {
     t('cfg.menu.default'),
   )
 })
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
 import { configGetValue } from '../src/config-commands.ts'
 
 // The mask triggers on `String(value).length > 0`, so a password of only
@@ -57,11 +55,6 @@ test('a real password is masked', () => {
     '********',
   )
 })
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
-import { configListValue } from '../src/config-commands.ts'
-import { translate } from '../src/i18n.ts'
-import type { ConfigField } from '../src/config.ts'
 
 const pwField = {
   path: 'browser.auth.password',
