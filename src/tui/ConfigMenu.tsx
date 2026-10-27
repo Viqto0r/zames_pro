@@ -16,6 +16,7 @@ import { translate, type Locale } from '../i18n.js'
 import type { TranslateFn } from '../i18n.js'
 import type { ConfigField } from '../config.js'
 import { Checkbox, Select, UI, HintBar } from './widgets.js'
+import { ThemePreview } from './theme-preview.js'
 
 /** Strip ANSI to measure a line's visible width. */
 function stripAnsi(s: string): string {
@@ -80,6 +81,8 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
   const [editBuf, setEditBuf] = useState('')
   const [pendingReset, setPendingReset] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  // Inline palette preview of the theme row ('p').
+  const [previewTheme, setPreviewTheme] = useState(false)
   // `get`/`set` mutate the LIVE config object in place, so React has no state
   // change to react to and the row kept the OLD value on screen after a
   // toggle/cycle (the operator saw «ru» while the config already held «en»).
@@ -253,12 +256,14 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
       )
       setPendingReset(null)
       setMessage(null)
+      setPreviewTheme(false)
       return
     }
     if (key.downArrow || input === 'j') {
       setCursor((c) => (visible.length ? (c + 1) % visible.length : 0))
       setPendingReset(null)
       setMessage(null)
+      setPreviewTheme(false)
       return
     }
     if (input === 'g') {
@@ -274,6 +279,30 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
       setCursor(target >= 0 ? target : 0)
       setMessage(null)
       return
+    }
+    if (input === 'p' || input === 'P') {
+      // Inline palette PREVIEW for the theme row: the settings list is where
+      // most operators meet ui.theme, and cycling the enum only shows the id.
+      // 'p' opens the sample session painted with the CURRENT palette, so the
+      // choice can be judged without leaving /config. Other rows: no-op.
+      const f = visible[cursor]
+      if (f && f.path === 'ui.theme') {
+        setPreviewTheme((v) => !v)
+        setMessage(null)
+        return
+      }
+    }
+    if (input === 'p' || input === 'P') {
+      // Inline palette PREVIEW on the theme row: /config is where most
+      // operators meet ui.theme, and cycling the enum only shows the id. 'p'
+      // toggles a sample session painted with the CURRENT palette, so the
+      // choice can be judged without leaving the menu. Other rows: no-op.
+      const f = visible[cursor]
+      if (f && f.path === 'ui.theme') {
+        setPreviewTheme((v) => !v)
+        setMessage(null)
+        return
+      }
     }
     if (key.return || input === ' ') {
       activate()
@@ -417,6 +446,12 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
       <Text color={UI.border}>
         {'─'.repeat(Math.max(10, (columns || 80) - 6))}
       </Text>
+      {previewTheme && visible[cursor]?.path === 'ui.theme' ? (
+        <Box flexDirection="column">
+          <Text color={UI.dim}>{t('cfg.menu.theme_preview')}</Text>
+          <ThemePreview name={String(get('ui.theme') ?? 'zames')} compact />
+        </Box>
+      ) : null}
       {editing ? (
         <Box flexDirection="column">
           <Text color={UI.text}>{t('cfg.menu.edit_hint')}</Text>
@@ -439,6 +474,11 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
           ['↑/↓', hint('tui.hint.select')],
           ['←/→', hint('tui.hint.change')],
           ['Enter', hint('tui.hint.edit')],
+          ...(visible[cursor]?.path === 'ui.theme'
+            ? ([['p', hint('cfg.menu.theme_preview_key')]] as Array<
+                [string, string]
+              >)
+            : []),
           ['/', hint('tui.hint.search')],
           ['d', hint('tui.hint.reset')],
           ['q', hint('tui.hint.quit')],

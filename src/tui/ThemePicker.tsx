@@ -10,7 +10,7 @@ import React, { useState } from 'react'
 import { Box, Text, useInput, useApp, useWindowSize } from 'ink'
 import { UI } from './ui-colors.js'
 import { HintBar } from './widgets.js'
-import { theme } from '../theme.js'
+import { ThemePreview } from './theme-preview.js'
 import { translate, type Locale } from '../i18n.js'
 
 export interface ThemePickerOptions {
@@ -51,22 +51,6 @@ export function ThemePicker({
     setCursor(next)
     onPreview(themes[next])
   }
-
-  // A sample line of every important role, colored through `theme` (chalk):
-  // Ink's <Text color> takes a hex STRING, not a formatter, so a gradient like
-  // this has to be pre-rendered ANSI.
-  const preview = (): string =>
-    [
-      theme.user('user'),
-      theme.assistant('answer'),
-      theme.tool('tool'),
-      theme.toolResult('result'),
-      theme.system('system'),
-      theme.warn('warn'),
-      theme.error('error'),
-      theme.success('ok'),
-      theme.toggleOn('on'),
-    ].join(' ')
 
   useInput((input, key) => {
     if (key.escape || (key.ctrl && input === 'c') || input === 'q') {
@@ -113,8 +97,10 @@ export function ThemePicker({
         )
       })}
       <Text color={UI.border}>{'─'.repeat(innerCols)}</Text>
-      {/* The live preview: painted with the palette the cursor just applied. */}
-      <Text>{preview()}</Text>
+      {/* The live preview: a fake session painted with the palette the cursor
+          just applied, so the operator sees every role (answer, tool result,
+          warn/error/success, the toggle) rather than a single sample line. */}
+      <ThemePreview name={themes[cursor] ?? initial} compact />
       <HintBar
         hints={[
           ['↑/↓', t('theme.pick_move')],

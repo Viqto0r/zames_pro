@@ -631,10 +631,14 @@ The switch is instant, no restart. `zames` is the default; the bundled palettes
 are ports of well-known editor schemes:
 
 `zames` (default), `one-dark`, `dracula`, `gruvbox`, `nord`, `monokai`,
-`solarized-dark`, `tokyo-night`.
+`solarized-dark`, `tokyo-night`, `catppuccin`, `github-dark`, `ayu`,
+`rose-pine`, `everforest`, `kanagawa`.
 
 A theme repaints EVERYTHING: the interface, the agent's answers, the code
-highlighting inside them and the input frame. The frame itself is a separate
+highlighting inside them, the status row and the input frame. To make the choice
+concrete, a SAMPLE SESSION in that palette is shown before you pick (in `/theme`
+below the list, in `/config` press `p` on the theme row); after
+`/theme <id>` the sample is printed too. The frame itself is a separate
 setting: `/config set ui.inputBorder <round|single|double|bold|none>`
 (default `round`; `none` removes it).
 
@@ -1359,11 +1363,16 @@ enum переключаются на месте; числа и строки от
 редакторов:
 
 `zames` (по умолчанию), `one-dark`, `dracula`, `gruvbox`, `nord`, `monokai`,
-`solarized-dark`, `tokyo-night`.
+`solarized-dark`, `tokyo-night`, `catppuccin`, `github-dark`, `ayu`,
+`rose-pine`, `everforest`, `kanagawa`.
 
-Тема перекрашивает ВСЁ: интерфейс, ответы агента, подсветку кода в ответах и
-рамку ввода. Саму рамку можно менять отдельно: `/config set ui.inputBorder
-<round|single|double|bold|none>` (по умолчанию `round`, `none` — без рамки).
+Тема перекрашивает ВСЁ: интерфейс, ответы агента, подсветку кода в ответах,
+строку статуса и рамку ввода. Чтобы было видно, ЧТО меняется, перед выбором
+показывается образец сессии в этой палитре (в `/theme` — под списком, в
+`/config` — клавиша `p` на строке темы). После применения `/theme <id>`
+образец печатается в терминал. Саму рамку можно менять отдельно:
+`/config set ui.inputBorder <round|single|double|bold|none>` (по умолчанию
+`round`, `none` — без рамки).
 
 Данные агента хранятся в `~/.zames`: профиль браузера, логи, история undo,
 сессии.

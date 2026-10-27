@@ -214,6 +214,14 @@ export const deepseekMessages: Record<string, { ru: string; en: string }> = {
     ru: '✔ Сохранено: {v} = {value}',
     en: '✔ Saved: {v} = {value}',
   },
+  'cfg.menu.theme_preview': {
+    ru: 'Так тема выглядит в работе:',
+    en: 'How the theme looks in a session:',
+  },
+  'cfg.menu.theme_preview_key': {
+    ru: 'пример темы',
+    en: 'theme sample',
+  },
   'cfg.menu.default': { ru: 'по умолчанию', en: 'default' },
   'cfg.menu.filter_hint': {
     ru: '/ — поиск по настройкам, d — сбросить (дважды), * — изменено от дефолта',

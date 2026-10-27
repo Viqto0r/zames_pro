@@ -159,6 +159,12 @@ export type ThemeName =
   | 'monokai'
   | 'solarized-dark'
   | 'tokyo-night'
+  | 'catppuccin'
+  | 'github-dark'
+  | 'ayu'
+  | 'rose-pine'
+  | 'everforest'
+  | 'kanagawa'
 
 // Qwen Chat (chat.qwen.ai) provider settings. The shared timings (timeouts,
 // throttle, retries) live in `browser`; only Qwen-only knobs are here.

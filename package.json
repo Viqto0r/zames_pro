@@ -47,7 +47,8 @@
     "postinstall": "node scripts/postinstall.mjs",
     "prepare": "husky",
     "glm-smoke": "tsx scripts/glm-smoke.mts",
-    "seo:topics": "tsx scripts/seo-topics.mts"
+    "seo:topics": "tsx scripts/seo-topics.mts",
+    "ui-smoke": "tsx scripts/ui-smoke.mts"
   },
   "keywords": [
     "zames",

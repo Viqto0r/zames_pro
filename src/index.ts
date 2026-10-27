@@ -12,6 +12,7 @@ import {
   currentThemeName,
   isThemeName,
 } from './theme.js'
+import { themePreviewAnsi } from './tui/theme-preview.js'
 import { setInputBorder } from './tui/ui-colors.js'
 
 import { DeepSeekBrowser, headlessUACacheReady } from './browser.js'
@@ -2636,6 +2637,11 @@ async function main(): Promise<void> {
         return
       }
       emit(theme.assistant(t('theme.set', { v: applyThemeById(arg) })))
+      // A terminal can only show colors it can paint, and the operator asked
+      // "what exactly changes?" — print a sample of every role in the new
+      // palette right below the confirmation.
+      emit('')
+      emit(themePreviewAnsi(arg))
       return
     }
     // No argument: a pick list in the TUI, the id list otherwise. The cursor
@@ -2663,6 +2669,8 @@ async function main(): Promise<void> {
       }
       if (picked) {
         emit(theme.assistant(t('theme.set', { v: applyThemeById(picked) })))
+        emit('')
+        emit(themePreviewAnsi(picked))
       } else {
         // Cancelled: the previews must not stick. Restore WITHOUT persisting.
         applyTheme(before)

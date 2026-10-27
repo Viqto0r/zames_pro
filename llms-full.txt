@@ -616,10 +616,14 @@ The switch is instant, no restart. `zames` is the default; the bundled palettes
 are ports of well-known editor schemes:
 
 `zames` (default), `one-dark`, `dracula`, `gruvbox`, `nord`, `monokai`,
-`solarized-dark`, `tokyo-night`.
+`solarized-dark`, `tokyo-night`, `catppuccin`, `github-dark`, `ayu`,
+`rose-pine`, `everforest`, `kanagawa`.
 
 A theme repaints EVERYTHING: the interface, the agent's answers, the code
-highlighting inside them and the input frame. The frame itself is a separate
+highlighting inside them, the status row and the input frame. To make the choice
+concrete, a SAMPLE SESSION in that palette is shown before you pick (in `/theme`
+below the list, in `/config` press `p` on the theme row); after
+`/theme <id>` the sample is printed too. The frame itself is a separate
 setting: `/config set ui.inputBorder <round|single|double|bold|none>`
 (default `round`; `none` removes it).
 
