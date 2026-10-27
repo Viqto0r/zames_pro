@@ -64,9 +64,10 @@ export function configValueHint(field: ConfigField, t: TranslateFn): string {
 }
 
 /**
- * Render the full settings LIST as an array of lines (grouped by section).
- * `get` reads the current value of a path (undefined = default). Returned as
- * lines so index.ts only has to print them and the formatting is testable.
+ * Render the full settings LIST as an array of lines, TWO levels deep: a
+ * top-level group header, then its sections. `get` reads the current value of
+ * a path (undefined = default). Returned as lines so index.ts only has to
+ * print them and the formatting is testable.
  */
 export function formatConfigList(
   fields: ConfigField[],
@@ -74,11 +75,18 @@ export function formatConfigList(
   t: TranslateFn,
 ): string[] {
   const out: string[] = [theme.system(t('cfg.title'))]
+  let lastTop = ''
   let lastGroup = ''
   for (const f of fields) {
+    const top = t(f.topKey)
+    if (top !== lastTop) {
+      out.push(theme.system(theme.bold('\n' + top.toUpperCase())))
+      lastTop = top
+      lastGroup = ''
+    }
     const g = t(f.groupKey)
     if (g !== lastGroup) {
-      out.push(theme.system('\n  ' + g))
+      out.push(theme.system('  ' + g))
       lastGroup = g
     }
     const shown = configListValue(f, get(f.path), t)

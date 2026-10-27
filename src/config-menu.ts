@@ -1,9 +1,7 @@
-// Interactive settings menu for the /config command.
-//
-// The menu renders a list of parameters grouped by sections and lets you
-// change them with the arrow keys: boolean/enum toggle in place, number/string
-// prompt for input. All strings come from i18n (cfg.*), so the menu is
-// fully localized.
+// Interactive settings menu for the /config command — the NON-Ink fallback
+// (used when ui.tui is off and in tests). The Ink menu in src/tui/ConfigMenu.tsx
+// is the primary one; this one mirrors its two-level navigation: `/config`
+// shows the GROUPS, Enter opens one, Esc goes back to the group list.
 //
 // The module doesn't know about config.ts directly (except for the schema
 // types): the caller reads and writes values through callbacks. This makes the
@@ -12,6 +10,7 @@
 import { theme } from './theme.js'
 import type { TranslateFn } from './i18n.js'
 import type { ConfigField } from './config.js'
+import { CONFIG_TOP_GROUPS } from './config.js'
 import { visLen } from './input.js'
 
 export interface ConfigMenuOptions {
@@ -28,6 +27,11 @@ export interface ConfigMenuOptions {
   /** Input/output; defaults to process.stdin/stdout. */
   input?: NodeJS.ReadStream
   output?: NodeJS.WriteStream
+  /**
+   * Top-level groups to offer, in order (i18n keys). Defaults to the whole
+   * registry. The legacy menu picks a group FIRST, like the Ink one.
+   */
+  topGroups?: string[]
 }
 
 const ESC = String.fromCharCode(27)
@@ -69,8 +73,8 @@ function groupLabel(field: ConfigField, t: TranslateFn): string {
 
 /**
  * Show the interactive menu. Returns a promise that resolves when the
- * user exits (q/Esc/Ctrl+C). In a non-TTY it throws — the caller
- * must show a text list.
+ * user exits (q/Esc on the group list, Ctrl+C). In a non-TTY it throws — the
+ * caller must show a text list.
  */
 export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
   const input = opts.input || process.stdin
@@ -81,8 +85,17 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
     return Promise.reject(new Error(t('cfg.menu.notty')))
   }
 
+  const allGroups = opts.topGroups || [...CONFIG_TOP_GROUPS]
+  // A group with no visible field is not offered at all.
+  const groups = allGroups.filter((g) =>
+    fields.some((f) => f.topKey === g && !f.advanced),
+  )
+
   // cursor indexes the VISIBLE (filtered) list, not the full `fields`.
   let cursor = 0
+  // null = the group list (level 1); a topKey = that group's settings.
+  let openGroup: string | null = null
+  let groupCursor = 0
   let editing = false
   let editBuf = ''
   // Reverse/forward filter over the list (/ to enter, typing narrows it).
@@ -100,12 +113,14 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
   input.resume()
   output.write(ESC + '[?25l') // hide the cursor while rendering
 
-  // Fields that match the current filter (path, label or group contains the
-  // query, case-insensitive). Empty query -> everything.
+  // Fields that match the current filter (path, label or section contains the
+  // query, case-insensitive) INSIDE the open group. Empty query -> everything.
   const visible = (): ConfigField[] => {
+    if (!openGroup) return []
+    const inGroup = fields.filter((f) => f.topKey === openGroup && !f.advanced)
     const q = filterQuery.trim().toLowerCase()
-    if (!q) return fields
-    return fields.filter((f) =>
+    if (!q) return inGroup
+    return inGroup.filter((f) =>
       (f.path + ' ' + t(f.labelKey || f.path) + ' ' + t(f.groupKey))
         .toLowerCase()
         .includes(q),
@@ -130,6 +145,29 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
     } catch {
       return String(cur) !== String(def)
     }
+  }
+
+  const enterGroup = (topKey: string): void => {
+    openGroup = topKey
+    cursor = 0
+    filterQuery = ''
+    filterMode = false
+    pendingReset = null
+    message = null
+    editing = false
+    editBuf = ''
+  }
+
+  const leaveGroup = (): void => {
+    const idx = groups.indexOf(openGroup || '')
+    openGroup = null
+    groupCursor = idx >= 0 ? idx : 0
+    filterQuery = ''
+    filterMode = false
+    pendingReset = null
+    message = null
+    editing = false
+    editBuf = ''
   }
 
   // Menu rendering: lines go top to bottom, and we return the cursor to the
@@ -157,6 +195,13 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
             t('cfg.menu.hint'),
         ),
       )
+    } else if (!openGroup) {
+      tail.push(
+        '  ' +
+          theme.dim(
+            t('cfg.menu.group_hint') + '  ·  ' + t('cfg.menu.back_hint'),
+          ),
+      )
     } else {
       tail.push('  ' + theme.dim(t('cfg.menu.hint')))
       tail.push('  ' + theme.dim(t('cfg.menu.filter_hint')))
@@ -170,61 +215,94 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
     // that overflows scrolls the top away and breaks the cursor restore).
     const maxItemRows = Math.max(3, termRows - 2 - tail.length)
 
-    // WINDOW over the fields. We walk BACK from the cursor, counting the rows
-    // the window would take (a group header consumes a row too), until adding
-    // one more field would overflow. This guarantees the SELECTED item is always
-    // on screen — the old index-based scrollTop could push it out when many
-    // group headers sat between the window top and the cursor.
-    const groupStart = (i: number): boolean =>
-      i === 0 || vis[i].groupKey !== vis[i - 1].groupKey
-    // Rows needed to draw the window [from, cursor] (inclusive).
-    const rowsFor = (from: number): number => {
-      let rows = 0
-      for (let i = from; i <= cursor; i++) {
-        if (i === from || groupStart(i)) rows++
-        rows++
-      }
-      return rows
-    }
-    let start = vis.length ? Math.max(0, Math.min(cursor, vis.length - 1)) : 0
-    while (start > 0 && rowsFor(start - 1) <= maxItemRows) start--
-
     const lines: string[] = []
-    // Title with a position counter ("Settings — 12/49") so the operator knows
-    // how far down a long list they are; a filter narrows both numbers.
-    const pos = vis.length ? '  ' + (cursor + 1) + '/' + vis.length : ''
-    lines.push(theme.bold(t('cfg.menu.title')) + theme.dim(pos))
-    // Group headers also consume a row, so we stop as soon as the item-row
-    // budget is used up (the window is advisory; this is the hard cap that
-    // guarantees the block fits the terminal).
-    let itemRows = 0
-    let lastGroup = ''
-    for (let i = start; i < vis.length; i++) {
-      const f = vis[i]
-      const g = groupLabel(f, t)
-      // Always print the header for the FIRST shown row, so a windowed list
-      // still tells the operator which section it starts in.
-      if (i === start || g !== lastGroup) {
-        if (itemRows >= maxItemRows) break
-        lines.push(g)
-        lastGroup = g
-        itemRows++
+    if (!openGroup) {
+      // ---- level 1: the group list ----
+      const pos = groups.length
+        ? '  ' + (groupCursor + 1) + '/' + groups.length
+        : ''
+      lines.push(theme.bold(t('cfg.menu.groups_title')) + theme.dim(pos))
+      // Window the groups around the cursor.
+      let start = Math.max(0, Math.min(groupCursor, groups.length - 1))
+      while (start > 0 && groupCursor - start + 1 < maxItemRows) start--
+      const end = Math.min(groups.length, start + maxItemRows)
+      for (let i = start; i < end; i++) {
+        const g = groups[i]
+        const selected = i === groupCursor
+        const marker = selected ? theme.prompt('\u276f ') : '  '
+        const label = selected ? theme.prompt(t(g)) : t(g)
+        const count = fields.filter((f) => f.topKey === g && !f.advanced).length
+        const changed = fields.filter(
+          (f) => f.topKey === g && isModified(f),
+        ).length
+        let extra = theme.dim('  ' + t('cfg.menu.group_count', { n: count }))
+        if (changed > 0) {
+          extra += theme.warn(
+            '  ' + t('cfg.menu.group_modified', { n: changed }),
+          )
+        }
+        lines.push(marker + label + extra)
       }
-      if (itemRows >= maxItemRows) break
-      itemRows++
-      const selected = i === cursor
-      const marker = selected ? theme.prompt('\u276f ') : '  '
-      const label = selected
-        ? theme.prompt(f.labelKey ? t(f.labelKey) : f.path)
-        : t(f.labelKey || f.path)
-      const val = displayValue(f, get(f.path), t)
-      const valText = selected ? theme.assistant(val) : theme.dim(val)
-      const mod = isModified(f) ? theme.warn('*') : ''
-      const pathText = selected ? theme.dim('  ' + f.path) : ''
-      lines.push(marker + label + theme.dim('  =  ') + valText + mod + pathText)
-    }
-    if (!vis.length) {
-      lines.push(theme.dim('  ' + t('cfg.menu.no_match')))
+      if (!groups.length) {
+        lines.push(theme.dim('  ' + t('cfg.menu.no_match')))
+      }
+    } else {
+      // ---- level 2: the settings of the open group ----
+      const groupStart = (i: number): boolean =>
+        i === 0 || vis[i].groupKey !== vis[i - 1].groupKey
+      // Rows needed to draw the window [from, cursor] (inclusive).
+      const rowsFor = (from: number): number => {
+        let rows = 0
+        for (let i = from; i <= cursor; i++) {
+          if (i === from || groupStart(i)) rows++
+          rows++
+        }
+        return rows
+      }
+      let start = vis.length ? Math.max(0, Math.min(cursor, vis.length - 1)) : 0
+      while (start > 0 && rowsFor(start - 1) <= maxItemRows) start--
+
+      // Title with a position counter ("Settings — 12/49") so the operator
+      // knows how far down the list they are; a filter narrows both numbers.
+      const pos = vis.length ? '  ' + (cursor + 1) + '/' + vis.length : ''
+      lines.push(
+        theme.bold(t(openGroup) + '  \u203a  ' + t('cfg.menu.title')) +
+          theme.dim(pos),
+      )
+      // Group headers also consume a row, so we stop as soon as the item-row
+      // budget is used up (the window is advisory; this is the hard cap that
+      // guarantees the block fits the terminal).
+      let itemRows = 0
+      let lastGroup = ''
+      for (let i = start; i < vis.length; i++) {
+        const f = vis[i]
+        const g = groupLabel(f, t)
+        // Always print the header for the FIRST shown row, so a windowed list
+        // still tells the operator which section it starts in.
+        if (i === start || g !== lastGroup) {
+          if (itemRows >= maxItemRows) break
+          lines.push(g)
+          lastGroup = g
+          itemRows++
+        }
+        if (itemRows >= maxItemRows) break
+        itemRows++
+        const selected = i === cursor
+        const marker = selected ? theme.prompt('\u276f ') : '  '
+        const label = selected
+          ? theme.prompt(f.labelKey ? t(f.labelKey) : f.path)
+          : t(f.labelKey || f.path)
+        const val = displayValue(f, get(f.path), t)
+        const valText = selected ? theme.assistant(val) : theme.dim(val)
+        const mod = isModified(f) ? theme.warn('*') : ''
+        const pathText = selected ? theme.dim('  ' + f.path) : ''
+        lines.push(
+          marker + label + theme.dim('  =  ') + valText + mod + pathText,
+        )
+      }
+      if (!vis.length) {
+        lines.push(theme.dim('  ' + t('cfg.menu.no_match')))
+      }
     }
     lines.push(...tail)
 
@@ -240,9 +318,9 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
     // reported bug). Overcounting by one is a harmless blank row; undercounting
     // is not, so we bias to the safe side here.
     const cols = output.columns || 80
-    const usable = Math.max(1, cols - 1)
+    const usableCols = Math.max(1, cols - 1)
     const rowsOf = (s: string): number => {
-      return Math.max(1, Math.ceil(visCols(s) / usable))
+      return Math.max(1, Math.ceil(visCols(s) / usableCols))
     }
     if (lastRows > 0) {
       output.write(ESC + '[' + lastRows + 'A')
@@ -382,27 +460,61 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
     let i = 0
     while (i < s.length) {
       if (s.startsWith('\x1b[A', i)) {
-        const n = visible().length
-        if (n > 0) cursor = (cursor - 1 + n) % n
-        message = null
-        pendingReset = null
+        if (openGroup) {
+          const n = visible().length
+          if (n > 0) cursor = (cursor - 1 + n) % n
+          message = null
+          pendingReset = null
+        } else if (groups.length) {
+          groupCursor = (groupCursor - 1 + groups.length) % groups.length
+        }
         i += 3
         continue
       }
       if (s.startsWith('\x1b[B', i)) {
-        const n = visible().length
-        if (n > 0) cursor = (cursor + 1) % n
-        message = null
-        pendingReset = null
+        if (openGroup) {
+          const n = visible().length
+          if (n > 0) cursor = (cursor + 1) % n
+          message = null
+          pendingReset = null
+        } else if (groups.length) {
+          groupCursor = (groupCursor + 1) % groups.length
+        }
         i += 3
         continue
       }
       const ch = s[i]
-      if (ch === 'q' || ch === 'Q' || ch === '\x03' || ch === ESC) {
-        // Erase the menu block from the screen so the config list does not
-        // linger in the terminal history after Esc.
+      // ---------- LEVEL 1: the group list ----------
+      if (!openGroup) {
+        if (ch === 'q' || ch === 'Q' || ch === '\x03' || ch === ESC) {
+          // Erase the menu block from the screen so the config list does not
+          // linger in the terminal history after Esc.
+          cleanup(true)
+          return
+        }
+        if (ch === 'k' && groups.length) {
+          groupCursor = (groupCursor - 1 + groups.length) % groups.length
+        } else if (ch === 'j' && groups.length) {
+          groupCursor = (groupCursor + 1) % groups.length
+        } else if (ch === '\r' || ch === '\n' || ch === ' ') {
+          const g = groups[groupCursor]
+          if (g) enterGroup(g)
+        }
+        i++
+        continue
+      }
+
+      // ---------- LEVEL 2: the settings of one group ----------
+      if (ch === 'q' || ch === 'Q' || ch === '\x03') {
         cleanup(true)
         return
+      }
+      // Esc = BACK to the group list (not out of /config): inside a group the
+      // operator is one level deep, and quitting from there was a surprise.
+      if (ch === ESC) {
+        leaveGroup()
+        i++
+        continue
       }
       if (ch === '/') {
         filterMode = true
@@ -430,8 +542,8 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
         message = null
         pendingReset = null
       } else if (ch === 'g') {
-        // Jump to the first field of the NEXT group (and back to the top after
-        // the last), so a long grouped list can be navigated quickly.
+        // Jump to the first field of the NEXT subsection (and back to the top
+        // after the last), so a long grouped list can be navigated quickly.
         const vis = visible()
         if (vis.length) {
           let target = -1

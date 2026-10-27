@@ -900,10 +900,16 @@ function buildSlashCommands(): Array<{ name: string; description: string }> {
 // <project>/tmp — this folder is in .gitignore and is cleaned on every launch.
 const TMP_DIR = path.join(__dirname, '..', 'tmp')
 
+// An explicit override keeps a test/verification run from WIPING the real
+// <project>/tmp on launch (that directory holds the operator's attachments).
+const EFFECTIVE_TMP_DIR = process.env.ZAMES_TMP_DIR
+  ? path.resolve(process.env.ZAMES_TMP_DIR)
+  : TMP_DIR
+
 async function cleanTmpDir(): Promise<void> {
   try {
-    await fs.rm(TMP_DIR, { recursive: true, force: true })
-    await fs.mkdir(TMP_DIR, { recursive: true })
+    await fs.rm(EFFECTIVE_TMP_DIR, { recursive: true, force: true })
+    await fs.mkdir(EFFECTIVE_TMP_DIR, { recursive: true })
   } catch (e) {
     if (debug) console.error('tmp: cleanup failed:', (e as Error).message)
   }
@@ -1878,7 +1884,7 @@ async function main(): Promise<void> {
           locale: currentLocale,
         })
     editor = ed
-    ed.setTmpDir(TMP_DIR)
+    ed.setTmpDir(EFFECTIVE_TMP_DIR)
     // Provider badge: show which backend is answering ([Qwen]/[DeepSeek]).
     ed.setProvider(providerLabel(config.provider))
     // Header for full-screen mode (title / version / working directory).
@@ -2022,7 +2028,7 @@ async function main(): Promise<void> {
       const image = parseImagePaste(raw)
       if (image) {
         const name = 'paste' + extForMime(image.mime)
-        const p = await saveToTemp(TMP_DIR, name, image.data)
+        const p = await saveToTemp(EFFECTIVE_TMP_DIR, name, image.data)
         const att = ed.attachments.add({
           path: p,
           name,
@@ -2109,7 +2115,7 @@ async function main(): Promise<void> {
       }
       const mime = sniffMime(res.data) || 'image/png'
       const name = 'clipboard-' + Date.now() + (extForMime(mime) || '.png')
-      const p = await saveToTemp(TMP_DIR, name, res.data)
+      const p = await saveToTemp(EFFECTIVE_TMP_DIR, name, res.data)
       const att = ed.attachments.add({
         path: p,
         name,

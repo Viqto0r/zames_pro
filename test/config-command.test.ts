@@ -12,12 +12,14 @@ const schema: ConfigField[] = [
     type: 'enum',
     values: ['ru', 'en'],
     labelKey: 'cfg.f.ui_locale',
+    topKey: 'cfg.group.ui',
     groupKey: 'cfg.group.ui',
   },
   {
     path: 'undo.enabled',
     type: 'boolean',
     labelKey: 'cfg.f.undo_enabled',
+    topKey: 'cfg.group.undo',
     groupKey: 'cfg.group.undo',
   },
 ]

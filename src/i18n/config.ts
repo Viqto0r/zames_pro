@@ -1,11 +1,33 @@
 // Config menu and config command messages.
 export const configMessages: Record<string, { ru: string; en: string }> = {
-  'cfg.group.ui': { ru: 'Интерфейс', en: 'Interface' },
-  'cfg.group.agent': { ru: 'Агент', en: 'Agent' },
+  // Top-level menu groups (/config opens a list of THESE).
+  'cfg.top.agent': { ru: 'Агент', en: 'Agent' },
+  'cfg.top.browser': { ru: 'Браузер и чат', en: 'Browser & chat' },
+  'cfg.top.providers': { ru: 'Провайдеры', en: 'Providers' },
+  'cfg.top.ui': { ru: 'Интерфейс', en: 'Interface' },
+  'cfg.top.files': { ru: 'Файлы и история', en: 'Files & history' },
+  'cfg.top.diagnostics': { ru: 'Диагностика', en: 'Diagnostics' },
+  // Sections INSIDE a top-level group.
+  'cfg.group.agent': { ru: 'Основное', en: 'General' },
+  'cfg.group.chat': { ru: 'Сессия чата', en: 'Chat session' },
+  'cfg.group.throttle': { ru: 'Паузы и лимиты', en: 'Pacing & limits' },
+  'cfg.group.recovery': {
+    ru: 'Сбои и восстановление',
+    en: 'Failures & recovery',
+  },
+  'cfg.group.login': { ru: 'Вход в аккаунт', en: 'Sign-in' },
+  'cfg.group.telemetry': { ru: 'Телеметрия', en: 'Telemetry' },
+  'cfg.group.qwen': { ru: 'Qwen', en: 'Qwen' },
+  'cfg.group.glm': { ru: 'GLM', en: 'GLM' },
+  'cfg.group.look': { ru: 'Язык и оформление', en: 'Language & look' },
+  'cfg.group.tui': { ru: 'Терминальный TUI', en: 'Terminal TUI' },
   'cfg.group.undo': { ru: 'Откат (undo)', en: 'Undo' },
   'cfg.group.checkpoint': { ru: 'Чекпойнты', en: 'Checkpoints' },
   'cfg.group.transcript': { ru: 'Транскрипт', en: 'Transcript' },
-  'cfg.group.browser': { ru: 'Браузер / чат', en: 'Browser / chat' },
+  'cfg.group.diagnostics': {
+    ru: 'Проверка после правки',
+    en: 'Post-edit check',
+  },
   'cfg.f.provider': { ru: 'Провайдер чата', en: 'Chat provider' },
   'cfg.f.qwen_model': {
     ru: 'Модель Qwen (id)',
@@ -315,5 +337,43 @@ export const configMessages: Record<string, { ru: string; en: string }> = {
   'cfg.restart_required': {
     ru: 'Этот параметр применится после перезапуска.',
     en: 'This setting takes effect after a restart.',
+  },
+  'cfg.f.diagnostics_enabled': {
+    ru: 'Запускать проверку после правки файлов',
+    en: 'Run the check after a file edit',
+  },
+  'cfg.f.diagnostics_command': {
+    ru: 'Команда проверки (например, npx tsc --noEmit)',
+    en: 'Check command (e.g. npx tsc --noEmit)',
+  },
+  'cfg.f.diagnostics_timeoutMs': {
+    ru: 'Таймаут проверки, мс',
+    en: 'Check timeout, ms',
+  },
+  'cfg.f.diagnostics_maxChars': {
+    ru: 'Сколько символов вывода проверки отдавать агенту',
+    en: 'How many output chars of the check go to the agent',
+  },
+
+  // Two-level menu: group list, then the settings inside a group.
+  'cfg.menu.groups_title': {
+    ru: '⚙ Настройки — выбери группу',
+    en: '⚙ Settings — choose a group',
+  },
+  'cfg.menu.group_hint': {
+    ru: '↑/↓ — выбор, Enter — открыть группу, q/Esc — выйти',
+    en: '↑/↓ select, Enter open the group, q/Esc quit',
+  },
+  'cfg.menu.group_count': {
+    ru: 'настроек: {n}',
+    en: 'settings: {n}',
+  },
+  'cfg.menu.group_modified': {
+    ru: 'изменено: {n}',
+    en: 'changed: {n}',
+  },
+  'cfg.menu.back_hint': {
+    ru: 'Esc — назад к группам',
+    en: 'Esc — back to the groups',
   },
 }

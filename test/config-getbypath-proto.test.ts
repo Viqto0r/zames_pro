@@ -29,6 +29,7 @@ test('a missing password field shows the default marker, not a secret', () => {
     path: 'browser.auth.password',
     type: 'string',
     labelKey: 'cfg.f.browser_auth_password',
+    topKey: 'cfg.group.browser',
     groupKey: 'cfg.group.browser',
   } as ConfigField
   assert.equal(

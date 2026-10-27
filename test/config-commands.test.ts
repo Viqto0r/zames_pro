@@ -16,12 +16,14 @@ const enumField: ConfigField = {
   type: 'enum',
   values: ['ru', 'en'],
   labelKey: 'cfg.f.ui_locale',
+  topKey: 'cfg.top.ui',
   groupKey: 'cfg.group.ui',
 }
 const boolField: ConfigField = {
   path: 'undo.enabled',
   type: 'boolean',
   labelKey: 'cfg.f.undo_enabled',
+  topKey: 'cfg.top.files',
   groupKey: 'cfg.group.undo',
 }
 const numField: ConfigField = {
@@ -30,12 +32,14 @@ const numField: ConfigField = {
   min: 0,
   max: 100,
   labelKey: 'cfg.f.maxIterations',
+  topKey: 'cfg.top.agent',
   groupKey: 'cfg.group.agent',
 }
 const pwField: ConfigField = {
   path: 'browser.auth.password',
   type: 'string',
   labelKey: 'cfg.f.browser_auth_password',
+  topKey: 'cfg.top.browser',
   groupKey: 'cfg.group.browser',
 }
 
@@ -72,6 +76,7 @@ test('configValueHint: enum list / boolean / number range / type', () => {
     path: 'ui.statusLineCommand',
     type: 'string',
     labelKey: 'cfg.f.ui_statusLineCommand',
+    topKey: 'cfg.top.ui',
     groupKey: 'cfg.group.ui',
   }
   assert.equal(configValueHint(strField, t), 'string')
@@ -90,9 +95,10 @@ test('formatConfigList: groups headers, one line per field, trailing usage', () 
   // Title first, usage last.
   assert.equal(lines[0], t('cfg.title'))
   assert.ok(lines[lines.length - 1].includes(t('cfg.usage')))
-  // A line per field, plus the title, three group headers (ui/undo/agent)
-  // and the usage line.
-  assert.equal(lines.length, 1 + 3 + 3 + 1)
+  // A line per field, plus the title, one TOP-group header per top group
+  // (ui/agent/files), the section headers inside them (ui + agent + undo +
+  // files = 4) and the usage line.
+  assert.equal(lines.length, 1 + 3 + 3 + 3 + 1)
   // The enum line carries the allowed-values annotation and the label.
   const enumLine = lines.find((l) => l.includes('ui.locale'))!
   assert.ok(enumLine.includes('ru|en'))

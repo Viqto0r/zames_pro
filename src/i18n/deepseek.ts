@@ -138,6 +138,7 @@ export const deepseekMessages: Record<string, { ru: string; en: string }> = {
   'tui.hint.reset': { ru: 'сброс', en: 'reset' },
   'tui.hint.quit': { ru: 'выход', en: 'quit' },
   'tui.hint.change': { ru: 'изменить', en: 'change' },
+  'tui.hint.back': { ru: 'назад', en: 'back' },
   // Marks the CURRENT entry in a list menu (e.g. the active Qwen model).
   'tui.list.current': { ru: '← текущая', en: '← current' },
   'auth.form.note_saved': {

@@ -9,6 +9,7 @@ const pwField = {
   path: 'browser.auth.password',
   type: 'string',
   labelKey: 'cfg.f.browser_auth_password',
+  topKey: 'cfg.group.browser',
   groupKey: 'cfg.group.browser',
 } as ConfigField
 

@@ -15,12 +15,14 @@ const schema: ConfigField[] = [
     path: 'browser.auth.password',
     type: 'string',
     labelKey: 'cfg.f.password',
+    topKey: 'cfg.group.browser',
     groupKey: 'cfg.group.browser',
   },
   {
     path: 'browser.auth.username',
     type: 'string',
     labelKey: 'cfg.f.username',
+    topKey: 'cfg.group.browser',
     groupKey: 'cfg.group.browser',
   },
 ]
