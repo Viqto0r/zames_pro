@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.86.0] - 2026-10-27
+
+### Added
+
+- **ui:** 10 more palettes, no sample dump after picking, picker smoke
+
 ## [2.85.0] - 2026-10-27
 
 ### Added
