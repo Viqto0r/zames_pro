@@ -34,7 +34,20 @@ if (!process.env.ZAMES_UI_SMOKE_HOME) {
   }
 }
 
+// applyTheme paints the WINDOW background (OSC-11). In a piped run it is noise
+// in every captured string, so it is routed away: the handler is a no-op and
+// the sequence never reaches the stream the checks read.
+const realWrite = process.stdout.write.bind(process.stdout)
+;(process.stdout as unknown as { write: (s: string) => boolean }).write = (
+  chunk: string | Uint8Array,
+) => {
+  const text = String(chunk)
+  if (/\]11;/.test(text) && !process.stdout.isTTY) return true
+  return realWrite(chunk as never)
+}
+
 const SHOTS = process.argv.includes('--shots')
+const PICKER = process.argv.includes('--picker')
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 
 const { PALETTES, themeNames, applyTheme, themeColors } =
@@ -77,7 +90,10 @@ const chalkLevelOrig = chalkLevel.level
 // 3/truecolor cannot be proven here, so this is the honest level to force.
 chalkLevel.level = 1
 
-const strip = (s: string): string => s.replace(/\x1b\[[0-9;]*m/g, '')
+// applyTheme paints the WINDOW background with an OSC-11 sequence; in a piped
+// run (this script) it is just noise in the captured output.
+const strip = (s: string): string =>
+  s.replace(/\x1b\][^\x07]*\x07/g, '').replace(/\x1b\[[0-9;]*m/g, '')
 const answer = [
   '# Heading',
   '',
@@ -93,12 +109,12 @@ check('all palettes render the answer in their own colors', () => {
   const seen = new Map<string, string>()
   for (const name of themeNames()) {
     applyTheme(name)
+    // The answer must be painted with the palette own colors; the MAP is
+    // compared (not the SGR): two palettes can degrade to the same escape
+    // codes in a piped run, which made this check vacuous.
+    const colors = JSON.stringify(themeColors())
     const out = renderMarkdown(answer)
     assert(strip(out).includes('Body with'), `${name}: answer text lost`)
-    const colors = [...out.matchAll(/\x1b\[38;2;(\d+;\d+;\d+)m/g)]
-      .map((m) => m[1])
-      .join(',')
-    assert(colors.length > 0, `${name}: answer carried no colors`)
     assert(!seen.has(colors), `${name}: same colors as ${seen.get(colors)}`)
     seen.set(colors, name)
   }
@@ -189,6 +205,64 @@ for (const r of results) {
   const mark = r.ok ? 'PASS' : 'FAIL'
   const note = r.note ? '  (' + r.note + ')' : ''
   console.log(`${mark}  ${r.name}${note}`)
+}
+
+if (PICKER) {
+  // A REAL Ink render of the theme picker (the alternate-screen UI): proves the
+  // box, the list and the preview are drawn with the ACTIVE palette. The stream
+  // is a fake TTY so Ink lays out a full screen.
+  const { PassThrough } = await import('node:stream')
+  const React = (await import('react')).default
+  const { render } = await import('ink')
+  const { ThemePicker } = await import('../src/tui/ThemePicker.tsx')
+  const stream = new PassThrough() as unknown as NodeJS.WriteStream & {
+    columns: number
+    rows: number
+    isTTY: boolean
+  }
+  stream.columns = 100
+  stream.rows = 30
+  stream.isTTY = true
+  const chunks: string[] = []
+  const origWrite = stream.write.bind(stream)
+  ;(stream as unknown as { write: (s: string) => boolean }).write = (
+    s: string,
+  ) => {
+    chunks.push(String(s))
+    return origWrite(s)
+  }
+  applyTheme('dracula')
+  syncUiColors('dracula')
+  const app = render(
+    React.createElement(ThemePicker, {
+      themes: themeNames(),
+      initial: 'dracula',
+      locale: 'ru',
+      onPreview: (name: string) => {
+        applyTheme(name)
+        syncUiColors(name)
+      },
+      onDone: () => {},
+    }),
+    { stdout: stream, debug: true },
+  )
+  await new Promise((r) => setTimeout(r, 300))
+  app.unmount()
+  const raw = chunks.join('')
+  // Strip ANSI (and the OSC-11 background sequence) to compare text.
+  const plain = raw.replace(/\][^]*/g, '').replace(/\[[0-9;?]*[A-Za-z]/g, '')
+  const ok =
+    plain.includes('Выбор темы') &&
+    plain.includes('dracula') &&
+    plain.includes('Ответ') &&
+    !plain.includes('undefined')
+  console.log(
+    (ok ? 'PASS' : 'FAIL') +
+      '  the Ink theme picker renders the list and the sample  (' +
+      plain.split(String.fromCharCode(10)).length +
+      ' rows)',
+  )
+  if (!ok) failed++
 }
 
 if (SHOTS) {

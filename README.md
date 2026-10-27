@@ -631,8 +631,9 @@ The switch is instant, no restart. `zames` is the default; the bundled palettes
 are ports of well-known editor schemes:
 
 `zames` (default), `one-dark`, `dracula`, `gruvbox`, `nord`, `monokai`,
-`solarized-dark`, `tokyo-night`, `catppuccin`, `github-dark`, `ayu`,
-`rose-pine`, `everforest`, `kanagawa`.
+`solarized-dark`, `tokyo-night`, `tokyo-storm`, `catppuccin`, `github-dark`,
+`ayu`, `rose-pine`, `everforest`, `kanagawa`, `night-owl`, `material`,
+`palenight`, `zenburn`, `selenized`, `iceberg`, `sonokai`, `aurora`, `cobalt2`.
 
 A theme repaints EVERYTHING: the interface, the agent's answers, the code
 highlighting inside them, the status row and the input frame. The terminal's
@@ -1368,8 +1369,9 @@ enum переключаются на месте; числа и строки от
 редакторов:
 
 `zames` (по умолчанию), `one-dark`, `dracula`, `gruvbox`, `nord`, `monokai`,
-`solarized-dark`, `tokyo-night`, `catppuccin`, `github-dark`, `ayu`,
-`rose-pine`, `everforest`, `kanagawa`.
+`solarized-dark`, `tokyo-night`, `tokyo-storm`, `catppuccin`, `github-dark`,
+`ayu`, `rose-pine`, `everforest`, `kanagawa`, `night-owl`, `material`,
+`palenight`, `zenburn`, `selenized`, `iceberg`, `sonokai`, `aurora`, `cobalt2`.
 
 Тема перекрашивает ВСЁ: интерфейс, ответы агента, подсветку кода в ответах,
 строку статуса и рамку ввода. ФОН окна терминала тоже перекрашивается: тема

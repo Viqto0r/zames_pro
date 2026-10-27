@@ -165,6 +165,16 @@ export type ThemeName =
   | 'rose-pine'
   | 'everforest'
   | 'kanagawa'
+  | 'tokyo-storm'
+  | 'night-owl'
+  | 'material'
+  | 'palenight'
+  | 'zenburn'
+  | 'selenized'
+  | 'iceberg'
+  | 'sonokai'
+  | 'aurora'
+  | 'cobalt2'
 
 // Qwen Chat (chat.qwen.ai) provider settings. The shared timings (timeouts,
 // throttle, retries) live in `browser`; only Qwen-only knobs are here.
