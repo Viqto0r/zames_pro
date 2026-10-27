@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.88.0] - 2026-10-27
+
+### Added
+
+- **ui:** switch the theme while the agent is generating
+
 ## [2.87.0] - 2026-10-27
 
 ### Added
