@@ -18,6 +18,11 @@ feeds it:
 | Structured citation    | `CITATION.cff`                                                                                                  | GitHub's "Cite this repository" button, scholarly tools |
 | Sponsorship            | `.github/FUNDING.yml`                                                                                           | the GitHub Sponsor button                               |
 
+CI keeps the generated surfaces honest: the `Docs up to date` step runs
+`npm run build:readme -- --check` and `npm run build:llms -- --check`, so a
+hand edit of `README.md`/`llms.txt` (or a `docs/` change without a rebuild)
+fails the build.
+
 ## Sources of truth (the generated files are never edited directly)
 
 - `docs/readme.en.md` and `docs/readme.ru.md` — the README sources; `npm run

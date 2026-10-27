@@ -14,7 +14,10 @@
 //                 docs/readme.en.md so the documentation has ONE source of
 //                 truth and the generated file cannot drift.
 //
-// Usage: npm run build:llms   (test/llms-txt.test.ts checks the drift)
+// Usage: npm run build:llms            (write both root copies)
+//        npm run build:llms -- --check (exit 1 when a root copy drifted;
+//                                       test/llms-txt.test.ts also checks the
+//                                       same drift, this is the CI belt)
 //
 // llms.txt lives in docs/ and is COPIED to the repository root because that is
 // where the convention looks for it; docs/ is the SOURCE. The copy must stay
@@ -71,7 +74,25 @@ export function buildLlms(rootDir: string): {
 
 if (invoked) {
   const { short, full } = buildLlms(root)
-  fs.writeFileSync(path.join(root, 'llms.txt'), short)
-  fs.writeFileSync(path.join(root, 'llms-full.txt'), full)
-  console.log('build-llms: wrote llms.txt and llms-full.txt')
+  const shortPath = path.join(root, 'llms.txt')
+  const fullPath = path.join(root, 'llms-full.txt')
+  if (process.argv.includes('--check')) {
+    const drifted = [
+      fs.readFileSync(shortPath, 'utf-8') === short ? null : 'llms.txt',
+      fs.readFileSync(fullPath, 'utf-8') === full ? null : 'llms-full.txt',
+    ].filter(Boolean)
+    if (drifted.length > 0) {
+      console.error(
+        'build-llms: ' +
+          drifted.join(', ') +
+          ' drifted from docs/ — run `npm run build:llms`',
+      )
+      process.exit(1)
+    }
+    console.log('build-llms: llms.txt and llms-full.txt are up to date')
+  } else {
+    fs.writeFileSync(shortPath, short)
+    fs.writeFileSync(fullPath, full)
+    console.log('build-llms: wrote llms.txt and llms-full.txt')
+  }
 }

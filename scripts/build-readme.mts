@@ -15,7 +15,10 @@
 // generated file is committed; test/readme-built.test.ts re-runs buildReadmes()
 // and fails if it drifts from the sources.
 //
-// Usage:  npm run build:readme
+// Usage:  npm run build:readme           (write README.md)
+//         npm run build:readme -- --check (exit 1 when README.md drifted;
+//                                         the CI step that keeps a hand-edit
+//                                         of the generated file from landing)
 
 import fs from 'node:fs'
 import path from 'node:path'
@@ -96,6 +99,20 @@ const invoked =
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 if (invoked) {
   const { readmeEn } = buildReadmes(root)
-  fs.writeFileSync(path.join(root, 'README.md'), readmeEn)
-  console.log('build-readme: wrote README.md')
+  const target = path.join(root, 'README.md')
+  if (process.argv.includes('--check')) {
+    // A mismatch means someone edited the GENERATED file instead of
+    // docs/readme.*.md; the next build would silently drop that edit.
+    const onDisk = fs.readFileSync(target, 'utf-8')
+    if (onDisk !== readmeEn) {
+      console.error(
+        'build-readme: README.md drifted from docs/readme.*.md — run `npm run build:readme`',
+      )
+      process.exit(1)
+    }
+    console.log('build-readme: README.md is up to date')
+  } else {
+    fs.writeFileSync(target, readmeEn)
+    console.log('build-readme: wrote README.md')
+  }
 }

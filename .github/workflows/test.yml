@@ -38,6 +38,18 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # The generated documentation must match its sources: a hand edit of
+      # README.md/llms.txt or a source change without a rebuild fails here.
+      - name: Docs up to date
+        run: |
+          npm run build:readme -- --check
+          npm run build:llms -- --check
+
+      # The Unreleased CHANGELOG section is derived from the conventional
+      # commits; a fix/feat without a sync is caught before it lands.
+      - name: Changelog up to date
+        run: npm run changelog:check
+
       # The coverage run IS the test run (same exit code), with a per-file
       # line/branch report printed so dead or untested modules are visible.
       - name: Tests (with coverage)
