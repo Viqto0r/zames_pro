@@ -7,9 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.89.0] - 2026-10-27
+
 ### Added
 
 - **config:** two-level /config menu with groups and sections
+- **config:** diagnostics settings (post-edit check command, timeout, output cap) are now editable from `/config`
 
 ## [2.88.2] - 2026-10-27
 
