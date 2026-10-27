@@ -1,7 +1,10 @@
 # AGENTS.md — internal structure of zames
 
 This file is for those who work on the agent itself (including the agent
-during self-review). README.md is for users.
+during self-review). README.md is for users. It is injected into EVERY task's
+system prompt, so it is kept lean: the HARD RULES and the module map live here,
+the deep root-cause write-ups live in `docs/DESIGN-NOTES.md` (read on demand).
+`test/system-prompt-size.test.ts` pins the budget of the default prompt.
 
 ## NEVER touch a running browser or another agent's processes
 
@@ -88,6 +91,25 @@ root: tools cannot read/write above it.
 4. `src/system-prompt.ts` — builds the system-prompt (tool descriptions,
    working directory, git context).
 5. `src/tools.ts`, `src/gitTools.ts`, `src/web.ts` — tool implementations.
+
+## Before you edit X, read DESIGN-NOTES §Y
+
+The deep mechanics are NOT repeated here. Read the matching section of
+`docs/DESIGN-NOTES.md` BEFORE changing the module:
+
+| Editing                                      | Read DESIGN-NOTES                                   |
+| -------------------------------------------- | --------------------------------------------------- |
+| `agent-loop.ts` retry/guard/stale-echo logic | "The agent stopped", "Stale-echo heuristic"         |
+| `browser.ts` answer reading / `_askOnce`     | "The agent stopped", "The Continue button"          |
+| the "Stopped"/Continue/`quasi_status` family | "The Continue button", "The \"Stopped\" hang"       |
+| `net-capture.ts` detectors                   | "The Continue button" (raw body, not `_netCapture`) |
+| input line / paste / resize / attachments    | "Terminal input", "Resize", "Attachments"           |
+| the Ink TUI (`src/tui/`)                     | "Ink TUI"                                           |
+| `glm-*.ts` (z.ai provider)                   | "GLM / chat.z.ai"                                   |
+
+## Module map (who owns what)
+
+When a change touches one concern, start in the module that owns it:
 
 ### Module map (who owns what)
 
@@ -231,7 +253,7 @@ When a change touches one concern, start in the module that owns it:
   (`TuiStore`, an external store React subscribes to via `useSyncExternalStore`:
   the imperative agent calls mutate it, Ink re-renders). PURE halves: `edit.ts`
   (buffer/cursor/history/search/paste transitions) and `keys.ts` (Ink `(input,
-  key)` -> editor action), both unit-tested (test/tui-edit.test.ts). Components:
+key)` -> editor action), both unit-tested (test/tui-edit.test.ts). Components:
   `TuiApp.tsx` (root + store subscription), `LogView.tsx` (`<Static>` scrollback),
   `StatusBar.tsx` (animated spinner + badges), `InputLine.tsx` (multiline editor
   with a real cursor via `useCursor`, bracketed paste via `usePaste`),
@@ -360,85 +382,44 @@ When editing, keep existing "why" comments even if the code around them moves.
 
 ## tool-call format
 
-IMPORTANT: the model's answer is read NOT from the DOM but by intercepting the
-network (`src/net-capture.ts`, `browser._installNetHook`). DeepSeek renders the
-answer (markdown+LaTeX) and distorts the arguments: the dollar sign in formulas
-is lost, escaped newlines become real, names are auto-linked. The interception
-returns the raw text from SSE/JSON. Answers are written to ~/.zames/net-log
-ONLY when the debug env flag `ZAMES_NET_DEBUG=1` is set (`dumpNetBody`); by
-default nothing is dumped. The dump is ROTATED (`rotateNetLog`): only the
-newest `NET_LOG_KEEP` (200) files survive, otherwise an unattended
-`npm run dev` (which sets the flag) grew the dir without bound — 77k files /
-800 MB, and on WSL that space never returns to the Windows host.
-Transcripts in ~/.zames/logs are rotated the same way (`rotateTranscripts`,
-keep the newest 200 `.jsonl`).
-Additionally the interception yields the chat id earlier than it appears in the
-URL (browser._netChatId is used in getCurrentChatId as a fallback).
-Details — in the comments of src/net-capture.ts and src/browser.ts.
+The model's answer is read NOT from the DOM but by intercepting the network
+(`src/net-capture.ts`, `browser._installNetHook`): DeepSeek renders the answer
+(markdown+LaTeX) and distorts the arguments (the `$` in formulas is lost,
+escaped newlines become real, names are auto-linked), the interception returns
+the RAW SSE/JSON text. The parser (`parseToolCall()`, src/answer-parse.ts)
+tries in order: JSON (incl. a ``` block and repaired backslashes), permissive
+dirty JSON, a tail after prose, XML/DSML (`src/xml-toolcall.ts`) and finally
+`repairToolCallPreamble()` for a broken call head. It collects EVERY recognized
+call, not just the first. If the answer LOOKS like a call but is not
+recognized, the loop re-asks (`MAX_UNPARSED_RETRIES`) instead of finishing.
+When you add an answer format — add parsing there, not a model-side promise.
 
-The SAME interception also captures the CONTEXT SIZE: DeepSeek sends
-`accumulated_token_usage` (a cumulative token counter for the whole chat) in
-the SSE stream (`v.response.accumulated_token_usage` and BATCH updates).
-`extractTokenUsage(body)` (src/net-capture.ts) returns the latest value;
-`browser._lastTokenUsage` (exposed via `getLastTokenUsage()`) is updated in
-`_onResponse` and from `fetchChatMessages` (every message of
-history_messages carries the counter). `/cost` and `/status` print it, and
-`printRestoredHistory` shows it on `/resume`. This is the closest thing to
-"used context" the web UI exposes — there is no prompt_tokens/completion_tokens
-like the API. We do NOT add a tokenizer dependency: the server counter is the
-truth and a local BPE estimate would be wrong.
+Rules that must survive any refactor:
 
-Write/Edit accept base64 variants of the arguments (content_base64,
-old_base64/new_base64) — this works around channel distortions: base64 consists
-only of [A-Za-z0-9+/=] and is not corrupted. The system-prompt advises the model
-to use them for text with special characters.
+- `repairRawControlChars()` escapes raw newlines/tabs inside JSON string values
+  (`old_string`, `new_string`, `content`), otherwise `JSON.parse` fails on a
+  multiline call;
+- for `Edit` and dirty JSON the args are parsed from the "tail" to the end of
+  the text, because bracket balancing breaks on raw quotes inside strings;
+- the XML/DSML tail trim uses `<[^>]*>`, not `<[^>]>` (multi-char tags);
+- `parseInlineJsonArgs()` handles the hybrid form: the tool name is an
+  attribute AND the args are inline JSON in the SAME opening tag
+  (`<|DSML|invoke name="GitAdd", "args" {"paths": "AGENTS.md"}>`);
+- `parseToolCallPermissive()` handles a call whose arg keys sit INLINE with
+  `"tool"`, with no `"args"` wrapper — it flattens the object's keys into args.
 
-The model returns a tool call as text. `agent-loop.ts` parses it (there is a
-strict and a permissive parser). The format is described in the system-prompt.
-If you add a tool — sync its description in the system-prompt.
+Write/Edit accept base64 variants (`content_base64`, `old_base64`/
+`new_base64`): base64 is `[A-Za-z0-9+/=]` only and survives the channel that
+corrupts `$`, backslashes and newlines. The system-prompt tells the model when
+to use them.
 
-The parser in `parseToolCall()` tries in order: a JSON object/array (including
-in a ``` block and with "repaired" backslashes), permissive parsing of dirty
-JSON, a tail after prose and, at the very end, an XML/DSML block
-(`src/xml-toolcall.ts`). The latter is needed because the model sometimes
-answers not with JSON but with
-`<invoke name="Tool"><parameter name="x">…</parameter></invoke>` (the tag may
-carry an arbitrary prefix) or a DSML block
-`<｜｜DSML｜｜invoke name="Read">…`. Without this parsing such an answer is not
-considered a tool-call, and the agent silently finishes the task — "called a
-tool and stopped". If you change the answer format — update `src/xml-toolcall.ts` too.
-
-Additional safeguards against "stalls" (verified on real transcripts):
-
-- `repairRawControlChars()` escapes raw newlines/tabs inside JSON string
-  values (`old_string`, `new_string`, `content`) — otherwise `JSON.parse`
-  fails and a multiline call is not recognized;
-- for `Edit` and for dirty JSON, args are parsed from the "tail" to the end of
-  the text (`parseEditArgs`/`parseArgsPermissive`/`parseArgsGreedy`), because
-  bracket balancing breaks on raw quotes inside strings (a common case for
-  `Bash`/`Write` with code inside);
-- trimming the XML/DSML tail uses `<[^>]*>` (not `<[^>]>`), otherwise
-  multi-character tags (`<|DSML|invoke ...>`) are not trimmed;
-- `parseInlineJsonArgs()` in `src/xml-toolcall.ts` handles the "hybrid" form:
-  the tool name is an attribute AND the args are inline JSON in the SAME
-  opening tag, without any `<parameter>` children. A real case from the
-  transcript: `<|DSML|invoke name="GitAdd", "args" {"paths": "AGENTS.md"}>`.
-  The `<parameter>` parser missed it, and the call was silently lost (the
-  agent stalled). Now the first balanced `{...}` inside the tag is parsed as
-  args;
-- `parseToolCallPermissive()` also handles a call whose argument keys are
-  INLINE with `"tool"`, with no `"args"` wrapper at all —
-  `{"tool": "Bash", "command_note": "", "command": "git push ..."}}`.
-  The strict parser rejects it (there is no `obj.args`), and the permissive
-  one used to bail out early (`indexOf('"args"') === -1`), so the call was
-  counted as malformed and re-asked; after `MAX_MALFORMED_RETRIES` the run
-  stopped with the model's text as the final answer (a real "stopped after a
-  tool call" case from the transcript, `git push`). Now the object's keys are
-  flattened into `args` (the `tool` key is dropped);
-- in `runAgentLoop()` the `looksLikeToolCall` guard kicks in: if the answer
-  looks like a call (there is `"tool":`, `invoke`, `parameter`, `tool_calls`,
-  `DSML`, `function_call`) but is not recognized — the model is asked to
-  resend the call (up to `MAX_MALFORMED_RETRIES`) instead of finishing the task.
+The SAME interception captures the CONTEXT SIZE: DeepSeek sends
+`accumulated_token_usage` in the SSE stream; `extractTokenUsage()`
+(src/net-capture.ts) returns the latest value and `browser.getLastTokenUsage()`
+exposes it (`/cost`, `/status`, `/resume`). No tokenizer dependency: the server
+counter is the truth. Debug dumps land in `~/.zames/net-log` ONLY with
+`ZAMES_NET_DEBUG=1`, and both that dir and `~/.zames/logs` are ROTATED (keep
+the newest 200); an unbounded dump once grew to 77k files / 800 MB.
 
 ## Editing text files: prefer Edit/Write over sed -i
 
@@ -455,14 +436,9 @@ characters.
 developing zames itself (no BACKLOG, no self-review, no `/improve`, no test/
 build internals, no module map). The self-development material lives in
 `DEVELOPING.md`: dev mode, the dev-only commands, BACKLOG.md maintenance and
-the pre-release checks. When a change is about the agent improving itself, put
-the prose there, not in the README. (This file, AGENTS.md, is agent-facing and
-is NOT shipped in the npm package.)
-
-Deep root-cause write-ups and browser/terminal mechanics live in
-`docs/DESIGN-NOTES.md`, NOT here — AGENTS.md keeps the acting rules plus a
-short summary with a pointer. DESIGN-NOTES is read on demand when you touch the
-matching module, so it is not injected into every task's context.
+the pre-release checks. Deep root-cause write-ups live in
+`docs/DESIGN-NOTES.md`. (This file, AGENTS.md, is agent-facing and is NOT
+shipped in the npm package.)
 
 ## Dev-only commands (self-development)
 
@@ -473,59 +449,39 @@ never see or run them — `/improve` on an arbitrary project would edit that
 project's BACKLOG.md, and `/self-review` would snapshot its `src/`.
 
 Enforced in three places, all keyed on `devMode` (`--dev` / `config.hotReload`,
-set by `npm run dev`):
-
-- `printHelp()` omits the block unless `devMode`;
-- `buildSlashCommands()` filters `isDevOnlyCommand(c.name)` out of the «/» hints
-  unless `devMode`;
-- the main loop, right after `/exit`, REJECTS a dev-only command with
-  `msg.dev_only` when not in dev mode (hiding is not enough — a user can type
-  the command by hand).
-
-The list has ONE source of truth: `DEV_ONLY_COMMANDS` / `isDevOnlyCommand()` in
-`src/commands.ts` (pure, tested). Add a new self-development command there and
-the filter covers both the help and the dispatch guard.
+set by `npm run dev`): `printHelp()` omits the block; `buildSlashCommands()`
+filters `isDevOnlyCommand(c.name)` out of the «/» hints; the main loop REJECTS a
+dev-only command with `msg.dev_only` when not in dev mode (hiding is not enough
+— a user can type it by hand). The list has ONE source of truth:
+`DEV_ONLY_COMMANDS` / `isDevOnlyCommand()` in `src/commands.ts` (pure, tested).
 
 ## BACKLOG.md is gitignored
 
 `BACKLOG.md` is the agent's own improvement-notes file. It is listed in
 `.gitignore` and MUST NOT be committed: it is rewritten constantly and would
-otherwise be published with every release (it was committed once by mistake).
-The agent reads and edits it locally; a `git add -A` silently skips it, which
-is the intended behavior.
-
-Two commands keep it in shape. `/backlog <text>` records an idea (fresh `N<n>`
-id, placed under the `P0..P3` section; an optional leading `P0..P3` sets it)
-WITHOUT implementing it — deterministic, no model round-trip. `/improve`
-auto-prunes after a successful run: `collapseBacklog()` drops the archived
-`<details>` copy of a finished item but keeps its `### X. [x] ... done` summary
-line. The collapser is tolerant of an UNCLOSED `<details>` (a real file had one,
-making the whole document a single block) — it ends an archive at the next REAL
-heading, not only at `</details>`. In `--dev` mode the system prompt
-(`selfImprovement`) lets the model append ONE short note itself when it spots an
-improvement outside the current task, and a startup warning fires past 500
-lines / 60 KB.
+otherwise be published with every release. A `git add -A` silently skips it,
+which is the intended behavior. `/backlog <text>` records an idea without
+implementing it; `/improve` auto-prunes the archived `<details>` blocks after a
+successful run (`collapseBacklog()` tolerates an UNCLOSED `<details>`). In
+`--dev` mode the system prompt (`selfImprovement`) lets the model append ONE
+short note itself when it spots an improvement outside the current task, and a
+startup warning fires past 500 lines / 60 KB. The pure helpers live in
+`src/backlog.ts`.
 
 ## The TodoWrite checklist must be kept current
 
 The status line shows `[Provider] задачи: N/M` from `TodoWrite`. It is a
-progress indicator the OPERATOR watches, so a stale list is misleading: it
-looks like nothing was done.
-
-Rules:
+progress indicator the OPERATOR watches, so a stale list is misleading.
 
 - Write the checklist BEFORE a multi-step task (more than ~3 steps).
-- Update it AS you go, not only at the end: after finishing each step, resend
-  the WHOLE list with that step `completed` and the next one `in_progress`.
-  `TodoWrite` REPLACES the list, so every entry must be resent each time.
+- Update it AS you go: after finishing each step, resend the WHOLE list with
+  that step `completed` and the next one `in_progress`. `TodoWrite` REPLACES the
+  list, so every entry must be resent each time.
 - The final update marks everything that is actually DONE as `completed`
   (leave a step `pending`/`in_progress` if it was genuinely not done — never
   mark unverified work as complete).
 - A step that is blocked on the operator (e.g. a manual sign-in) stays
   `pending`, not `completed`.
-
-This is not busywork: `[DeepSeek] задачи: 0/9` while the work is finished is
-exactly the confusion a current list prevents.
 
 ## Talking to the operator
 
@@ -534,739 +490,253 @@ the operator is the `message` field of the last `respond` call before the agent
 stops. Therefore all text for the operator must be in that single final
 `respond`: either "task done" (a report), or "cannot continue, need the
 operator's decision" (a question). Calling `respond` in the middle and
-splitting the report across several messages is not allowed. The rule is baked
-into the system-prompt (the SILENT OPERATION section).
+splitting the report across several messages is not allowed.
 
-DeepSeek likes to add short phrases around a tool-call. The system-prompt has
-an explicit prohibition (the "ONLY TOOL CALLS" block, localized via
-`prompt.only_tool_calls`; plus the "NO PROSE AROUND TOOL CALLS" section), and
-`runTask()` does not show pre-tool text (`onAssistantThought` is a no-op by
-default and is NOT wired to the UI in src/index.ts), so only tool-calls and
-the final `respond` reach the terminal.
+DeepSeek likes to add short phrases around a tool-call: the system-prompt
+forbids it and `runTask()` does not show pre-tool text, so only tool-calls and
+the final `respond` reach the terminal. LIMITATION: the intermediate text in
+DeepSeek's own chat cannot be removed by code — only forbidden via the prompt
+and hidden from the operator.
 
-LIMITATION (fixed in code): it is IMPOSSIBLE to remove the intermediate text
-from DeepSeek's own chat output — that text is generated by the model, not by
-zames. Code can only (a) forbid it via the system-prompt ("ONLY TOOL CALLS")
-and (b) hide it from the operator (never print pre-tool text; strict re-ask on
-plain text). Do not attempt to "clean" the DeepSeek chat programmatically.
+## Deep mechanics — acting rules
 
-## Deep mechanics — see docs/DESIGN-NOTES.md
+Read `docs/DESIGN-NOTES.md` (see the table above) for the WHY; the rules you
+must not break:
 
-AGENTS.md used to carry the full root-cause write-ups of the "agent stopped"
-family, the browser answer-reading rules, the send hooks, `LineEditor` and
-attachments. That history is now in **docs/DESIGN-NOTES.md** so it is not
-injected into every task (progressive disclosure). Read that file when you touch
-the matching module. Summary of the ACTING rules:
-
-- **"The agent stopped after a tool call"** almost always means an UNRECOGNIZED
-  tool-call format. The protection: one shared retry budget
-  (`MAX_UNPARSED_RETRIES`), a structural guard (`toolsRanInTask > 0` ⇒ a
-  plain-text answer is not a clean final), and the stale-echo check keyed on
-  `lastTurnRanTool` (a repeat is only stale if the previous turn REELLY ran a
-  tool). See DESIGN-NOTES "The agent stopped" / "Stale-echo heuristic".
-- **Answer reading**: `beforeText` and the `_askOnce()` comparisons MUST read the
-  RENDERED DOM (`_readLastAnswerTextCleanDom()`), never `_netCapture`; the
+- **Answer reading**: `beforeText` and the `_askOnce()` comparisons MUST read
+  the RENDERED DOM (`_readLastAnswerTextCleanDom()`), never `_netCapture`; the
   capture is only a freshness signal + the raw answer to RETURN.
 - **Hooks the UI relies on**: `browser.onSendStart` (spinner starts on a real
   send), `browser.onSendPause` (animated throttle countdown), `onNotice`
   (rate-limit/service text reaches the operator above the input line). All three
   are wired in `runAgentLoop()` and cleared in `runTask()`'s `finally`.
-- **`LineEditor`** (src/input.ts) is a custom line editor: bracketed paste,
-  Enter-after-`\` breaks the line, 3+ line pastes collapse to `[Pasted lines#N]`,
-  typing repaints ONLY the input rows (`_renderInputOnly()`), long operations
-  `lock()` it. Attachments: `[image#N]`/`[file#N]` markers, files land in
-  `<project>/tmp`, `@path` refs are inlined into the task (60 KB/file, 200 KB
-  total). No hardcoded Russian in src/input.ts / src/spinner.ts.
-- **`@file`-ссылки**: `extractAtFileRefs()` (src/path-token.ts) finds
-  `@path` at word boundaries (never `user@host` or `@Component`);
-  `inlineAtRefs()` (src/index.ts) appends the file contents under
-  `## Files referenced with @ in the task`.
-- **Permissions**: `.zames/permissions.json`, `decidePermission()` runs
-  BEFORE each tool in `agent-loop.ts`; `deny` blocks, `ask` prompts the operator.
-
-### `@file`-ссылки в задаче
-
-`@path` в тексте задачи — это сокращение «вот этот файл». `extractAtFileRefs()`
-(src/path-token.ts, чистая, без regexp) находит все ссылки: `@` учитывается
-только на границе слова (начало строки или после пробела/скобки/кавычки), поэтому
-`user@host.com` и `@Component` ссылками НЕ считаются. `inlineAtRefs()`
-(src/index.ts) читает существующие файлы и дописывает их содержимое в конец
-задачи отдельной секцией `## Files referenced with @ in the task`. Лимиты:
-60 КБ на файл, 200 КБ суммарно, сверх — усечение с пометкой. Несуществующие/
-нечитаемые ссылки остаются в тексте как есть (задача не падает).
-
-IMPORTANT when editing this code: do not put "raw" control characters (CR/LF)
-into string literals — only the escape sequences `\r`/`
-` (in src/input.ts
-control characters are assembled via `String.fromCharCode`).
+- **Permissions**: `.zames/permissions.json`, `decidePermission()` runs BEFORE
+  each tool in `agent-loop.ts`; `deny` blocks, `ask` prompts the operator.
+- **`@file` refs**: `extractAtFileRefs()` (src/path-token.ts) finds `@path` at
+  word boundaries (never `user@host` or `@Component`); `inlineAtRefs()`
+  (src/index.ts) appends the contents under `## Files referenced with @ in the
+task` (60 KB/file, 200 KB total, truncated with a note). Unreadable refs stay
+  in the text as-is.
+- **Control characters**: when editing input/terminal code do not put raw
+  CR/LF into string literals — only the escape sequences (in src/input.ts they
+  are assembled via `String.fromCharCode`).
 
 ## Input while the agent works (message queue)
 
-While the agent thinks, the terminal stays live. In TTY, `LineEditor` owns
-this: the input line stays in place, and everything the user types accumulates
-in its buffer. On Enter, `LineEditor.onSubmit` puts the text into `pendingQueue`
-(src/index.ts).
-
-- **Esc / Ctrl+C** — abort the current generation (`browser.stopGeneration()`);
-  `Ctrl+C` while idle — exit the agent.
-- Queuing a message WHILE the agent runs must NOT kill the "agent is
-  working" indicator. `_doSubmit()` calls `_stopDots()`/clears the status and
-  then (for a queued message) starts nothing, so the spinner vanished and the
-  operator could not tell whether the agent was still working. Fix:
-  `_doSubmit()` restarts the animated status when `this.busy` is true (a task is
-  in flight). The spinner then stays until the queued task actually begins.
-- **type + Enter** — put a message into the queue; it goes to the agent right
-  after the current task finishes (like "send during generation" in the
-  DeepSeek web version).
-- The queue is drained in `runTask()`: after the current task finishes, the
-  next message goes to the agent in the same chat (`freshChat: false`,
-  `sendSystemPrompt: false`). The queue may be replenished right during
-  draining, so the `while (true)` loop in `runTask()` repeats until `queue`
-  is empty.
-
-The queue (`pendingQueue`) lives in the interactive `main()` loop and is passed
-into `runTask()` via `opts.queue`. In one-shot mode (`--task`) the queue is empty.
-
-The non-TTY fallback (`watchInput()` in src/run-task.ts) is kept for pipes: it
-reads stdin in raw mode and via `ui.setPending()` shows the typed text in the
-spinner line, and on Enter puts it into the queue. It is not used in a normal
-interactive launch.
+While the agent thinks, the terminal stays live. In TTY the editor keeps the
+input line in place and accumulates typed text; on Enter the text goes into
+`pendingQueue` (src/index.ts). Esc / Ctrl+C abort the current generation
+(`browser.stopGeneration()`), Ctrl+C while idle exits. Queuing a message must
+NOT stop the "agent is working" spinner (`_doSubmit()` restarts the animated
+status while `busy`). The queue is drained by `runTask()` after the current
+task in the SAME chat (`freshChat: false`, `sendSystemPrompt: false`), and the
+`while (true)` loop repeats until the queue is empty. The non-TTY fallback
+`watchInput()` (src/run-task.ts) is kept for pipes only.
 
 ## Commands (main loop, src/index.ts)
 
-- `/new`, `/clear` — new chat (reset context)
-- `/sessions` — list of saved sessions (folder `~/.zames/.sessions`)
-- `/resume-id <id>` — restore a session by full chat id
-- `/chats` — list of recent chats of the active provider; in the TUI it
-  opens a pick list (the chat is opened directly)
-- `/last` — reopen the last chat of the current directory
-- `/chat` — current chat id
-- `/cd <path>`, `/pwd` — working directory
-- `/status` — session state
-- `/reload` — re-read the logic modules without a restart
-- `/undo`, `/undo-list` (`/history`) — revert edits
-- `/transcript` — transcript file path
-- `/diff [--staged]` — show the working-tree git diff
-- `/cost` (alias `/usage`) — session stats from the transcript
-- `/export [file]` — write the session transcript to a Markdown file
-- `/doctor` — diagnose node, git, config, browser, clipboard, MCP
-- commands.ts - pure helpers for /diff, /cost, /export, /doctor,
-  /add-dir, /review (tested in test/commands.test.ts)
-- `/add-dir <path>` — validate an extra directory
-- `/compact` — DeepSeek compresses the current chat into a handover summary,
-  then a NEW chat is opened with the system prompt resent and the summary
-  posted as the carried-over context. Helpers `buildCompactPrompt()` /
-  `buildCompactCarryover()` live in `src/commands.ts` (pure, tested); the
-  command itself is in src/index.ts and reuses `browser.ask()` +
-  `browser.newChat()`. The OLD-chat summary call is `agent: true` (throttled),
-  the two sends into the new chat are `agent: false`.
-  If the summary call fails (most often "Messages too frequent", i.e. the rate
-  limit exhausted `browser.ask()`'s own retry budget), the whole compaction used
-  to abort and the operator had to start over. Now the summary is retried
-  `COMPACT_SUMMARY_ATTEMPTS` (3) times with a growing pause, and if it still
-  fails a LOCAL fallback summary is built from the restored chat history
-  (`fetchChatMessages` + `trimRestoredMessages` + `formatRestoredHistory`, the
-  same displayable dialogue /resume prints, last `COMPACT_FALLBACK_LIMIT` = 40
-  messages). The compaction therefore ALWAYS completes — a rate limit only
-  downgrades the summary quality, it does not lose the context.
-  A SEPARATE failure mode: the summary prompt is sent into the OLD chat as a
-  normal turn, so in reasoning mode DeepSeek answered it with a Bash TOOL CALL
-  ("gather the current state") instead of prose — the answer was protocol noise
-  that would have been carried into the new chat (the new chat would re-run an
-  old command). `isUsableCompactSummary()` (src/commands.ts, pure/tested)
-  rejects tool-call JSON, DSML, `"args": {`, `<ds_safety>` and the abort
-  sentinel; an unusable answer is retried with an explicit "plain text only"
-  note appended, and if it still fails the LOCAL history fallback is used.
-  The `buildCompactPrompt()` text itself now also says "reply with the summary
-  text ONLY; do NOT call tools / output tool-call JSON or DSML".
-  A THIRD case, `contextExhausted`: the chat already refuses every send
-  ("Length limit reached. Please start a new chat."), so the summary prompt
-  would be rejected exactly like the failed message. The summary call is then
-  SKIPPED and the local history fallback is used directly. This path is
-  triggered by the browser (see "Length limit reached" below).
-- `/review [focus] [--staged]` — the agent reviews uncommitted changes
-- `/config` — view and edit settings (see "Configuration")
-- `/config lang <ru|en>` — switch the interface and agent language
-- `/debug-dom` — save the page HTML (selector debugging)
-- `/skills` — list discovered skills (SKILL.md)
-- `/memory` — show AGENTS.md / MEMORY.md files in effect
-- `/init [--force]` — the agent analyzes the project and writes AGENTS.md
-  (via the Write tool, like Codex's /init); `--force` overwrites an existing file
-- `/help`, `help` — help
-- `/exit`, `/quit` — exit
+The list of commands and their exact behaviour is user documentation — see
+`docs/readme.en.md` (and `/help`). The ACTING rules for this code:
+
+- Command logic that can be pure belongs in `src/commands.ts` (unit-tested);
+  the `/config` subcommand dispatcher is `src/config-command.ts` with INJECTED
+  callbacks (unit-tested without a live agent).
+- `/compact` builds the summary in the OLD chat and posts it into a NEW chat
+  with the system prompt. It MUST always complete: a rate limit retries
+  `COMPACT_SUMMARY_ATTEMPTS` times, an unusable summary (tool-call JSON, DSML,
+  `<ds_safety>`) is retried with "plain text only", and both fall back to a
+  LOCAL summary from `fetchChatMessages` (last `COMPACT_FALLBACK_LIMIT` = 40
+  messages). An exhausted chat (`contextExhausted`) skips the summary call
+  entirely. See DESIGN-NOTES "Length limit reached".
+- `/review`, `/init`, `/self-*` are thin drivers over the agent loop; keep the
+  prompts in `src/commands.ts` when they are pure.
 
 Custom commands and skills appear in the «/» hint list and in `/help`
-(dynamic entries from refreshDynamicCommands).
-
-Self-review:
-
-- `/self-review [focus]` — snapshot src/ + review; after this you are IN the snapshot
-- `/self-fix <name> [focus]` — return to an existing snapshot
-- `/self-done` — leave review mode
-- `/self-list` — list snapshots
-- `/self-diff <name>` — differences between the current src/ and a snapshot
-- `/self-apply <name>` — apply a snapshot to src/ (with a backup)
+(dynamic entries from `refreshDynamicCommands`).
 
 ## Project context: AGENTS.md / MEMORY / skills / commands (src/context.ts)
 
-Borrowed from Codex (AGENTS.md) and Claude Code (CLAUDE.md + skills). Loaded
-by `loadProjectContext(workdir)` and injected into the system prompt by
-`renderContextSection()` (src/system-prompt.ts). All reads are best-effort —
-a missing/broken file never breaks the loop.
+`loadProjectContext(workdir)` loads, in priority order: **AGENTS.md** (global
+`~/.zames/AGENTS.md`, `~/.claude/CLAUDE.md`, then every AGENTS.md from the
+filesystem root down to workdir — the deepest wins, case-insensitive name),
+**MEMORY.md** (same chain; the prompt tells the agent to append durable facts),
+**skills** (`SKILL.md` up to 3 levels deep under `.zames/skills`,
+`.claude/skills`, `.agents/skills`, `skills`, plus the home dirs; only the YAML
+frontmatter goes into the prompt, the body is read on demand) and **custom
+commands** (`.md` under the same dirs, supporting `$ARGUMENTS`, `{{args}}`,
+`$1`..`$N`, `$name`, plus `argument-hint:` and `arguments:` frontmatter — a
+command with missing declared args is REJECTED with `msg.missing_args`).
+`loadProjectContext(workdir, touchPaths?)` also pulls NESTED AGENTS.md/MEMORY.md
+from the directories a task touches (path-scoped rules).
 
-What is loaded, in priority order:
-
-- **AGENTS.md** — project instructions. Global: `~/.zames/AGENTS.md` and
-  `~/.claude/CLAUDE.md`. Project: every `AGENTS.md` on the path from the
-  filesystem root down to `workdir` (the deepest wins). File names are
-  matched case-insensitively (`AGENTS.md` / `agents.md`).
-- **MEMORY.md** — durable notes that survive sessions. Global:
-  `~/.zames/MEMORY.md`, `~/.claude/MEMORY.md`; project: up the chain like
-  AGENTS.md. The prompt tells the agent to append durable facts via Edit/Write.
-- **skills** — `SKILL.md` files, discovered up to 3 levels deep under
-  `<workdir>/.zames/skills`, `.claude/skills`, `.agents/skills`, `skills`,
-  plus `~/.zames/skills` and `~/.claude/skills`. Only the YAML frontmatter
-  (`name`, `description`, optional `allowed-tools`, `user-invokable`) goes
-  into the prompt — the body is read on demand (progressive disclosure).
-  Project skills override global ones with the same name.
-  The `## Skills` section also carries a DISCIPLINE paragraph
-  (`SKILLS_DISCIPLINE` in src/system-prompt.ts): before a NON-TRIVIAL task the
-  model must scan the list and Read the `file:` of a matching skill first,
-  while a trivial edit is explicitly exempt. This is the zames equivalent of
-  superpowers' `using-superpowers` bootstrap — plain prompt text, no
-  SessionStart hook required. The bundled methodology skills
-  (`brainstorming` adapted to the silent mode, `writing-plans`,
-  `systematic-debugging`, `verification-before-completion`,
-  `test-driven-development`) are BAKED INTO `BUILTIN_SKILLS` (src/context.ts),
-  like `commit`/`review`/`test`/`debug`/`explain`, so a user who installed the
-  npm package has them out of the box; a project SKILL.md of the same name
-  overrides the built-in. The `.zames/skills/*/SKILL.md` copies are a LOCAL
-  convenience (gitignored, not shipped).
-- **custom commands** — `.md` files under `.zames/commands`, `.claude/commands`,
-  `.agents/commands`, `~/.zames/commands`, `~/.claude/commands`. The body
-  supports `$ARGUMENTS` and `{{args}}` placeholders, plus positional `$1`..`$N`
-  and named `$name` tokens. Two optional frontmatter fields:
-  `argument-hint:` (e.g. `<file> [focus]`) is shown in the «/» suggest list and
-  `/help` as a display-only `hint` on the entry (NEVER inserted into the input
-  line), and `arguments:` declares mandatory positional names.
-
-When the operator types `/<name>`, `expandSlashTarget()` (src/index.ts) looks
-it up among commands (prompt template) and skills (instruction body) and turns
-it into the task text. The pure helpers `splitCommandArgs()`,
-`expandCommandArgs()` and `missingCommandArgs()` (src/commands.ts) do the
-substitution: a command whose declared `arguments:` are not all supplied on the
-command line is REJECTED with `msg.missing_args` instead of being sent.
-Skills and commands also show up in the «/» completion list and in `/help`.
+The `## Skills` section carries a DISCIPLINE paragraph (`SKILLS_DISCIPLINE`):
+before a NON-TRIVIAL task the model must scan the list and Read a matching
+skill's `file:` first. The bundled methodology skills (brainstorming,
+writing-plans, systematic-debugging, verification-before-completion,
+test-driven-development) are BAKED INTO `BUILTIN_SKILLS` so an npm user has
+them out of the box; a project skill of the same name overrides a built-in.
 
 ## Configuration (src/config.ts)
 
-Global: `~/.zames/config.json`
-Local: `<project>/.zamesrc.json`
-Defaults and merging — in DEFAULTS/deepMerge. Key sections: maxIterations,
-headless, debug, undo, transcript, browser, ui.
+Global `~/.zames/config.json`, local `<project>/.zamesrc.json`; defaults and
+merging in `DEFAULTS`/`deepMerge`. `CONFIG_SCHEMA` is the single source of
+truth for everything editable from `/config`: each entry has `path`, `type`, a
+`labelKey`/`groupKey` (i18n keys — NO English strings in the schema; the
+menu/list are localized) and optional `values`/`min`/`max`. To add a setting:
+the section interface, a `CONFIG_SCHEMA` entry and the ru+en CATALOG keys. Do
+NOT add secrets and values that require a restart (transcript.dir,
+browserChannel).
 
-### Editing via /config
+`/config` opens the Ink menu (`runConfigMenu()`, editor paused while it runs)
+or, with a subcommand, the text API (`list|get|set|reset|path|lang`) handled by
+`src/config-command.ts`. Values are written to the HOME config, never to the
+project `.zamesrc.json` (personal toggles must not leak into git). Writing does
+not freeze defaults; the live config object is updated so the change applies
+immediately.
 
-`CONFIG_SCHEMA` (src/config.ts) is the list of settings that can be changed
-from `/config`. Each entry: `path` (e.g. `undo.enabled`), `type`
-(boolean/number/string/enum), `labelKey`/`groupKey` (i18n keys of the label and
-group), optionally `values`/`min`/`max`. The schema is the single source of
-truth: `set` is validated against it, and the menu and text list are built from it.
+**Precedence trap**: `loadConfig()` merges home THEN project, so a key present
+in BOTH is decided by the project while `/config set` writes only the home one
+— the change applies live and is silently reverted on the next launch.
+`overriddenKeys()` (pure) lists the clashes, `shadowedConfigKeys()` stores them,
+and both the startup warning and `/config set|lang` print `cfg.shadowed`. Do NOT
+"fix" this by writing to the project file.
 
-**Labels are localized**: the schema has no English strings, only keys
-(`cfg.f.*`, `cfg.group.*`) — their translations live in src/i18n.ts. So the menu
-and list are always in the selected language.
-
-The interactive menu is `runConfigMenu()` in src/config-menu.ts. It is invoked
-by `/config` (without arguments) in a TTY. Controls: ↑/↓ or j/k — select, Enter —
-edit (boolean/enum toggle in place, number/string prompt for input), d — reset to
-default, q/Esc — quit. The menu reads keys itself and draws to stdout, so while
-it runs, LineEditor is "paused" (`editor.pause()` / `editor.resume()` in
-index.ts), otherwise the menu output would overlap the input line. Input is
-parsed into tokens (the buffer may contain several keys: arrows+Enter) — see `onData`.
-
-Text subcommands (for scripts and non-TTY): `/config [menu|list]`,
-`/config get <path>`, `/config set <path> <val>`, `/config reset <path>`,
-/config path, /config lang <ru|en>. Values are written to the home
-config ~/.zames/config.json, NOT the project .zamesrc.json (personal
-toggles such as browser.auth.* must not leak into git and change defaults
-for other users; .zamesrc.json is ignored by git for the same reason).
-Writing does not freeze defaults into the file. After a change the runtime
-config object is updated - the value takes effect immediately.
-
-### Precedence trap: a project `.zamesrc.json` beats the home config
-
-`loadConfig()` merges `~/.zames/config.json` and then `cwd/.zamesrc.json`, so a
-key present in BOTH is decided by the PROJECT file while `/config set` writes
-only the HOME one. The write reports success, the value applies live, and the
-next launch silently reads the old one — the real "`/config lang ru` does not
-survive a restart, English again" bug (a stale `.zamesrc.json` with
-`ui.locale: en`, gitignored and therefore invisible to `git status`).
-
-`overriddenKeys(home, project)` (PURE, `src/config.ts`) lists the clashing
-leaf paths; `loadConfig()` stores them in `shadowedConfigKeys()`. `index.ts`
-prints a warning at startup and the `/config set|lang` dispatcher
-(`config-command.ts`, `shadowedKeys` dep) prints `cfg.shadowed` right after the
-save. Do not "fix" this by writing to the project file — see the paragraph
-above for why it must stay personal. Tests: `test/config-shadowed-keys.test.ts`,
-`test/config-command.test.ts`.
-(the section interface), an entry to `CONFIG_SCHEMA` (with `labelKey`/`groupKey`)
-and the corresponding keys to the i18n `CATALOG`. Do not add secrets and values
-that require a restart (transcript.dir, browserChannel) to the schema.
+Defaults worth knowing: `browser.minSendIntervalMs` (15000, the pause between
+sends — DeepSeek rate-limits), `browser.stabilityChecks`/`stabilityDelayMs`
+(2 x 400ms settle loop), `browser.deepThinking`/`webSearch` (toggles applied in
+`_applyToggles()` only when `aria-pressed` differs), `browser.autoContinue`
+(true; Continue RESUMES a truncated turn and is clicked BEFORE any resend
+throw), `browser.maxIncompleteRetries`/`incompleteWaitMs` (4 / 2000ms) and
+`browser.maxContextLimitRetries`. The `quasi_status` family, Continue and the
+"Length limit reached" recovery are described in DESIGN-NOTES.
 
 ### Localization (src/i18n.ts)
 
-`Locale = 'ru' | 'en'`. Interface strings are in the `CATALOG`
-(key → `{ ru, en }`), accessed via `translate(locale)(key, params)`.
-The current language is stored in `config.ui.locale`, changed by
-`/config lang <ru|en>` (and `/config set ui.locale en`).
-
-What is localized:
-
-- `printHelp()`, slash-command hints (buildSlashCommands in index.ts);
-- main-loop service messages, `/status`, `/config`;
-- spinner phrases (`createSpinner(locale)` / `randomThinkingPhrase(locale)`);
-- **the agent's answer language** — via the system-prompt: `buildSystemPrompt({ locale })`
-  adds the LANGUAGE section (`prompt.answer_language`), where the model is told
-  to answer the operator in the selected language. `runAgentLoop` passes `locale`
-  into `buildSystemPrompt`.
-
-When the language changes on the fly: `currentLocale` in index.ts is updated,
-the editor rebuilds the hints (`editor.setCommands`), and `config.ui.locale` —
-so that the next task goes with the new language in the system-prompt. Add new
-strings to `CATALOG` (both languages) — the test `test/i18n.test.ts` checks that
-ru/en are present.
-
-`browser.minSendIntervalMs` (15000 by default) — the minimum pause between
-sends to [chat.deepseek.com](https://chat.deepseek.com/). DeepSeek limits the rate
-("Messages too frequent. Try again later."), so `_waitForSendSlot()` in
-`browser.ts` waits before every send until this interval has passed since the
-previous one (`_lastSentAt`). The first send in a session does not wait, and
-the system-prompt send is `agent: false` (it opens a fresh chat, so throttling
-it only added a useless 15s pause at the start).
-
-`browser.stabilityChecks` / `browser.stabilityDelayMs` (2 x 400ms by default)
-— the final "the answer has settled" loop in `_askOnce()`: the answer is
-returned after `stabilityChecks - 1` stable ticks spaced by `stabilityDelayMs`.
-Both are honored (they used to be dead config with a hardcoded 800ms tick).
-
-`browser.deepThinking` / `browser.webSearch` (false / true by default) —
-DeepSeek chat toggles ("Deep thinking" / "Smart search"). `_applyToggles()`
-in `browser.ts` is called in `_askOnce()` right after the send-pause, BEFORE
-the text is typed, and clicks the toggle only when `aria-pressed` differs
-from the configured state (so a manual flip by the operator is not undone).
-The reasoning text is never read: `_readLastAnswerText()` skips elements
-inside `.ds-think-content`, and `net-capture.ts` already ignores
-`reasoning_content`/thinking chunks.
-
-IMPORTANT — `quasi_status` arrives in TWO shapes and BOTH must be matched:
-the initial message as a JSON property (`"quasi_status":"FINISHED"` inside
-`v.response`) and later BATCH updates as `{"p":"quasi_status","v":"..."}`.
-The regexes used to match only the BATCH form, so a FINISHED-without-answer
-turn in the PROPERTY form (the real "Server is temporarily unavailable" body)
-was missed and the finish loop hung until the timeout while the status stayed
-"generating". `FINISHED_STATUS_RE` / `INCOMPLETE_STATUS_RE` (deepseek-ui.ts)
-now match BOTH. Covered by test/generation-incomplete.test.ts.
-
-ALSO part of `isGenerationIncompleteText()`: `generation_timeout`
-(`"Server busy, please try again later."`, `finish_reason: generation_timeout`)
-is the SAME failure family as `generation_err` — the turn did not complete and
-has no RESPONSE, so it must be retried, not waited out
-(`GENERATION_TIMEOUT_RE`, deepseek-ui.ts). Covered by test/deepseek-ui.test.ts.
-
-`browser.maxIncompleteRetries` / `browser.incompleteWaitMs` (4 / 2000ms by
-default) — retries for a turn the SERVER truncated. With the reasoning
-("Deep thinking") toggle ON, DeepSeek frequently cuts a turn short: the SSE
-stream ends with `quasi_status: INCOMPLETE` and
-`finish_reason: generation_err` ("Server is temporarily unavailable") and the
-web UI shows a **Continue** button. The DOM keeps the partial (often the
-previous) answer, so before this fix the finish loop in `_askOnce()` waited
-out the whole `answerTimeoutMs` and threw `ds.send_no_new_answer` — to the
-operator it looked like "the agent stopped with a Continue button in the chat",
-and it happened only with thinking ON (the long THINK phase makes truncation
-far more likely). Now `isGenerationIncompleteText()`
-(`src/browser.ts`, matched against the raw `_netCapture` SSE body) recognizes the
-truncated turn in BOTH the start-wait and the finish loop, throws
-`GenerationIncompleteError`, and `ask()` resends the SAME prompt into the same
-chat (what the Continue button does) up to `maxIncompleteRetries` times. The
-retry does NOT consume a regular `askRetries` attempt. After the budget is
-exhausted the operator gets `ds.incomplete_give_up` (which suggests turning the
-reasoning mode off).
-
-`browser.autoContinue` (true by default) — click DeepSeek's **Continue** button
-automatically when a reasoning turn is capped (the model does NOT resume by
-itself). Set `browser.autoContinue: false` to disable it. `browser.continueMinGapMs`
-(1500ms) throttles the click — a `chat/continue` request hits the same rate limit
-as a normal send. ORDER MATTERS: Continue RESUMES the same turn, so on a
-truncated (`generation_err`/`INCOMPLETE`) or finished-without-answer turn the
-code clicks Continue FIRST and only throws `GenerationIncompleteError` (which
-makes `ask()` resend) when the button is absent. A PAUSED turn also looks
-"settled", so `_continueButtonVisible()` is checked BEFORE the stability
-early-return in BOTH `_askOnce` loops.
-
-The "Stopped" family (a FINISHED turn with only a THINK fragment and no
-RESPONSE; "Stopped" with no Continue button; and why all four detectors must
-read the RAW SSE body `_netBody`/`_netNoAnswer`, not `_netCapture`) is a deep
-root-cause write-up — see docs/DESIGN-NOTES.md, section "The Continue button".
-
-### "Length limit reached. Please start a new chat."
-
-This is NOT a rate limit and NOT a server hiccup: the chat's CONTEXT WINDOW is
-exhausted and the server refuses EVERY further send into it. Retrying in place
-can never succeed, yet the notice used to fall into the generic ask() retry —
-the agent kept resending into the dead chat, burned `askRetries` and stopped
-with a bare error while the notice sat in the chat.
-
-Now it has its own detection path and its own recovery:
-- `CONTEXT_LIMIT_RE` (deepseek-ui.ts) plus `isContextLimitText()` /
-  `ContextLimitError` (browser-pure.ts, re-exported from browser.ts).
-- `_askOnce` throws `ContextLimitError` in BOTH loops (start-wait and
-  finish-loop), checked BEFORE the rate-limit / server-busy branches, from the
-  toast (`_readPageText`) AND from the captured `_netBody`.
-- `ask()` has a dedicated branch with its own budget
-  (`maxContextLimitRetries`): it calls `browser.onContextLimit` and only on
-  `true` resends the SAME prompt (now into the fresh chat). Without the
-  callback, or when it fails, ask() gives up with `ds.context_limit_give_up`
-  ("open /new and repeat the task") instead of hammering the dead chat.
-- `onContextLimit` is a SEAM like `onAutoCompact`: `agent-loop` attaches it to
-  the browser, `run-task` passes it through, and index.ts implements it with
-  `performCompact({ contextExhausted: true })` — the summary is built from
-  `fetchChatMessages` (the OLD chat refuses the summary prompt too), then a
-  fresh chat gets the system prompt and the carryover. `freshChatNext` /
-  `sendSystemPromptNext` are reset so the next task does not open yet another
-  chat and does not duplicate the prompt.
+`Locale = 'ru' | 'en'`; strings live in `CATALOG` (`key → {ru, en}`) and are
+read via `translate(locale)(key, params)`. Localized: help, «/» hints, service
+messages, `/status`, `/config`, spinner phrases, and the agent's answer
+language (`prompt.answer_language` in the system prompt). A new operator string
+needs a key in BOTH languages (`test/i18n.test.ts` checks it). When the
+language changes live, `currentLocale` and `config.ui.locale` are updated so
+the next task's system prompt follows.
 
 ## Headless by default + login (src/browser.ts)
 
-`headless` is **true by default** (DEFAULTS in config.ts). `--headed` (or
-`headless: false` in the config) shows the browser window for manual sign-in
-and selector debugging. `--headless` is kept as an explicit override.
+`headless` is TRUE by default; `--headed` shows the window for manual sign-in
+and selector debugging. A headless Chromium advertises `HeadlessChrome/<v>`,
+which DeepSeek's CDN answers with a plain `403` BEFORE the app loads — so the
+SAME login worked headed and silently failed headless. `_fixHeadlessUserAgent()`
+relaunches once with the marker stripped (`sanitizeHeadlessUA()`, tested). Any
+new browser-launch logic must keep this: a headless run must never send a
+`HeadlessChrome` UA to chat.deepseek.com.
 
-### Why headless "could not log in" while headed worked (fixed)
-
-A headless Chromium advertises `HeadlessChrome/<v>` in its User-Agent, and
-DeepSeek's CDN (CloudFront/WAF) answers that UA with a plain `403 ERROR` page
-BEFORE the app is served. A headed window sends `Chrome/<v>` and loads fine.
-So the SAME login worked headed and silently failed headless — the operator
-saw "headed logs in, headless doesn't". This was NOT a bug in the login
-selectors.
-
-Fix: `DeepSeekBrowser.launch()` calls `_fixHeadlessUserAgent()` right after
-the first launch. It reads the real UA from the page (`navigator.userAgent`),
-and if it carries the `Headless` marker, closes and relaunches once with
-the marker removed via the `userAgent` launch option (`sanitizeHeadlessUA()`,
-exported and unit-tested). Only the marker is stripped; the real engine
-version is kept. An explicit UA passed in the options/config wins and is
-never touched. When adding browser-launch logic, keep this in mind: any
-headless run must not send a `HeadlessChrome` UA to chat.deepseek.com.
-
-`DeepSeekBrowser.waitForLogin()` handles the DeepSeek session in layers:
-
-1. `isLoggedIn()` — the persistent profile (`~/.zames/profile`) still has a
-   valid cookie → nothing to do;
-2. `_autoLogin()` with `browser.auth.username` / `browser.auth.password` from
-   the config → the "logged out but credentials are known" case;
-3. `_promptAndLogin()` — in a TTY, ask the operator for login (normal
-   readline question) and password (raw keystroke reading, echoed as `*`,
-   `askPassword()`), try them, and on success call `onAuthSave` so index.ts
-   persists them with `writeConfigValue('home', …)` (the browser module never
-   writes the config itself). `askPassword()` reads stdin in raw mode instead
-   of readline because readline's echo (`_writeToOutput`) cannot be reliably
-   muted from outside — that bug made the password step hang; it echoes one
-   `*` per char and handles Backspace/Ctrl+C/Ctrl+D.
-4. a manual hint (`auth.manual_hint` / `auth.manual_hint_headless`) and a
-   final `isLoggedIn()` wait after Enter.
-
-The password field in `/config` is shown masked (`********`) in the menu, the
-text list, and `/config get`. `_persistSessionIfNeeded()` writes a marker
-`~/.zames/auth.json` after a successful login; `/doctor` reports it as the
-`auth` row (`renderDoctor({ authSaved })`). Login DOM selectors live in
-`PASSWORD_SELECTORS` / `LOGIN_SELECTORS` / `LOGIN_SUBMIT_SELECTORS` at the top
-of browser.ts; the login field is found by the closest preceding text input
-when no explicit selector matches.
-
-Data in `~/.zames`: profile (browser), logs (transcript), undo, snapshots,
-`.sessions` (sessions/chats), `auth.json` (session marker). Temp files —
-`<project>/tmp` (in .gitignore, cleaned on launch).
+`waitForLogin()` layers: an existing profile session → saved credentials
+(`browser.auth.*`) → an interactive prompt in a TTY (`askPassword()` reads raw
+stdin, echoes `*`; readline echo could not be muted and hung) → a manual hint.
+`onAuthSave` persists the credentials (the browser module never writes the
+config). `_persistSessionIfNeeded()` writes `~/.zames/auth.json`; `/doctor`
+shows it. The password is masked in `/config`. Data lives in `~/.zames`
+(profile, logs, undo, snapshots, `.sessions`, `auth.json`); temp files go to
+`<project>/tmp` (gitignored, cleaned on launch).
 
 ## Sessions (src/sessions.ts)
 
-So that context is not lost after a restart, each session (a DeepSeek chat id)
-is saved as a separate JSON file in `~/.zames/.sessions/<id>.json`:
-`{ id, title, workdir, createdAt, updatedAt }`. The `last.json` index stores
-`byWorkdir` (the last session for each working directory) and a global `last`.
+Each chat id is saved as `~/.zames/.sessions/<id>.json`; `last.json` keeps
+`byWorkdir` + a global `last`. On startup `main()` restores the last session
+FOR the current working directory unless `--new-chat`/`--chat` is given.
+SUBAGENT chats are INTERNAL: `markInternalChat(id)` denylists them
+(`internal.json`), so `loadLastSession`, `listSessions` and `/chats` skip them
+while `/resume-id` still opens by explicit id. So `/sessions` is the SAFE
+resumable list; `/chats` is the raw backend list with internals hidden.
 
-On startup `main()` restores the last session **for the current working
-directory** (`loadLastSession(workdir)`), unless `--new-chat` or `--chat <id>`
-is passed. This replaces the former single `last-chat.json`, which got lost when
-the project changed and gave no list to restore from.
+On resume the system prompt is NOT resent by default (`promptOnResume()`),
+unless `--resend-prompt`/`browser.resendPromptOnResume` — a resumed chat
+already contains it, and resending grew the context by ~65k chars per resume.
 
-API: `saveSession`, `loadLastSession(workdir)`, `readSession(id)`,
-`listSessions()`, `sessionsDir()`. Saving is called from `saveLastChat()` in
-`index.ts` after every task, new chat and `/resume`.
-
-SUBAGENT chats are INTERNAL and must never be resumed. They are real DeepSeek
-chats, but they exist only to isolate a sub-task's context (their report is
-already folded into the parent chat). `onChatReady` in `src/subagent.ts` does
-NOT call `saveSession`; instead it calls `markInternalChat(id)`, which appends
-the id to `~/.zames/.sessions/internal.json`. `isInternalChat(id)` filters that
-denylist in `loadLastSession` (skips to the next candidate), `listSessions` and
-the `/chats` listing in `index.ts` (`browser.listChats` reads DeepSeek's own
-sidebar, which shows the subagent chats under auto titles). `/resume-id` still
-opens by full id on purpose — it is an explicit override. So `/sessions` is the
-SAFE resumable list; `/chats` is the raw DeepSeek list with internals hidden.
-
-### System-prompt on resume (`browser.resendPromptOnResume`)
-
-When a chat is resumed, its start already contains the system-prompt, so
-resending it is WASTEFUL and pollutes the context (a resumed chat grew a
-system-prompt every `--resume-last`/`/resume`, ~65k chars each — the history
-dump had NINE copies). By default the system-prompt is therefore NOT resent on
-resume: `promptOnResume()` (src/index.ts) returns `false` unless
-`--resend-prompt` is passed or `browser.resendPromptOnResume` is true (set it
-when the prompt/tools changed and the model must see them). This matches the
-one-shot path, which already defaulted to not resending.
-
-### Printing the restored dialogue
-
-When a chat is restored (`/resume <n>`, `/resume-id <id>`, or the automatic
-startup restore), the whole visible dialogue is printed into the terminal so
-the operator sees the context instead of a bare "Chat opened.".
-`DeepSeekBrowser.fetchChatMessages(id)` (src/browser.ts) is tried FIRST: it
-fetches `/api/v0/chat/history_messages?chat_session_id=<id>` from INSIDE the
-page and reads `data.biz_data.chat_messages[]`, keeping REQUEST fragments
-(user) and RESPONSE fragments (assistant) — THINK/FILE fragments are skipped.
-This returns the WHOLE history, while the rendered page virtualizes long
-chats.
-
-IMPORTANT: that endpoint needs an `Authorization` header (DeepSeek's app
-reads a token from its own storage and sets it explicitly). A bare `fetch`
-does NOT get it — the request answers 401/empty. So `_installNetHook()` also
-listens to `page.on('request')`, sniffs `authorization` / `x-ds-pow-response`
-off real `deepseek.com/api/` requests into `_apiAuth` / `_apiPow`, and
-`fetchChatMessages` replays them (waiting up to ~3s for DeepSeek's own
-history request to fire on a freshly opened chat). Cookies alone are not
-enough.
-
-If that fails, `DeepSeekBrowser.readChatMessages()` scrapes the DOM
-best-effort: message containers are matched loosely
-(`div[class*="ds-message"]` / `chat-message` / `message-item`), the role is
-taken from the `ds-assistant-message-*` / `ds-markdown` class (everything else
-is a user turn), and `.ds-think-content` (reasoning) is skipped — same rule as
-in `_readLastAnswerText()`. If no message containers are found, it falls back
-to the assistant-only `ANSWER_SELECTORS`.
-
-The rendering is split in two: `trimRestoredMessages()` and
-`formatRestoredHistory()` (src/commands.ts) are pure and unit-tested (see
-`test/commands.test.ts`), while `printRestoredHistory()` (src/index.ts) does
-the actual output via `editor.printAbove()` (or `console.log` before the
-editor exists) and `renderMarkdown()`. Only the last
-`RESTORED_HISTORY_LIMIT` (20) messages are shown.
-
-IMPORTANT: DeepSeek stores each assistant turn VERBATIM — either a raw
-tool-call JSON (`{"tool":"Read","args":{...}}`, often dirty/truncated) or a
-`respond` call carrying the real message for the operator
-(`{"tool":"respond","args":{"message":"..."}}`). Before, the filter simply
-dropped anything matching `"tool":` — which dropped the REAL answers too, while
-tool-call noise leaked through, so the restored dialogue showed garbage.
-`normalizeRestoredMessage()` (src/commands.ts) now: for USER, drops the
-protocol noise (system-prompt, `Tool result for …`, nudges); for ASSISTANT,
-UNWRAPS a `respond` call to its `message` (via `parseAssistantToolCall()`,
-tolerant of dirty JSON — a stray `}}`, a broken head), DROPS any other
-tool-call, keeps plain-text answers, and drops the model's `<ds_safety>` block.
-`trimRestoredMessages()` applies this and keeps the last 20 messages.
-`isDisplayableMessage()` is now a thin wrapper over `normalizeRestoredMessage()`.
-`readChatMessages` / `fetchChatMessages` are optional in `BrowserLike`, so test
-doubles and self-review are unaffected. The feature is best-effort: a
-fetch/scraping failure never breaks the restore. When nothing is printed,
-`fetchChatMessages` stores its failure reason in `browser._lastHistoryError`,
-which `printRestoredHistory()` shows (and `--debug` prints the
-`[history] chat=... raw=... shown=... err=...` line). A chat that contains
-ONLY tool-calls yields "service only" — that is expected, not a bug.
+Restoring prints the visible dialogue (`fetchChatMessages()` first — the API
+needs the `Authorization` header sniffed off real requests, cookies alone give
+401; DOM scraping is the fallback). `normalizeRestoredMessage()` unwraps a
+`respond` call to its message and drops tool-call noise, the system prompt and
+`<ds_safety>`; only the last `RESTORED_HISTORY_LIMIT` (20) messages are shown.
+Details: DESIGN-NOTES "The agent stopped" and the module comments.
 
 ## Other modules
 
-- `theme.ts` — output palette (chalk)
-- `spinner.ts` — the "agent is working" spinner (random phrases)
-- `markdown.ts` — rendering the model's answers
-- commands.ts - pure helpers for /diff, /cost, /export, /doctor,
-  /add-dir, /review (tested in test/commands.test.ts)
-- `diff.ts` — showing diffs
-- `undo.ts` — backups/revert
-- `transcript.ts` — transcript writing
-- `self-review.ts` — snapshots and self-review
+- `theme.ts` — output palette (chalk); `spinner.ts` — the working spinner;
+  `markdown.ts` — answer rendering; `diff.ts` — diff display; `undo.ts` —
+  backups/revert; `transcript.ts` — transcript writing; `self-review.ts` —
+  snapshots; `checkpoint.ts` — tar snapshot for `/rewind`; `hooks.ts` — tool and
+  lifecycle hooks (`.zames/hooks.json`: Pre/PostToolUse, SessionStart,
+  UserPromptSubmit, PreCompact, Stop, SubagentStop); `diagnostics.ts` —
+  post-edit diagnostics (off by default); `statusline.ts` — the statusLine hook
+  (runs on its own timer, never per-render).
 
 ## Verifying changes
 
-### Agent self-smoke (a real isolated instance)
-
 `npm run self-smoke` (scripts/self-smoke.mts) launches a REAL zames instance in
-an ISOLATED profile and exercises the core functionality end-to-end against
-live DeepSeek, then prints PASS/FAIL per scenario. Use it to check your own
-build BEFORE a final commit — it catches integration regressions (login, tool
-calls, attachments, send) that unit tests cannot.
+an ISOLATED profile (throwaway HOME via `ZAMES_SMOKE_HOME`, copied
+`config.json`, symlinked Playwright cache) and exercises login, tool calls,
+attachments and send against live DeepSeek, printing PASS/FAIL per scenario. It
+NEVER opens the operator's `~/.zames/profile` and can run alongside a live
+agent. Flags: `--headed`, `--reuse-profile` (COPY the signed-in profile
+read-only — use it when a cold login is blocked by anti-bot), `--profile <dir>`,
+`ZAMES_SMOKE_KEEP=1`. Exit code 1 = a scenario failed, 2 = login failed. Add a
+scenario when you add a user-visible feature. `npm run qwen-smoke` /
+`npm run glm-smoke` are the provider counterparts (same isolation, run them
+when you touch that provider; GLM needs `--headed`).
 
-Isolation matters: the script sets a THROWAWAY `HOME` (via `ZAMES_SMOKE_HOME`)
-BEFORE importing any project module, copies the real `~/.zames/config.json` so
-auto-login works, and symlinks the real Playwright browser cache. It NEVER
-writes to the operator's `~/.zames/profile` and can run alongside a live agent.
-Flags: `--headed` (visible window), `--reuse-profile` (COPY the signed-in
-profile read-only so the browser starts logged in), `--profile <dir>` (source
-for the copy), `ZAMES_SMOKE_KEEP=1` (keep the temp HOME).
-Scenario failures are reported, not thrown; exit code 1 = a scenario failed,
-**exit code 2 = login failed** (could not even start).
-Why `--reuse-profile`: DeepSeek's anti-bot increasingly blocks a COLD login on
-a fresh profile (captcha / rate limit), so the default empty-profile run can
-fail for a reason unrelated to the agent. Copying the profile (never opening
-the live one; the Singleton files are dropped in the copy) lets the smoke
-exercise the AGENT against a real signed-in session. Use it before a release
-when a cold login is blocked; the empty-profile mode remains the default.
-When you add a user-visible feature, add a self-smoke scenario for it.
-
-`npm run qwen-smoke` (scripts/qwen-smoke.mts) is the Qwen counterpart: a REAL
-isolated `QwenBrowser` against live `chat.qwen.ai`. It copies
-`~/.zames/qwen-profile` read-only into a throwaway `HOME`
-(`ZAMES_QWEN_SMOKE_HOME`), symlinks the Playwright cache and NEVER opens the
-live profile, so it can run alongside a live agent. Scenarios: login, newChat,
-ask:simple, ask:second-send (the "text entered but send button not pressed"
-regression), listModels, tokenUsage, toolCall. Flags: `--headed`,
-`--no-reuse-profile`, `ZAMES_QWEN_SMOKE_KEEP=1`. Same exit codes as self-smoke.
-When you touch QwenBrowser, run it before a commit.
-
-- Syntax/types: `npm run typecheck` (tsc --noEmit, includes src/, test/ and scripts/**/*.mts)
-- Changelog sync: `npm run changelog:sync` (writes the Unreleased section from
-  conventional commits since the last tag), `npm run changelog:check` (fails when
-  it is stale). Not wired into CI (`.github/workflows/test.yml` runs
-  lint/format/typecheck/tests/coverage/build), so run it before a release. Helper
-  scripts are `.mts` (run via tsx); `postinstall.mjs`
-  stays plain `.mjs` because it runs before tsx is guaranteed to be installed.
-- Tests: `npm test` (tsx --test test/*.test.ts); watch — `npm run test:watch`
-- Build: `npm run build` (tsc -p tsconfig.build.json → dist/, no sourcemap)
-- Run (prod): `npm start` (node dist/index.js) or `zames`
-- Run (dev, no build): `npm run dev` (tsx src/index.ts, HEADED by default
-  so the DeepSeek window is visible while developing)
-- Test framework: the built-in `node:test` + `tsx` (see `test/*.test.ts`).
-  A temp dir MUST be created through `test/tmp-dir.ts` (`makeTmpDir(t, prefix)`
-  / `makeTmpDirSync`), which registers `t.after` cleanup: on WSL os.tmpdir()
-  lives inside ext4.vhdx, thousands of abandoned `zames-*` dirs fragment it and
-  the freed space never returns to C:. The same rule applies to scripts/*.mts
-  and to a temp file written by src/ (clean it in a `finally`).
+- `npm run typecheck` — tsc --noEmit over src/, test/ and scripts/**/*.mts
+- `npm test` — `tsx --test test/*.test.ts`; watch: `npm run test:watch`
+- `npm run lint`, `npm run format:check`, `npm run build`
+- `npm run changelog:sync|check` — derive/verify the Unreleased section (CI
+  enforces `check`; see DEVELOPING.md)
+- Run: `npm start` (dist) or `npm run dev` (tsx over src/, HEADED)
+- Temp dirs in tests MUST come from `test/tmp-dir.ts` (`makeTmpDir`), which
+  registers cleanup: abandoned `zames-*` dirs inside WSL's ext4.vhdx never
+  return their space.
 
 ## TypeScript
 
-The project is in TypeScript, strict. Sources — `src/*.ts`; the build is `tsc`
-into `dist/` (`bin.zames` and the npm publication point to `dist/index.js`,
-`files: ["dist", …]`). `prepublishOnly` builds before publishing.
+Strict; sources `src/*.ts`, build `tsc` into `dist/` (`tsconfig.json` for
+IDE/typecheck incl. test/ and scripts, `tsconfig.build.json` for src only).
+Imports use the `.js` extension (NodeNext) even in `.ts` files. Contracts
+(tool-call, ToolDef, config, BrowserLike) live in `src/types.ts` — sync them
+when the tool or the tool-call format changes.
 
-Two configs: `tsconfig.json` (IDE + `npm run typecheck`: noEmit, includes src/,
-the test/ tests and scripts/**/*.mts; allowImportingTsExtensions) and
-`tsconfig.build.json` (only src →
-dist, sourceMap: false).
+Hot-reload (`/reload`, `--dev`) imports modules with `?t=timestamp`. ONLY the
+modules in `RELOADABLE` (src/index.ts) are hot-reloaded. `browser.ts`,
+`browser-login.ts`, the send-runtime modules, `index.ts`, `run-task.ts`, the
+provider browsers and `src/tui/` are NOT: the live instance owns Playwright
+state/timers, so a hot swap is unsafe and an edit there silently "does not
+work" until the process is RESTARTED. Dev mode watches `browser.ts` and prints
+a ONE-TIME warning (`reload.browser_restart`); the full protocol is in
+DEVELOPING.md.
 
-Imports in the code use the `.js` extension (NodeNext), even in `.ts` files:
-`import { theme } from './theme.js'`. That is what moduleResolution NodeNext requires.
-
-Contracts (tool-call, ToolDef, config, BrowserLike) — in `src/types.ts`.
-If you change a tool or the tool-call format — sync the types there.
-
-Hot-reload (`/reload`, `--dev`) dynamically imports modules with `?t=timestamp`.
-In prod mode these are `dist/*.js`, in dev — `src/*.ts` via tsx (tsx resolves `.js`→`.ts`).
-
-IMPORTANT: only the modules in `RELOADABLE` (src/index.ts) are hot-reloaded —
-`agent-loop`, `system-prompt`, `tools`, `extraTools`, `config`, `gitTools`,
-`web`, `self-review`, `diff`, `undo`, `transcript`, `spinner`, `mcp`.
-**`browser.ts` is NOT in the list and is imported statically ONCE**: the live
-`DeepSeekBrowser` instance owns the Playwright context/page/timers, so a hot
-swap is unsafe. Consequence: in dev mode (`npm run dev` = tsx over `src/`) an
-edit to `browser.ts` does NOT take effect until the process is RESTARTED — a
-fix can silently "not work" while an old copy runs in memory. To make this
-non-silent, dev mode watches `browser.ts`'s mtime and prints a ONE-TIME warning
-(`reload.browser_restart`) when it changes. `dist` does not need rebuilding for
-dev (tsx reads `src/`), but the process must be restarted. The SAME applies to
-`browser-login.ts` and the send-runtime modules (`send-telemetry`,
-`send-throttle`, `send-runtime`): the browser classes import them statically, so
-a change there is picked up only after a restart.
-
-Self-review looks for the directory with the `.ts` sources: in dev it is `src/`,
-in the built `dist/` — `../src` (`resolveSrcDir()` in self-review.ts). The
-published package contains only `dist/`, so /self-review will not work there.
-
-## Why the agent may "stall"
-
-The exit point from runAgentLoop() without running a tool is an answer that
-parseToolCall() could not recognize (parsed === null). Such an answer is taken
-as the model's final text, and the loop ends. Therefore "stalls after a tool
-call" are almost always an unrecognized tool-call format (DSML/XML, dirty JSON,
-prose around it).
-
-The protection has three layers: 0. `parseToolCall()` collects EVERY recognized call, not just one: if the model
-emits several separate `{"tool": ...}` objects (or a mix with an array) in a
-single answer, all of them are returned and executed. Returning only the
-first used to drop the rest, leaving the agent "stalled after a tool call"
-with pending work.
-
-1. `parseToolCall()` tries JSON, permissive parsing, XML/DSML
-   (`src/xml-toolcall.ts`) and, as the last fallback, `repairToolCallPreamble()`
-   — repairing a "broken call head" (`<｜tool": ...`, `tool": ...`,
-   `**tool**: ...`). The fallback runs ONLY after regular parsing, otherwise it
-   is easy to corrupt valid JSON (an array of calls starts with `[`, containing
-   `{"tool":`).
-2. If the answer is still not recognized but LOOKS like a call, `runAgentLoop()`
-   does not finish the task; it sends the model a corrective message and
-   continues the loop (up to `MAX_MALFORMED_RETRIES` times). The detector is
-   extracted into the exported `responseLooksLikeToolCall()`
-   (src/agent-loop.ts) and covered by the test `test/guard-toolcall.test.ts`.
-   It catches: `"tool":`, `tool":` without a quote, `**tool**:`, XML/DSML, and
-   also **truncated** calls (start with `{`/`[`, have an argument key, but no
-   closing bracket). Ordinary prose with `path:`/`command:` (without a leading
-   bracket) is NOT touched by the detector.
-
-A real stall case (transcript 2026-09-22): DeepSeek returned
-`<｜tool": "Bash", "args": {"command": "...` — the opening `{` and the first
-quote of the key were lost, and the answer broke off at ~400 characters. The
-old detector did not see `tool":` without a quote/bracket before the word and
-took it as final — the agent stalled. Now this is caught, and the call is
-repaired.
-
-When extending the answer formats, add parsing to `parseToolCall()` instead of
-relying on the model always returning clean JSON.
+Self-review looks for the `.ts` sources: `src/` in dev, `../src` in a built
+`dist/`. The published package has only `dist/`, so /self-review does not work
+there.
 
 ## Releasing a new version
 
-The release is published to npm automatically: the GitHub Actions workflow
-`.github/workflows/publish.yml` triggers on a `v*` tag push and runs
-`npm publish`. There is no need to run `npm publish` manually.
+Releases are published by CI: `.github/workflows/publish.yml` runs `npm publish`
+on a `v*` tag push. Do NOT run `npm publish` by hand.
 
-Order:
+A release happens ONLY on the operator's direct request — never self-initiated
+after a fix, and several fixes land as ONE patch release (a 142-patch 2.82.x
+branch made the CHANGELOG and npm unreadable). See DEVELOPING.md for the full
+policy.
 
-1. Run `npm run release patch|minor|major` (see below). It validates a clean
-   tree, runs the gates, bumps `version` in `package.json`, writes the dated
-   `CHANGELOG.md` section from the conventional commits, commits
-   `chore: release X.Y.Z` and creates the tag. It does NOT push.
-2. Push the branch AND the tag (`git push` + `git push origin vX.Y.Z`).
-   It is the tag push that triggers the pipeline and the npm publication.
-
-(`scripts/release.mts` / `npm run release` does the same steps. It can also be
-done by hand exactly as steps 1-2 above describe.)
-
-Pipeline requirements: the `NPM_TOKEN` secret in the repository settings.
-
-To check the result: the Actions tab on GitHub and the package page on npm.
+Order: (1) `npm run release patch|minor|major` — validates a clean tree, runs
+the gates, bumps `version`, writes the dated CHANGELOG section, commits
+`chore: release X.Y.Z` and creates the tag (it does NOT push); (2) push the
+branch AND the tag (`git push` + `git push origin vX.Y.Z`) — the tag push
+triggers the pipeline. `NPM_TOKEN` must be set in the repository secrets.
 
 ### Trigger phrases
 
-When the operator says something like "подними версию", "выпусти версию",
-"сделай релиз", "release", "bump the version", "cut a release" — they mean the
-FULL flow above, and you must do it yourself without asking for each step:
-
-1. choose the bump (patch/minor/major) from the nature of the changes since the
-   last tag (bug fix → patch, new feature → minor, breaking change → major),
-2. bump `version` in `package.json`,
-3. commit everything (code + version) with `chore: release X.Y.Z`,
-4. create the tag `vX.Y.Z`,
-5. push the branch AND the tag (`git push` + `git push origin vX.Y.Z`).
-
-Do NOT run `npm publish` — the tag push triggers the GitHub Actions pipeline
-(`.github/workflows/publish.yml`) which publishes to npm. After the push, tell
-the operator the new version and that CI will publish it; to verify, point them
-to the Actions tab and the npm package page.
+"подними версию", "выпусти версию", "сделай релиз", "release", "bump the
+version", "cut a release" mean the FULL flow, done without asking for each
+step: choose the bump (fix → patch, feature → minor, breaking → major), bump
+`version` in `package.json`, commit everything with `chore: release X.Y.Z`,
+create the tag `vX.Y.Z`, push the branch and the tag. Then report the new
+version and point the operator to the Actions tab / npm page.
