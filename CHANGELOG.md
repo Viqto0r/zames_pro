@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.86.1] - 2026-10-27
+
+### Fixed
+
+- **ui:** the operator bar on every row, screenshots for all themes
+
 ## [2.86.0] - 2026-10-27
 
 ### Added
