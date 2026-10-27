@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import chalk from 'chalk'
 import { renderMarkdown } from '../src/markdown.ts'
 import { applyTheme } from '../src/theme.ts'
 
@@ -34,11 +35,25 @@ const answer = [
   '```',
 ].join(String.fromCharCode(10))
 
+// The answers are painted through chalk, which emits PLAIN text when stdout is
+// not a TTY (the test runner pipes it). The check is about the PAINTING, so the
+// SGR level is forced for its duration.
+function withColor<T>(fn: () => T): T {
+  const ch = chalk as unknown as { level: number }
+  const prev = ch.level
+  ch.level = 1
+  try {
+    return fn()
+  } finally {
+    ch.level = prev
+  }
+}
+
 test('a theme switch repaints the model answer', () => {
   applyTheme('zames')
-  const a = truecolors(renderMarkdown(answer))
+  const a = withColor(() => truecolors(renderMarkdown(answer)))
   applyTheme('dracula')
-  const b = truecolors(renderMarkdown(answer))
+  const b = withColor(() => truecolors(renderMarkdown(answer)))
   assert.ok(a.length > 0, 'the answer carried no colors at all')
   assert.notDeepEqual(a, b, 'the answer kept the previous palette')
   applyTheme('zames')
@@ -47,7 +62,7 @@ test('a theme switch repaints the model answer', () => {
 test('the answer colors come from the active palette', () => {
   applyTheme('gruvbox')
   try {
-    const out = renderMarkdown(answer)
+    const out = withColor(() => renderMarkdown(answer))
     const used = truecolors(out)
     // The heading uses the palette's taskSummary color.
     assert.ok(
@@ -66,7 +81,9 @@ test('code highlighting never falls back to cli-highlight default colors', () =>
   // in a rendered block means the palette was bypassed.
   applyTheme('nord')
   try {
-    const out = renderMarkdown('```js\nconst x = 1 // note\n```')
+    const out = withColor(() =>
+      renderMarkdown('```js\nconst x = 1 // note\n```'),
+    )
     const named = [...out.matchAll(/\x1b\[(3[0-7])m/g)].map((m) => m[1])
     assert.deepEqual(named, [], 'named chalk colors leaked into a code block')
     assert.ok(stripAnsi(out).includes('const x = 1'))
