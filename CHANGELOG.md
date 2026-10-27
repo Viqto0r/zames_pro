@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.88.1] - 2026-10-27
+
+### Changed
+
+- docs: restore the demo.png reference in README; document the note files
+
 ## [2.88.0] - 2026-10-27
 
 ### Added
