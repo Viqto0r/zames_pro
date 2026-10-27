@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.84.0] - 2026-10-27
+
+### Added
+
+- **ui:** theme previews, 6 more palettes, inline /config preview
+
 ## [2.83.4] - 2026-10-27
 
 ### Fixed
