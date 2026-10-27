@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.83.2] - 2026-10-27
+
+### Fixed
+
+- **ui:** repaint the model answer and the code highlighting on a theme switch
+
 ## [2.83.1] - 2026-10-27
 
 ### Added
