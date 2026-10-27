@@ -1858,8 +1858,9 @@ async function main(): Promise<void> {
       )
     }
     // No working-directory tail: it ate input width and is already in the
-    // header / /pwd. A bare prompt keeps room for the task text.
-    return theme.prompt('❯ ') + theme.dim('› ')
+    // header / /pwd. A bare `❯ ` keeps room for the task text and does not
+    // read as a SECOND prompt marker next to the cursor.
+    return theme.prompt('❯ ')
   }
 
   await refreshDynamicCommands(currentWorkdir)
@@ -2839,8 +2840,6 @@ async function main(): Promise<void> {
             theme.dim(':') +
             theme.dir(reviewMode.snapName) +
             theme.dim(') ')
-        } else {
-          tail = theme.dim('› ')
         }
         input = await promptOnce(theme.prompt('❯ ') + tail)
       }

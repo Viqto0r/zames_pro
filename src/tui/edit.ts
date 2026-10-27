@@ -297,8 +297,11 @@ export function insertPaste(s: EditState, raw: string): EditState {
 export function historyUp(s: EditState): EditState {
   if (!s.history.length) return s
   let histIndex = s.histIndex
-  let histDraft = s.histDraft
-  if (histIndex === s.history.length) histDraft = s.buf
+  // Snapshot the unsent line when the browse STARTS (histIndex is at the end),
+  // but NEVER replace the remembered draft with a RECALLED entry's text: a
+  // second Up after a Down used to overwrite it, and the operator's typed
+  // message was lost ("pressed Up by accident").
+  const histDraft = histIndex === s.history.length ? s.buf : s.histDraft
   if (histIndex > 0) {
     histIndex--
     const buf = s.history[histIndex]
@@ -316,15 +319,50 @@ export function historyUp(s: EditState): EditState {
 export function historyDown(s: EditState): EditState {
   if (!s.history.length) return s
   let histIndex = s.histIndex
+  // The CURRENT line is the operator's, not a history entry: leaving the
+  // history must bring it back. Without this, editing a recalled line and then
+  // pressing Down restored the OLD draft and dropped the edit.
+  const draft = browsingHistory(s) ? s.histDraft : s.buf
   let buf: string
   if (histIndex < s.history.length - 1) {
     histIndex++
     buf = s.history[histIndex]
   } else {
     histIndex = s.history.length
-    buf = s.histDraft
+    buf = draft
   }
-  return { ...s, histIndex, buf, cursor: Array.from(buf).length }
+  return {
+    ...s,
+    histIndex,
+    histDraft: draft,
+    buf,
+    cursor: Array.from(buf).length,
+  }
+}
+
+// ---------- draft guard ----------
+//
+// The operator's UNSUBMITTED line must survive a history browse, arrow-key
+// scrolling and every other non-typing transition. `histDraft` alone did not:
+// it is snapshotted only when the browse STARTS (histIndex === history.length),
+// so once the cursor was inside the history an edit or a second Up path could
+// replace it — a real report was "I pressed Up by accident and my typed message
+// was gone".
+//
+// The rule: typing/recalling may change the visible buffer, but a transition
+// that is NOT an explicit edit must keep the draft; leaving the history restores
+// it. `typingRun` is true while the operator types (so a real edit adopts the new
+// text as the draft on the next browse).
+
+/** True while the buffer is a RECALLED history entry (not the draft). */
+export function browsingHistory(s: EditState): boolean {
+  return s.history.length > 0 && s.histIndex < s.history.length
+}
+
+/** Remember the current buffer as the draft when it is NOT a history entry. */
+export function rememberDraft(s: EditState): EditState {
+  if (s.buf === s.histDraft) return s
+  return { ...s, histDraft: s.buf }
 }
 
 export function searchStart(s: EditState): EditState {

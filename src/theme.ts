@@ -1,5 +1,6 @@
 import chalk, { type ChalkInstance } from 'chalk'
 import { contentWidth } from './width.js'
+import { applyBackground } from './tui/background.js'
 import type { ThemeName } from './types.js'
 
 // Respect NO_COLOR (https://no-color.org): when the operator sets it (any
@@ -436,6 +437,9 @@ export function applyTheme(name: unknown): ThemeName {
     theme[key] = built[key]
   }
   activeName = next
+  // The window background is part of the look: paint it (best effort) so a
+  // dark palette does not sit on a light terminal background.
+  applyBackground(next)
   return next
 }
 

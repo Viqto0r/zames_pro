@@ -55,6 +55,7 @@ import {
   searchBackspace,
   recordHistory,
   afterSubmit,
+  rememberDraft,
   type EditState,
 } from './edit.js'
 import { dispatchKey, parseCsiU } from './keys.js'
@@ -258,17 +259,22 @@ export function InputLine(props: InputLineProps): React.ReactElement {
         case 'submit':
           doSubmit()
           return
+        // The EDIT actions first write the line into the draft slot, so a
+        // remembered draft is replaced only by a REAL edit and an accidental
+        // Up cannot lose the typed message.
         case 'newline':
-          apply(insertNewline)
+          apply((s) => pushUndo(rememberDraft(insertNewline(s)), true))
           return
         case 'insert':
-          apply((s) => pushUndo(insertText(s, action.text), true))
+          apply((s) =>
+            pushUndo(rememberDraft(insertText(s, action.text)), true),
+          )
           return
         case 'backspace':
-          apply((s) => backspace(pushUndo(s, true)))
+          apply((s) => backspace(pushUndo(rememberDraft(s), true)))
           return
         case 'delete':
-          apply((s) => del(pushUndo(s, true)))
+          apply((s) => del(pushUndo(rememberDraft(s), true)))
           return
         case 'left':
           apply(moveLeft)

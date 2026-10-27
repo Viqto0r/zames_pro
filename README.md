@@ -38,7 +38,7 @@ lock-in. Install with `npm install -g zames_pro`, run `zames` in any project
 folder, and describe the task in plain language.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png" alt="zames terminal coding agent session — an AI coding agent working in the command line without an API key" width="860">
+  <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/shots/theme-zames.png" alt="zames terminal coding agent session — an AI coding agent working in the command line without an API key" width="860">
 </p>
 
 ## Quick start
@@ -635,7 +635,12 @@ are ports of well-known editor schemes:
 `rose-pine`, `everforest`, `kanagawa`.
 
 A theme repaints EVERYTHING: the interface, the agent's answers, the code
-highlighting inside them, the status row and the input frame. To make the choice
+highlighting inside them, the status row and the input frame. The terminal's
+BACKGROUND follows too: the theme emits OSC-11 with the palette's `bg`
+(supported by iTerm2, Windows Terminal, kitty, WezTerm, Alacritty, GNOME
+Terminal and others; where it is not supported nothing happens). Opt out with
+`ZAMES_NO_BG=1` or `NO_COLOR`.
+To make the choice
 concrete, a SAMPLE SESSION in that palette is shown before you pick (in `/theme`
 below the list, in `/config` press `p` on the theme row); after
 `/theme <id>` the sample is printed too. The frame itself is a separate
@@ -761,7 +766,7 @@ Qwen или GLM) в агента для командной строки в ду�
 можно описать обычным языком.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png" alt="сессия zames в терминале — терминальный coding-агент и AI-ассистент программиста без API-ключа" width="860">
+  <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/shots/theme-zames.png" alt="сессия zames в терминале — терминальный coding-агент и AI-ассистент программиста без API-ключа" width="860">
 </p>
 
 ## Быстрый старт
@@ -1367,7 +1372,11 @@ enum переключаются на месте; числа и строки от
 `rose-pine`, `everforest`, `kanagawa`.
 
 Тема перекрашивает ВСЁ: интерфейс, ответы агента, подсветку кода в ответах,
-строку статуса и рамку ввода. Чтобы было видно, ЧТО меняется, перед выбором
+строку статуса и рамку ввода. ФОН окна терминала тоже перекрашивается: тема
+шлёт OSC-11 с цветом `bg` палитры (поддерживают iTerm2, Windows Terminal,
+kitty, WezTerm, Alacritty, GNOME Terminal и др.; где не поддерживается — просто
+ничего не происходит). Отключить фон: `ZAMES_NO_BG=1` или `NO_COLOR`.
+Чтобы было видно, ЧТО меняется, перед выбором
 показывается образец сессии в этой палитре (в `/theme` — под списком, в
 `/config` — клавиша `p` на строке темы). После применения `/theme <id>`
 образец печатается в терминал. Саму рамку можно менять отдельно:
