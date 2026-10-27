@@ -380,14 +380,14 @@ export interface LayoutResult {
   cursorCol: number
 }
 
-// Inner content width of the framed input box: the rounded border takes 1
-// column on each side and the box adds 1 column of padding on each side, so
-// the text must wrap to `cols - 4`. Exported so the layout ABOVE the box
+// Inner content width of the framed input box: the border takes 1 column on
+// each side (2 total, 0 when ui.inputBorder is 'none') and the box adds
+// 1 column of padding on each side, so the text wraps to `cols - border - 2`. Exported so the layout ABOVE the box
 // (FullScreenApp) and the box itself (InputLine) use ONE number — a mismatch
 // made the reserved height disagree with the rendered rows and the panel
 // overflowed.
-export function inputInnerCols(cols: number): number {
-  return Math.max(4, (Number(cols) || 80) - 4)
+export function inputInnerCols(cols: number, borderCols = 2): number {
+  return Math.max(4, (Number(cols) || 80) - borderCols - 2)
 }
 
 // Real height (rows) of the framed input box for the CURRENT buffer: 2 border
@@ -400,10 +400,13 @@ export function inputBoxRows(
   buf: string,
   cursor: number,
   cols: number,
+  borderCols = 2,
 ): number {
-  const inner = inputInnerCols(cols)
+  const inner = inputInnerCols(cols, borderCols)
   const rows = layoutInput(prompt, buf, cursor, inner).rows.length
-  return 2 + Math.max(1, rows)
+  // Two BORDER rows only when a frame is drawn ('none' reserves just the text).
+  const borderRows = borderCols > 0 ? 2 : 0
+  return borderRows + Math.max(1, rows)
 }
 
 export function layoutInput(

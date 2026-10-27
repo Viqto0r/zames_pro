@@ -46,6 +46,40 @@ export function uiColorsFrom(p: Palette): UiColors {
 
 export const UI: UiColors = uiColorsFrom(PALETTES[DEFAULT_THEME])
 
+// Border STYLE of the framed surfaces (the input box today). Ink only ships a
+// handful of box styles; 'none' draws no frame at all. Kept next to the colors
+// because it is the same kind of presentation state, and mutated in place so a
+// /config switch applies without re-importing anything.
+let inputBorder = 'round'
+
+/** Switch the input frame style ('round'|'single'|'double'|'bold'|'none'). */
+export function setInputBorder(name: unknown): string {
+  const v = String(name ?? '')
+    .trim()
+    .toLowerCase()
+  inputBorder =
+    v === 'none' ||
+    v === 'single' ||
+    v === 'double' ||
+    v === 'bold' ||
+    v === 'round'
+      ? v
+      : 'round'
+  return inputBorder
+}
+
+/** The current input frame style as an Ink borderStyle value (none = no box). */
+export function inputBorderStyle():
+  'round' | 'single' | 'double' | 'bold' | undefined {
+  if (inputBorder === 'none') return undefined
+  return inputBorder as 'round' | 'single' | 'double' | 'bold'
+}
+
+/** Border columns the frame consumes (2 = left + right, 0 when off). */
+export function inputBorderCols(): number {
+  return inputBorderStyle() ? 2 : 0
+}
+
 /** Repaint the Ink widgets with the palette of `name` (unknown -> default). */
 export function syncUiColors(name: unknown): ThemeName {
   const id = isThemeName(name) ? name : DEFAULT_THEME

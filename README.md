@@ -633,6 +633,11 @@ are ports of well-known editor schemes:
 `zames` (default), `one-dark`, `dracula`, `gruvbox`, `nord`, `monokai`,
 `solarized-dark`, `tokyo-night`.
 
+A theme repaints EVERYTHING: the interface, the agent's answers, the code
+highlighting inside them and the input frame. The frame itself is a separate
+setting: `/config set ui.inputBorder <round|single|double|bold|none>`
+(default `round`; `none` removes it).
+
 Agent data is stored in `~/.zames`: browser profile, logs, undo history, sessions.
 
 ## FAQ
@@ -1355,6 +1360,10 @@ enum переключаются на месте; числа и строки от
 
 `zames` (по умолчанию), `one-dark`, `dracula`, `gruvbox`, `nord`, `monokai`,
 `solarized-dark`, `tokyo-night`.
+
+Тема перекрашивает ВСЁ: интерфейс, ответы агента, подсветку кода в ответах и
+рамку ввода. Саму рамку можно менять отдельно: `/config set ui.inputBorder
+<round|single|double|bold|none>` (по умолчанию `round`, `none` — без рамки).
 
 Данные агента хранятся в `~/.zames`: профиль браузера, логи, история undo,
 сессии.

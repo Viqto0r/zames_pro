@@ -229,6 +229,8 @@ export interface UiConfig {
    * terminal repaints with the new scheme without a restart.
    */
   theme: ThemeName
+  /** Frame style of the input box (see INK box styles): round|single|double|bold|none. */
+  inputBorder: 'round' | 'single' | 'double' | 'bold' | 'none'
   /**
    * The context window size (tokens) used to render the status-bar fill
    * percentage and to color it. DeepSeek's web context is advertised around

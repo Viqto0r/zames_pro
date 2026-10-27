@@ -56,6 +56,10 @@ export const configMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Язык интерфейса и ответов агента',
     en: 'Interface and agent reply language',
   },
+  'cfg.f.ui_inputBorder': {
+    ru: 'Рамка строки ввода: round | single | double | bold | none',
+    en: 'Input box frame: round | single | double | bold | none',
+  },
   'cfg.f.ui_theme': {
     ru: 'Цветовая тема терминала',
     en: 'Terminal color theme',

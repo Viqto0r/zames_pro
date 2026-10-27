@@ -66,7 +66,7 @@ import {
   completeSlashCommand,
 } from '../input/suggest.js'
 import type { Attachment } from '../attachments.js'
-import { UI } from './ui-colors.js'
+import { UI, inputBorderStyle } from './ui-colors.js'
 
 export interface InputLineProps {
   prompt: string
@@ -119,7 +119,11 @@ function InputRows({
           <Text color={UI.accent} bold>
             {r.prefix}
           </Text>
-          {r.text}
+          {/* The typed text itself is the PALETTE's answer color: a wrapped
+              continuation row must look like the same text, not like a dimmed
+              gutter. Without an explicit color Ink falls back to the terminal
+              default, which is why a multi-line input looked "unthemed". */}
+          <Text color={UI.text}>{r.text}</Text>
         </Text>
       ))}
     </Box>
@@ -163,7 +167,11 @@ export function InputLine(props: InputLineProps): React.ReactElement {
   // `Math.max(4, cols - 4)` here was one independent copy that could drift from
   // the reservation (the box then rendered more rows than were reserved and the
   // input rows overprinted the status bar).
-  const innerCols = inputInnerCols(cols)
+  // The frame style comes from ui.inputBorder (set live by /config): round
+  // (default), single, double, bold, none. Read per render so a switch applies
+  // immediately; 'none' also frees the two border columns for the text.
+  const borderStyle = inputBorderStyle()
+  const innerCols = inputInnerCols(cols, borderStyle ? 2 : 0)
 
   // Mirror the state into a ref so the useInput callback (a stable closure Ink
   // calls for every key) always sees the latest values.
@@ -488,7 +496,7 @@ export function InputLine(props: InputLineProps): React.ReactElement {
         </Box>
       )}
       <Box
-        borderStyle="round"
+        borderStyle={borderStyle}
         borderColor={props.locked ? UI.dim : UI.accent}
         paddingLeft={1}
         paddingRight={1}

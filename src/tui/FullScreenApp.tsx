@@ -21,7 +21,7 @@ import { suggestRowCount } from '../input/suggest.js'
 import { truncateToWidth, visLen } from '../input/layout.js'
 import { fullScreenLayout } from './layout.js'
 import { useMouseWheel } from './useMouseWheel.js'
-import { UI } from './ui-colors.js'
+import { UI, inputBorderCols } from './ui-colors.js'
 
 export type FullInputCallbacks = Omit<
   InputLineProps,
@@ -101,6 +101,7 @@ export function FullScreenApp({
     buf: state.edit.buf,
     cursor: state.edit.cursor,
     suggestRows: suggestRowCount(state.edit.buf, state.commands, cols),
+    borderCols: inputBorderCols(),
   })
   const logHeight = fsLayout.logHeight
 

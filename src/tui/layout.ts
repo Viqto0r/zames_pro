@@ -21,6 +21,9 @@ export interface FullScreenLayoutInput {
   cursor: number
   /** Rows the slash-command suggestion popup occupies (0 when hidden). */
   suggestRows: number
+  /** Horizontal border columns of the input box: 2 with a frame, 0 for
+   *  ui.inputBorder=none (the wrap width and the reserved height change). */
+  borderCols?: number
 }
 
 export interface FullScreenLayout {
@@ -43,7 +46,13 @@ export function fullScreenLayout(
 ): FullScreenLayout {
   const termRows = Math.max(1, Math.floor(input.termRows) || 24)
   const cols = Math.max(1, Math.floor(input.cols) || 80)
-  const box = inputBoxRows(input.prompt, input.buf, input.cursor, cols)
+  const box = inputBoxRows(
+    input.prompt,
+    input.buf,
+    input.cursor,
+    cols,
+    input.borderCols ?? 2,
+  )
   const suggestRows = Math.max(0, Math.floor(input.suggestRows) || 0)
   const panelRows = HEADER_ROWS + STATUS_ROWS + box + suggestRows + HINT_ROWS
   const logHeight = Math.max(1, termRows - panelRows)

@@ -143,6 +143,7 @@ export const DEFAULTS: ZamesConfig = {
   ui: {
     locale: DEFAULT_LOCALE,
     theme: DEFAULT_THEME,
+    inputBorder: 'round',
     contextLimit: 1_000_000,
     // 0 = auto: terminal width, capped at 100 columns (the historical width).
     answerWidth: 0,
@@ -348,6 +349,13 @@ export const CONFIG_SCHEMA: ConfigField[] = [
     max: 100000,
     labelKey: 'cfg.f.maxIterations',
     groupKey: 'cfg.group.agent',
+  },
+  {
+    path: 'ui.inputBorder',
+    type: 'enum',
+    values: ['round', 'single', 'double', 'bold', 'none'],
+    labelKey: 'cfg.f.ui_inputBorder',
+    groupKey: 'cfg.group.ui',
   },
   {
     path: 'ui.theme',

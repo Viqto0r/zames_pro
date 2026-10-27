@@ -12,6 +12,7 @@ import {
   currentThemeName,
   isThemeName,
 } from './theme.js'
+import { setInputBorder } from './tui/ui-colors.js'
 
 import { DeepSeekBrowser, headlessUACacheReady } from './browser.js'
 import { QwenBrowser } from './qwen-browser.js'
@@ -247,6 +248,10 @@ setAnswerWidth(config.ui?.answerWidth ?? 0)
 // banner, startup notices): theme.ts starts on the default and every call site
 // reads the live object, so one apply here repaints the whole session.
 applyTheme(config.ui?.theme)
+// Same for the input-box FRAME style: the TUI reads it per render, so one
+// apply before the editor is created covers the first paint (a /config change
+// goes through setConfigRuntime below).
+setInputBorder(config.ui?.inputBorder)
 
 // Current interface/agent language. Changed by the /config lang <ru|en> command.
 let currentLocale: Locale = isLocale(config.ui?.locale)
@@ -2313,6 +2318,10 @@ async function main(): Promise<void> {
     // object is shared and mutated in place, so every later render uses it;
     // the editor is asked for a full redraw because the rows already on screen
     // (status, prompt, hints) were painted with the OLD colors.
+    if (path === 'ui.inputBorder') {
+      setInputBorder(value)
+      if (editor) editor.setTheme?.(themeColors())
+    }
     if (path === 'ui.theme') {
       const applied = applyTheme(value)
       config.ui.theme = applied
@@ -2564,7 +2573,9 @@ async function main(): Promise<void> {
       // read the shared UI map, and without a bump the operator would cycle
       // palette ids while the colors stayed those of the previous one.
       onAfterChange: (field: ConfigField) => {
-        if (field.path === 'ui.theme') editor?.setTheme?.(themeColors())
+        if (field.path === 'ui.theme' || field.path === 'ui.inputBorder') {
+          editor?.setTheme?.(themeColors())
+        }
       },
       locale: currentLocale,
     }

@@ -19,8 +19,8 @@ const src = fs.readFileSync(path.join(root, 'src/tui/InputLine.tsx'), 'utf-8')
 test('InputLine wraps with the shared inputInnerCols helper', () => {
   assert.match(
     src,
-    /const innerCols = inputInnerCols\(cols\)/,
-    'InputLine must use inputInnerCols(cols), not a hand-written cols - 4',
+    /const innerCols = inputInnerCols\(cols, borderStyle \? 2 : 0\)/,
+    'InputLine must use inputInnerCols(), not a hand-written cols - 4',
   )
   // The COMPUTATION must not be hand-written again (the comment above it may
   // quote the old expression, so match on a code line only).

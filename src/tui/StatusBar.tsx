@@ -164,23 +164,18 @@ function Badges({
   return <>{all.slice(start).map((b) => b.node)}</>
 }
 
-export function StatusBar({
-  state,
-  divider = true,
-}: {
-  state: TuiState
-  /** Draw the thin rule above the status. Off in full-screen mode, which has
-   *  its own header divider (otherwise the rule shows twice). */
-  divider?: boolean
-}): React.ReactElement {
-  // Drive the spinner from Ink's shared animation timer (one timer for the
-  // whole tree). The interval matches the old 400ms dot cadence.
+/**
+ * The LEFT part of the status row (spinner/pause/scroll marker) as a string.
+ * Extracted from the component so the text and its rules are unit-testable
+ * without a terminal; the component only truncates and colorizes it.
+ */
+export function statusLeftText(
+  state: TuiState,
+  t: ReturnType<typeof translate>,
+  frame = 0,
+): string {
   const animating = state.busy || !!state.animBase
-  const { frame } = useAnimation({ interval: 400, isActive: animating })
-
-  const t = translate(state.locale)
   const stateLbl = stateLabel(state, state.locale)
-
   let left: string
   if (state.pendingText) {
     left = '✎ ' + state.pendingText + '  ·  ' + t('spinner.hint')
@@ -199,27 +194,47 @@ export function StatusBar({
   } else {
     left = ''
   }
-
   const prefix = stateLbl ? stateLbl + ' ' : ''
   // When the log is scrolled up, show a marker in the status line (NOT as a
   // separate row below the input — that pushed the panel up and made the input
   // jump). It replaces the spinner text while scrolled, so it never adds a row.
+  // It carries NO timer: the elapsed label belongs to an animation, and a
+  // counter running next to «scrolled 5 lines» only ate width.
   const scrollNote =
     state.scroll > 0
-      ? translate(state.locale)('status.scrolled', {
-          n: String(state.scroll),
-        })
+      ? translate(state.locale)('status.scrolled', { n: String(state.scroll) })
       : ''
-  const leftText = scrollNote || prefix + left
+  return scrollNote || prefix + left
+}
+
+export function StatusBar({
+  state,
+  divider = true,
+}: {
+  state: TuiState
+  /** Draw the thin rule above the status. Off in full-screen mode, which has
+   *  its own header divider (otherwise the rule shows twice). */
+  divider?: boolean
+}): React.ReactElement {
+  // Drive the spinner from Ink's shared animation timer (one timer for the
+  // whole tree). The interval matches the old 400ms dot cadence.
+  const animating = state.busy || !!state.animBase
+  const { frame } = useAnimation({ interval: 400, isActive: animating })
+
+  const t = translate(state.locale)
+  const leftText = statusLeftText(state, t, frame)
   const showLeft = !!leftText
 
-  // Keep the row on ONE line. The left status gets at most a third of the
-  // width (it is the least important); the badges take the rest and DROP whole
-  // badges until they fit (the context counter survives longest). Estimating
-  // the badge width for the left budget was circular and let the row overshoot
-  // to a second line on a narrow terminal.
+  // Keep the row on ONE line: the left status may use whatever the BADGES do
+  // not need, minus a small gap so the two never touch. A fixed "a third of
+  // the width" budget cut the pause counter mid-number («5…») while half the
+  // row sat empty; measuring the badges (they are DROPPED whole when the row
+  // is tight, the context counter survives longest) is both accurate and
+  // keeps the layout stable.
   const cols = useWindowSize().columns || 80
-  const leftBudget = Math.max(0, Math.min(Math.floor(cols / 3), cols - 14))
+  const badgeW = badgeTextWidth(state)
+  const gap = badgeW > 0 ? 2 : 0
+  const leftBudget = Math.max(0, cols - 2 - badgeW - gap)
   const leftOut = showLeft ? truncateToWidth(leftText, leftBudget) : ''
 
   return (
