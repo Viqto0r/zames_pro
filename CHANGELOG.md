@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.87.0] - 2026-10-27
+
+### Added
+
+- **ui:** light palettes, themed task badge, readable config menu on light themes
+
 ## [2.86.1] - 2026-10-27
 
 ### Fixed
