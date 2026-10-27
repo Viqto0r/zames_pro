@@ -623,6 +623,10 @@ locale lives in `ui.locale` in the config file.
 `/theme` opens a pick list with a LIVE preview: the arrow keys repaint the
 terminal as you move, Enter saves, Esc restores the previous palette.
 `/theme <id>` applies a palette directly, `/theme list` prints every id.
+The switch also works WHILE the agent is generating: `/theme <id>` and
+`/config set ui.theme <id>` neither interrupt the turn nor touch the chat (it is
+a pure terminal repaint); the bare `/theme` pick list is queued instead, because
+it opens a full-screen list.
 The same setting is reachable from the settings side:
 `/config set ui.theme <id>` or the `/config` menu («Terminal color theme»).
 The switch is instant, no restart. `zames` is the default; the bundled palettes

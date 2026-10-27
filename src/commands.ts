@@ -1229,6 +1229,19 @@ export function isLiveConfigCommand(text: string): boolean {
   return /^\/config\s+(?!menu\b|ui\b)\S+/i.test(String(text ?? '').trim())
 }
 
+/**
+ * `/theme <id>` is safe WHILE the agent works: it only repaints the terminal
+ * (the theme object and the Ink colour map are mutated in place) and never
+ * touches the browser, the chat or the in-flight generation. So it is
+ * intercepted like `/config set` instead of being queued until the task ends.
+ *
+ * `/theme` with NO argument opens the pick LIST in the TUI, which pauses the
+ * editor and would fight the running task — that form stays queued.
+ */
+export function isLiveThemeCommand(text: string): boolean {
+  return /^\/theme\s+\S+/i.test(String(text ?? '').trim())
+}
+
 // Parse a `/queue` invocation. Returns the subcommand ('list' | 'clear') or
 // null when the text is not a /queue command at all. This runs WHILE the agent
 // is busy (intercepted in the input handler), because the main command loop is

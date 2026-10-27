@@ -2169,6 +2169,12 @@ async function main(): Promise<void> {
           void handleConfigCommand(text)
           return
         }
+        // `/theme <id>` is safe mid-run too: a pure repaint. The bare `/theme`
+        // opens the pick list (pauses the editor) and stays queued.
+        if (mod.commands.isLiveThemeCommand(text)) {
+          void handleThemeCommand(text)
+          return
+        }
         // `/goal` is safe mid-run: it only sets a variable and writes a file.
         if (/^\/goal(\s|$)/i.test(text.trim())) {
           void handleGoal(text)
