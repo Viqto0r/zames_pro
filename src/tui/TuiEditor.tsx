@@ -297,9 +297,13 @@ export class TuiEditor {
     // A turn separator + a BAR-marked, clearly-colored operator message, so an
     // operator turn never blends with the model's answer (operator request).
     this.printAbove(theme.turnRule('─'.repeat(contentWidth())))
-    this.printAbove(
-      theme.userBar('▌ ') +
-        theme.user(wrapToWidth(display, contentWidth() - 2)),
+    // The BAR is a per-row marker, drawn by LogView (entry.bar), so every
+    // visual row of a long message starts with `▌` instead of only the first.
+    this.store.pushLog(
+      'user',
+      wrapToWidth(display, contentWidth() - 2),
+      false,
+      { bar: true },
     )
     this.store.set({ pastes: [] })
     // Sending a message pins the log back to the newest content: the operator

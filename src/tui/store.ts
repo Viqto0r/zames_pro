@@ -38,6 +38,12 @@ export interface LogEntry {
   text: string
   /** Pre-rendered ANSI (e.g. a markdown answer) — print verbatim. */
   raw?: boolean
+  /**
+   * Draw a `▌` bar on EVERY visual row of this entry (an operator message).
+   * The bar used to be prepended to the FIRST line only, so a multi-line
+   * message looked ragged — the continuation rows shifted left.
+   */
+  bar?: boolean
 }
 
 /** Lifecycle phase of the current send, mirrored from the browser. */
@@ -192,8 +198,19 @@ export class TuiStore {
   }
 
   /** Append one permanent log entry (an Ink `<Static>` item). */
-  pushLog(kind: LogKind, text: string, raw = false): void {
-    const entry: LogEntry = { id: this.nextLogId++, kind, text, raw }
+  pushLog(
+    kind: LogKind,
+    text: string,
+    raw = false,
+    extra?: Partial<Omit<LogEntry, 'id' | 'kind' | 'text' | 'raw'>>,
+  ): void {
+    const entry: LogEntry = {
+      id: this.nextLogId++,
+      kind,
+      text,
+      raw,
+      ...extra,
+    }
     this.state = { ...this.state, log: [...this.state.log, entry] }
     this.emit()
   }

@@ -19,6 +19,12 @@ function LogRow({ entry }: { entry: LogEntry }): React.ReactElement {
     // embedded ANSI escape sequences through to the terminal.
     return <Text>{entry.text}</Text>
   }
+  if (entry.bar) {
+    // An operator turn: `▌` on EVERY visual row. Applying the bar to the whole
+    // (already wrapped) block keeps the indent equal on continuation lines —
+    // prefixing only the first line made a multi-line message look ragged.
+    return <Text>{theme.userBar('▌ ') + theme.user(entry.text)}</Text>
+  }
   switch (entry.kind) {
     case 'user':
       return <Text>{theme.user('❯ ') + entry.text}</Text>

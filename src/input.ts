@@ -1318,10 +1318,15 @@ export class LineEditor {
     // to the browser layer to be attached to the chat.
     const attached = this.attachments.items.slice()
     // A turn separator + a BAR-marked operator message (same look as the TUI).
+    // The bar goes on EVERY visual row: a long message wrapped to N lines used
+    // to mark only the first one, and the continuation rows looked shifted.
     this.printAbove(theme.turnRule('─'.repeat(contentWidth())))
+    const wrapped = wrapToWidth(display, contentWidth() - 2)
     this.printAbove(
-      theme.userBar('▌ ') +
-        theme.user(wrapToWidth(display, contentWidth() - 2)),
+      wrapped
+        .split(String.fromCharCode(10))
+        .map((line) => theme.userBar('▌ ') + theme.user(line))
+        .join(String.fromCharCode(10)),
     )
     this.pastes = []
     this.attachments.reset()

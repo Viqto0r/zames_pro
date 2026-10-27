@@ -301,7 +301,9 @@ if (SHOTS) {
         return html
       })
       .join('<br>')
-  for (const name of ['zames', 'dracula', 'gruvbox', 'catppuccin']) {
+  // EVERY palette gets a screenshot: docs/shots is the visual gallery of the
+  // themes, so a new palette without an image would be an invisible gap.
+  for (const name of themeNames()) {
     applyTheme(name)
     syncUiColors(name)
     // The shot needs SGR in the stream; level 1 (the forced one) is enough for
