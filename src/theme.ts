@@ -2,6 +2,7 @@ import chalk, { type ChalkInstance } from 'chalk'
 import { contentWidth } from './width.js'
 import { applyBackground } from './tui/background.js'
 import type { ThemeName } from './types.js'
+import { LIGHT_PALETTES } from './theme-light.js'
 
 // Respect NO_COLOR (https://no-color.org): when the operator sets it (any
 // non-empty value) drop ALL SGR codes so the output can be piped into a file
@@ -66,7 +67,17 @@ export interface Palette {
   toggleOn: string
 }
 
-export const PALETTES: Record<ThemeName, Palette> = {
+export const PALETTES: Record<
+  Exclude<
+    ThemeName,
+    | 'one-light'
+    | 'github-light'
+    | 'solarized-light'
+    | 'gruvbox-light'
+    | 'ayu-light'
+  >,
+  Palette
+> = {
   // zames — the original calm palette (Tokyo Night / Nord spirit): muted,
   // slightly faded tones, comfortable for long answers.
   zames: {
@@ -577,6 +588,12 @@ export const PALETTES: Record<ThemeName, Palette> = {
   },
 }
 
+/** Every palette: the dark ones plus the light variants. */
+export const ALL_PALETTES = {
+  ...PALETTES,
+  ...LIGHT_PALETTES,
+} as unknown as Record<ThemeName, Palette>
+
 /** The palette id used when the configured theme is unknown/missing. */
 export const DEFAULT_THEME: ThemeName = 'zames'
 
@@ -587,13 +604,14 @@ export const DEFAULT_THEME: ThemeName = 'zames'
  */
 export function isThemeName(v: unknown): v is ThemeName {
   return (
-    typeof v === 'string' && Object.prototype.hasOwnProperty.call(PALETTES, v)
+    typeof v === 'string' &&
+    Object.prototype.hasOwnProperty.call(ALL_PALETTES, v)
   )
 }
 
 /** All palette ids, in the order they are offered in /config. */
 export function themeNames(): ThemeName[] {
-  return Object.keys(PALETTES) as ThemeName[]
+  return Object.keys(ALL_PALETTES) as ThemeName[]
 }
 
 export interface Theme {
@@ -629,7 +647,7 @@ function buildTheme(p: Palette): Theme {
 // the switch without being re-imported — this is why the call sites read
 // `theme.x` at RENDER time instead of destructuring a color at module load.
 let activeName: ThemeName = DEFAULT_THEME
-export const theme: Theme = buildTheme(PALETTES[DEFAULT_THEME])
+export const theme: Theme = buildTheme(ALL_PALETTES[DEFAULT_THEME])
 
 /** The palette id currently rendered. */
 export function currentThemeName(): ThemeName {
@@ -643,7 +661,7 @@ export function currentThemeName(): ThemeName {
  */
 export function applyTheme(name: unknown): ThemeName {
   const next = isThemeName(name) ? name : DEFAULT_THEME
-  const built = buildTheme(PALETTES[next])
+  const built = buildTheme(ALL_PALETTES[next])
   for (const key of Object.keys(built)) {
     theme[key] = built[key]
   }
@@ -660,7 +678,7 @@ export function applyTheme(name: unknown): ThemeName {
  * README screenshot generator, which renders the real colors as HTML.
  */
 export function themeColors(): Palette {
-  return PALETTES[activeName]
+  return ALL_PALETTES[activeName]
 }
 
 // Horizontal rule that separates the model's answer from the next block. It

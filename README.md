@@ -633,7 +633,9 @@ are ports of well-known editor schemes:
 `zames` (default), `one-dark`, `dracula`, `gruvbox`, `nord`, `monokai`,
 `solarized-dark`, `tokyo-night`, `tokyo-storm`, `catppuccin`, `github-dark`,
 `ayu`, `rose-pine`, `everforest`, `kanagawa`, `night-owl`, `material`,
-`palenight`, `zenburn`, `selenized`, `iceberg`, `sonokai`, `aurora`, `cobalt2`.
+`palenight`, `zenburn`, `selenized`, `iceberg`, `sonokai`, `aurora`, `cobalt2`,
+plus the LIGHT ones: `one-light`, `github-light`, `solarized-light`,
+`gruvbox-light`, `ayu-light`.
 
 A theme repaints EVERYTHING: the interface, the agent's answers, the code
 highlighting inside them, the status row and the input frame. The terminal's
@@ -644,7 +646,7 @@ Terminal and others; where it is not supported nothing happens). Opt out with
 To make the choice
 concrete, a SAMPLE SESSION in that palette is shown before you pick (in `/theme`
 below the list, in `/config` press `p` on the theme row); it is not dumped into
-the chat after a pick. Every one of the 24 themes has a screenshot in
+the chat after a pick. Every one of the 29 themes has a screenshot in
 `docs/shots/`. The frame itself is a separate
 setting: `/config set ui.inputBorder <round|single|double|bold|none>`
 (default `round`; `none` removes it). A multi-line operator message keeps its
@@ -1373,7 +1375,9 @@ enum переключаются на месте; числа и строки от
 `zames` (по умолчанию), `one-dark`, `dracula`, `gruvbox`, `nord`, `monokai`,
 `solarized-dark`, `tokyo-night`, `tokyo-storm`, `catppuccin`, `github-dark`,
 `ayu`, `rose-pine`, `everforest`, `kanagawa`, `night-owl`, `material`,
-`palenight`, `zenburn`, `selenized`, `iceberg`, `sonokai`, `aurora`, `cobalt2`.
+`palenight`, `zenburn`, `selenized`, `iceberg`, `sonokai`, `aurora`, `cobalt2`,
+а также СВЕТЛЫЕ: `one-light`, `github-light`, `solarized-light`,
+`gruvbox-light`, `ayu-light`.
 
 Тема перекрашивает ВСЁ: интерфейс, ответы агента, подсветку кода в ответах,
 строку статуса и рамку ввода. ФОН окна терминала тоже перекрашивается: тема
@@ -1383,7 +1387,7 @@ kitty, WezTerm, Alacritty, GNOME Terminal и др.; где не поддержи
 Чтобы было видно, ЧТО меняется, перед выбором
 показывается образец сессии в этой палитре (в `/theme` — под списком, в
 `/config` — клавиша `p` на строке темы); он не печатается в чат после выбора.
-Все 24 темы есть на скриншотах в `docs/shots/`. Саму рамку можно менять отдельно:
+Все 29 тем есть на скриншотах в `docs/shots/`. Саму рамку можно менять отдельно:
 `/config set ui.inputBorder <round|single|double|bold|none>` (по умолчанию
 `round`, `none` — без рамки). Рамку (маркер `▌`) у многострочного сообщения
 пользователя видно на каждой строке.

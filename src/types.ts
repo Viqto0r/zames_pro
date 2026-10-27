@@ -175,6 +175,11 @@ export type ThemeName =
   | 'sonokai'
   | 'aurora'
   | 'cobalt2'
+  | 'one-light'
+  | 'github-light'
+  | 'solarized-light'
+  | 'gruvbox-light'
+  | 'ayu-light'
 
 // Qwen Chat (chat.qwen.ai) provider settings. The shared timings (timeouts,
 // throttle, retries) live in `browser`; only Qwen-only knobs are here.

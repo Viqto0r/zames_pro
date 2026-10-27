@@ -12,7 +12,7 @@
 // The OSC sequence is written STRAIGHT to stdout (not through chalk), because
 // it is not an SGR attribute: `\x1b]11;rgb:rr/gg/bb\x07`.
 
-import { PALETTES, isThemeName, DEFAULT_THEME } from '../theme.js'
+import { ALL_PALETTES, isThemeName, DEFAULT_THEME } from '../theme.js'
 
 /** `#rrggbb` -> the `rr/gg/bb` part of an OSC-11 payload. */
 function hexToOsc(hex: string): string {
@@ -28,7 +28,7 @@ function hexToOsc(hex: string): string {
 export function backgroundOsc(name: unknown): string {
   if (process.env.NO_COLOR || process.env.ZAMES_NO_BG) return ''
   const id = isThemeName(name) ? name : DEFAULT_THEME
-  return '\x1b]11;rgb:' + hexToOsc(PALETTES[id].bg) + '\x07'
+  return '\x1b]11;rgb:' + hexToOsc(ALL_PALETTES[id].bg) + '\x07'
 }
 
 /** Paint the window background for the palette `name` (best effort). */

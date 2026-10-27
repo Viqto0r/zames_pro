@@ -15,7 +15,7 @@
 import { chromium } from 'playwright'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { PALETTES, DEFAULT_THEME } from '../src/theme.js'
+import { ALL_PALETTES, DEFAULT_THEME } from '../src/theme.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const out = path.join(root, 'docs', 'demo.png')
@@ -24,7 +24,7 @@ const out = path.join(root, 'docs', 'demo.png')
 // screenshot must show the REAL default theme, and a hand-copied map drifted
 // every time a role was touched. `bg` is the one value the theme object does
 // not own (the terminal paints the background); it comes from the palette.
-const C: Record<string, string> = { ...PALETTES[DEFAULT_THEME] }
+const C: Record<string, string> = { ...ALL_PALETTES[DEFAULT_THEME] }
 
 const esc = (s: unknown): string =>
   String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')

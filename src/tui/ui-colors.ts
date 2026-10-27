@@ -8,7 +8,12 @@
 // re-importing anything. Components must never destructure a color at module
 // load — that would freeze the palette at startup.
 
-import { PALETTES, DEFAULT_THEME, isThemeName, type Palette } from '../theme.js'
+import {
+  ALL_PALETTES,
+  DEFAULT_THEME,
+  isThemeName,
+  type Palette,
+} from '../theme.js'
 import type { ThemeName } from '../types.js'
 
 export interface UiColors {
@@ -44,7 +49,7 @@ export function uiColorsFrom(p: Palette): UiColors {
   }
 }
 
-export const UI: UiColors = uiColorsFrom(PALETTES[DEFAULT_THEME])
+export const UI: UiColors = uiColorsFrom(ALL_PALETTES[DEFAULT_THEME])
 
 // Border STYLE of the framed surfaces (the input box today). Ink only ships a
 // handful of box styles; 'none' draws no frame at all. Kept next to the colors
@@ -83,7 +88,7 @@ export function inputBorderCols(): number {
 /** Repaint the Ink widgets with the palette of `name` (unknown -> default). */
 export function syncUiColors(name: unknown): ThemeName {
   const id = isThemeName(name) ? name : DEFAULT_THEME
-  const next = uiColorsFrom(PALETTES[id])
+  const next = uiColorsFrom(ALL_PALETTES[id])
   for (const key of Object.keys(next) as Array<keyof UiColors>) {
     UI[key] = next[key]
   }

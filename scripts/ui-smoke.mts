@@ -50,7 +50,7 @@ const SHOTS = process.argv.includes('--shots')
 const PICKER = process.argv.includes('--picker')
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 
-const { PALETTES, themeNames, applyTheme, themeColors } =
+const { ALL_PALETTES, themeNames, applyTheme, themeColors } =
   await import('../src/theme.ts')
 const { syncUiColors, UI, setInputBorder, inputBorderStyle, inputBorderCols } =
   await import('../src/tui/ui-colors.ts')
@@ -134,7 +134,10 @@ check('theme + UI maps mutate in place', () => {
   const accent = UI.accent
   applyTheme('dracula')
   syncUiColors('dracula')
-  assert(themeColors().user === PALETTES.dracula.user, 'theme not repainted')
+  assert(
+    themeColors().user === ALL_PALETTES.dracula.user,
+    'theme not repainted',
+  )
   assert(UI.accent !== accent, 'Ink UI map not repainted')
   assert(themePreviewAnsi('dracula') !== before, 'preview not repainted')
   ch.level = chalkLevelOrig
@@ -316,7 +319,7 @@ if (SHOTS) {
     // level 0 (plain) — so the preview is built here from PALETTES directly,
     // one span per role, with no chalk in the way.
     const palette = (
-      PALETTES as unknown as Record<string, Record<string, string>>
+      ALL_PALETTES as unknown as Record<string, Record<string, string>>
     )[name]
     const body = previewLines()
       .map((l) => {

@@ -20,6 +20,9 @@ export function Checkbox({
   checked: boolean
   focused?: boolean
 }): React.ReactElement {
+  // A checkbox is ONE unit: `[x]`/`[ ]` must not change color inside the
+  // brackets — an unchecked box used to render as two overlapping `[ ]` glyphs
+  // because the three parts were painted with different colors.
   return (
     <Text color={checked ? UI.on : UI.off} bold={focused}>
       {checked ? '[x]' : '[ ]'}
@@ -36,13 +39,12 @@ export function Select({
   value: string
   focused?: boolean
 }): React.ReactElement {
+  // A single Text: one SGR run per glyph (`‹` + value + `›`) let some terminals
+  // render the arrows as a SECOND row of the same cell, and on a LIGHT palette
+  // the dim `off` color made the arrows nearly invisible. One run, one color.
   return (
-    <Text>
-      <Text color={UI.off}>{'‹ '}</Text>
-      <Text color={focused ? UI.accent : UI.text} bold={focused}>
-        {value}
-      </Text>
-      <Text color={UI.off}>{' ›'}</Text>
+    <Text color={focused ? UI.accent : UI.text} bold={focused}>
+      {'‹ ' + value + ' ›'}
     </Text>
   )
 }

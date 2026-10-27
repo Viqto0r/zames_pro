@@ -67,6 +67,10 @@ function displayValue(
 
 export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
   const { fields, t, get, set, reset, getDefault, locale = 'en' } = opts
+  // The menu must be readable on a LIGHT palette too: Ink's Text without an
+  // explicit color falls back to the terminal default (often white), which is
+  // invisible on a light background. Every row text below is therefore painted
+  // with an explicit palette color (UI.text for values, UI.title for groups).
   const { onAfterChange } = opts
   const { exit } = useApp()
   // The hint bar is operator text: it follows the SAME locale the labels use
@@ -376,7 +380,7 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
     const g = f.groupKey
     if (i === shown.start || g !== lastGroup) {
       items.push(
-        <Text key={'g' + i} color={UI.system}>
+        <Text key={'g' + i} color={UI.title}>
           {'  ' + t(f.groupKey).toUpperCase()}
         </Text>,
       )
@@ -406,7 +410,7 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
     items.push(
       <Text key={'f' + i}>
         <Text color={UI.accent}>{selected ? '❯ ' : '  '}</Text>
-        <Text color={selected ? UI.accent : undefined} bold={selected}>
+        <Text color={selected ? UI.accent : UI.text} bold={selected}>
           {label}
         </Text>
         <Text color={UI.dim}>{'  '}</Text>

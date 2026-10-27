@@ -14,7 +14,7 @@
 import React from 'react'
 import { Box, Text } from 'ink'
 import chalk from 'chalk'
-import { PALETTES, DEFAULT_THEME, isThemeName } from '../theme.js'
+import { ALL_PALETTES, DEFAULT_THEME, isThemeName } from '../theme.js'
 import type { Palette } from '../theme.js'
 
 export interface PreviewLine {
@@ -46,7 +46,7 @@ export function previewLines(): PreviewLine[] {
 }
 
 function paletteOf(name: unknown): Palette {
-  return PALETTES[isThemeName(name) ? name : DEFAULT_THEME]
+  return ALL_PALETTES[isThemeName(name) ? name : DEFAULT_THEME]
 }
 
 /** The preview as one chalk-painted string (for a plain terminal line). */

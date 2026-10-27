@@ -11,7 +11,7 @@ import React from 'react'
 import { Box, Text, useAnimation, useWindowSize } from 'ink'
 import { translate, type Locale } from '../i18n.js'
 import { DOTS, stripEllipsis } from '../spinner.js'
-import { UI } from './ui-colors.js'
+import { UI, type UiColors } from './ui-colors.js'
 import { truncateToWidth, visLen } from '../input/layout.js'
 import type { TuiState } from './store.js'
 
@@ -34,134 +34,6 @@ function stateLabel(state: TuiState, locale: Locale): string {
     return translate(locale)('state.settled') + ':'
   }
   return ''
-}
-
-/** Visible width of the badge row (used to reserve space for the left
- *  status). Measured with the shared `visLen` so wide chars (CJK/emoji) count
- *  as 2 and the emoji's text-presentation selector (\uFE0E) as 0 — a plain
- *  `.length` counted an emoji as 1 and a CJK badge was clipped on a narrow
- *  terminal. Exported so the width arithmetic is unit-tested
- *  without rendering. */
-export function badgeTextWidth(state: TuiState): number {
-  let w = 0
-  if (state.statusLine) w += visLen(state.statusLine) + 1
-  if (state.provider) w += visLen('[' + state.provider + '] ')
-  if (state.queueLength > 0) w += visLen('⧗' + state.queueLength + ' ')
-  if (state.tasks) w += visLen(state.tasks) + 1
-  const toggles: string[] = []
-  if (state.thinkingEnabled) toggles.push('🧠\uFE0E')
-  if (state.searchEnabled) toggles.push('🌐\uFE0E')
-  if (toggles.length) w += visLen(toggles.join(' ') + ' ')
-  if (state.contextText) {
-    const marker =
-      state.contextLevel === 'high'
-        ? '⛔ '
-        : state.contextLevel === 'warn'
-          ? '▲ '
-          : ''
-    w += visLen(marker + state.contextText)
-  }
-  return w
-}
-
-/** The badge row: statusLine, provider, queue, tasks, toggles, context.
- *  `maxWidth` caps the row so it never wraps to a second line; when the badges
- *  do not fit, the lowest-priority ones (statusLine, then provider) are
- *  dropped first so the context counter — the most useful — survives. */
-function Badges({
-  state,
-  budget = Infinity,
-}: {
-  state: TuiState
-  budget?: number
-}): React.ReactElement | null {
-  // Each badge is (node, visible width); lowest-priority first so the context
-  // counter (last) survives when the row is tight.
-  const all: Array<{ key: string; w: number; node: React.ReactElement }> = []
-  const add = (key: string, w: number, node: React.ReactElement): void => {
-    all.push({ key, w, node })
-  }
-  if (state.statusLine) {
-    add(
-      'sl',
-      visLen(state.statusLine) + 1,
-      <Text key="sl" color={UI.system}>
-        {state.statusLine}{' '}
-      </Text>,
-    )
-  }
-  if (state.provider) {
-    add(
-      'prov',
-      visLen('[' + state.provider + '] '),
-      <Text key="prov" color={UI.system}>
-        {'[' + state.provider + '] '}
-      </Text>,
-    )
-  }
-  if (state.queueLength > 0) {
-    add(
-      'q',
-      visLen('⧗' + state.queueLength + ' '),
-      <Text key="q" color={UI.warn}>
-        {'⧗' + state.queueLength}{' '}
-      </Text>,
-    )
-  }
-  if (state.tasks) {
-    add(
-      't',
-      visLen(state.tasks) + 1,
-      <Text key="t" color={UI.system}>
-        {state.tasks}{' '}
-      </Text>,
-    )
-  }
-  const toggles: string[] = []
-  if (state.thinkingEnabled) toggles.push('🧠\uFE0E')
-  if (state.searchEnabled) toggles.push('🌐\uFE0E')
-  if (toggles.length) {
-    const label = toggles.join(' ') + ' '
-    add(
-      'tg',
-      visLen(label),
-      <Text key="tg" color={UI.on}>
-        {label}
-      </Text>,
-    )
-  }
-  if (state.contextText) {
-    const color =
-      state.contextLevel === 'high'
-        ? UI.err
-        : state.contextLevel === 'warn'
-          ? UI.warn
-          : UI.ok
-    const marker =
-      state.contextLevel === 'high'
-        ? '⛔ '
-        : state.contextLevel === 'warn'
-          ? '▲ '
-          : ''
-    const label = marker + state.contextText
-    add(
-      'ctx',
-      visLen(label),
-      <Text key="ctx" color={color}>
-        {label}
-      </Text>,
-    )
-  }
-  if (!all.length) return null
-  // Drop badges from the FRONT (statusLine, provider, ... least important)
-  // until the row fits the budget. Keep at least the last (context).
-  let total = all.reduce((n, b) => n + b.w, 0)
-  let start = 0
-  while (total > budget && start < all.length - 1) {
-    total -= all[start].w
-    start++
-  }
-  return <>{all.slice(start).map((b) => b.node)}</>
 }
 
 /**
@@ -195,16 +67,132 @@ export function statusLeftText(
     left = ''
   }
   const prefix = stateLbl ? stateLbl + ' ' : ''
-  // When the log is scrolled up, show a marker in the status line (NOT as a
-  // separate row below the input — that pushed the panel up and made the input
-  // jump). It replaces the spinner text while scrolled, so it never adds a row.
-  // It carries NO timer: the elapsed label belongs to an animation, and a
-  // counter running next to «scrolled 5 lines» only ate width.
+  // The scrolled-up marker carries NO timer: the elapsed label belongs to an
+  // animation, and a counter running next to «scrolled 5 lines» only ate width.
   const scrollNote =
     state.scroll > 0
       ? translate(state.locale)('status.scrolled', { n: String(state.scroll) })
       : ''
   return scrollNote || prefix + left
+}
+
+/** Visible width of the badge row (used to reserve space for the left
+ *  status). Measured with the shared `visLen` so wide chars (CJK/emoji) count
+ *  as 2 and the emoji's text-presentation selector (\uFE0E) as 0 — a plain
+ *  `.length` counted an emoji as 1 and a CJK badge was clipped on a narrow
+ *  terminal. Exported so the width arithmetic is unit-tested
+ *  without rendering. */
+export function badgeTextWidth(state: TuiState): number {
+  let w = 0
+  if (state.statusLine) w += visLen(state.statusLine) + 1
+  if (state.provider) w += visLen('[' + state.provider + '] ')
+  if (state.queueLength > 0) w += visLen('⧗' + state.queueLength + ' ')
+  if (state.tasks) w += visLen(state.tasks) + 1
+  const toggles: string[] = []
+  if (state.thinkingEnabled) toggles.push('🧠\uFE0E')
+  if (state.searchEnabled) toggles.push('🌐\uFE0E')
+  if (toggles.length) w += visLen(toggles.join(' ') + ' ')
+  if (state.contextText) {
+    const marker =
+      state.contextLevel === 'high'
+        ? '⛔ '
+        : state.contextLevel === 'warn'
+          ? '▲ '
+          : ''
+    w += visLen(marker + state.contextText)
+  }
+  return w
+}
+
+/** One badge: its key (for priority/width math), the painted label and the
+ *  PALETTE ROLE it uses. Exported so the derivation is unit-tested. */
+export interface Badge {
+  key: 'sl' | 'prov' | 'q' | 't' | 'tg' | 'ctx'
+  label: string
+  /** Palette role (a UI.* key) the badge is painted with. */
+  role: keyof UiColors
+}
+
+/**
+ * The badges to show, in priority order (the LAST survives a narrow terminal).
+ * The badge row is what tells the operator WHAT is on — provider, queue, the
+ * task counter, the toggles and the context fill — so it is derived here, once,
+ * with a palette role each, instead of being hardcoded in the component. The
+ * task counter used to be painted with the generic `system` gray, which is why
+ * it looked "not themed" next to the provider.
+ */
+export function statusBadges(state: TuiState): Badge[] {
+  const out: Badge[] = []
+  if (state.statusLine) {
+    out.push({ key: 'sl', label: state.statusLine + ' ', role: 'dim' })
+  }
+  if (state.provider) {
+    out.push({
+      key: 'prov',
+      label: '[' + state.provider + '] ',
+      role: 'system',
+    })
+  }
+  if (state.queueLength > 0) {
+    out.push({ key: 'q', label: '⧗' + state.queueLength + ' ', role: 'warn' })
+  }
+  if (state.tasks) {
+    // The task counter is the MODEL's todo progress: paint it with the same
+    // role the per-task summary line uses, so it reads as agent activity, not
+    // as the generic service gray it had before.
+    out.push({ key: 't', label: state.tasks + ' ', role: 'title' })
+  }
+  const toggles: string[] = []
+  if (state.thinkingEnabled) toggles.push('🧠︎')
+  if (state.searchEnabled) toggles.push('🌐︎')
+  if (toggles.length) {
+    out.push({ key: 'tg', label: toggles.join(' ') + ' ', role: 'on' })
+  }
+  if (state.contextText) {
+    const role: keyof UiColors =
+      state.contextLevel === 'high'
+        ? 'err'
+        : state.contextLevel === 'warn'
+          ? 'warn'
+          : 'ok'
+    const marker =
+      state.contextLevel === 'high'
+        ? '⛔ '
+        : state.contextLevel === 'warn'
+          ? '▲ '
+          : ''
+    out.push({ key: 'ctx', label: marker + state.contextText, role })
+  }
+  return out
+}
+
+/** The badge row. `budget` caps the row so it never wraps to a second line;
+ *  when the badges do not fit, the lowest-priority ones (statusLine, then
+ *  provider) are dropped first so the context counter survives. */
+function Badges({
+  state,
+  budget = Infinity,
+}: {
+  state: TuiState
+  budget?: number
+}): React.ReactElement | null {
+  const all = statusBadges(state)
+  if (!all.length) return null
+  let total = all.reduce((n, b) => n + visLen(b.label), 0)
+  let start = 0
+  while (total > budget && start < all.length - 1) {
+    total -= visLen(all[start].label)
+    start++
+  }
+  return (
+    <>
+      {all.slice(start).map((b) => (
+        <Text key={b.key} color={UI[b.role]}>
+          {b.label}
+        </Text>
+      ))}
+    </>
+  )
 }
 
 export function StatusBar({

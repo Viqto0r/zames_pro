@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { PALETTES, DEFAULT_THEME } from '../src/theme.ts'
+import { ALL_PALETTES, DEFAULT_THEME } from '../src/theme.ts'
 
 // scripts/render-demo.mts renders the README screenshot. It used to DUPLICATE
 // the palette by hand, so a theme change silently drifted the image away from
@@ -32,7 +32,7 @@ test('the demo screenshot reads the palette from theme.ts (no hand copy)', () =>
   const src = fs.readFileSync(demoPath, 'utf-8')
   assert.ok(
     /PALETTES\[DEFAULT_THEME\]/.test(src),
-    'render-demo.mts must derive its colors from PALETTES[DEFAULT_THEME]',
+    'render-demo.mts must derive its colors from ALL_PALETTES[DEFAULT_THEME]',
   )
   assert.ok(
     !/const C = \{\s*\n\s*bg: '#/.test(src),
@@ -41,9 +41,9 @@ test('the demo screenshot reads the palette from theme.ts (no hand copy)', () =>
 })
 
 test('every palette defines the same roles as the default', () => {
-  const def = Object.keys(PALETTES[DEFAULT_THEME]).sort()
+  const def = Object.keys(ALL_PALETTES[DEFAULT_THEME]).sort()
   assert.ok(def.length >= 15, 'default palette looks suspiciously small')
-  for (const [name, p] of Object.entries(PALETTES)) {
+  for (const [name, p] of Object.entries(ALL_PALETTES)) {
     assert.deepEqual(
       Object.keys(p).sort(),
       def,

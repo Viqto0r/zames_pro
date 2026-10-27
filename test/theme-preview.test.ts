@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import chalk from 'chalk'
 import { previewLines, themePreviewAnsi } from '../src/tui/theme-preview.tsx'
-import { PALETTES, themeNames } from '../src/theme.ts'
+import { ALL_PALETTES, themeNames } from '../src/theme.ts'
 
 // A picker that shows only a palette ID does not answer "what will change?".
 // The preview must therefore cover the roles the operator actually sees and
@@ -47,6 +47,6 @@ test('the ANSI preview is painted with the requested palette', () => {
 test('every shipped palette renders a preview without throwing', () => {
   for (const name of themeNames()) {
     assert.ok(themePreviewAnsi(name).length > 20, `empty preview for ${name}`)
-    assert.ok(PALETTES[name].assistant, `${name} has no assistant color`)
+    assert.ok(ALL_PALETTES[name].assistant, `${name} has no assistant color`)
   }
 })

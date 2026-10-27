@@ -27,7 +27,9 @@ child.on('close', () => {
   const on = count('\u001b[?1000h')
   const altOff = count('\u001b[?1007l')
   const altOn = count('\u001b[?1007h')
-  console.log('MOUSE_CHURN 1000h=' + on + ' 1007l=' + altOff + ' 1007h=' + altOn)
+  console.log(
+    'MOUSE_CHURN 1000h=' + on + ' 1007l=' + altOff + ' 1007h=' + altOn,
+  )
   const ok = on === 1 && altOff === 1 && altOn === 0
   console.log(ok ? 'MOUSE_CHURN_OK' : 'MOUSE_CHURN_FAIL')
   process.exit(ok ? 0 : 1)

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { themeNames, PALETTES } from '../src/theme.ts'
+import { themeNames, ALL_PALETTES } from '../src/theme.ts'
 import { SLASH_COMMANDS } from '../src/commands.ts'
 import { CATALOG } from '../src/i18n.ts'
 
@@ -18,9 +18,9 @@ test('/theme is advertised in the slash-command table', () => {
 test('the picker order matches the palette table with zames first', () => {
   const names = themeNames()
   assert.equal(names[0], 'zames')
-  assert.deepEqual(names, Object.keys(PALETTES))
+  assert.deepEqual(names, Object.keys(ALL_PALETTES))
   assert.ok(names.includes('dracula'))
-  assert.ok(names.length >= 8)
+  assert.ok(names.length >= 29)
 })
 
 test('every theme name is a lowercase id safe to persist', () => {

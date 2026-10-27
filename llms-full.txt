@@ -618,7 +618,9 @@ are ports of well-known editor schemes:
 `zames` (default), `one-dark`, `dracula`, `gruvbox`, `nord`, `monokai`,
 `solarized-dark`, `tokyo-night`, `tokyo-storm`, `catppuccin`, `github-dark`,
 `ayu`, `rose-pine`, `everforest`, `kanagawa`, `night-owl`, `material`,
-`palenight`, `zenburn`, `selenized`, `iceberg`, `sonokai`, `aurora`, `cobalt2`.
+`palenight`, `zenburn`, `selenized`, `iceberg`, `sonokai`, `aurora`, `cobalt2`,
+plus the LIGHT ones: `one-light`, `github-light`, `solarized-light`,
+`gruvbox-light`, `ayu-light`.
 
 A theme repaints EVERYTHING: the interface, the agent's answers, the code
 highlighting inside them, the status row and the input frame. The terminal's
@@ -629,7 +631,7 @@ Terminal and others; where it is not supported nothing happens). Opt out with
 To make the choice
 concrete, a SAMPLE SESSION in that palette is shown before you pick (in `/theme`
 below the list, in `/config` press `p` on the theme row); it is not dumped into
-the chat after a pick. Every one of the 24 themes has a screenshot in
+the chat after a pick. Every one of the 29 themes has a screenshot in
 `docs/shots/`. The frame itself is a separate
 setting: `/config set ui.inputBorder <round|single|double|bold|none>`
 (default `round`; `none` removes it). A multi-line operator message keeps its
