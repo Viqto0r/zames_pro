@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.83.4] - 2026-10-27
+
+### Fixed
+
+- **ui:** theme the input text, the status row and the input frame
+
 ## [2.83.2] - 2026-10-27
 
 ### Fixed
