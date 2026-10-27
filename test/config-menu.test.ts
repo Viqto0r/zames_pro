@@ -102,7 +102,6 @@ test('меню: Enter на boolean переключает значение', asy
 test('меню: Esc внутри группы возвращает к списку групп', async () => {
   const input = new FakeIn()
   const output = new FakeOut()
-  let exited = false
   const p = runConfigMenu({
     fields: CONFIG_SCHEMA,
     t: translate('ru'),
@@ -122,7 +121,6 @@ test('меню: Esc внутри группы возвращает к списк
   input.emit('data', Buffer.from('\x1b'))
   const back = output.data.slice(afterOpen)
   assert.ok(back.includes(translate('ru')('cfg.menu.groups_title')))
-  void exited
   input.emit('data', Buffer.from('q'))
   await p
 })
