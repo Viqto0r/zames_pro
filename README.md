@@ -622,9 +622,13 @@ locale lives in `ui.locale` in the config file.
 
 ### Themes
 
-`/config set ui.theme <id>` (or the `/config` menu, row «Terminal color theme»)
-repaints the whole terminal in a different palette, live — no restart. `zames`
-is the default; the bundled palettes are ports of well-known editor schemes:
+`/theme` opens a pick list with a LIVE preview: the arrow keys repaint the
+terminal as you move, Enter saves, Esc restores the previous palette.
+`/theme <id>` applies a palette directly, `/theme list` prints every id.
+The same setting is reachable from the settings side:
+`/config set ui.theme <id>` or the `/config` menu («Terminal color theme»).
+The switch is instant, no restart. `zames` is the default; the bundled palettes
+are ports of well-known editor schemes:
 
 `zames` (default), `one-dark`, `dracula`, `gruvbox`, `nord`, `monokai`,
 `solarized-dark`, `tokyo-night`.
@@ -1341,8 +1345,11 @@ enum переключаются на месте; числа и строки от
 
 ### Темы
 
-`/config set ui.theme <id>` (или меню `/config`, строка «Цветовая тема
-терминала») перекрашивает весь терминал в другую палитру, сразу — без
+`/theme` открывает список тем с живым предпросмотром: стрелками перебираете —
+терминал сразу перекрашивается, Enter сохраняет, Esc возвращает прежнюю.
+`/theme <id>` применяет тему сразу, `/theme list` показывает все id.
+То же самое доступно и через настройки: `/config set ui.theme <id>` или меню
+`/config`, строка «Цветовая тема терминала». Переключение мгновенное, без
 перезапуска. Тема по умолчанию — `zames`; в комплекте порты известных схем
 редакторов:
 

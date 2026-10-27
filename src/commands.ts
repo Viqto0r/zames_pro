@@ -1565,6 +1565,7 @@ export const SLASH_COMMANDS: SlashCommandEntry[] = [
   { name: '/queue', key: 'help.cmd.queue' },
   { name: '/tasks', key: 'help.cmd.tasks' },
   { name: '/config', key: 'help.cmd.config' },
+  { name: '/theme', key: 'help.cmd.theme' },
   { name: '/provider', key: 'help.cmd.provider' },
   { name: '/model', key: 'help.cmd.model' },
   { name: '/skills', key: 'help.cmd.skills' },

@@ -469,6 +469,10 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     ru: '/config lang <ru|en>     сменить язык интерфейса и агента',
     en: '/config lang <ru|en>     switch UI and agent language',
   },
+  'help.cmd.theme': {
+    ru: '/theme [id|list]         выбор темы терминала (сразу, без перезапуска)',
+    en: '/theme [id|list]         pick a terminal color theme (live, no restart)',
+  },
   'help.cmd.provider': {
     ru: '/provider <id> | status | login — сменить бэкенд (сразу), показать состояние или повторить вход',
     en: '/provider <id> | status | login — switch the backend (live), show the state or re-run the sign-in',

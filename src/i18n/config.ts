@@ -60,6 +60,42 @@ export const configMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Цветовая тема терминала',
     en: 'Terminal color theme',
   },
+  'theme.pick_title': {
+    ru: 'Выбор темы',
+    en: 'Select a theme',
+  },
+  'theme.pick_move': {
+    ru: 'примерить тему',
+    en: 'preview theme',
+  },
+  'theme.pick_cancel': {
+    ru: 'отмена (вернуть прежнюю)',
+    en: 'cancel (restore)',
+  },
+  'theme.set': {
+    ru: 'Тема: {v}',
+    en: 'Theme: {v}',
+  },
+  'theme.restored': {
+    ru: 'Тема не изменена: {v}',
+    en: 'Theme unchanged: {v}',
+  },
+  'theme.unknown': {
+    ru: 'Нет такой темы: {v}',
+    en: 'No such theme: {v}',
+  },
+  'theme.list': {
+    ru: 'Темы: {v}',
+    en: 'Themes: {v}',
+  },
+  'theme.current': {
+    ru: 'Текущая тема: {v}',
+    en: 'Current theme: {v}',
+  },
+  'theme.usage': {
+    ru: '/theme — список с выбором; /theme <id> — сразу применить; /theme list — показать id',
+    en: '/theme — pick from a list; /theme <id> — apply directly; /theme list — show the ids',
+  },
   'cfg.f.ui_answerWidth': {
     ru: 'Ширина контента в колонках: ответы, ввод, инструменты (0 — авто, до 100)',
     en: 'Content width in columns: answers, input, tools (0 = auto, capped at 100)',

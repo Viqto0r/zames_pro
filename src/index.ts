@@ -4,7 +4,14 @@ import path from 'path'
 import fs from 'fs/promises'
 import { readFileSync, statSync } from 'fs'
 import { fileURLToPath } from 'url'
-import { theme, applyTheme, themeColors } from './theme.js'
+import {
+  theme,
+  applyTheme,
+  themeColors,
+  themeNames,
+  currentThemeName,
+  isThemeName,
+} from './theme.js'
 
 import { DeepSeekBrowser, headlessUACacheReady } from './browser.js'
 import { QwenBrowser } from './qwen-browser.js'
@@ -718,6 +725,7 @@ ${theme.bold(t('help.sec.context'))}
   ${t('help.cmd.init')}
   ${t('help.cmd.mcp')}
   ${t('help.cmd.config')}
+  ${t('help.cmd.theme')}
   ${t('help.cmd.lang')}
 
 ${theme.bold(t('help.sec.provider'))}
@@ -2575,6 +2583,92 @@ async function main(): Promise<void> {
     }
   }
 
+  /**
+   * Apply a palette by id, persist it and repaint the live UI. Shared by
+   * `/theme`, `/config set ui.theme` (through setConfigRuntime) and the picker,
+   * so all three paths behave identically.
+   */
+  function applyThemeById(name: string): string {
+    const applied = applyTheme(name)
+    config.ui.theme = applied
+    writeConfigValue('home', 'ui.theme', applied)
+    if (editor) {
+      editor.setTheme?.(themeColors())
+      editor.refreshStatus()
+    }
+    return applied
+  }
+
+  // `/theme [id|list]` — a direct entry point for the palette, with a pick list
+  // in the TUI. `/config set ui.theme` stays as the scriptable path.
+  async function handleThemeCommand(input: string): Promise<void> {
+    const arg = input.trim().slice('/theme'.length).trim()
+    const names = themeNames()
+    const emit = (line: string): void => {
+      if (editor) editor.printAbove(line)
+      else console.log(line)
+    }
+    if (arg === 'list' || arg === 'ls') {
+      emit(
+        theme.system(
+          t('theme.list', { v: names.join(', ') }) +
+            String.fromCharCode(10) +
+            t('theme.current', { v: currentThemeName() }),
+        ),
+      )
+      return
+    }
+    if (arg) {
+      if (!isThemeName(arg)) {
+        emit(theme.error(t('theme.unknown', { v: arg })))
+        emit(theme.dim(t('theme.usage')))
+        return
+      }
+      emit(theme.assistant(t('theme.set', { v: applyThemeById(arg) })))
+      return
+    }
+    // No argument: a pick list in the TUI, the id list otherwise. The cursor
+    // applies the palette as a LIVE preview; Esc restores the previous one.
+    if (editor && config.ui.tui) {
+      const before = currentThemeName()
+      editor.pause()
+      let picked: string | null
+      try {
+        const { pickThemeInk } = await import('./tui/run-theme-picker.js')
+        const chosen = await pickThemeInk({
+          themes: names,
+          initial: before,
+          locale: currentLocale,
+          onPreview: (name) => {
+            applyTheme(name)
+            editor?.setTheme?.(themeColors())
+          },
+        })
+        picked = chosen
+      } catch {
+        picked = null
+      } finally {
+        editor.resume()
+      }
+      if (picked) {
+        emit(theme.assistant(t('theme.set', { v: applyThemeById(picked) })))
+      } else {
+        // Cancelled: the previews must not stick. Restore WITHOUT persisting.
+        applyTheme(before)
+        editor.setTheme?.(themeColors())
+        emit(theme.system(t('theme.restored', { v: before })))
+      }
+      return
+    }
+    emit(
+      theme.system(
+        t('theme.list', { v: names.join(', ') }) +
+          String.fromCharCode(10) +
+          t('theme.current', { v: currentThemeName() }),
+      ),
+    )
+  }
+
   async function handleConfigCommand(input: string): Promise<void> {
     await runConfigCommand(input, {
       t,
@@ -3928,6 +4022,11 @@ async function main(): Promise<void> {
 
     if (lower === '/config' || lower.startsWith('/config ')) {
       await handleConfigCommand(trimmed)
+      continue
+    }
+
+    if (lower === '/theme' || lower.startsWith('/theme ')) {
+      await handleThemeCommand(trimmed)
       continue
     }
 
