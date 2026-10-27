@@ -5,10 +5,11 @@
 // HTML. GitHub renders Markdown, so a committed llms.txt at the repository root
 // is picked up directly (the llms.txt convention, https://llmstxt.org).
 //
-// llms.txt      — the short curated map, hand-written in docs/llms.txt. The
-//                 docs/ copy is the SOURCE (edit it there); the root copy is
-//                 the published artifact a crawler reads, so the two are
-//                 byte-identical by construction (test/llms-txt.test.ts).
+// llms.txt      — the short curated map. docs/llms.txt is the SOURCE (the only
+//                 place it is edited, by the agent like any other file); the
+//                 root copy is the published artifact a crawler reads, so the
+//                 two are byte-identical by construction
+//                 (test/llms-txt.test.ts).
 // llms-full.txt — the full English README body, generated from
 //                 docs/readme.en.md so the documentation has ONE source of
 //                 truth and the generated file cannot drift.
@@ -16,8 +17,8 @@
 // Usage: npm run build:llms   (test/llms-txt.test.ts checks the drift)
 //
 // llms.txt lives in docs/ and is COPIED to the repository root because that is
-// where the convention looks for it; docs/ is the hand-edited source. The copy
-// must stay byte-identical, otherwise a crawler and the repo disagree.
+// where the convention looks for it; docs/ is the SOURCE. The copy must stay
+// byte-identical, otherwise a crawler and the repo disagree.
 
 import fs from 'node:fs'
 import path from 'node:path'
@@ -33,7 +34,7 @@ export function buildLlmsFull(rootDir: string): string {
   const i = text.indexOf(SWITCHER)
   if (i < 0) {
     throw new Error(
-      file + ' has no ' + SWITCHER + ' marker (was it edited by hand?)',
+      file + ' has no ' + SWITCHER + ' marker (was the marker deleted?)',
     )
   }
   const body = text

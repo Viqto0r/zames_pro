@@ -7,8 +7,9 @@ import { buildLlms } from '../scripts/build-llms.mts'
 import { readTopics, topicsCommand } from '../scripts/seo-topics.mts'
 
 // The discoverability surfaces for search engines and AI assistants must not
-// drift: llms.txt/llms-full.txt are generated, and the topic list is the
-// single source for the GitHub metadata that a human applies by hand.
+// drift: llms.txt/llms-full.txt are generated from docs/, and the topic list is
+// the single source for the GitHub metadata (applied through the GitHub API by
+// the agent, never typed into the repository settings by a human).
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 test('llms.txt at the repository root matches docs/llms.txt', () => {

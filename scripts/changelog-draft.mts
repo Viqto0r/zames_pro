@@ -10,9 +10,9 @@ import {
 } from '../src/changelog.js'
 
 // Draft a CHANGELOG section from conventional commits since a ref.
-// PRINTS to stdout and never touches CHANGELOG.md -- the operator (or
-// the agent) pastes the result in by hand, so a bad commit subject can never
-// corrupt the changelog.
+// `npm run changelog:sync` (--write) updates the Unreleased section IN PLACE, so
+// no step needs a human paste: `npm run release` calls it, and
+// `npm run changelog:check` fails when the section is stale.
 //
 // Usage:
 //   npm run changelog:draft            # since the latest tag, or an explicit ref

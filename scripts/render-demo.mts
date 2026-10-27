@@ -20,7 +20,7 @@ import { ALL_PALETTES, DEFAULT_THEME } from '../src/theme.js'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const out = path.join(root, 'docs', 'demo.png')
 
-// The palette is READ from src/theme.ts instead of duplicated by hand: the
+// The palette is READ from src/theme.ts instead of duplicated: the
 // screenshot must show the REAL default theme, and a hand-copied map drifted
 // every time a role was touched. `bg` is the one value the theme object does
 // not own (the terminal paints the background); it comes from the palette.

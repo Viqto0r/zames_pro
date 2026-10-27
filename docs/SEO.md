@@ -18,13 +18,13 @@ feeds it:
 | Structured citation    | `CITATION.cff`                                                                                                  | GitHub's "Cite this repository" button, scholarly tools |
 | Sponsorship            | `.github/FUNDING.yml`                                                                                           | the GitHub Sponsor button                               |
 
-## Sources of truth (do not hand-edit the generated files)
+## Sources of truth (the generated files are never edited directly)
 
 - `docs/readme.en.md` and `docs/readme.ru.md` — the README sources; `npm run
 build:readme` assembles `README.md` from them (the Russian translation is a
   folded `<details>` block inside the same file, so npm and GitHub show both
   languages).
-- `docs/llms.txt` — the hand-written short map; `npm run build:llms` copies it
+- `docs/llms.txt` — the SOURCE of the short map; `npm run build:llms` copies it
   to `./llms.txt` and regenerates `./llms-full.txt` from the English README.
 - `test/readme-built.test.ts` and `test/llms-txt.test.ts` fail if a generated
   file drifts from its source.
@@ -32,8 +32,9 @@ build:readme` assembles `README.md` from them (the Russian translation is a
 ## Repository topics
 
 GitHub topics are a real ranking signal in GitHub search and are indexed by
-Google. The canonical list is in `docs/seo-topics.json` and must be applied
-once per repository (topics are repository METADATA, not a file):
+Google. The canonical list is in `docs/seo-topics.json`; topics are repository
+METADATA (not a file), so they are applied with the GitHub CLI — a command the
+agent runs, there is no manual step:
 
 ```bash
 npm run seo:topics                # prints the gh command

@@ -111,7 +111,7 @@ and never shipped, so a release cannot carry them:
 | --- | --- | --- |
 | `BACKLOG.md` | improvement ideas for the agent itself | `/backlog`, `/improve`, the model in dev mode |
 | `QUEUE.md` | the text-audit queue + journal (`docs/TEXT-AUDIT.md` protocol) | a `/loop` audit run |
-| `scripts/dev-probes/` | one-off TUI pty probes written per bug | the developer, by hand |
+| `scripts/dev-probes/` | one-off TUI pty probes, written by the AGENT per bug | the agent (the file is gitignored) |
 
 They exist so a long-running improvement cycle does not lose its place. If one
 of them grows past a screenful of stale entries, delete it — the history is in

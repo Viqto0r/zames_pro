@@ -485,14 +485,15 @@ hidden until the first answer delivers it.
 Like Codex / Claude Code, zames reads project instructions and reusable
 workflows from your repository and from `~/.zames`.
 
-- **AGENTS.md** — project instructions. Put one in the repo root (or in any
-  parent folder of the working directory). Global instructions live in
+- **AGENTS.md** — project instructions, in the repo root (or any parent folder
+  of the working directory); the agent writes it with `/init`. Global
+  instructions live in
   `~/.zames/AGENTS.md` (and `~/.claude/CLAUDE.md`). Run `/init` and the agent
   will explore the project and write an AGENTS.md based on the real build/test
   commands and conventions (use `/init --force` to overwrite an existing file).
 - **MEMORY.md** — durable notes that persist between sessions. The agent
-  appends useful facts here; you can edit it by hand, or add one from the
-  prompt with `/remember <text>`.
+  appends useful facts here as it works; `/remember <text>` adds one from the
+  prompt, and any `/task`-style edit through the agent keeps the file in sync.
 - **Skills** — a folder with a `SKILL.md` file (YAML frontmatter: `name`,
   `description`, optional `allowed-tools`, `user-invokable`) plus any helper
   files. Discovered under `.zames/skills/`, `.claude/skills/`,
@@ -1230,14 +1231,15 @@ zames --task "..." --output-format jsonl \
 Как в Codex / Claude Code, zames читает инструкции проекта и переиспользуемые
 процессы из вашего репозитория и из `~/.zames`.
 
-- **AGENTS.md** — инструкции проекта. Положите его в корень репозитория (или в
-  любую родительскую папку рабочей директории). Глобальные инструкции живут в
+- **AGENTS.md** — инструкции проекта, лежит в корне репозитория (или в любой
+  родительской папке рабочей директории); агент создаёт его командой `/init`.
+  Глобальные инструкции живут в
   `~/.zames/AGENTS.md` (и `~/.claude/CLAUDE.md`). Запустите `/init`, и агент
   изучит проект и напишет AGENTS.md на основе реальных команд сборки/тестов и
   соглашений (`/init --force` перезапишет существующий файл).
 - **MEMORY.md** — долговечные заметки, переживающие сессии. Агент дописывает
-  сюда полезные факты; можно править вручную или добавить из промпта через
-  `/remember <text>`.
+  сюда полезные факты по ходу работы; `/remember <text>` добавляет заметку из
+  промпта — файл остаётся согласованным без ручного редактирования.
 - **Навыки** — папка с файлом `SKILL.md` (YAML-фронтматтер: `name`,
   `description`, опционально `allowed-tools`, `user-invokable`) плюс любые
   вспомогательные файлы. Ищутся в `.zames/skills/`, `.claude/skills/`,

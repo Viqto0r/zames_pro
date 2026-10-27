@@ -483,14 +483,15 @@ hidden until the first answer delivers it.
 Like Codex / Claude Code, zames reads project instructions and reusable
 workflows from your repository and from `~/.zames`.
 
-- **AGENTS.md** — project instructions. Put one in the repo root (or in any
-  parent folder of the working directory). Global instructions live in
+- **AGENTS.md** — project instructions, in the repo root (or any parent folder
+  of the working directory); the agent writes it with `/init`. Global
+  instructions live in
   `~/.zames/AGENTS.md` (and `~/.claude/CLAUDE.md`). Run `/init` and the agent
   will explore the project and write an AGENTS.md based on the real build/test
   commands and conventions (use `/init --force` to overwrite an existing file).
 - **MEMORY.md** — durable notes that persist between sessions. The agent
-  appends useful facts here; you can edit it by hand, or add one from the
-  prompt with `/remember <text>`.
+  appends useful facts here as it works; `/remember <text>` adds one from the
+  prompt, and any `/task`-style edit through the agent keeps the file in sync.
 - **Skills** — a folder with a `SKILL.md` file (YAML frontmatter: `name`,
   `description`, optional `allowed-tools`, `user-invokable`) plus any helper
   files. Discovered under `.zames/skills/`, `.claude/skills/`,

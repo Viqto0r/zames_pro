@@ -16,7 +16,7 @@ section 7).
 
 ## 1. Scope — the files that carry PROSE
 
-Source of truth first, generated files last (never hand-edit a generated one):
+Source of truth first, generated files last (a generated one is NEVER edited):
 
 | Kind               | Files                                                                                                                                                                    | Edit?                                                           |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
@@ -106,7 +106,7 @@ journal instead of guessing.
 
 - Fix the SOURCE (`docs/readme.*.md`, `docs/llms.txt`), then regenerate:
   `npm run build:readme && npm run build:llms`. Never edit `README.md`,
-  `llms.txt` or `llms-full.txt` by hand — `test/readme-built.test.ts` and
+  `llms.txt` or `llms-full.txt` directly — `test/readme-built.test.ts` and
   `test/llms-txt.test.ts` fail on drift.
 - Fix BOTH languages in the same step. If the `ru` text was right and the `en`
   wrong, fix only the wrong one — but re-read the other to be sure.

@@ -11,7 +11,7 @@
 //
 // The two sources (docs/readme.en.md, docs/readme.ru.md) are the single point
 // of edit for each language; this script wires the switcher and the collapsible
-// cross-language block so neither language has to be maintained by hand. The
+// cross-language block so neither language has to be re-assembled by hand. The
 // generated file is committed; test/readme-built.test.ts re-runs buildReadmes()
 // and fails if it drifts from the sources.
 //
@@ -44,7 +44,7 @@ export function readSource(
   const i = text.indexOf(SWITCHER)
   if (i < 0) {
     throw new Error(
-      file + ' has no ' + SWITCHER + ' marker (was it edited by hand?)',
+      file + ' has no ' + SWITCHER + ' marker (was the marker deleted?)',
     )
   }
   return {
