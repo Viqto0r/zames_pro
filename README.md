@@ -66,6 +66,15 @@ While the agent works you can keep typing — a message sent mid-task is queued
 and runs right after it, in the same chat. `Esc` aborts the current generation,
 `/help` lists commands, `/exit` quits.
 
+## Table of contents
+
+- [Quick start](#quick-start) · [How it works](#how-it-works) · [Features](#features)
+- [Why zames?](#why-zames) · [Requirements](#requirements) · [Signing in](#signing-in)
+- [Switching providers (DeepSeek / Qwen / GLM)](#switching-providers-deepseek--qwen--glm)
+- [Installation](#installation) · [Usage](#usage) · [FAQ](#faq)
+- Reference: [Commands and tools](docs/commands.md) · [MCP](docs/mcp.md) · [Configuration and themes](docs/configuration.md) · [Troubleshooting](docs/troubleshooting.md)
+- [Keywords and alternatives](#keywords-and-alternatives) · [Links](#links) · [License](#license)
+
 ## How it works
 
 zames does not call the model API. It launches a headless Chromium with a
@@ -101,15 +110,6 @@ Key pieces:
   limit happy during long tool-heavy runs.
 - **The agent is sandboxed** to the directory it was started in — no tool can
   read or write above it.
-
-## Table of contents
-
-- [Quick start](#quick-start) · [Features](#features) · [Why zames?](#why-zames) · [Requirements](#requirements)
-- [How it works](#how-it-works) · [Installation](#installation) · [Signing in](#signing-in) · [Usage](#usage)
-- [Switching providers (DeepSeek / Qwen / GLM)](#switching-providers-deepseek--qwen--glm)
-- [Tools](#tools) · [Slash commands](#slash-commands)
-- [Project context, skills and memory](#project-context-skills-and-memory) · [MCP (external tools)](#mcp-external-tools) · [Configuration](#configuration)
-- [FAQ](#faq) · [Keywords and alternatives](#keywords-and-alternatives) · [Links](#links) · [License](#license)
 
 ## Features
 
@@ -376,290 +376,13 @@ zames --task "..." --output-format jsonl \
   | jq -r 'select(.type=="assistant_final") | .message'
 ```
 
-## Tools
-
-The agent has the same style of tools as Claude Code / Codex CLI:
-
-- **File tools** — `Read`, `Write`, `Edit`, `Bash`, `BashOutput`, `Glob`,
-  `Grep`. `Read` returns raw content by default; pass `numbered=true` to get
-  `cat -n`-style line numbers (for reference only — do not paste them into
-  `Edit`). `Bash` takes `run_in_background`; `BashOutput` then polls or kills
-  that process.
-- **Extra tools** — `LS` (list a directory), `MultiEdit` (several edits to one
-  file applied atomically), `TodoWrite` (session task checklist), `ApplyPatch`
-  (multi-file patch in Codex's V4A format: `*** Begin Patch` … `*** End Patch`).
-- **Git** — `GitStatus`, `GitDiff`, `GitLog`, `GitShow`, `GitBranchList`,
-  `GitAdd`, `GitCommit`, `GitPush`.
-- **Web** — `WebFetch`, `WebSearch`.
-- **Subagents** — `Task` (delegate a self-contained sub-task to an agent in
-  its own chat; `explore` is read-only, `general` may edit; capped per task).
-- **Operator** — `AskUser` (a modal question with options; skipped in plan
-  mode so a plan is never interrupted).
-- **Service** — `respond` (final answer to the operator, ends the task).
-
-All file tools stay inside the working directory (sandbox). `Write`/`Edit` and
-`MultiEdit`/`ApplyPatch` make a backup (undo) before touching a file.
-
-## Slash commands
-
-Type / in the prompt for hints (Tab completes) — that list is always complete,
-`/help <command>` describes any single one. Besides the session and config
-commands (/new or /clear, /sessions, /chats, /resume-id, /last, /chat, /cd,
-/pwd, /status, /config, /undo, /undo-list, /rewind, /rewind-list, /transcript,
-/tasks, /mcp, /skills, /memory, /remember, /init, /reload, /debug-dom, /help,
-/exit) there are a few that mirror Claude Code / Codex CLI:
-
-- /diff [--staged] — show the working-tree git diff (--staged for the index).
-- /diffstat — a one-line change summary (`git diff --stat`).
-- /context — show what is loaded into the prompt (AGENTS.md, MEMORY.md,
-  skills, custom commands) and the system-prompt size.
-- /retry — resend the last task into the same chat (handy after a truncated
-  or empty answer).
-- /rename <title> — set the current session title (shown in /sessions).
-- /copy — copy the last assistant answer to the OS clipboard.
-- /cost (alias /usage) — session stats: tasks, tool calls, duration, and the
-  context size in tokens (DeepSeek's `accumulated_token_usage`, Qwen's
-  `input_tokens`, GLM's `prompt_tokens`).
-- /export [file] — write the session transcript to a Markdown file
-  (zames-export-<stamp>.md by default).
-- /doctor — diagnose node, git, config, browser, clipboard, MCP and the
-  active chat provider (it also reports that provider's UI health).
-- /provider <deepseek|qwen|glm> — switch the chat backend (applied live, no
-  restart); /provider status shows the active provider/model/login; /provider
-  login re-runs the sign-in check. /model [id] lists or picks a Qwen/GLM model at
-  runtime.
-- /add-dir <path> — validate an extra directory (the sandbox is fixed at
-  startup; relaunch with --dir to write there).
-- /resume-id <id> (or picking a chat in the /chats list) — open a chat and
-  PRINT its dialogue into the terminal, so the restored context is visible. Only the
-  last 20 messages are shown (`RESTORED_HISTORY_LIMIT`). /last reopens the last
-  chat of the current directory with no lookup step; /sessions shows the saved
-  sessions with their relative age.
-- /help <command> — the full description of a single command (e.g. `/help diff`)
-  instead of the whole list.
-- /review [focus] [--staged] — ask the agent to review uncommitted changes
-  and report findings (no code changes).
-- /plan [on|off] — plan (read-only) mode. While it is on, the mutating tools
-  (Write/Edit/MultiEdit/ApplyPatch/Bash/BashOutput, GitAdd/GitCommit/GitPush,
-  AskUser) are removed from the tool set, and so are MCP tools with a mutating
-  name, so the agent can investigate without touching the tree.
-  Start in it with `--plan`.
-- /compact — ask the active backend to compress the current chat into a handover
-  summary, then open a NEW chat, resend the system prompt and post the summary
-  as the carried-over context. Use it when the context gets long.
-- /goal <condition> — set a **completion condition** (Claude Code parity). The
-  agent starts working toward it at once and keeps starting new turns until a
-  separate evaluator model judges the condition met. The goal clears itself
-  automatically when it is met (or judged impossible), or with `/goal clear`
-  (or its synonym `/goal off`). The condition is stored in `<project>/.zames-goal`
-  (git-ignored) and restored on the next launch. `/goal` with no argument — or
-  `/goal on` — shows the current state.
-- /loop <interval> <task> — repeat a task periodically (e.g. `/loop 10m run the
-tests`). /cron "<min> <hour> <dom> <month> <dow>" <task> — run on a schedule.
-  /jobs [rm <id>|clear] lists and stops them. A fired job is put into the same
-  message queue you type into, so it runs when the agent is free (never mid-
-  generation) and still respects the send throttle. The FIRST run of a `/loop`
-  is due at once (and runs as soon as the agent is idle); a `/cron` job waits
-  for its schedule.
-- /thinking [on|off] and /web [on|off] — toggle the reasoning / web-search
-  behaviour. On **DeepSeek** these are the "Deep thinking" / "Smart search"
-  toggles; on **Qwen** they drive its thinking MODE (Thinking / Fast) and the
-  "Web search" item in the "+" menu.
-  These (and /queue, /jobs, /goal, `/config <sub>`) can be used WHILE the agent
-  is working — they do not touch the in-flight generation.
-- /queue [list|ls|clear|c|clean] — list (`list`/`ls`) or clear
-  (`clear`/`c`/`clean`) the messages waiting to be sent after the current
-  task.
-
-The token context is also shown live: the status line above the input has the
-spinner/text on the left and the context on the right (e.g. `125k · 13%`). The
-percentage is of the ACTIVE provider's window — 1M for DeepSeek, a per-model
-value for Qwen and GLM (`qwen.contextLimit` / `glm.contextLimit`) — and it is
-COLORED by fill level: green below 50%, yellow 50-80%, red above 80%.
-It comes from the provider's own token counter (DeepSeek's
-`accumulated_token_usage`, Qwen's `input_tokens`, GLM's `prompt_tokens`) and is
-hidden until the first answer delivers it.
-
-## Project context, skills and memory
-
-Like Codex / Claude Code, zames reads project instructions and reusable
-workflows from your repository and from `~/.zames`.
-
-- **AGENTS.md** — project instructions, in the repo root (or any parent folder
-  of the working directory); the agent writes it with `/init`. Global
-  instructions live in
-  `~/.zames/AGENTS.md` (and `~/.claude/CLAUDE.md`). Run `/init` and the agent
-  will explore the project and write an AGENTS.md based on the real build/test
-  commands and conventions (use `/init --force` to overwrite an existing file).
-- **MEMORY.md** — durable notes that persist between sessions. The agent
-  appends useful facts here as it works; `/remember <text>` adds one from the
-  prompt, and any `/task`-style edit through the agent keeps the file in sync.
-- **Skills** — a folder with a `SKILL.md` file (YAML frontmatter: `name`,
-  `description`, optional `allowed-tools`, `user-invokable`) plus any helper
-  files. Discovered under `.zames/skills/`, `.claude/skills/`,
-  `.agents/skills/`, `skills/`, and `~/.zames/skills/`. The agent reads the
-  body only when a task matches the description. List them with `/skills`;
-  invoke one with `/<skill-name>`.
-- **Custom commands** — `.md` files under `.zames/commands/` (or
-  `.claude/commands/`). They support `$ARGUMENTS` / `{{args}}` placeholders and
-  are invoked with `/<command-name>`.
-
-Skills and custom commands show up in the «/» completion list and in `/help`.
-
-```
-/skills                       list discovered skills
-/memory                       show AGENTS.md / MEMORY.md in effect
-/remember <text>              append a durable note to MEMORY.md
-/init [--force]               analyze the project and create AGENTS.md
-```
-
-## MCP (external tools)
-
-zames can use tools from [MCP](https://modelcontextprotocol.io) servers.
-The flagship example is @playwright/mcp: it gives the agent a real browser
-(navigate, click, snapshot, type, ...) on top of the one zames already uses
-for the DeepSeek, Qwen or GLM chat.
-
-Drop a config file (same shape as Claude Code / Cursor):
-
-- `~/.zames/mcp.json` - global
-- `<project>/.zames/mcp.json` - project-scoped (later files win)
-- `<project>/.mcp.json` - the common MCP name
-
-```json
-{
-  "mcpServers": {
-    "playwright": {
-      "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest", "--headless", "--isolated"]
-    }
-  }
-}
-```
-
-IMPORTANT: keep the MCP browser isolated. @playwright/mcp defaults to the
-SAME profile directory as zames (~/.zames/profile). If it is launched
-without --isolated (or without its own --user-data-dir), the MCP browser
-and the agent browser fight over one profile and the DeepSeek chat shows
-"Something went wrong when opening your profile". Always pass --isolated
-as in the example above.
-Servers can also be remote ("url": "https://...", "transport": "sse").
-Their tools show up in the agent as `server__tool` (e.g.
-`playwright__browser_navigate`) and are listed with `/mcp` and in `/status`.
-A server that fails to connect is skipped with a warning and never breaks the
-agent.
-
-### Recommended servers (verified)
-
-A few small, high-value servers tested end to end with zames (on the DeepSeek
-and Qwen backends; the MCP layer is provider-agnostic, so they work with GLM
-too):
-
-- **Context7** (`@upstash/context7-mcp`) — fetches CURRENT, version-specific
-  documentation for a library before the agent writes code, instead of relying
-  on a stale training snapshot. Tools: `resolve_library_id` then `query_docs`.
-  Verified live on DeepSeek AND Qwen: the agent called both tools and got the
-  current Zod API. This is the one to add first.
-
-  ```json
-  {
-    "context7": {
-      "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp@latest"]
-    }
-  }
-  ```
-
-- **Sequential Thinking** (`@modelcontextprotocol/server-sequential-thinking`)
-  — one `sequentialthinking` tool that gives the model an explicit, revisable
-  plan before it acts; useful for long multi-step tasks.
-
-- **Memory** (`@modelcontextprotocol/server-memory`) — a local knowledge graph
-  (9 tools) for durable facts across chats. NOTE: zames already has `MEMORY.md`
-  + `AGENTS.md`; add this only if you want a queryable graph.
-
-Keep the stack SMALL: every server loads its tool definitions into the model's
-context. Add one when you feel its absence, not before.
-
-## Configuration
-
-Global config: `~/.zames/config.json`
-Local (per project): `.zamesrc.json`
-
-You can view and change settings without leaving the agent — use the
-`/config` command. Run it without arguments to open an interactive menu
-(↑/↓ to move, Enter to change, `d` to reset, `q` to quit). Booleans and enums
-toggle in place; numbers and strings open an input prompt.
-
-```
-/config                       interactive settings menu (alias: menu)
-/config list                  print all editable settings (aliases: show, ls)
-/config get <path>            show a setting
-/config set <path> <value>    change a setting
-/config reset <path>          reset a setting to its default (alias: unset)
-/config path                  show config file paths (alias: paths)
-/config lang <ru|en>          switch interface and agent language
-                              (aliases: language, язык)
-```
-
-Examples:
-
-```
-/config set maxIterations 20
-/config set browser.deepThinking true   # DeepSeek Deep thinking (slow; reasoning is hidden)
-/config set browser.webSearch false     # DeepSeek Smart web search
-/config lang en
-```
-
-Changes are written to the HOME config (`~/.zames/config.json`), NOT to the
-project `.zamesrc.json` — a personal toggle must not leak into git — and applied
-right away (where possible without a restart).
-
-### Language
-
-`/config lang ru` or `/config lang en` switches both the interface language
-(help, messages, spinner) and the language the agent answers you in. The
-locale lives in `ui.locale` in the config file.
-
-### Themes
-
-`/theme` opens a pick list with a LIVE preview: the arrow keys repaint the
-terminal as you move, Enter saves, Esc restores the previous palette.
-`/theme <id>` applies a palette directly, `/theme list` prints every id.
-The switch also works WHILE the agent is generating: `/theme <id>` and
-`/config set ui.theme <id>` neither interrupt the turn nor touch the chat (it is
-a pure terminal repaint); the bare `/theme` pick list is queued instead, because
-it opens a full-screen list.
-The same setting is reachable from the settings side:
-`/config set ui.theme <id>` or the `/config` menu («Terminal color theme»).
-The switch is instant, no restart. `zames` is the default; the bundled palettes
-are ports of well-known editor schemes:
-
-`zames` (default), `one-dark`, `dracula`, `gruvbox`, `nord`, `monokai`,
-`solarized-dark`, `tokyo-night`, `tokyo-storm`, `catppuccin`, `github-dark`,
-`ayu`, `rose-pine`, `everforest`, `kanagawa`, `night-owl`, `material`,
-`palenight`, `zenburn`, `selenized`, `iceberg`, `sonokai`, `aurora`, `cobalt2`,
-plus the LIGHT ones: `one-light`, `github-light`, `solarized-light`,
-`gruvbox-light`, `ayu-light`.
-
-A theme repaints EVERYTHING: the interface, the agent's answers, the code
-highlighting inside them, the status row and the input frame. The terminal's
-BACKGROUND follows too: the theme emits OSC-11 with the palette's `bg`
-(supported by iTerm2, Windows Terminal, kitty, WezTerm, Alacritty, GNOME
-Terminal and others; where it is not supported nothing happens). Opt out with
-`ZAMES_NO_BG=1` or `NO_COLOR`.
-To make the choice
-concrete, a SAMPLE SESSION in that palette is shown before you pick (in `/theme`
-below the list, in `/config` press `p` on the theme row); it is not dumped into
-the chat after a pick. Every one of the 29 themes has a screenshot in
-`docs/shots/`. The frame itself is a separate
-setting: `/config set ui.inputBorder <round|single|double|bold|none>`
-(default `round`; `none` removes it). A multi-line operator message keeps its
-`▌` bar on every row.
-
-Agent data is stored in `~/.zames`: browser profile, logs, undo history, sessions.
-
 ## FAQ
+
+**Something is broken — where do I look?**
+See [Troubleshooting](docs/troubleshooting.md): sign-in and captcha, the headless
+`403`, "Something went wrong when opening your profile", "Messages too
+frequent", "Length limit reached", the Qwen/GLM guest limits, missing Chromium
+libraries and a `.zamesrc.json` that overrides `/config set`.
 
 **Is this an official DeepSeek, Qwen or GLM product?**
 No. zames drives the public `chat.deepseek.com` / `chat.qwen.ai` / `chat.z.ai`
@@ -804,6 +527,15 @@ zames                      # один раз войти, дальше прост
 посреди задачи, встанет в очередь и уйдёт сразу после неё, в тот же чат.
 `Esc` прерывает текущую генерацию, `/help` показывает команды, `/exit` — выход.
 
+## Содержание
+
+- [Быстрый старт](#быстрый-старт) · [Как это работает](#как-это-работает) · [Возможности](#возможности)
+- [Почему zames?](#почему-zames) · [Требования](#требования) · [Вход в аккаунт](#вход-в-аккаунт)
+- [Переключение провайдера (DeepSeek / Qwen / GLM)](#переключение-провайдера-deepseek--qwen--glm)
+- [Установка](#установка) · [Использование](#использование) · [FAQ](#faq)
+- Справочник: [Команды и инструменты](docs/commands-ru.md) · [MCP](docs/mcp-ru.md) · [Конфигурация и темы](docs/configuration-ru.md) · [Troubleshooting](docs/troubleshooting-ru.md)
+- [Ключевые слова и аналоги](#ключевые-слова-и-аналоги) · [Ссылки](#ссылки) · [Лицензия](#лицензия)
+
 ## Как это работает
 
 zames не вызывает API модели. Он запускает headless Chromium с постоянным
@@ -843,15 +575,6 @@ zames не вызывает API модели. Он запускает headless C
   рейт-лимит веб-чата во время долгих прогонов с инструментами.
 - **Агент запесочен** в директорию запуска — ни один инструмент не может
   читать или писать выше неё.
-
-## Содержание
-
-- [Быстрый старт](#быстрый-старт) · [Возможности](#возможности) · [Почему zames?](#почему-zames) · [Требования](#требования)
-- [Как это работает](#как-это-работает) · [Установка](#установка) · [Вход в аккаунт](#вход-в-аккаунт) · [Использование](#использование)
-- [Переключение провайдера (DeepSeek / Qwen / GLM)](#переключение-провайдера-deepseek--qwen--glm)
-- [Инструменты](#инструменты) · [Слэш-команды](#слэш-команды)
-- [Контекст проекта, навыки и память](#контекст-проекта-навыки-и-память) · [MCP (внешние инструменты)](#mcp-внешние-инструменты) · [Конфигурация](#конфигурация)
-- [FAQ](#faq) · [Ключевые слова и аналоги](#ключевые-слова-и-аналоги) · [Ссылки](#ссылки) · [Лицензия](#лицензия)
 
 ## Возможности
 
@@ -1121,291 +844,13 @@ zames --task "..." --output-format jsonl \
   | jq -r 'select(.type=="assistant_final") | .message'
 ```
 
-## Инструменты
-
-У агента тот же стиль инструментов, что в Claude Code / Codex CLI:
-
-- **Файловые** — `Read`, `Write`, `Edit`, `Bash`, `BashOutput`, `Glob`,
-  `Grep`. `Read` по умолчанию отдаёт сырое содержимое; передайте
-  `numbered=true`, чтобы получить нумерацию строк в стиле `cat -n` (только для
-  справки — не вставляйте её в `Edit`). `Bash` принимает `run_in_background`,
-  а `BashOutput` затем опрашивает или убивает этот процесс.
-- **Дополнительные** — `LS` (список директории), `MultiEdit` (несколько правок
-  одного файла атомарно), `TodoWrite` (чек-лист задач сессии), `ApplyPatch`
-  (мультифайловый патч в формате V4A от Codex: `*** Begin Patch` … `*** End Patch`).
-- **Git** — `GitStatus`, `GitDiff`, `GitLog`, `GitShow`, `GitBranchList`,
-  `GitAdd`, `GitCommit`, `GitPush`.
-- **Web** — `WebFetch`, `WebSearch`.
-- **Субагенты** — `Task` (делегировать самодостаточную подзадачу агенту в
-  отдельном чате; `explore` только читает, `general` может править; число
-  запусков на задачу ограничено).
-- **Оператор** — `AskUser` (модальный вопрос с вариантами; в режиме плана не
-  предлагается, чтобы не прерывать план).
-- **Служебный** — `respond` (финальный ответ оператору, завершает задачу).
-
-Все файловые инструменты остаются внутри рабочей директории (песочница).
-`Write`/`Edit` и `MultiEdit`/`ApplyPatch` делают резервную копию (undo) перед
-изменением файла.
-
-## Слэш-команды
-
-Введите / в промпте для подсказок (Tab дополняет) — этот список всегда полный,
-а `/help <команда>` описывает любую одну из них. Кроме команд сессии и конфига
-(/new или /clear, /sessions, /chats, /resume-id, /last, /chat, /cd, /pwd,
-/status, /config, /undo, /undo-list, /rewind, /rewind-list, /transcript,
-/tasks, /mcp, /skills, /memory, /remember, /init, /reload, /debug-dom, /help,
-/exit) есть несколько в духе Claude Code / Codex CLI:
-
-- /diff [--staged] — показать git-диф рабочего дерева (--staged для индекса).
-- /diffstat — сводка изменений одной строкой (`git diff --stat`).
-- /context — показать, что загружено в промпт (AGENTS.md, MEMORY.md, навыки,
-  пользовательские команды) и размер системного промпта.
-- /retry — отправить последнюю задачу в тот же чат заново (удобно после
-  обрезанного или пустого ответа).
-- /rename <title> — задать заголовок текущей сессии (виден в /sessions).
-- /copy — скопировать последний ответ ассистента в буфер обмена ОС.
-- /cost (алиас /usage) — статистика сессии: задачи, вызовы инструментов,
-  длительность и размер контекста в токенах (у DeepSeek —
-  `accumulated_token_usage`, у Qwen — `input_tokens`, у GLM — `prompt_tokens`).
-- /export [file] — записать транскрипт сессии в Markdown-файл
-  (по умолчанию zames-export-<stamp>.md).
-- /doctor — диагностика node, git, конфига, браузера, буфера обмена, MCP и
-  активного провайдера чата (плюс состояние UI его страницы).
-- /provider <deepseek|qwen|glm> — сменить бэкенд чата (применяется сразу, без
-  перезапуска); /provider status показывает активный провайдер/модель/вход;
-  /provider login повторно проверяет вход. /model [id] покажет или выберет
-  модель Qwen на лету.
-- /add-dir <path> — проверить дополнительную директорию (песочница
-  фиксируется при старте; для записи туда перезапустите с --dir).
-- /resume-id <id> (или выбор чата в списке /chats) — открыть чат и
-  НАПЕЧАТАТЬ его диалог в терминал, чтобы восстановленный контекст был виден. Показываются
-  только последние 20 сообщений (`RESTORED_HISTORY_LIMIT`). /last открывает
-  последний чат текущей директории без поиска; /sessions показывает сохранённые
-  сессии с их относительным возрастом.
-- /help <command> — полное описание одной команды (например, `/help diff`)
-  вместо всего списка.
-- /review [focus] [--staged] — попросить агента проверить незакоммиченные
-  изменения и сообщить находки (без правок кода).
-- /plan [on|off] — режим плана (только чтение). Пока он включён, мутирующие
-  инструменты (Write/Edit/MultiEdit/ApplyPatch/Bash/BashOutput,
-  GitAdd/GitCommit/GitPush, AskUser) убраны из набора вместе с MCP-инструментами
-  с мутирующим именем, чтобы агент изучал код, не трогая дерево. Стартовать в
-  нём можно с `--plan`.
-- /compact — попросить активный бэкенд сжать текущий чат в передаточное резюме,
-  затем открыть НОВЫЙ чат, заново отправить системный промпт и положить резюме как
-  перенесённый контекст. Используйте, когда контекст разрастается.
-- /goal <условие> — задать **условие завершения** (как в Claude Code). Агент
-  сразу начинает работать над ним и продолжает запускать новые ходы, пока
-  отдельная модель-оценщик не признает условие выполненным. Цель снимается
-  автоматически при достижении (или если оценщик признал её недостижимой),
-  либо командой `/goal clear` (синоним — `/goal off`). Условие
-  хранится в `<project>/.zames-goal` (git-ignored) и восстанавливается при
-  следующем запуске. `/goal` без аргумента — или `/goal on` —
-  показывает текущее состояние.
-- /loop <interval> <task> — повторять задачу периодически (например,
-  `/loop 10m run the tests`). /cron "<min> <hour> <dom> <month> <dow>" <task> —
-  запуск по расписанию. /jobs [rm <id>|clear] перечисляет и останавливает их.
-  Сработавшая задача попадает в ту же очередь сообщений, что и ваш ввод, так
-  что выполняется, когда агент свободен (никогда посреди генерации), и всё
-  равно соблюдает троттлинг отправки. ПЕРВЫЙ запуск `/loop` — сразу же (как
-  только агент свободен); задача `/cron` ждёт своего расписания.
-- /thinking [on|off] и /web [on|off] — переключить режим размышления /
-  веб-поиска. В **DeepSeek** это тумблеры «Deep thinking» / «Smart search»;
-  в **Qwen** — это режим размышления (Thinking / Fast) и пункт «Web search»
-  в меню «+».
-  Их (а также /queue, /jobs, /goal, `/config <sub>`) можно использовать, ПОКА
-  агент работает — они не трогают текущую генерацию.
-- /queue [list|ls|clear|c|clean] — показать (`list`/`ls`) или очистить
-  (`clear`/`c`/`clean`) сообщения, ждущие отправки после текущей задачи.
-
-Контекст в токенах показывается и вживую: в строке статуса над вводом слева
-спиннер/текст, справа — контекст (например, `125k · 13%`). Процент считается от
-окна АКТИВНОГО провайдера — 1M у DeepSeek, у Qwen и GLM — своё значение на
-модель (`qwen.contextLimit` / `glm.contextLimit`). Он ОКРАШЕН по уровню
-заполнения: зелёный ниже 50%, жёлтый 50-80%, красный выше 80%. Значение
-приходит из счётчика токенов провайдера (у DeepSeek — `accumulated_token_usage`,
-у Qwen — `input_tokens`, у GLM — `prompt_tokens`) и скрыто до первого ответа.
-
-## Контекст проекта, навыки и память
-
-Как в Codex / Claude Code, zames читает инструкции проекта и переиспользуемые
-процессы из вашего репозитория и из `~/.zames`.
-
-- **AGENTS.md** — инструкции проекта, лежит в корне репозитория (или в любой
-  родительской папке рабочей директории); агент создаёт его командой `/init`.
-  Глобальные инструкции живут в
-  `~/.zames/AGENTS.md` (и `~/.claude/CLAUDE.md`). Запустите `/init`, и агент
-  изучит проект и напишет AGENTS.md на основе реальных команд сборки/тестов и
-  соглашений (`/init --force` перезапишет существующий файл).
-- **MEMORY.md** — долговечные заметки, переживающие сессии. Агент дописывает
-  сюда полезные факты по ходу работы; `/remember <text>` добавляет заметку из
-  промпта — файл остаётся согласованным без ручного редактирования.
-- **Навыки** — папка с файлом `SKILL.md` (YAML-фронтматтер: `name`,
-  `description`, опционально `allowed-tools`, `user-invokable`) плюс любые
-  вспомогательные файлы. Ищутся в `.zames/skills/`, `.claude/skills/`,
-  `.agents/skills/`, `skills/` и `~/.zames/skills/`. Агент читает тело только
-  когда задача совпадает с описанием. Список — `/skills`; вызов —
-  `/<skill-name>`.
-- **Пользовательские команды** — `.md`-файлы в `.zames/commands/` (или
-  `.claude/commands/`). Поддерживают подстановки `$ARGUMENTS` / `{{args}}` и
-  вызываются как `/<command-name>`.
-
-Навыки и пользовательские команды видны в списке автодополнения «/» и в
-`/help`.
-
-```
-/skills                       список найденных навыков
-/memory                       показать действующие AGENTS.md / MEMORY.md
-/remember <text>              дописать долговечную заметку в MEMORY.md
-/init [--force]               проанализировать проект и создать AGENTS.md
-```
-
-## MCP (внешние инструменты)
-
-zames может использовать инструменты с серверов [MCP](https://modelcontextprotocol.io).
-Главный пример — @playwright/mcp: он даёт агенту настоящий браузер
-(navigate, click, snapshot, type, ...) поверх того, который zames уже
-использует для чата DeepSeek, Qwen или GLM.
-
-Положите файл конфига (той же формы, что в Claude Code / Cursor):
-
-- `~/.zames/mcp.json` — глобальный
-- `<project>/.zames/mcp.json` — на уровне проекта (поздние файлы побеждают)
-- `<project>/.mcp.json` — привычное имя MCP
-
-```json
-{
-  "mcpServers": {
-    "playwright": {
-      "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest", "--headless", "--isolated"]
-    }
-  }
-}
-```
-
-ВАЖНО: держите MCP-браузер изолированным. @playwright/mcp по умолчанию
-использует ТУ ЖЕ директорию профиля, что и zames (~/.zames/profile). Если
-запустить его без --isolated (или без собственного --user-data-dir),
-MCP-браузер и браузер агента подерутся за один профиль, и чат DeepSeek
-покажет «Something went wrong when opening your profile». Всегда передавайте
---isolated, как в примере выше.
-Серверы бывают и удалёнными ("url": "https://...", "transport": "sse").
-Их инструменты видны агенту как `server__tool` (например,
-`playwright__browser_navigate`) и перечисляются в `/mcp` и `/status`.
-Сервер, который не смог подключиться, пропускается с предупреждением и
-никогда не роняет агента.
-
-### Рекомендованные серверы (проверены)
-
-Несколько небольших полезных серверов, протестированных вживую с zames
-(на бэкендах DeepSeek, Qwen и GLM):
-
-- **Context7** (`@upstash/context7-mcp`) — подтягивает АКТУАЛЬНУЮ
-  документацию библиотеки (для конкретной версии) до того, как агент пишет код,
-  вместо устаревших знаний из обучения. Инструменты: `resolve_library_id`, затем
-  `query_docs`. Проверено вживую на DeepSeek и Qwen (слой MCP не зависит от провайдера,
-  поэтому работает и с GLM): агент вызвал оба инструмента
-  и получил актуальный API Zod. Именно его стоит подключить первым.
-
-  ```json
-  {
-    "context7": {
-      "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp@latest"]
-    }
-  }
-  ```
-
-- **Sequential Thinking** (`@modelcontextprotocol/server-sequential-thinking`)
-  — один инструмент `sequentialthinking`, дающий модели явный пересматриваемый
-  план перед действием; полезно для длинных многошаговых задач.
-
-- **Memory** (`@modelcontextprotocol/server-memory`) — локальный граф знаний
-  (9 инструментов) для долговременных фактов между чатами. ВНИМАНИЕ: у zames уже
-  есть `MEMORY.md` + `AGENTS.md`; подключайте, только если нужен граф с запросами.
-
-Держите набор МАЛЕНЬКИМ: каждый сервер грузит описания своих инструментов в
-контекст модели. Добавляйте, когда почувствовали нехватку, а не заранее.
-
-## Конфигурация
-
-Глобальный конфиг: `~/.zames/config.json`
-Локальный (на проект): `.zamesrc.json`
-
-Просматривать и менять настройки можно не выходя из агента — командой
-`/config`. Запустите её без аргументов, чтобы открыть интерактивное меню
-(↑/↓ — навигация, Enter — изменение, `d` — сброс, `q` — выход). Булевы и
-enum переключаются на месте; числа и строки открывают ввод.
-
-```
-/config                       интерактивное меню настроек (алиас: menu)
-/config list                  показать все изменяемые настройки (алиасы: show, ls)
-/config get <path>            показать настройку
-/config set <path> <value>    изменить настройку
-/config reset <path>          сбросить настройку к дефолту (алиас: unset)
-/config path                  показать пути файлов конфига (алиас: paths)
-/config lang <ru|en>          переключить язык интерфейса и агента
-                              (алиасы: language, язык)
-```
-
-Примеры:
-
-```
-/config set maxIterations 20
-/config set browser.deepThinking true   # DeepSeek Deep thinking (медленно; рассуждения скрыты)
-/config set browser.webSearch false     # DeepSeek Smart web search
-/config lang en
-```
-
-Изменения пишутся в домашний конфиг (`~/.zames/config.json`), а НЕ в проектный
-`.zamesrc.json` — личный переключатель не должен попадать в git, — и применяются
-сразу (где это возможно без перезапуска).
-
-### Язык
-
-`/config lang ru` или `/config lang en` переключает и язык интерфейса
-(справка, сообщения, спиннер), и язык, на котором агент вам отвечает. Локаль
-хранится в `ui.locale` в файле конфига.
-
-### Темы
-
-`/theme` открывает список тем с живым предпросмотром: стрелками перебираете —
-терминал сразу перекрашивается, Enter сохраняет, Esc возвращает прежнюю.
-`/theme <id>` применяет тему сразу, `/theme list` показывает все id.
-Переключение работает и ВО ВРЕМЯ работы агента: `/theme <id>` и
-`/config set ui.theme <id>` не прерывают генерацию и не трогают чат (это чистая
-перекраска терминала); голый `/theme` со списком ставится в очередь, т.к.
-открывает полноэкранный список.
-То же самое доступно и через настройки: `/config set ui.theme <id>` или меню
-`/config`, строка «Цветовая тема терминала». Переключение мгновенное, без
-перезапуска. Тема по умолчанию — `zames`; в комплекте порты известных схем
-редакторов:
-
-`zames` (по умолчанию), `one-dark`, `dracula`, `gruvbox`, `nord`, `monokai`,
-`solarized-dark`, `tokyo-night`, `tokyo-storm`, `catppuccin`, `github-dark`,
-`ayu`, `rose-pine`, `everforest`, `kanagawa`, `night-owl`, `material`,
-`palenight`, `zenburn`, `selenized`, `iceberg`, `sonokai`, `aurora`, `cobalt2`,
-а также СВЕТЛЫЕ: `one-light`, `github-light`, `solarized-light`,
-`gruvbox-light`, `ayu-light`.
-
-Тема перекрашивает ВСЁ: интерфейс, ответы агента, подсветку кода в ответах,
-строку статуса и рамку ввода. ФОН окна терминала тоже перекрашивается: тема
-шлёт OSC-11 с цветом `bg` палитры (поддерживают iTerm2, Windows Terminal,
-kitty, WezTerm, Alacritty, GNOME Terminal и др.; где не поддерживается — просто
-ничего не происходит). Отключить фон: `ZAMES_NO_BG=1` или `NO_COLOR`.
-Чтобы было видно, ЧТО меняется, перед выбором
-показывается образец сессии в этой палитре (в `/theme` — под списком, в
-`/config` — клавиша `p` на строке темы); он не печатается в чат после выбора.
-Все 29 тем есть на скриншотах в `docs/shots/`. Саму рамку можно менять отдельно:
-`/config set ui.inputBorder <round|single|double|bold|none>` (по умолчанию
-`round`, `none` — без рамки). Рамку (маркер `▌`) у многострочного сообщения
-пользователя видно на каждой строке.
-
-Данные агента хранятся в `~/.zames`: профиль браузера, логи, история undo,
-сессии.
-
 ## FAQ
+
+**Что-то не работает — куда смотреть?**
+См. [Решение проблем](docs/troubleshooting-ru.md): вход и капча, headless
+`403`, «Something went wrong when opening your profile», «Messages too
+frequent», «Length limit reached», гостевые лимиты Qwen/GLM, нехватка
+библиотек Chromium и `.zamesrc.json`, перекрывающий `/config set`.
 
 **Это официальный продукт DeepSeek, Qwen или GLM?**
 Нет. zames управляет публичными веб-интерфейсами `chat.deepseek.com` /
