@@ -38,7 +38,7 @@ lock-in. Install with `npm install -g zames_pro`, run `zames` in any project
 folder, and describe the task in plain language.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/shots/theme-zames.png" alt="zames terminal coding agent session — an AI coding agent working in the command line without an API key" width="860">
+  <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png" alt="zames terminal coding agent session — an AI coding agent working in the command line without an API key" width="860">
 </p>
 
 ## Quick start
@@ -775,7 +775,7 @@ Qwen или GLM) в агента для командной строки в ду�
 можно описать обычным языком.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/shots/theme-zames.png" alt="сессия zames в терминале — терминальный coding-агент и AI-ассистент программиста без API-ключа" width="860">
+  <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png" alt="сессия zames в терминале — терминальный coding-агент и AI-ассистент программиста без API-ключа" width="860">
 </p>
 
 ## Быстрый старт

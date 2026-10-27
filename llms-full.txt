@@ -23,7 +23,7 @@ lock-in. Install with `npm install -g zames_pro`, run `zames` in any project
 folder, and describe the task in plain language.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/shots/theme-zames.png" alt="zames terminal coding agent session — an AI coding agent working in the command line without an API key" width="860">
+  <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png" alt="zames terminal coding agent session — an AI coding agent working in the command line without an API key" width="860">
 </p>
 
 ## Quick start

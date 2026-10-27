@@ -5,7 +5,10 @@
 // HTML. GitHub renders Markdown, so a committed llms.txt at the repository root
 // is picked up directly (the llms.txt convention, https://llmstxt.org).
 //
-// llms.txt      — the short curated map, hand-written in docs/llms.txt.
+// llms.txt      — the short curated map, hand-written in docs/llms.txt. The
+//                 docs/ copy is the SOURCE (edit it there); the root copy is
+//                 the published artifact a crawler reads, so the two are
+//                 byte-identical by construction (test/llms-txt.test.ts).
 // llms-full.txt — the full English README body, generated from
 //                 docs/readme.en.md so the documentation has ONE source of
 //                 truth and the generated file cannot drift.
