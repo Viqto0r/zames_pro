@@ -56,22 +56,6 @@ export function Select({
   )
 }
 
-/** A single hint chip: `↑/↓ select`. */
-export function Hint({
-  keys,
-  label,
-}: {
-  keys: string
-  label: string
-}): React.ReactElement {
-  return (
-    <Text>
-      <Text color={UI.accent}>{keys}</Text>
-      <Text color={UI.dim}>{' ' + label}</Text>
-    </Text>
-  )
-}
-
 /** A row of hint chips separated by ` · `. */
 export function HintBar({
   hints,
