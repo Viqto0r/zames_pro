@@ -107,11 +107,11 @@ The pure helpers live in `src/backlog.ts` (unit-tested in
 Three more local files are SCRATCHPADS, not documentation — they are gitignored
 and never shipped, so a release cannot carry them:
 
-| File | What it is | Who updates it |
-| --- | --- | --- |
-| `BACKLOG.md` | improvement ideas for the agent itself | `/backlog`, `/improve`, the model in dev mode |
-| `QUEUE.md` | the text-audit queue + journal (`docs/TEXT-AUDIT.md` protocol) | a `/loop` audit run |
-| `scripts/dev-probes/` | one-off TUI pty probes, written by the AGENT per bug | the agent (the file is gitignored) |
+| File                  | What it is                                                     | Who updates it                                |
+| --------------------- | -------------------------------------------------------------- | --------------------------------------------- |
+| `BACKLOG.md`          | improvement ideas for the agent itself                         | `/backlog`, `/improve`, the model in dev mode |
+| `QUEUE.md`            | the text-audit queue + journal (`docs/TEXT-AUDIT.md` protocol) | a `/loop` audit run                           |
+| `scripts/dev-probes/` | one-off TUI pty probes, written by the AGENT per bug           | the agent (the file is gitignored)            |
 
 They exist so a long-running improvement cycle does not lose its place. If one
 of them grows past a screenful of stale entries, delete it — the history is in
@@ -282,6 +282,31 @@ Qwen specifics worth knowing when you touch it:
   the 5th hit "too frequent" (a 5-min back-off), so
   `qwen.minSendIntervalMs` defaults to 4000 ms — far below DeepSeek's 15 s, so
   do not copy that value.
+
+## Release policy
+
+Releases exist for USERS, not for every commit. The rule:
+
+- **A release happens only on the operator's direct request** ("подними
+  версию", "сделай релиз", "release", "bump the version"). The agent NEVER
+  initiates one on its own after finishing a task — not after a fix, not after
+  a feature, not "to be safe".
+- **Several fixes accumulate into ONE patch release.** Commits land on
+  `master` continuously; the version is bumped when the operator asks, and one
+  bump then covers everything merged since the previous tag. A branch that
+  released 142 patches in 2.82.x made the CHANGELOG and the npm version list
+  unreadable — do not repeat it.
+- Choose the bump from ALL changes since the last tag: bug fix only → patch,
+  new user-visible feature → minor, breaking change → major.
+- Nothing in this repository requires a release per commit: the git hooks run
+  lint/format/typecheck/tests/build, CI runs the same, and `changelog:check`
+  validates the Unreleased section. No script, hook or BACKLOG rule asks for a
+  version bump; a fix is done when it is committed and pushed.
+- `/improve`, `/self-review` and the dev-mode self-improvement notes NEVER
+  bump the version.
+
+The mechanical flow (bump → changelog → tag → push the tag, CI publishes) is
+in AGENTS.md, section "Releasing a new version".
 
 ## Checks before a release
 
