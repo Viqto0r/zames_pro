@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.90.9] - 2026-10-28
+
+### Fixed
+
+- **ui:** strip OSC escapes when measuring the banner and config-menu width
+
 ## [2.90.8] - 2026-10-28
 
 ### Fixed
