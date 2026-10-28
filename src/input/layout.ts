@@ -331,7 +331,14 @@ export function wrapToWidth(s: string, maxCols: number): string {
 }
 
 export function truncateToWidth(s: string, maxCols: number): string {
-  const width = Math.max(1, Math.floor(maxCols))
+  // The callers derive the budget from the row width MINUS the tool name
+  // (`contentWidth() - name.length - 6`), so a long name (an MCP tool id) on a
+  // narrow pane produced a NEGATIVE budget and the whole detail collapsed to a
+  // lone `…` — the operator saw no argument at all. A budget below 1 (the
+  // ellipsis itself) is lifted to 2, so the head keeps ONE character next to
+  // the marker instead of disappearing entirely.
+  const requested = Number.isFinite(maxCols) ? Math.floor(maxCols) : 1
+  const width = requested < 1 ? 2 : requested
   const text = String(s ?? '')
   if (visLen(text) <= width) return text
   // Reserve one column for the ellipsis.
