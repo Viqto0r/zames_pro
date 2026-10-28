@@ -489,10 +489,21 @@ export function layoutInput(
     const atLineEnd = i >= chars.length || chars[i] === NL
     if (!atLineEnd && widthUsed >= avail && lastSpace > 0) {
       // Move the "tail" of the line to the next visual line.
+      //
+      // The break happens AT a space, and that space belongs to neither row:
+      // it is the wrap point. Leaving it in `text` printed a trailing space at
+      // the end of the first row, and leaving it in the tail printed a LEADING
+      // space on the continuation row (`❯ ф вйцв …` / `   йца …` — the
+      // operator saw the extra indent on every wrapped line). Consume it.
       const textChars = Array.from(text)
-      const tailLen = textChars.length - lastSpace
+      const tailLen = textChars.length - lastSpace - 1
       i -= tailLen
       text = textChars.slice(0, lastSpace).join('')
+      // Skip the space itself so the next row starts at the word.
+      i += 0
+      // `text` may still contain the space as its LAST char when the break
+      // lands right after it; trim it (the row must not end with blank space).
+      text = text.replace(/ +$/, '')
     }
 
     if (i < chars.length && chars[i] === NL) {

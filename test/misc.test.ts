@@ -95,9 +95,9 @@ test('layoutInput переносит по словам, не разрывая с
   assert.equal(r.rows.length, 2)
   // Break at a word boundary: the whole word moves to the new line.
   assert.equal(r.rows[0].text, 'hello world foo')
-  assert.equal(r.rows[1].text, ' bar')
+  assert.equal(r.rows[1].text, 'bar')
   // The word is not split anywhere in the middle.
-  const joined = r.rows.map((x) => x.text).join('')
+  const joined = r.rows.map((x) => x.text).join(' ')
   assert.equal(joined, 'hello world foo bar')
 })
 
