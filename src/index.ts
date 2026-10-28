@@ -2,7 +2,7 @@
 import './color.js'
 import path from 'path'
 import fs from 'fs/promises'
-import { readFileSync, statSync } from 'fs'
+import { readFileSync } from 'fs'
 import { fileURLToPath } from 'url'
 import {
   theme,
@@ -13,6 +13,7 @@ import {
   isThemeName,
 } from './theme.js'
 import { setInputBorder } from './tui/ui-colors.js'
+import { nonReloadableSources, diffChanged } from './dev-watch.js'
 
 import { DeepSeekBrowser, headlessUACacheReady } from './browser.js'
 import { QwenBrowser } from './qwen-browser.js'
@@ -574,37 +575,40 @@ async function autoReload(): Promise<void> {
     console.error(theme.warn(t('reload.auto_partial')))
     for (const e of errors) console.error(theme.warn('  ' + e))
   }
-  warnIfBrowserChanged()
+  warnIfNonReloadableChanged()
 }
 
-// `browser.ts` is NOT in RELOADABLE: it is imported statically (once) and the
-// live DeepSeekBrowser instance owns the Playwright context/page/timers, so a
-// hot swap is unsafe. In dev mode (`npm run dev` = tsx over src/) the operator
-// therefore keeps running the OLD browser code after editing it, and a fix
-// "does not work" until the process is restarted. We detect the mtime change
-// and print a ONE-TIME hint so this is never a silent trap again.
-let browserMtime = 0
-let browserChangedWarned = false
-function browserSourcePath(): string {
-  // In dev the running file is src/index.ts; in the built dist — dist/index.js
-  // with the sources next to it (../src). Either way we look for browser.ts.
-  const srcDir = /[.]ts$/.test(new URL(import.meta.url).pathname)
+// Modules in RELOADABLE are hot-swapped by /reload; EVERYTHING else in src/
+// keeps running the copy loaded at startup. In dev mode (`npm run dev` = tsx
+// over src/) an edit to such a file therefore "does not work" until the
+// process is restarted - the operator sees the OLD code with no signal. We
+// watch the whole non-reloadable set (computed from the tree, not hardcoded)
+// and print ONE warning listing the changed files.
+const nonReloadableMtimes = new Map<string, number>()
+let nonReloadableWarned = false
+function srcDirPath(): string {
+  // In dev the running file is src/index.ts; in the built dist - dist/index.js
+  // with the sources next to it (../src).
+  return /[.]ts$/.test(new URL(import.meta.url).pathname)
     ? path.dirname(fileURLToPath(import.meta.url))
     : path.join(__dirname, '..', 'src')
-  return path.join(srcDir, 'browser.ts')
 }
-function warnIfBrowserChanged(): void {
-  if (!devMode) return
+function warnIfNonReloadableChanged(): void {
+  if (!devMode || nonReloadableWarned) return
   try {
-    const p = browserSourcePath()
-    const st = statSync(p)
-    if (!browserMtime) {
-      browserMtime = st.mtimeMs
-      return
-    }
-    if (st.mtimeMs !== browserMtime && !browserChangedWarned) {
-      browserChangedWarned = true
-      console.error(theme.warn(t('reload.browser_restart')))
+    const files = nonReloadableSources(srcDirPath())
+    const changed = diffChanged(files, nonReloadableMtimes)
+    if (changed.length === 0) return
+    // The first snapshot only records the state; it must not warn.
+    if (nonReloadableMtimes.size === files.length && changed.length > 0) {
+      nonReloadableWarned = true
+      console.error(
+        theme.warn(
+          t('reload.non_reloadable_restart', {
+            files: changed.map((f) => path.basename(f)).join(', '),
+          }),
+        ),
+      )
     }
   } catch {}
 }
