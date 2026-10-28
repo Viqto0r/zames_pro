@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **tui:** run /tasks live while the agent works instead of queueing it
 - **tui:** draw the operator bar on every row of a multi-line message
 - **first-run:** run the wizard before the browser so its provider is the one launched
 - **first-run:** read the language as a word, not a y/N dialog
