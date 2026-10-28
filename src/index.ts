@@ -2211,6 +2211,21 @@ async function main(): Promise<void> {
           void handleGoal(text)
           return
         }
+        // `/tasks` is READ-ONLY (it prints the TodoWrite checklist from the
+        // shared store): it must never be queued behind the running task, since
+        // the whole point is to see what the agent is doing RIGHT NOW.
+        if (/^\/tasks\s*$/i.test(text.trim())) {
+          const items = getTodos(todoStore)
+          if (!items.length) {
+            ed.printAbove(theme.dim(t('tasks.empty')))
+          } else {
+            ed.printAbove(theme.system(t('tasks.title')))
+            for (const line of renderTodos(items).split(NL).slice(1)) {
+              ed.printAbove(theme.assistant(line))
+            }
+          }
+          return
+        }
       }
       const attachments = (items || []).map((a) => ({
         path: a.path,
