@@ -18,6 +18,7 @@ import { noteSwallowed } from './swallow.js'
 import { pickFallbackProvider } from './provider-fallback.js'
 import { dispatchCommand } from './command-registry.js'
 import { createInfoCommands } from './info-commands.js'
+import { createSessionCommands } from './session-commands.js'
 import {
   shouldRunWizard,
   chooseLanguage,
@@ -3051,6 +3052,196 @@ async function main(): Promise<void> {
     }
   }
 
+  /** /sessions [filter]: the saved sessions (a pick list in the TUI). */
+  const sessionsCommand = async (filter: string): Promise<void> => {
+    // /sessions <query> filters by title or workdir (substring). Sorted by
+    // recency already (listSessions).
+    const all = filterSessions(listSessions(), filter)
+    console.log(theme.system(t('sessions.dir', { v: sessionsDir() })))
+    if (!all.length) {
+      console.log(theme.system(t('sessions.none')))
+    } else {
+      // In the TUI, open a SELECT LIST and resume the chosen session
+      // directly (same behavior as /chats), instead of only listing ids.
+      const canPick = editor && 'isTui' in editor && config.ui.tui && !filter
+      if (canPick && editor) {
+        const opened = await pickSessionInteractively(all)
+        if (opened) return
+      }
+      all.forEach((s, i) => {
+        const n = String(i + 1).padStart(2, ' ')
+        const mark = s.id === currentChatId ? theme.user(' *') : ''
+        const title = s.title ? `  ${s.title}` : ''
+        const wd = s.workdir ? theme.dim(`  [${dirLabel(s.workdir)}]`) : ''
+        const age = mod.commands.formatRelativeTime(s.updatedAt, t)
+        const ageText = age ? theme.dim('  ' + age) : ''
+        console.log(
+          `  ${theme.user(n)}. ${s.id.slice(0, 8)}…${title}${wd}${ageText}${mark}`,
+        )
+      })
+      console.log(theme.system(t('sessions.restore_hint')))
+    }
+  }
+
+  /** /last: reopen the last chat of this working directory. */
+  const lastCommand = async (): Promise<void> => {
+    // Quick resume of the last chat for THIS working directory — otherwise
+    // finding it meant /chats (a network fetch) or copying the id.
+    const last = loadLastSession(currentWorkdir, config.provider)
+    if (!last || !last.id) {
+      console.error(theme.error(t('sessions.none_here')))
+      return
+    }
+    if (editor) editor.lock(t('msg.input_locked'))
+    try {
+      if (editor) editor.clearScreen()
+      console.log(theme.system(t('msg.opening_chat', { id: last.id })))
+      await browser.openChat(last.id)
+      currentChatId = last.id
+      resumeChatId = last.id
+      freshChatNext = false
+      sendSystemPromptNext = promptOnResume()
+      saveLastChat(last.id, currentWorkdir, last.title)
+      transcript.log('resume_chat', { id: last.id, title: last.title })
+      console.log(theme.assistant(t('msg.chat_opened')))
+      loadSessionTodos(last.id)
+      await printRestoredHistory(browser, editor, last.id)
+    } catch (e) {
+      console.error(
+        theme.error(t('msg.open_chat_error', { v: '' })),
+        (e as Error).message,
+      )
+    } finally {
+      if (editor) editor.unlock()
+    }
+  }
+
+  /** /resume-id <id>: open a chat by its full id. */
+  const resumeIdCommand = async (raw: string): Promise<void> => {
+    const id = parseResumeId(raw)
+    if (!id) {
+      console.error(theme.error(t('sessions.resume_id_usage')))
+      return
+    }
+    // A chat id only exists on the backend that created it, so opening a
+    // session saved by ANOTHER provider fails deep inside the browser with a
+    // confusing error. Refuse up front and name the right /provider command.
+    const refusal = resumeProviderRefusal(readSession(id), config.provider, t)
+    if (refusal) {
+      console.error(theme.error(refusal))
+      return
+    }
+    if (editor) editor.lock(t('msg.input_locked'))
+    try {
+      if (editor) editor.clearScreen()
+      console.log(theme.system(t('msg.opening_chat', { id })))
+      await browser.openChat(id)
+      currentChatId = id
+      resumeChatId = id
+      freshChatNext = false
+      sendSystemPromptNext = promptOnResume()
+      saveLastChat(id, currentWorkdir)
+      transcript.log('resume_chat', { id })
+      console.log(
+        theme.assistant(t('msg.chat_opened')) +
+          theme.system(String.fromCharCode(10)),
+      )
+      loadSessionTodos(id)
+      await printRestoredHistory(browser, editor, id)
+    } catch (e) {
+      console.error(
+        theme.error(t('msg.open_chat_error', { v: '' })),
+        (e as Error).message,
+      )
+    } finally {
+      if (editor) editor.unlock()
+    }
+  }
+
+  /** /chats [filter]: the backend chat list (internals hidden). */
+  const chatsCommand = async (filter: string): Promise<void> => {
+    const spin = editor || mod.createSpinner(currentLocale)
+    if (editor) editor.lock(t('msg.input_locked'))
+    spin.thinking()
+    try {
+      const all = await browser.listChats(30)
+      // Hide subagent chats: they are real DeepSeek chats, but they are
+      // internal context-isolation artifacts whose report already lives in
+      // the parent chat, so resuming one is never what the operator wants.
+      // The scraper runs inside the page and cannot localize: a row without
+      // text comes back with an EMPTY title, so the label is applied HERE
+      // (one place, in the operator's language) instead of a hardcoded one.
+      lastChats = all
+        .filter((c) => !isInternalChat(c.id))
+        .map((c) => ({
+          ...c,
+          title: c.title && c.title.trim() ? c.title : t('chats.untitled'),
+        }))
+      spin.stop()
+      // An optional query filters by title (substring, case-insensitive),
+      // so a long chat list does not have to be scanned by eye.
+      const shown = filter
+        ? lastChats.filter((c) => c.title.toLowerCase().includes(filter))
+        : lastChats
+      if (!shown.length) {
+        console.log(theme.system(t('chats.none_hint')))
+      } else {
+        // In the TUI, open a real SELECT LIST (like /model) instead of
+        // dumping text: pick a chat and it opens directly. The text path
+        // below stays for non-TTY / the legacy editor.
+        const canPick = editor && 'isTui' in editor && config.ui.tui && !filter
+        if (canPick && editor) {
+          const openChat = await pickChatInteractively(shown)
+          if (openChat) return
+        }
+        console.log(theme.system(t('chats.recent')))
+        // The number is the index in the FULL list (a filter only narrows
+        // the VIEW), and the full id in brackets is what /resume-id takes.
+        for (const c of shown) {
+          const idx = lastChats.indexOf(c)
+          const n = String(idx + 1).padStart(2, ' ')
+          console.log(
+            `  ${theme.user(n)}. ${c.title}  ${theme.system('(' + c.id.slice(0, 8) + '…)')}`,
+          )
+        }
+        console.log(theme.system(t('chats.use_resume')))
+      }
+    } catch (e) {
+      spin.stop()
+      console.error(theme.error(t('chats.fetch_error')), (e as Error).message)
+    } finally {
+      if (editor) editor.unlock()
+    }
+  }
+
+  /** /new and /clear: a fresh chat on a clean screen. */
+  const newChatCommand = async (): Promise<void> => {
+    if (editor) editor.lock(t('msg.input_locked'))
+    try {
+      await browser.newChat()
+      resumeChatId = null
+      freshChatNext = false
+      sendSystemPromptNext = true
+      // A new chat starts a fresh checklist: keeping the old tasks would
+      // label them as "restored" in a chat that never saw them.
+      resetTodos(todoStore)
+      currentChatId = await browser.getCurrentChatId()
+      saveLastChat(currentChatId, currentWorkdir)
+      transcript.log('new_chat')
+      // Start the new chat on a clean screen (like /clear in a shell).
+      if (editor) editor.clearScreen()
+      console.log(theme.system(t('msg.new_chat')))
+      console.log(theme.system(t('msg.new_chat_ok') + String.fromCharCode(10)))
+    } catch (e) {
+      console.error(
+        theme.error(t('msg.new_chat_error', { v: (e as Error).message })),
+        (e as Error).message,
+      )
+    } finally {
+      if (editor) editor.unlock()
+    }
+  }
+
   while (running) {
     let input: string | null
     let inputAttachments: Array<{ path: string; name: string; mime: string }> =
@@ -3208,6 +3399,31 @@ async function main(): Promise<void> {
       }
     }
 
+    // Group (b): the session and chat commands (/new, /sessions, /chats,
+    // /last, /resume-id). The handlers above own the heavy logic; the registry
+    // owns the NAMES, aliases and argument forwarding.
+    {
+      const sessionCommands = createSessionCommands({
+        t,
+        newChat: () => newChatCommand(),
+        sessions: (filter) => sessionsCommand(filter),
+        chats: (filter) => chatsCommand(filter),
+        last: () => lastCommand(),
+        resumeId: (id) => resumeIdCommand(id),
+        parseResumeId: (raw) => parseResumeId(raw),
+        printResumeUsage: () =>
+          console.error(theme.error(t('sessions.resume_id_usage'))),
+      })
+      if (
+        await dispatchCommand(sessionCommands, trimmed, {
+          print: (line) => console.log(line),
+          devMode,
+        })
+      ) {
+        continue
+      }
+    }
+
     // `!command` — run a shell command directly, without asking the model
     // (like Claude Code's bash mode). The same sandbox guard as the Bash tool
     // applies, so a direct command cannot leave the project either.
@@ -3262,36 +3478,6 @@ async function main(): Promise<void> {
             )
           }
         }
-      }
-      continue
-    }
-
-    if (['/new', '/clear', 'new'].includes(lower)) {
-      if (editor) editor.lock(t('msg.input_locked'))
-      try {
-        await browser.newChat()
-        resumeChatId = null
-        freshChatNext = false
-        sendSystemPromptNext = true
-        // A new chat starts a fresh checklist: keeping the old tasks would
-        // label them as "restored" in a chat that never saw them.
-        resetTodos(todoStore)
-        currentChatId = await browser.getCurrentChatId()
-        saveLastChat(currentChatId, currentWorkdir)
-        transcript.log('new_chat')
-        // Start the new chat on a clean screen (like /clear in a shell).
-        if (editor) editor.clearScreen()
-        console.log(theme.system(t('msg.new_chat')))
-        console.log(
-          theme.system(t('msg.new_chat_ok') + String.fromCharCode(10)),
-        )
-      } catch (e) {
-        console.error(
-          theme.error(t('msg.new_chat_error', { v: (e as Error).message })),
-          (e as Error).message,
-        )
-      } finally {
-        if (editor) editor.unlock()
       }
       continue
     }
@@ -3470,64 +3656,6 @@ async function main(): Promise<void> {
         await mod.selfApply({ config, name })
       } catch (e) {
         console.error(theme.error(t('msg.error')), (e as Error).message)
-      }
-      continue
-    }
-
-    if (lower === '/chats' || lower.startsWith('/chats ')) {
-      const filter = trimmed.slice('/chats'.length).trim().toLowerCase()
-      const spin = editor || mod.createSpinner(currentLocale)
-      if (editor) editor.lock(t('msg.input_locked'))
-      spin.thinking()
-      try {
-        const all = await browser.listChats(30)
-        // Hide subagent chats: they are real DeepSeek chats, but they are
-        // internal context-isolation artifacts whose report already lives in
-        // the parent chat, so resuming one is never what the operator wants.
-        // The scraper runs inside the page and cannot localize: a row without
-        // text comes back with an EMPTY title, so the label is applied HERE
-        // (one place, in the operator's language) instead of a hardcoded one.
-        lastChats = all
-          .filter((c) => !isInternalChat(c.id))
-          .map((c) => ({
-            ...c,
-            title: c.title && c.title.trim() ? c.title : t('chats.untitled'),
-          }))
-        spin.stop()
-        // An optional query filters by title (substring, case-insensitive),
-        // so a long chat list does not have to be scanned by eye.
-        const shown = filter
-          ? lastChats.filter((c) => c.title.toLowerCase().includes(filter))
-          : lastChats
-        if (!shown.length) {
-          console.log(theme.system(t('chats.none_hint')))
-        } else {
-          // In the TUI, open a real SELECT LIST (like /model) instead of
-          // dumping text: pick a chat and it opens directly. The text path
-          // below stays for non-TTY / the legacy editor.
-          const canPick =
-            editor && 'isTui' in editor && config.ui.tui && !filter
-          if (canPick && editor) {
-            const openChat = await pickChatInteractively(shown)
-            if (openChat) continue
-          }
-          console.log(theme.system(t('chats.recent')))
-          // The number is the index in the FULL list (a filter only narrows
-          // the VIEW), and the full id in brackets is what /resume-id takes.
-          for (const c of shown) {
-            const idx = lastChats.indexOf(c)
-            const n = String(idx + 1).padStart(2, ' ')
-            console.log(
-              `  ${theme.user(n)}. ${c.title}  ${theme.system('(' + c.id.slice(0, 8) + '…)')}`,
-            )
-          }
-          console.log(theme.system(t('chats.use_resume')))
-        }
-      } catch (e) {
-        spin.stop()
-        console.error(theme.error(t('chats.fetch_error')), (e as Error).message)
-      } finally {
-        if (editor) editor.unlock()
       }
       continue
     }
@@ -3818,121 +3946,6 @@ async function main(): Promise<void> {
             id ? t('chats.current_id', { v: id }) : t('chats.not_created'),
           ),
         )
-      }
-      continue
-    }
-
-    if (
-      lower === '/sessions' ||
-      lower === '/session' ||
-      lower.startsWith('/sessions ') ||
-      lower.startsWith('/session ')
-    ) {
-      const filter = trimmed
-        .replace(/^\/sessions?/i, '')
-        .trim()
-        .toLowerCase()
-      // /sessions <query> filters by title or workdir (substring). Sorted by
-      // recency already (listSessions).
-      const all = filterSessions(listSessions(), filter)
-      console.log(theme.system(t('sessions.dir', { v: sessionsDir() })))
-      if (!all.length) {
-        console.log(theme.system(t('sessions.none')))
-      } else {
-        // In the TUI, open a SELECT LIST and resume the chosen session
-        // directly (same behavior as /chats), instead of only listing ids.
-        const canPick = editor && 'isTui' in editor && config.ui.tui && !filter
-        if (canPick && editor) {
-          const opened = await pickSessionInteractively(all)
-          if (opened) continue
-        }
-        all.forEach((s, i) => {
-          const n = String(i + 1).padStart(2, ' ')
-          const mark = s.id === currentChatId ? theme.user(' *') : ''
-          const title = s.title ? `  ${s.title}` : ''
-          const wd = s.workdir ? theme.dim(`  [${dirLabel(s.workdir)}]`) : ''
-          const age = mod.commands.formatRelativeTime(s.updatedAt, t)
-          const ageText = age ? theme.dim('  ' + age) : ''
-          console.log(
-            `  ${theme.user(n)}. ${s.id.slice(0, 8)}…${title}${wd}${ageText}${mark}`,
-          )
-        })
-        console.log(theme.system(t('sessions.restore_hint')))
-      }
-      continue
-    }
-
-    if (lower === '/last') {
-      // Quick resume of the last chat for THIS working directory — otherwise
-      // finding it meant /chats (a network fetch) or copying the id.
-      const last = loadLastSession(currentWorkdir, config.provider)
-      if (!last || !last.id) {
-        console.error(theme.error(t('sessions.none_here')))
-        continue
-      }
-      if (editor) editor.lock(t('msg.input_locked'))
-      try {
-        if (editor) editor.clearScreen()
-        console.log(theme.system(t('msg.opening_chat', { id: last.id })))
-        await browser.openChat(last.id)
-        currentChatId = last.id
-        resumeChatId = last.id
-        freshChatNext = false
-        sendSystemPromptNext = promptOnResume()
-        saveLastChat(last.id, currentWorkdir, last.title)
-        transcript.log('resume_chat', { id: last.id, title: last.title })
-        console.log(theme.assistant(t('msg.chat_opened')))
-        loadSessionTodos(last.id)
-        await printRestoredHistory(browser, editor, last.id)
-      } catch (e) {
-        console.error(
-          theme.error(t('msg.open_chat_error', { v: '' })),
-          (e as Error).message,
-        )
-      } finally {
-        if (editor) editor.unlock()
-      }
-      continue
-    }
-
-    if (lower.startsWith('/resume-id ')) {
-      const id = parseResumeId(trimmed.slice('/resume-id'.length))
-      if (!id) {
-        console.error(theme.error(t('sessions.resume_id_usage')))
-        continue
-      }
-      // A chat id only exists on the backend that created it, so opening a
-      // session saved by ANOTHER provider fails deep inside the browser with a
-      // confusing error. Refuse up front and name the right /provider command.
-      const refusal = resumeProviderRefusal(readSession(id), config.provider, t)
-      if (refusal) {
-        console.error(theme.error(refusal))
-        continue
-      }
-      if (editor) editor.lock(t('msg.input_locked'))
-      try {
-        if (editor) editor.clearScreen()
-        console.log(theme.system(t('msg.opening_chat', { id })))
-        await browser.openChat(id)
-        currentChatId = id
-        resumeChatId = id
-        freshChatNext = false
-        sendSystemPromptNext = promptOnResume()
-        saveLastChat(id, currentWorkdir)
-        transcript.log('resume_chat', { id })
-        console.log(
-          theme.assistant(t('msg.chat_opened')) +
-            theme.system(String.fromCharCode(10)),
-        )
-        loadSessionTodos(id)
-        await printRestoredHistory(browser, editor, id)
-      } catch (e) {
-        console.error(
-          theme.error(t('msg.open_chat_error', { v: '' })),
-          (e as Error).message,
-        )
-      } finally {
-        if (editor) editor.unlock()
       }
       continue
     }
