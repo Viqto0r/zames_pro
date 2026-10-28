@@ -29,6 +29,10 @@ export interface UiColors {
   err: string
   system: string
   title: string
+  /** The `▌` bar of an operator turn. */
+  userBar: string
+  /** The operator's own message text. */
+  user: string
 }
 
 /** Derive the Ink map from a terminal palette. */
@@ -46,6 +50,8 @@ export function uiColorsFrom(p: Palette): UiColors {
     err: p.error,
     system: p.system,
     title: p.taskSummary,
+    userBar: p.userBar,
+    user: p.user,
   }
 }
 

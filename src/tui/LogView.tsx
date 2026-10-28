@@ -10,6 +10,7 @@ import React from 'react'
 import { Static, Box, Text } from 'ink'
 import { theme } from '../theme.js'
 import type { LogEntry } from './store.js'
+import { UI } from './ui-colors.js'
 
 /** One log entry. `raw` items already carry ANSI colors and are printed
  *  verbatim; structured items get a themed prefix. */
@@ -20,10 +21,24 @@ function LogRow({ entry }: { entry: LogEntry }): React.ReactElement {
     return <Text>{entry.text}</Text>
   }
   if (entry.bar) {
-    // An operator turn: `▌` on EVERY visual row. Applying the bar to the whole
-    // (already wrapped) block keeps the indent equal on continuation lines —
-    // prefixing only the first line made a multi-line message look ragged.
-    return <Text>{theme.userBar('▌ ') + theme.user(entry.text)}</Text>
+    // An operator turn: `▌` on EVERY visual row.
+    //
+    // A SINGLE <Text> with a colored prefix child is NOT enough: Ink renders a
+    // multi-line string as-is, so the prefix appears on the FIRST line only
+    // (the old comment claimed the opposite and the bug survived for that
+    // reason). The text is already hard-wrapped by the caller
+    // (wrapToWidth), so split it back into rows and draw the bar on each one.
+    const rows = String(entry.text ?? '').split(String.fromCharCode(10))
+    return (
+      <Box flexDirection="column">
+        {rows.map((row, i) => (
+          <Text key={i}>
+            <Text color={UI.userBar}>▌ </Text>
+            <Text color={UI.user}>{row}</Text>
+          </Text>
+        ))}
+      </Box>
+    )
   }
   switch (entry.kind) {
     case 'user':
