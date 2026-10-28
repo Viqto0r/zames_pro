@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.90.4] - 2026-10-28
+
+### Fixed
+
+- **ui:** safeJson(undefined) returns a string, not the value undefined
+
 ## [2.90.3] - 2026-10-28
 
 ### Fixed
