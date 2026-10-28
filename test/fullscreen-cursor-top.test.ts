@@ -69,13 +69,13 @@ test('the suggestion popup is reserved ABOVE the input box', () => {
   // The popup takes rows from the LOG, not from the panel below it.
   assert.equal(without.logHeight - withPopup.logHeight, 4)
   assert.equal(withPopup.panelRows - without.panelRows, 4)
-  // The popup SHRINKS the log, so the box (and with it `cursorTop`) moves UP by
-  // the same number of rows. The popup's OWN rows are added by InputLine, where
-  // it is rendered: folding them in here too put the caret on the popup line.
+  // `cursorTop` is the BOX TOP border row. The popup shrinks the log, so the
+  // box (and `cursorTop`) moves UP by the popup height; InputLine adds the
+  // popup's own rows because it renders them ABOVE the box.
   assert.equal(without.cursorTop - withPopup.cursorTop, 4)
-  // The caret row is the box top + the rows ABOVE the box text (the popup),
-  // and it must be the SAME visual row as the box's text row in both cases.
-  const textRowWithout = without.cursorTop + 1
+  // The box TEXT row is the SAME visual row in both cases:
+  //   cursorTop + suggestRows + 1 (the +1 is the top border) + 0 (cursorRow)
+  const textRowWithout = without.cursorTop + without.suggestRows + 1
   const textRowWith = withPopup.cursorTop + withPopup.suggestRows + 1
   assert.equal(textRowWith, textRowWithout)
 })
