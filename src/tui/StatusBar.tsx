@@ -10,6 +10,7 @@
 import React from 'react'
 import { Box, Text, useAnimation, useWindowSize } from 'ink'
 import { translate, type Locale } from '../i18n.js'
+import { screenInnerCols } from '../input/layout.js'
 import { DOTS, stripEllipsis } from '../spinner.js'
 import { UI, type UiColors } from './ui-colors.js'
 import { truncateToWidth, visLen } from '../input/layout.js'
@@ -219,7 +220,9 @@ export function StatusBar({
   // row sat empty; measuring the badges (they are DROPPED whole when the row
   // is tight, the context counter survives longest) is both accurate and
   // keeps the layout stable.
-  const cols = useWindowSize().columns || 80
+  // Pane width: the full-screen/inline root keeps a gutter on both sides, so
+  // the divider must not run to the terminal edge.
+  const cols = screenInnerCols(useWindowSize().columns || 80)
   const badgeW = badgeTextWidth(state)
   const gap = badgeW > 0 ? 2 : 0
   const leftBudget = Math.max(0, cols - 2 - badgeW - gap)

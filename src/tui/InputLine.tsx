@@ -27,6 +27,7 @@ import {
   SUGGEST_PAGE,
   type SlashCommand,
 } from '../input/layout.js'
+import { screenInnerCols } from '../input/layout.js'
 import {
   insertText,
   insertPaste,
@@ -132,8 +133,10 @@ function InputRows({
 }
 
 export function InputLine(props: InputLineProps): React.ReactElement {
+  // Pane width (gutter excluded): the box must not be wider than the padded
+  // root, or it overflows the row and the caret math drifts.
   const { columns } = useWindowSize()
-  const cols = columns || 80
+  const cols = screenInnerCols(columns || 80)
   const { setCursorPosition } = useCursor()
 
   const [suggestSelected, setSuggestSelected] = useState(-1)

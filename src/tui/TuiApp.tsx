@@ -14,6 +14,7 @@ import { LogView } from './LogView.js'
 import { StatusBar } from './StatusBar.js'
 import { InputLine, type InputLineProps } from './InputLine.js'
 import { suggestRowCount } from '../input/suggest.js'
+import { screenGutter, screenInnerCols } from '../input/layout.js'
 import type { TuiStore } from './store.js'
 
 export type InputCallbacks = Omit<
@@ -44,10 +45,15 @@ export function TuiApp({
   // + the suggestion popup (which renders above the box and would otherwise
   // shift the caret down by its row count). Without the suggestRows term the
   // caret drifted whenever the «/» list opened.
-  const cols = useWindowSize().columns || 80
+  // The INLINE layout needs the same gutter the full-screen one has: the
+  // operator's complaint was that switching a theme made the flush edges
+  // obvious (the themed background only covers what we paint). The width fed
+  // to the suggest-row math must match the padded pane, or the caret drifts.
+  const gutter = screenGutter(useWindowSize().columns || 80)
+  const cols = screenInnerCols(useWindowSize().columns || 80)
   const suggestRows = suggestRowCount(state.edit.buf, state.commands, cols)
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" paddingLeft={gutter} paddingRight={gutter}>
       <LogView entries={entries} />
       <StatusBar state={state} />
       <InputLine

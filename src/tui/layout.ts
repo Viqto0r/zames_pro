@@ -45,6 +45,12 @@ export function fullScreenLayout(
   input: FullScreenLayoutInput,
 ): FullScreenLayout {
   const termRows = Math.max(1, Math.floor(input.termRows) || 24)
+  // `cols` is the WIDTH OF A PANE, not of the terminal: the full-screen app
+  // puts a gutter on both sides (screenInnerCols), and the input box wraps to
+  // exactly that inner width. Using the terminal width here reserved one row
+  // too few the moment a long input filled the pane (the box then wrapped an
+  // extra line and the caret drifted), so the caller MUST pass the inner
+  // width — and the pure helper stays consistent with what it renders.
   const cols = Math.max(1, Math.floor(input.cols) || 80)
   const box = inputBoxRows(
     input.prompt,

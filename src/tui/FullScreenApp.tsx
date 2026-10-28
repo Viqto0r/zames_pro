@@ -18,7 +18,12 @@ import { InputLine, type InputLineProps } from './InputLine.js'
 import type { TuiStore } from './store.js'
 import { translate } from '../i18n.js'
 import { suggestRowCount } from '../input/suggest.js'
-import { truncateToWidth, visLen } from '../input/layout.js'
+import {
+  truncateToWidth,
+  visLen,
+  screenGutter,
+  screenInnerCols,
+} from '../input/layout.js'
 import { fullScreenLayout } from './layout.js'
 import { useMouseWheel } from './useMouseWheel.js'
 import { UI, inputBorderCols } from './ui-colors.js'
@@ -31,7 +36,10 @@ export type FullInputCallbacks = Omit<
 /** The header bar: title, version, working directory. */
 function Header({ store }: { store: TuiStore }): React.ReactElement {
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot)
-  const cols = Math.max(1, useWindowSize().columns || 80)
+  // The header lives INSIDE the gutter, so it must lay out to the pane width:
+  // filling the terminal width would wrap the title row and add a row the
+  // layout does not reserve.
+  const cols = screenInnerCols(useWindowSize().columns || 80)
   const right = [state.provider && '[' + state.provider + ']']
     .filter(Boolean)
     .join(' ')
@@ -93,7 +101,13 @@ export function FullScreenApp({
   // caret row can never drift apart (the component used to compute them
   // separately and the caret landed below the input box when the panel filled
   // the terminal).
-  const cols = Math.max(1, useWindowSize().columns || 80)
+  // Gutter on both sides: the operator asked for breathing room instead of a
+  // UI pinned to the terminal edges (most visible on a wide screen, where the
+  // theme's background made the flush layout look broken). Everything below
+  // (header, log wrap, status, input box, hint) uses the SAME pane width.
+  const termCols = Math.max(1, useWindowSize().columns || 80)
+  const gutter = screenGutter(termCols)
+  const cols = screenInnerCols(termCols)
   const fsLayout = fullScreenLayout({
     termRows,
     cols,
@@ -150,7 +164,12 @@ export function FullScreenApp({
   }, state.mouseScroll)
 
   return (
-    <Box flexDirection="column" height={termRows}>
+    <Box
+      flexDirection="column"
+      height={termRows}
+      paddingLeft={gutter}
+      paddingRight={gutter}
+    >
       <Header store={store} />
       {/* `flexGrow` instead of a fixed `height`: the pane takes whatever the
           panel leaves, so the layout can never be taller than the terminal.

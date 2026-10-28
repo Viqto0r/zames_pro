@@ -390,6 +390,35 @@ export function inputInnerCols(cols: number, borderCols = 2): number {
   return Math.max(4, (Number(cols) || 80) - borderCols - 2)
 }
 
+/**
+ * Horizontal gutter (columns on EACH side) that the full-screen layout keeps
+ * free so the UI does not hug the terminal edges. The operator asked for it: on
+ * a 170-column terminal the header, the answers and the input box were pinned
+ * to column 0 with nothing breathing around them.
+ *
+ * A gutter is dropped entirely on a narrow terminal (< GUTTER_MIN_COLS): the
+ * panes would otherwise lose more width than they gain in looks, and a deep
+ * workdir in the header already competes for the same row.
+ */
+export const GUTTER_MIN_COLS = 60
+
+export function screenGutter(cols: number): number {
+  const c = Math.max(1, Math.floor(Number(cols) || 80))
+  return c >= GUTTER_MIN_COLS ? 2 : 0
+}
+
+/**
+ * Inner width of a full-screen pane: the terminal minus the gutter on BOTH
+ * sides. One helper so the header, the log, the status bar and the input box
+ * wrap and truncate to the SAME width — a mismatch is exactly the class of bug
+ * that clipped an input row or wrapped a header title onto a second line.
+ */
+export function screenInnerCols(cols: number): number {
+  const c = Math.max(1, Math.floor(Number(cols) || 80))
+  const g = screenGutter(c)
+  return Math.max(4, c - g * 2)
+}
+
 // Real height (rows) of the framed input box for the CURRENT buffer: 2 border
 // rows + the number of VISUAL rows the buffer wraps to. Using the LOGICAL line
 // count (buf.split('\n').length) was wrong: a long line wraps and renders MORE
