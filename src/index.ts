@@ -19,6 +19,7 @@ import { pickFallbackProvider } from './provider-fallback.js'
 import { dispatchCommand } from './command-registry.js'
 import { createInfoCommands } from './info-commands.js'
 import { createSessionCommands } from './session-commands.js'
+import { createTreeCommands } from './tree-commands.js'
 import {
   shouldRunWizard,
   chooseLanguage,
@@ -3242,6 +3243,165 @@ async function main(): Promise<void> {
     }
   }
 
+  /** /diff and /diffstat: the working-tree (or staged) diff. */
+  const diffCommand = async (staged: boolean, stat: boolean): Promise<void> => {
+    const { runGitArgs } = await import('./gitTools.js')
+    const probe = await runGitArgs(
+      ['rev-parse', '--is-inside-work-tree'],
+      currentWorkdir,
+      5000,
+    )
+    if (probe.trim() !== 'true') {
+      console.error(theme.error(t('diff.not_repo')))
+      return
+    }
+    const out = await runGitArgs(
+      stat
+        ? mod.commands.diffStatGitArgs(staged)
+        : mod.commands.diffGitArgs(staged),
+      currentWorkdir,
+      20_000,
+    )
+    console.log(
+      theme.system(
+        stat
+          ? mod.commands.formatDiffStat(out, { maxLines: 60 }, t)
+          : mod.commands.formatDiff(out, { maxLines: 400 }, t),
+      ),
+    )
+  }
+
+  /** /undo: revert the last file edit. */
+  const undoCommand = async (): Promise<void> => {
+    const result = await undo.undoLast()
+    if (result.ok && result.record) {
+      console.log(
+        theme.assistant(t('undo.reverted', { v: result.record.originalPath })) +
+          theme.system(
+            result.record.existed ? t('undo.restored') : t('undo.deleted'),
+          ),
+      )
+      transcript.log('undo', { path: result.record.originalPath })
+    } else {
+      // undo.ts returns machine codes ('empty'/'disabled') — localize here so
+      // an English UI never shows a Russian reason.
+      const reasonKey =
+        result.reason === 'empty'
+          ? 'undo.reason_empty'
+          : result.reason === 'disabled'
+            ? 'undo.reason_disabled'
+            : null
+      const reason = reasonKey ? t(reasonKey) : String(result.reason ?? '')
+      console.error(theme.error(t('undo.failed', { v: reason })))
+    }
+  }
+
+  /** /undo-list (/history): the recent undo records. */
+  const undoListCommand = async (): Promise<void> => {
+    const list = await undo.list(10)
+    if (!list.length) {
+      console.log(theme.system(t('undo.empty')))
+    } else {
+      for (const r of list) {
+        const stamp = undoDateLabel(r.stamp)
+        const flag = r.existed ? t('undo.changed') : t('undo.created')
+        console.log(theme.system(`${stamp}  [${flag}]  ${r.originalPath}`))
+      }
+    }
+  }
+
+  /** /rewind-list (/checkpoints): the recent tree checkpoints. */
+  const rewindListCommand = async (): Promise<void> => {
+    const list = await checkpoints.list(10)
+    if (!list.length) {
+      console.log(theme.system(t('rewind.empty')))
+    } else {
+      console.log(theme.system(t('rewind.list_title')))
+      list.forEach((r, i) => {
+        const stamp = undoDateLabel(r.stamp)
+        const label = r.label ? '  [' + t('rewind.label_backup') + ']' : ''
+        console.log(theme.system(`  ${i + 1}. ${stamp}  ${r.workdir}${label}`))
+      })
+    }
+  }
+
+  /** /rewind [n|stamp] [--yes]: restore the working tree from a checkpoint. */
+  const rewindCommand = async (
+    selector: string,
+    line: string,
+  ): Promise<void> => {
+    if (editor) editor.lock(t('msg.input_locked'))
+    try {
+      // The DISPLAY window is the newest 10, but a FULL stamp must resolve
+      // against the whole index (restore() searches all of it): an older
+      // checkpoint picked by its stamp used to report "/rewind failed", and a
+      // stamp sharing its first digits with a newer one could resolve to
+      // THAT wrong record.
+      const list = await checkpoints.list(10)
+      const all = isFullStampSelector(selector)
+        ? await checkpoints.list(Number.MAX_SAFE_INTEGER)
+        : list
+      const target = pickCheckpoint(list, selector, all)
+      if (!target) {
+        console.error(theme.error(t('rewind.failed', { v: selector })))
+        return
+      }
+      // Confirmation: a rewind overwrites the working tree, so it must never
+      // happen on a muscle-memory Enter.
+      const stamp = new Date(target.stamp).toLocaleString()
+      let answer = 'n'
+      if (process.stdin.isTTY && process.stdout.isTTY) {
+        // promptOnce reads stdin itself. While the LineEditor owns the
+        // terminal we must hand it over first (the same pause/resume the
+        // /config menu uses), or both readers fight for the same keys.
+        if (editor) editor.pause()
+        try {
+          answer = await promptOnce(
+            theme.warn(t('rewind.confirm', { v: stamp })) + ' [y/N] ',
+          )
+        } finally {
+          if (editor) editor.resume()
+        }
+      } else if (line.indexOf('--yes') !== -1) {
+        // Non-TTY (piped): do not guess. Require an explicit --yes.
+        answer = 'y'
+      }
+      if (!/^(y|yes|д|да)$/i.test(answer.trim())) {
+        console.log(theme.system(t('rewind.cancelled')))
+        return
+      }
+      const res = await checkpoints.restore(selector)
+      if (res.ok && res.record) {
+        console.log(
+          theme.assistant(
+            t('rewind.reverted', { v: String(res.record.stamp) }),
+          ),
+        )
+        if (res.backup) {
+          console.log(
+            theme.system(t('rewind.backup', { v: String(res.backup.stamp) })),
+          )
+        }
+        transcript.log('rewind', { stamp: res.record.stamp })
+      } else {
+        const reasonKey =
+          res.reason === 'not_found'
+            ? 'rewind.reason_not_found'
+            : res.reason === 'archive_missing'
+              ? 'rewind.reason_archive_missing'
+              : res.reason === 'extract_failed'
+                ? 'rewind.reason_extract_failed'
+                : res.reason === 'disabled'
+                  ? 'rewind.reason_disabled'
+                  : null
+        const reason = reasonKey ? t(reasonKey) : String(res.reason ?? '')
+        console.error(theme.error(t('rewind.failed', { v: reason })))
+      }
+    } finally {
+      if (editor) editor.unlock()
+    }
+  }
+
   while (running) {
     let input: string | null
     let inputAttachments: Array<{ path: string; name: string; mime: string }> =
@@ -3416,6 +3576,27 @@ async function main(): Promise<void> {
       })
       if (
         await dispatchCommand(sessionCommands, trimmed, {
+          print: (line) => console.log(line),
+          devMode,
+        })
+      ) {
+        continue
+      }
+    }
+
+    // Group (c): git / undo / rewind commands (/diff, /diffstat, /undo,
+    // /undo-list, /rewind-list, /rewind).
+    {
+      const treeCommands = createTreeCommands({
+        diff: (staged) => diffCommand(staged, false),
+        diffstat: (staged) => diffCommand(staged, true),
+        undo: () => undoCommand(),
+        undoList: () => undoListCommand(),
+        rewindList: () => rewindListCommand(),
+        rewind: (selector, line) => rewindCommand(selector, line),
+      })
+      if (
+        await dispatchCommand(treeCommands, trimmed, {
           print: (line) => console.log(line),
           devMode,
         })
@@ -4490,52 +4671,6 @@ async function main(): Promise<void> {
       continue
     }
 
-    if (lower === '/diff' || lower.startsWith('/diff ')) {
-      const staged = lower.indexOf('--staged') !== -1
-      const { runGitArgs } = await import('./gitTools.js')
-      const probe = await runGitArgs(
-        ['rev-parse', '--is-inside-work-tree'],
-        currentWorkdir,
-        5000,
-      )
-      if (probe.trim() !== 'true') {
-        console.error(theme.error(t('diff.not_repo')))
-        continue
-      }
-      const out = await runGitArgs(
-        mod.commands.diffGitArgs(staged),
-        currentWorkdir,
-        20_000,
-      )
-      console.log(
-        theme.system(mod.commands.formatDiff(out, { maxLines: 400 }, t)),
-      )
-      continue
-    }
-
-    if (lower === '/diffstat' || lower.startsWith('/diffstat ')) {
-      const staged = lower.indexOf('--staged') !== -1
-      const { runGitArgs } = await import('./gitTools.js')
-      const probe = await runGitArgs(
-        ['rev-parse', '--is-inside-work-tree'],
-        currentWorkdir,
-        5000,
-      )
-      if (probe.trim() !== 'true') {
-        console.error(theme.error(t('diff.not_repo')))
-        continue
-      }
-      const out = await runGitArgs(
-        mod.commands.diffStatGitArgs(staged),
-        currentWorkdir,
-        20_000,
-      )
-      console.log(
-        theme.system(mod.commands.formatDiffStat(out, { maxLines: 60 }, t)),
-      )
-      continue
-    }
-
     if (lower === '/limits') {
       const { readSendEvents, summarizeSends, sendLogPath } =
         await import('./send-telemetry.js')
@@ -4904,139 +5039,6 @@ async function main(): Promise<void> {
         )
       } finally {
         if (editor) editor.busy = false
-      }
-      continue
-    }
-
-    if (lower === '/undo') {
-      const result = await undo.undoLast()
-      if (result.ok && result.record) {
-        console.log(
-          theme.assistant(
-            t('undo.reverted', { v: result.record.originalPath }),
-          ) +
-            theme.system(
-              result.record.existed ? t('undo.restored') : t('undo.deleted'),
-            ),
-        )
-        transcript.log('undo', { path: result.record.originalPath })
-      } else {
-        // undo.ts returns machine codes ('empty'/'disabled') — localize here so
-        // an English UI never shows a Russian reason.
-        const reasonKey =
-          result.reason === 'empty'
-            ? 'undo.reason_empty'
-            : result.reason === 'disabled'
-              ? 'undo.reason_disabled'
-              : null
-        const reason = reasonKey ? t(reasonKey) : String(result.reason ?? '')
-        console.error(theme.error(t('undo.failed', { v: reason })))
-      }
-      continue
-    }
-
-    if (lower === '/undo-list' || lower === '/history') {
-      const list = await undo.list(10)
-      if (!list.length) {
-        console.log(theme.system(t('undo.empty')))
-      } else {
-        for (const r of list) {
-          const stamp = undoDateLabel(r.stamp)
-          const flag = r.existed ? t('undo.changed') : t('undo.created')
-          console.log(theme.system(`${stamp}  [${flag}]  ${r.originalPath}`))
-        }
-      }
-      continue
-    }
-
-    if (lower === '/rewind-list' || lower === '/checkpoints') {
-      const list = await checkpoints.list(10)
-      if (!list.length) {
-        console.log(theme.system(t('rewind.empty')))
-      } else {
-        console.log(theme.system(t('rewind.list_title')))
-        list.forEach((r, i) => {
-          const stamp = undoDateLabel(r.stamp)
-          const label = r.label ? '  [' + t('rewind.label_backup') + ']' : ''
-          console.log(
-            theme.system(`  ${i + 1}. ${stamp}  ${r.workdir}${label}`),
-          )
-        })
-      }
-      continue
-    }
-
-    if (lower === '/rewind' || lower.startsWith('/rewind ')) {
-      const selector = trimmed.slice('/rewind'.length).trim() || '1'
-      if (editor) editor.lock(t('msg.input_locked'))
-      try {
-        // The DISPLAY window is the newest 10, but a FULL stamp must resolve
-        // against the whole index (restore() searches all of it): an older
-        // checkpoint picked by its stamp used to report "/rewind failed", and a
-        // stamp sharing its first digits with a newer one could resolve to
-        // THAT wrong record.
-        const list = await checkpoints.list(10)
-        const all = isFullStampSelector(selector)
-          ? await checkpoints.list(Number.MAX_SAFE_INTEGER)
-          : list
-        const target = pickCheckpoint(list, selector, all)
-        if (!target) {
-          console.error(theme.error(t('rewind.failed', { v: selector })))
-          continue
-        }
-        // Confirmation: a rewind overwrites the working tree, so it must never
-        // happen on a muscle-memory Enter.
-        const stamp = new Date(target.stamp).toLocaleString()
-        let answer = 'n'
-        if (process.stdin.isTTY && process.stdout.isTTY) {
-          // promptOnce reads stdin itself. While the LineEditor owns the
-          // terminal we must hand it over first (the same pause/resume the
-          // /config menu uses), or both readers fight for the same keys.
-          if (editor) editor.pause()
-          try {
-            answer = await promptOnce(
-              theme.warn(t('rewind.confirm', { v: stamp })) + ' [y/N] ',
-            )
-          } finally {
-            if (editor) editor.resume()
-          }
-        } else if (trimmed.indexOf('--yes') !== -1) {
-          // Non-TTY (piped): do not guess. Require an explicit --yes.
-          answer = 'y'
-        }
-        if (!/^(y|yes|д|да)$/i.test(answer.trim())) {
-          console.log(theme.system(t('rewind.cancelled')))
-          continue
-        }
-        const res = await checkpoints.restore(selector)
-        if (res.ok && res.record) {
-          console.log(
-            theme.assistant(
-              t('rewind.reverted', { v: String(res.record.stamp) }),
-            ),
-          )
-          if (res.backup) {
-            console.log(
-              theme.system(t('rewind.backup', { v: String(res.backup.stamp) })),
-            )
-          }
-          transcript.log('rewind', { stamp: res.record.stamp })
-        } else {
-          const reasonKey =
-            res.reason === 'not_found'
-              ? 'rewind.reason_not_found'
-              : res.reason === 'archive_missing'
-                ? 'rewind.reason_archive_missing'
-                : res.reason === 'extract_failed'
-                  ? 'rewind.reason_extract_failed'
-                  : res.reason === 'disabled'
-                    ? 'rewind.reason_disabled'
-                    : null
-          const reason = reasonKey ? t(reasonKey) : String(res.reason ?? '')
-          console.error(theme.error(t('rewind.failed', { v: reason })))
-        }
-      } finally {
-        if (editor) editor.unlock()
       }
       continue
     }
