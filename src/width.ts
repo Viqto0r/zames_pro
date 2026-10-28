@@ -4,11 +4,13 @@
 // is printed at the full terminal width while something else stops at 100 --
 // the mismatch looked ragged after a resize.
 //
-// 0 (default) = auto: the terminal width, capped at DEFAULT_CONTENT_WIDTH.
-// A longer line is harder to read and the eye loses the start of the next
-// line on a wide terminal, so there is a cap.
+// 0 (default) = the FULL terminal width (minus one autowrap-safety column).
+// The old default capped the content at 100 columns, which on a wide terminal
+// left a wide empty band on the right of every answer; the operator asked for
+// the text to use the whole width. A cap is still available per-run via
+// `ui.answerWidth` when a narrower column is easier to read.
 // > 0 = an explicit cap (still never wider than the terminal).
-const DEFAULT_CONTENT_WIDTH = 100
+const DEFAULT_CONTENT_WIDTH = 0
 
 let configured = 0
 
@@ -24,5 +26,8 @@ export function setContentWidth(width: number): void {
 export function contentWidth(): number {
   const cols = process.stdout.columns || 80
   const cap = configured > 0 ? configured : DEFAULT_CONTENT_WIDTH
-  return Math.max(20, Math.min(cap, cols - 1))
+  // A cap of 0 means "no cap beyond the terminal": use every column except
+  // the last one (autowrap safety).
+  const limit = cap > 0 ? Math.min(cap, cols - 1) : cols - 1
+  return Math.max(20, limit)
 }

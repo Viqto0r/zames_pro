@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **input:** the wrap break space belongs to neither row (no stray indent)
 - **tui:** count the gutter in the caret column so it sits after the typed text
 - **tui:** stop the ora spinner from fighting the TUI (53 MB/s redraw storm)
 - **tui:** put the caret on the input row when the suggestion popup is open

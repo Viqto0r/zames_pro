@@ -24,12 +24,15 @@ function withCols(cols: number, fn: () => void): void {
   }
 }
 
-test('divider follows the content width and is capped at 100', () => {
+test('divider follows the full terminal width', () => {
+  // The content used to be capped at 100 columns, which left a wide empty band
+  // on a big terminal. The operator asked for the full width, so the only
+  // reservation left is the autowrap-safety column.
   withCols(120, () => {
-    assert.equal(divider().length, 100, 'capped at 100 on a wide terminal')
+    assert.equal(divider().length, 119, 'one column kept free')
   })
   withCols(80, () => {
-    assert.equal(divider().length, 79, 'one column kept free under the cap')
+    assert.equal(divider().length, 79, 'one column kept free')
   })
   withCols(10, () => {
     assert.equal(divider().length, 20, 'never shorter than 20')
@@ -37,7 +40,7 @@ test('divider follows the content width and is capped at 100', () => {
 })
 
 test('contentWidth is the shared margin for every block', () => {
-  withCols(120, () => assert.equal(contentWidth(), 100))
+  withCols(120, () => assert.equal(contentWidth(), 119))
   withCols(40, () => assert.equal(contentWidth(), 39))
   withCols(10, () => assert.equal(contentWidth(), 20))
 })
