@@ -15,7 +15,9 @@ import { Term } from './vt100.mjs'
 const enabled = process.env.ZAMES_PTY_TESTS === '1'
 const hasScript = spawnSync('sh', ['-c', 'command -v script']).status === 0
 
-function runCaretProbe(): Promise<{ rows: string[]; cursorRow: number }> {
+function runCaretProbe(
+  inline: boolean,
+): Promise<{ rows: string[]; cursorRow: number }> {
   return new Promise((resolve) => {
     const term = new Term(30, 100)
     const child = spawn(
@@ -28,6 +30,7 @@ function runCaretProbe(): Promise<{ rows: string[]; cursorRow: number }> {
           COLUMNS: '100',
           LINES: '30',
           PROBE_MOUSE: '1',
+          ...(inline ? { PROBE_INLINE: '1' } : {}),
           ZAMES_TMP_DIR: '/tmp/zames-probe-tmp',
         },
       },
@@ -48,7 +51,7 @@ test(
   'the caret sits on the input TEXT row while the popup is open',
   { skip: !enabled || !hasScript },
   async () => {
-    const { rows, cursorRow } = await runCaretProbe()
+    const { rows, cursorRow } = await runCaretProbe(false)
     const popupRow = rows.findIndex((r) => r.includes('the chat list'))
     const boxTop = rows.findIndex((r) => r.includes('╭'))
     const textRow = rows.findIndex((r) => r.includes('│ > /chats'))
@@ -59,6 +62,30 @@ test(
       cursorRow,
       textRow,
       'the caret must be on the input TEXT row (' +
+        textRow +
+        '), got ' +
+        cursorRow +
+        '\n' +
+        rows.join('\n'),
+    )
+  },
+)
+
+test(
+  'the caret sits on the input TEXT row in INLINE mode too',
+  { skip: !enabled || !hasScript },
+  async () => {
+    const { rows, cursorRow } = await runCaretProbe(true)
+    const popupRow = rows.findIndex((r) => r.includes('the chat list'))
+    const boxTop = rows.findIndex((r) => r.includes('╭'))
+    const textRow = rows.findIndex((r) => r.includes('│ > /chats'))
+    assert.ok(popupRow > 0, 'the popup did not open:\n' + rows.join('\n'))
+    assert.ok(boxTop > popupRow, 'the popup must sit ABOVE the box')
+    assert.ok(textRow > boxTop, 'the box text row is missing')
+    assert.equal(
+      cursorRow,
+      textRow,
+      'the inline caret must be on the input TEXT row (' +
         textRow +
         '), got ' +
         cursorRow +
