@@ -403,10 +403,6 @@ export const commonMessages: Record<string, { ru: string; en: string }> = {
     ru: '⚠ авто-reload: часть модулей не загрузилась, работаю на прежней версии:',
     en: '⚠ auto-reload: some modules failed, using previous version:',
   },
-  'reload.browser_restart': {
-    ru: '⚠ browser.ts изменился, но он НЕ перезагружается на лету (в нём Playwright-контекст). Перезапусти zames, иначе изменения не применятся.',
-    en: '⚠ browser.ts changed, but it is NOT hot-reloaded (it owns the Playwright context). Restart zames or the change will not apply.',
-  },
   // A generic version of the row above: the WHOLE non-reloadable set is
   // watched (index.ts, run-task.ts, the provider browsers, browser-login.ts,
   // send-*.ts, src/tui/), and `{files}` names what changed.
