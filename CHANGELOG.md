@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.90.8] - 2026-10-28
+
+### Fixed
+
+- **tui:** copy an OSC escape whole and do not count its body as visible width
+
 ## [2.90.7] - 2026-10-28
 
 ### Fixed
