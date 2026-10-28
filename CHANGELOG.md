@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.90.2] - 2026-10-28
+
 ### Fixed
 
 - **web:** treat the IPv4-translated ::ffff:0:a.b.c.d literal as private
