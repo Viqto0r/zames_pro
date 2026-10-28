@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.90.7] - 2026-10-28
+
+### Fixed
+
+- **handoff:** a legacy GLM handoff no longer claims Qwen wrote it
+
 ## [2.90.6] - 2026-10-28
 
 ### Fixed
