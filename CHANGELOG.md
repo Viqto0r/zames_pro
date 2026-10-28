@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **tui:** keep a gutter on both sides so the UI is not flush with the terminal edges
 - **first-run:** ask for language and provider once, before the input loop
 - **provider:** continue a task on an authorized fallback provider
 - **browser:** count swallowed failures instead of silent catches
