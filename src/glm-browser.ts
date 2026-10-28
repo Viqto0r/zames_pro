@@ -16,6 +16,7 @@
 // which a headless browser cannot pass — hence the browser-based login
 // (src/browser-login.ts) and the explicit captcha error below.
 
+import { noteSwallowed } from './swallow.js'
 import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
@@ -376,7 +377,9 @@ export class GlmBrowser {
       try {
         this.onNotice(text)
         return
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_notice', e, this.debug)
+      }
     }
     console.error(text)
   }
@@ -385,14 +388,18 @@ export class GlmBrowser {
     if (this.onSendState) {
       try {
         this.onSendState(state)
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_emitSendState', e, this.debug)
+      }
     }
   }
 
   async _setBusyTitle(busy: boolean): Promise<void> {
     try {
       await this.page.evaluate(setBusyTitleInDom, busy)
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_setBusyTitle', e, this.debug)
+    }
   }
 
   sendIntervalMs(): number {
@@ -488,7 +495,9 @@ export class GlmBrowser {
   async restart(): Promise<void> {
     try {
       if (this.context) await this.context.close()
-    } catch {}
+    } catch (e) {
+      noteSwallowed('restart', e, this.debug)
+    }
     await this._launchOnce()
     await this._fixHeadlessUserAgent()
   }
@@ -516,10 +525,14 @@ export class GlmBrowser {
           sameSite: c.sameSite,
         }))
       }
-    } catch {}
+    } catch (e) {
+      noteSwallowed('relaunchSafe', e, this.debug)
+    }
     try {
       if (this.context) await this.context.close()
-    } catch {}
+    } catch (e) {
+      noteSwallowed('relaunchSafe', e, this.debug)
+    }
     await this._waitProfileUnlocked(15_000)
     this.headless = headless
     const options: Parameters<typeof chromium.launchPersistentContext>[1] = {
@@ -592,7 +605,9 @@ export class GlmBrowser {
           api = res.ok
           const j = await res.json()
           role = typeof j?.role === 'string' ? j.role : null
-        } catch {}
+        } catch (e) {
+          noteSwallowed('probeLogin', e, this.debug)
+        }
         const bodyText = document.body ? document.body.innerText : ''
         const captcha = /security verification|drag the slider/i.test(bodyText)
         const signInVisible = /\bsign in\b/i.test(bodyText) && !hasToken
@@ -630,7 +645,9 @@ export class GlmBrowser {
         .click({ timeout: 3000 })
         .catch(() => {})
       await this.page.waitForTimeout(1500)
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_openLoginPage', e, this.debug)
+    }
   }
 
   /** Prefill the SAVED login (never the password — that is filled on submit). */
@@ -643,7 +660,9 @@ export class GlmBrowser {
       if (await email.isVisible().catch(() => false)) {
         await email.fill(saved, { timeout: 2000 }).catch(() => {})
       }
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_prefillLogin', e, this.debug)
+    }
   }
 
   /**
@@ -671,7 +690,9 @@ export class GlmBrowser {
         // config without the password and the NEXT cold start needed a window.
         try {
           this.onAuthSave?.(this.auth.username, this.auth.password)
-        } catch {}
+        } catch (e) {
+          noteSwallowed('_autoLogin', e, this.debug)
+        }
       }
       return ok
     } catch (e) {
@@ -720,7 +741,9 @@ export class GlmBrowser {
           if (p) this.auth.password = p
           try {
             this.onAuthSave?.(u, p)
-          } catch {}
+          } catch (e) {
+            noteSwallowed('_captureLoginCredentials', e, this.debug)
+          }
         },
       )
       await this.page.evaluate(() => {
@@ -745,12 +768,16 @@ export class GlmBrowser {
                 }
               ).__zamesGlmCreds
               if (email && fn) fn(email.value || '', pwd ? pwd.value || '' : '')
-            } catch {}
+            } catch (e) {
+              noteSwallowed('_captureLoginCredentials', e, this.debug)
+            }
           },
           true,
         )
       })
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_captureLoginCredentials', e, this.debug)
+    }
   }
 
   async _persistSessionIfNeeded(): Promise<void> {
@@ -842,10 +869,14 @@ export class GlmBrowser {
           )
         }
       }
-    } catch {}
+    } catch (e) {
+      noteSwallowed('close', e, this.debug)
+    }
     try {
       if (this.context) await this.context.close()
-    } catch {}
+    } catch (e) {
+      noteSwallowed('close', e, this.debug)
+    }
   }
 
   /**
@@ -919,7 +950,9 @@ export class GlmBrowser {
           }
         },
       )
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_installRuntimeRewrite', e, this.debug)
+    }
   }
 
   _installNetHook(): void {
@@ -943,7 +976,9 @@ export class GlmBrowser {
         // by ITS UI state, so this is the ground truth for _verifyModes.
         // (The features are recorded by _installRuntimeRewrite's route handler:
         // the `request` event still carries the ORIGINAL body.)
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_installNetHook', e, this.debug)
+      }
     })
   }
 
@@ -1016,7 +1051,9 @@ export class GlmBrowser {
         }
         this._netCaptureAt = Date.now()
       }
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_onResponse', e, this.debug)
+    }
   }
 
   async newChat(): Promise<void> {
@@ -1026,7 +1063,9 @@ export class GlmBrowser {
     try {
       await btn.click({ timeout: 2500 })
       clicked = true
-    } catch {}
+    } catch (e) {
+      noteSwallowed('newChat', e, this.debug)
+    }
     let ok = false
     if (clicked) {
       const deadline = Date.now() + 5000
@@ -1066,7 +1105,9 @@ export class GlmBrowser {
         const loc = this.page.locator(sel).last()
         if ((await loc.count()) === 0) continue
         if (await loc.isVisible({ timeout }).catch(() => false)) return loc
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_findVisible', e, this.debug)
+      }
     }
     return null
   }
@@ -1099,7 +1140,9 @@ export class GlmBrowser {
       } else {
         this._lastHistoryError = res.error
       }
-    } catch {}
+    } catch (e) {
+      noteSwallowed('listChats', e, this.debug)
+    }
     try {
       return await this.page.evaluate(scrapeGlmChatList, limit)
     } catch {
@@ -1332,19 +1375,25 @@ export class GlmBrowser {
           return true
         }
       }
-    } catch {}
+    } catch (e) {
+      noteSwallowed('stopGeneration', e, this.debug)
+    }
     const btn = await this._findVisible(STOP_SELECTORS, 500)
     if (btn) {
       try {
         await btn.click({ timeout: 1500 })
         return true
-      } catch {}
+      } catch (e) {
+        noteSwallowed('stopGeneration', e, this.debug)
+      }
     }
     // No dedicated stop control was observed; Escape aborts the generation.
     try {
       await this.page.keyboard.press('Escape')
       return true
-    } catch {}
+    } catch (e) {
+      noteSwallowed('stopGeneration', e, this.debug)
+    }
     return false
   }
 
@@ -1393,7 +1442,9 @@ export class GlmBrowser {
         }, want)
         .catch(() => false)
       if (!clicked) await this.page.keyboard.press('Escape').catch(() => {})
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_applyModel', e, this.debug)
+    }
   }
 
   getToggleStatesSync(): { deepThinking: boolean; webSearch: boolean } {
@@ -1508,7 +1559,9 @@ export class GlmBrowser {
       if (this.onSendPause) {
         try {
           this.onSendPause(secs)
-        } catch {}
+        } catch (e) {
+          noteSwallowed('_waitForSendSlot', e, this.debug)
+        }
       }
     }
     report(gap)
@@ -1712,7 +1765,9 @@ export class GlmBrowser {
       try {
         await input.fill(text, { timeout: 5000 })
         return
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_setInputText', e, this.debug)
+      }
     }
     await input.click({ timeout: 3000 }).catch(() => {})
     await input
@@ -1760,7 +1815,9 @@ export class GlmBrowser {
         5000,
       )
       return failed
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_attachFiles', e, this.debug)
+    }
     // Fallback: set the files directly on the hidden <input type=file>.
     for (const sel of ['input[type="file"]']) {
       const el = this.page.locator(sel).last()
@@ -1772,7 +1829,9 @@ export class GlmBrowser {
           3000,
         )
         return failed
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_attachFiles', e, this.debug)
+      }
     }
     this._notice(this._t('glm.attach_no_input'))
     for (const f of files) failed.push({ path: f.path, name: f.name })
@@ -1806,7 +1865,9 @@ export class GlmBrowser {
         await this.page.goto(CHAT_URL, { waitUntil: 'domcontentloaded' })
         await this._awaitInput(10_000)
         input = await this._findVisible(INPUT_SELECTORS, 3000)
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_askOnce', e, this.debug)
+      }
     }
     if (!input) throw new Error(this._t('glm.input_missing'))
 
@@ -1816,7 +1877,9 @@ export class GlmBrowser {
     if (this.onSendStart) {
       try {
         this.onSendStart()
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_askOnce', e, this.debug)
+      }
     }
     this._emitSendState('generating')
     void this._setBusyTitle(true)
@@ -1861,7 +1924,9 @@ export class GlmBrowser {
           await btn.click({ timeout: 1500 })
           clicked = true
           break
-        } catch {}
+        } catch (e) {
+          noteSwallowed('_askOnce', e, this.debug)
+        }
       }
       if (!clicked) {
         await this.page.keyboard.press('Enter').catch(() => {})

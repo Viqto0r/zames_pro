@@ -16,6 +16,7 @@
 // The site sits behind Alibaba's WAF, which is exactly why we drive a REAL
 // browser: the page solves its own JS challenge and carries the tokens.
 
+import { noteSwallowed } from './swallow.js'
 import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
@@ -392,7 +393,9 @@ export class QwenBrowser {
       try {
         this.onNotice(text)
         return
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_notice', e, this.debug)
+      }
     }
     console.error(text)
   }
@@ -401,14 +404,18 @@ export class QwenBrowser {
     if (this.onSendState) {
       try {
         this.onSendState(state)
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_emitSendState', e, this.debug)
+      }
     }
   }
 
   async _setBusyTitle(busy: boolean): Promise<void> {
     try {
       await this.page.evaluate(setBusyTitleInDom, busy)
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_setBusyTitle', e, this.debug)
+    }
   }
 
   sendIntervalMs(): number {
@@ -502,7 +509,9 @@ export class QwenBrowser {
   async restart(): Promise<void> {
     try {
       if (this.context) await this.context.close()
-    } catch {}
+    } catch (e) {
+      noteSwallowed('restart', e, this.debug)
+    }
     await this._launchOnce()
     await this._fixHeadlessUserAgent()
   }
@@ -542,7 +551,9 @@ export class QwenBrowser {
           .catch(() => {})
         await this.page.waitForTimeout(400)
       }
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_dismissOverlays', e, this.debug)
+    }
   }
 
   async close(): Promise<void> {
@@ -570,10 +581,14 @@ export class QwenBrowser {
           )
         }
       }
-    } catch {}
+    } catch (e) {
+      noteSwallowed('close', e, this.debug)
+    }
     try {
       if (this.context) await this.context.close()
-    } catch {}
+    } catch (e) {
+      noteSwallowed('close', e, this.debug)
+    }
   }
 
   _installNetHook(): void {
@@ -593,7 +608,9 @@ export class QwenBrowser {
         if (!/qwen\.ai\/api\//i.test(url)) return
         const h = req.headers()
         if (h['authorization']) this._apiAuth = h['authorization']
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_installNetHook', e, this.debug)
+      }
     })
   }
 
@@ -665,7 +682,9 @@ export class QwenBrowser {
         }
         this._netCaptureAt = Date.now()
       }
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_onResponse', e, this.debug)
+    }
   }
 
   // Are we signed in? Detected from the PAGE, the same way a human sees it: a
@@ -701,7 +720,9 @@ export class QwenBrowser {
             .catch(() => 0)
           if (login === 0 && signup === 0) return true
         }
-      } catch {}
+      } catch (e) {
+        noteSwallowed('isLoggedIn', e, this.debug)
+      }
       await this.page.waitForTimeout(500)
     }
     return false
@@ -771,7 +792,9 @@ export class QwenBrowser {
               .fill(this.auth.username, { timeout: 2000 })
               .catch(() => {})
           }
-        } catch {}
+        } catch (e) {
+          noteSwallowed('_browserLogin', e, this.debug)
+        }
       },
       captureCredentials: async () => {
         try {
@@ -781,7 +804,9 @@ export class QwenBrowser {
             this.auth.username = user
             try {
               this.onAuthSave?.(user, '')
-            } catch {}
+            } catch (e) {
+              noteSwallowed('_browserLogin', e, this.debug)
+            }
           })
           await this.page.evaluate(() => {
             const w = window as unknown as { __zamesQwenHooked?: boolean }
@@ -802,12 +827,16 @@ export class QwenBrowser {
                     }
                   ).__zamesQwenCreds
                   if (fn && e) fn(e.value || '')
-                } catch {}
+                } catch (e) {
+                  noteSwallowed('_browserLogin', e, this.debug)
+                }
               },
               true,
             )
           })
-        } catch {}
+        } catch (e) {
+          noteSwallowed('_browserLogin', e, this.debug)
+        }
       },
       persistSession: () => this._persistSessionIfNeeded(),
       notice: (key) => this._notice(this._t(key)),
@@ -837,10 +866,14 @@ export class QwenBrowser {
       const cookies = await this.context.cookies()
       const session = cookies.filter((c) => c.expires === -1 || c.expires < 0)
       if (session.length) this._carryCookies = session as never
-    } catch {}
+    } catch (e) {
+      noteSwallowed('relaunchSafe', e, this.debug)
+    }
     try {
       if (this.context) await this.context.close()
-    } catch {}
+    } catch (e) {
+      noteSwallowed('relaunchSafe', e, this.debug)
+    }
     const deadline = Date.now() + 15000
     while (Date.now() < deadline) {
       if (!(await profileLooksLocked(QWEN_USER_DATA_DIR))) break
@@ -911,7 +944,9 @@ export class QwenBrowser {
           if (await email.isVisible().catch(() => false)) {
             await email.fill(this.auth.username).catch(() => {})
           }
-        } catch {}
+        } catch (e) {
+          noteSwallowed('waitForLogin', e, this.debug)
+        }
       },
       captureCredentials: async () => {},
       persistSession: () => this._persistSessionIfNeeded(),
@@ -982,7 +1017,9 @@ export class QwenBrowser {
         // config without the password and the NEXT cold start needed a window.
         try {
           this.onAuthSave?.(this.auth.username, this.auth.password)
-        } catch {}
+        } catch (e) {
+          noteSwallowed('_autoLogin', e, this.debug)
+        }
       }
       return ok
     } catch (e) {
@@ -1074,7 +1111,9 @@ export class QwenBrowser {
       if (this.onAuthSave) {
         try {
           this.onAuthSave(addr, '')
-        } catch {}
+        } catch (e) {
+          noteSwallowed('_promptAndLogin', e, this.debug)
+        }
       }
     } else {
       this._notice(this._t('qwen.login_failed'))
@@ -1104,7 +1143,9 @@ export class QwenBrowser {
           .catch(() => {})
         await this.page.waitForTimeout(2500)
       }
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_openLoginPage', e, this.debug)
+    }
   }
 
   async _fillEmailAndContinue(email: string): Promise<void> {
@@ -1138,7 +1179,9 @@ export class QwenBrowser {
         await link.click({ timeout: 3000 }).catch(() => {})
         await this.page.waitForTimeout(1500)
       }
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_switchToPasswordForm', e, this.debug)
+    }
   }
 
   // Submit the one-time code. Qwen renders EITHER six single-character boxes
@@ -1172,7 +1215,9 @@ export class QwenBrowser {
       if (await submit.count().catch(() => 0)) {
         await submit.click({ timeout: 3000 }).catch(() => {})
       }
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_submitCode', e, this.debug)
+    }
   }
 
   async _waitLoggedIn(timeoutMs: number): Promise<boolean> {
@@ -1191,7 +1236,9 @@ export class QwenBrowser {
     try {
       await btn.click({ timeout: 2500 })
       clicked = true
-    } catch {}
+    } catch (e) {
+      noteSwallowed('newChat', e, this.debug)
+    }
     let ok = false
     if (clicked) {
       const deadline = Date.now() + 5000
@@ -1231,7 +1278,9 @@ export class QwenBrowser {
         const loc = this.page.locator(sel).last()
         if ((await loc.count()) === 0) continue
         if (await loc.isVisible({ timeout }).catch(() => false)) return loc
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_findVisible', e, this.debug)
+      }
     }
     return null
   }
@@ -1266,7 +1315,9 @@ export class QwenBrowser {
       } else {
         this._lastHistoryError = res.error
       }
-    } catch {}
+    } catch (e) {
+      noteSwallowed('listChats', e, this.debug)
+    }
     // Fallback: scrape the sidebar (works for a guest with a rendered list).
     await this._ensureSidebarOpen()
     try {
@@ -1287,7 +1338,9 @@ export class QwenBrowser {
         await btn.click({ timeout: 1500 }).catch(() => {})
         await this.page.waitForTimeout(500)
         return
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_ensureSidebarOpen', e, this.debug)
+      }
     }
   }
 
@@ -1499,13 +1552,17 @@ export class QwenBrowser {
           return true
         }
       }
-    } catch {}
+    } catch (e) {
+      noteSwallowed('stopGeneration', e, this.debug)
+    }
     const btn = await this._findVisible(STOP_SELECTORS, 500)
     if (btn) {
       try {
         await btn.click({ timeout: 1500 })
         return true
-      } catch {}
+      } catch (e) {
+        noteSwallowed('stopGeneration', e, this.debug)
+      }
     }
     const clicked = await this.page
       .evaluate(clickStopInDom, 'send-button|stop-button')
@@ -1514,7 +1571,9 @@ export class QwenBrowser {
     try {
       await this.page.keyboard.press('Escape')
       return true
-    } catch {}
+    } catch (e) {
+      noteSwallowed('stopGeneration', e, this.debug)
+    }
     return false
   }
 
@@ -1578,7 +1637,9 @@ export class QwenBrowser {
       await this.page.waitForTimeout(300)
       const ok = await this._clickMenuOption(wantRe)
       if (ok) this._appliedThinking = this.deepThinking ? 1 : 0
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_applyThinkingMode', e, this.debug)
+    }
   }
 
   // Enable web search via the "+" (mode) menu item, reading its selected state
@@ -1624,7 +1685,9 @@ export class QwenBrowser {
       this._appliedWebSearch = wantWs
       // Close the menu (the send button lives behind it).
       await this.page.keyboard.press('Escape').catch(() => {})
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_applyWebSearch', e, this.debug)
+    }
   }
 
   // Click the first visible menu option whose label matches `labelRe`.
@@ -1693,7 +1756,9 @@ export class QwenBrowser {
           .catch(() => false)
         if (!clicked) await this.page.keyboard.press('Escape').catch(() => {})
       }
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_applyModel', e, this.debug)
+    }
   }
 
   async dumpDom(
@@ -1754,7 +1819,9 @@ export class QwenBrowser {
       if (this.onSendPause) {
         try {
           this.onSendPause(secs)
-        } catch {}
+        } catch (e) {
+          noteSwallowed('_waitForSendSlot', e, this.debug)
+        }
       }
     }
     report(gap)
@@ -2002,7 +2069,9 @@ export class QwenBrowser {
         5000,
       )
       return failed
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_attachFiles', e, this.debug)
+    }
 
     // Fallback: set the files directly on the hidden <input type=file>.
     for (const sel of ATTACH_SELECTORS) {
@@ -2015,7 +2084,9 @@ export class QwenBrowser {
           3000,
         )
         return failed
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_attachFiles', e, this.debug)
+      }
     }
 
     this._notice(this._t('qwen.attach_no_input'))
@@ -2035,7 +2106,9 @@ export class QwenBrowser {
       try {
         await input.fill(text, { timeout: 5000 })
         return
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_setInputText', e, this.debug)
+      }
     }
     // contenteditable fallback: paste so a big block is inserted in one go.
     await input.click({ timeout: 3000 }).catch(() => {})
@@ -2088,7 +2161,9 @@ export class QwenBrowser {
         await this._dismissOverlays()
         await this._awaitInput(10_000)
         input = await this._findVisible(INPUT_SELECTORS, 3000)
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_askOnce', e, this.debug)
+      }
     }
     if (!input) throw new Error(this._t('qwen.input_missing'))
 
@@ -2098,7 +2173,9 @@ export class QwenBrowser {
     if (this.onSendStart) {
       try {
         this.onSendStart()
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_askOnce', e, this.debug)
+      }
     }
     this._emitSendState('generating')
     void this._setBusyTitle(true)
@@ -2156,7 +2233,9 @@ export class QwenBrowser {
           await btn.click({ timeout: 1500 })
           clicked = true
           break
-        } catch {}
+        } catch (e) {
+          noteSwallowed('_askOnce', e, this.debug)
+        }
       }
       // (2) Enter fallback — ONLY when no send button was clicked this round
       // (a build that sends solely on Enter, or a missing button). This is

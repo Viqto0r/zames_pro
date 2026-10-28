@@ -4,6 +4,7 @@ import {
   type Page,
   type Locator,
 } from 'playwright'
+import { noteSwallowed } from './swallow.js'
 import {
   interactiveBrowserLogin,
   loginIsInteractive,
@@ -509,7 +510,9 @@ export class DeepSeekBrowser {
       try {
         this.onNotice(text)
         return
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_notice', e, this.debug)
+      }
     }
     console.error(text)
   }
@@ -520,7 +523,9 @@ export class DeepSeekBrowser {
     if (this.onSendState) {
       try {
         this.onSendState(state)
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_emitSendState', e, this.debug)
+      }
     }
   }
 
@@ -529,7 +534,9 @@ export class DeepSeekBrowser {
   async _setBusyTitle(busy: boolean): Promise<void> {
     try {
       await this.page.evaluate(setBusyTitleInDom, busy)
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_setBusyTitle', e, this.debug)
+    }
   }
 
   async launch(): Promise<void> {
@@ -667,7 +674,9 @@ export class DeepSeekBrowser {
         const h = req.headers()
         if (h['authorization']) this._apiAuth = h['authorization']
         if (h['x-ds-pow-response']) this._apiPow = h['x-ds-pow-response']
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_installNetHook', e, this.debug)
+      }
     })
   }
 
@@ -758,13 +767,17 @@ export class DeepSeekBrowser {
           this._netCaptureAt = Date.now()
         }
       }
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_onResponse', e, this.debug)
+    }
   }
 
   async restart(): Promise<void> {
     try {
       if (this.context) await this.context.close()
-    } catch {}
+    } catch (e) {
+      noteSwallowed('restart', e, this.debug)
+    }
     // A restart must REUSE the existing profile. `launch()` would clean
     // Singleton files, which can race with a sibling agent on the same
     // profile; here we just relaunch the persistent context in place. A fresh
@@ -828,7 +841,9 @@ export class DeepSeekBrowser {
           if (!this.auth.username) return
           const u = await this._findVisible(LOGIN_SELECTORS, 1500)
           if (u) await u.fill(this.auth.username).catch(() => {})
-        } catch {}
+        } catch (e) {
+          noteSwallowed('_browserLogin', e, this.debug)
+        }
       },
       captureCredentials: async () => {
         try {
@@ -842,7 +857,9 @@ export class DeepSeekBrowser {
               if (pass) this.auth.password = pass
               try {
                 this.onAuthSave?.(user, pass)
-              } catch {}
+              } catch (e) {
+                noteSwallowed('_browserLogin', e, this.debug)
+              }
             },
           )
           await this.page.evaluate(() => {
@@ -867,12 +884,16 @@ export class DeepSeekBrowser {
                     }
                   ).__zamesDsCreds
                   if (fn) fn(u ? u.value || '' : '', p ? p.value || '' : '')
-                } catch {}
+                } catch (e) {
+                  noteSwallowed('_browserLogin', e, this.debug)
+                }
               },
               true,
             )
           })
-        } catch {}
+        } catch (e) {
+          noteSwallowed('_browserLogin', e, this.debug)
+        }
       },
       persistSession: () => this._persistSessionIfNeeded(),
       // Route login notices through the SAME notice hook as every other
@@ -919,7 +940,9 @@ export class DeepSeekBrowser {
             headers: { accept: 'application/json' },
           })
           api = res.ok
-        } catch {}
+        } catch (e) {
+          noteSwallowed('probeLogin', e, this.debug)
+        }
         const body = document.body ? document.body.innerText : ''
         const signInVisible = /log ?in|sign ?in|войти/i.test(body)
         return { hasToken, api, signInVisible }
@@ -945,10 +968,14 @@ export class DeepSeekBrowser {
       const cookies = await this.context.cookies()
       const session = cookies.filter((c) => c.expires === -1 || c.expires < 0)
       if (session.length) this._carryCookies = session as never
-    } catch {}
+    } catch (e) {
+      noteSwallowed('relaunchSafe', e, this.debug)
+    }
     try {
       if (this.context) await this.context.close()
-    } catch {}
+    } catch (e) {
+      noteSwallowed('relaunchSafe', e, this.debug)
+    }
     const deadline = Date.now() + 15000
     while (Date.now() < deadline) {
       if (!(await profileLooksLocked())) break
@@ -1001,7 +1028,9 @@ export class DeepSeekBrowser {
           await this.page.waitForTimeout(1500)
         }
       }
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_openLoginPage', e, this.debug)
+    }
   }
 
   async waitForLogin(): Promise<void> {
@@ -1277,7 +1306,9 @@ export class DeepSeekBrowser {
       try {
         await precise.last().click({ timeout: 2000 })
         if (await tryLogin()) return true
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_fillLoginForm', e, this.debug)
+      }
     }
 
     for (const sel of LOGIN_SUBMIT_SELECTORS) {
@@ -1287,7 +1318,9 @@ export class DeepSeekBrowser {
         if (!(await btn.isVisible().catch(() => false))) continue
         await btn.click({ timeout: 2000 })
         if (await tryLogin()) return true
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_fillLoginForm', e, this.debug)
+      }
     }
 
     // Button inside the same form as the password field.
@@ -1403,7 +1436,9 @@ export class DeepSeekBrowser {
         await btn.click({ timeout: 2000 })
         submitted = true
         break
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_handleMfaIfPresent', e, this.debug)
+      }
     }
     if (!submitted) await codeInput.press('Enter').catch(() => {})
 
@@ -1439,7 +1474,9 @@ export class DeepSeekBrowser {
         if (label && !MFA_SEND_CODE_RE.test(label)) continue
         await btn.click({ timeout: 2000 })
         return true
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_clickMfaSendCode', e, this.debug)
+      }
     }
     return false
   }
@@ -1550,7 +1587,9 @@ export class DeepSeekBrowser {
       try {
         await loc.waitFor({ state: 'visible', timeout })
         return loc
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_findVisible', e, this.debug)
+      }
     }
     return null
   }
@@ -1669,7 +1708,9 @@ export class DeepSeekBrowser {
         )
           return true
       }
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_continueButtonVisible', e, this.debug)
+    }
     // Fallback: the raw DOM scan (older/newer DeepSeek builds where the role
     // is absent).
     return this.page.evaluate(continueVisibleInDom).catch(() => false)
@@ -1711,7 +1752,9 @@ export class DeepSeekBrowser {
           break
         }
       }
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_clickContinueIfVisible', e, this.debug)
+    }
     if (found) {
       // One Continue click per `continueMinGapMs`: a `chat/continue` request
       // hits the rate limit like a send, and a run that keeps getting
@@ -1731,7 +1774,9 @@ export class DeepSeekBrowser {
             if (this.onSendPause) {
               try {
                 this.onSendPause(Math.max(0, Math.ceil(leftMs / 1000)))
-              } catch {}
+              } catch (e) {
+                noteSwallowed('_clickContinueIfVisible', e, this.debug)
+              }
             }
           })
           if (aborted) return false
@@ -1745,7 +1790,9 @@ export class DeepSeekBrowser {
         // can fire) so the operator sees why the turn resumed.
         this._notice(this._t('ds.continue_clicked'))
         return true
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_clickContinueIfVisible', e, this.debug)
+      }
     }
     // 2) Fallback: raw DOM scan + full pointer/mouse event sequence (an older
     //    build without a proper role, or a click intercepted by an overlay).
@@ -1784,7 +1831,9 @@ export class DeepSeekBrowser {
             (await b.getAttribute('aria-pressed').catch(() => null)) === 'true'
           return { loc: b, pressed }
         }
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_findToggle', e, this.debug)
+      }
     }
     return null
   }
@@ -1798,7 +1847,9 @@ export class DeepSeekBrowser {
         await this.page.waitForTimeout(150)
       }
       return
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_setToggle', e, this.debug)
+    }
   }
 
   async _applyToggles(): Promise<void> {
@@ -1836,7 +1887,9 @@ export class DeepSeekBrowser {
       try {
         const found = await this._findToggle(labelRe)
         if (found) return found.pressed
-      } catch {}
+      } catch (e) {
+        noteSwallowed('getToggleStates', e, this.debug)
+      }
       return fallback
     }
     return {
@@ -1866,7 +1919,9 @@ export class DeepSeekBrowser {
           return true
         }
       }
-    } catch {}
+    } catch (e) {
+      noteSwallowed('stopGeneration', e, this.debug)
+    }
 
     // 2) Legacy selector path.
     const btn = await this._findVisible(STOP_SELECTORS, 500)
@@ -1874,7 +1929,9 @@ export class DeepSeekBrowser {
       try {
         await btn.click({ timeout: 1500 })
         return true
-      } catch {}
+      } catch (e) {
+        noteSwallowed('stopGeneration', e, this.debug)
+      }
     }
 
     // 3) Raw DOM scan + the full pointer/mouse sequence (older builds without
@@ -1886,7 +1943,9 @@ export class DeepSeekBrowser {
     try {
       await this.page.keyboard.press('Escape')
       return true
-    } catch {}
+    } catch (e) {
+      noteSwallowed('stopGeneration', e, this.debug)
+    }
     return false
   }
 
@@ -2149,7 +2208,9 @@ export class DeepSeekBrowser {
       try {
         await input.fill(text, { timeout: 5000 })
         return
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_setInputText', e, this.debug)
+      }
     }
 
     await input.click()
@@ -2227,7 +2288,9 @@ export class DeepSeekBrowser {
           2500,
         )
         return failed
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_attachFiles', e, this.debug)
+      }
     }
 
     // Fallback: set the files directly on the hidden <input type=file>.
@@ -2272,7 +2335,9 @@ export class DeepSeekBrowser {
       if (this.onSendPause) {
         try {
           this.onSendPause(secs)
-        } catch {}
+        } catch (e) {
+          noteSwallowed('_waitRateLimit', e, this.debug)
+        }
       }
     }
     this._emitSendState('paused')
@@ -2314,7 +2379,9 @@ export class DeepSeekBrowser {
       if (this.onSendPause) {
         try {
           this.onSendPause(secs)
-        } catch {}
+        } catch (e) {
+          noteSwallowed('_waitForSendSlot', e, this.debug)
+        }
       } else {
         // Fallback when no UI hook is wired (a direct ask() from a script):
         // localize it — the pause is operator-facing text.
@@ -2370,7 +2437,9 @@ export class DeepSeekBrowser {
         new Date().toISOString() + ' ' + msg + String.fromCharCode(10)
       const dir = path.join(os.homedir(), '.zames')
       void fs.appendFile(path.join(dir, 'ask-debug.log'), line).catch(() => {})
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_askDebug', e, this.debug)
+    }
   }
 
   async _askOnce(
@@ -2425,7 +2494,9 @@ export class DeepSeekBrowser {
     if (this.onSendStart) {
       try {
         this.onSendStart()
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_askOnce', e, this.debug)
+      }
     }
     this._emitSendState('generating')
     void this._setBusyTitle(true)
@@ -2479,7 +2550,9 @@ export class DeepSeekBrowser {
           await btn.click({ timeout: 1500 })
           sent = true
           break
-        } catch {}
+        } catch (e) {
+          noteSwallowed('_askOnce', e, this.debug)
+        }
       }
       if (!sent) await this.page.waitForTimeout(150)
     }
@@ -2504,7 +2577,9 @@ export class DeepSeekBrowser {
         await this.page.keyboard.press('Enter')
         this._lastSentAt = Date.now()
       }
-    } catch {}
+    } catch (e) {
+      noteSwallowed('_askOnce', e, this.debug)
+    }
 
     // Wait for the start: either Stop appeared, or the answer text changed,
     // or the page grew (a new answer node / longer last answer). In parallel we
@@ -3042,7 +3117,9 @@ export class DeepSeekBrowser {
         await btn.click({ timeout: 1500 })
         await this.page.waitForTimeout(500)
         return
-      } catch {}
+      } catch (e) {
+        noteSwallowed('_ensureSidebarOpen', e, this.debug)
+      }
     }
   }
 
@@ -3070,7 +3147,9 @@ export class DeepSeekBrowser {
           }
           await this.page.waitForTimeout(100)
         }
-      } catch {}
+      } catch (e) {
+        noteSwallowed('openChat', e, this.debug)
+      }
     }
 
     try {
@@ -3267,9 +3346,13 @@ export class DeepSeekBrowser {
           )
         }
       }
-    } catch {}
+    } catch (e) {
+      noteSwallowed('close', e, this.debug)
+    }
     try {
       if (this.context) await this.context.close()
-    } catch {}
+    } catch (e) {
+      noteSwallowed('close', e, this.debug)
+    }
   }
 }
