@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **ui:** use the full terminal width instead of capping the content at 100 columns
 - **doctor:** wire the prompt size, password store and swallowed tags into /doctor
 - **tui:** keep a gutter on both sides so the UI is not flush with the terminal edges
 - **first-run:** ask for language and provider once, before the input loop
