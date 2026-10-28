@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://viqto0r.github.io/zames_pro/sitemap.xml

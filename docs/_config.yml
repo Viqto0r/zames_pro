@@ -1,0 +1,8 @@
+title: zames_pro — terminal coding agent
+description: >-
+  A terminal coding agent that drives real web chat LLMs (DeepSeek, Qwen,
+  GLM) through a browser — no API key required.
+theme: jekyll-theme-primer
+lang: en
+plugins:
+  - jekyll-sitemap

@@ -83,7 +83,12 @@ test('package.json carries the search metadata', () => {
   }
   assert.ok(pkg.author?.name, 'package.json has no author')
   assert.ok(pkg.repository?.url?.includes('github.com/Viqto0r/zames_pro'))
-  assert.ok(pkg.homepage?.includes('github.com/Viqto0r/zames_pro'))
+  // `homepage` now points at the GitHub Pages documentation site (it is the
+  // canonical URL a search engine sees); the repository link is checked above.
+  assert.ok(
+    pkg.homepage?.includes('viqto0r.github.io/zames_pro') ||
+      pkg.homepage?.includes('github.com/Viqto0r/zames_pro'),
+  )
   assert.ok(pkg.bugs?.url?.includes('/issues'))
   assert.ok(pkg.funding?.url, 'package.json has no funding')
   assert.ok(pkg.files?.includes('llms.txt'), 'llms.txt is not published')

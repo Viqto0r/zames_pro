@@ -483,6 +483,7 @@ OpenHands.
 
 - **npm:** <https://www.npmjs.com/package/zames_pro>
 - **GitHub:** <https://github.com/Viqto0r/zames_pro>
+- **Documentation site:** <https://viqto0r.github.io/zames_pro/>
 - **Changelog:** [`CHANGELOG.md`](CHANGELOG.md)
 - **Contributing:** [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - **Security policy:** [`SECURITY.md`](SECURITY.md)
