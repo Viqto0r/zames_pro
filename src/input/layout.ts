@@ -188,6 +188,24 @@ export function visLen(s: string): number {
         i++
         while (i < s.length && !/[A-Za-z]/.test(s[i])) i++
         i++
+      } else if (s[i] === ']') {
+        // OSC (`ESC ] … BEL` / `ESC ] … ESC \`) — e.g. an OSC-8 hyperlink
+        // emitted by renderMarkdown. Its body is NOT visible text: without
+        // this branch every URL character counted as a column, so a link line
+        // measured far wider than it renders (layout/cursor drift) and
+        // truncation cut into the middle of the sequence.
+        i++
+        while (i < s.length) {
+          if (s.charCodeAt(i) === 7) {
+            i++
+            break
+          }
+          if (s.charCodeAt(i) === 27 && s[i + 1] === String.fromCharCode(92)) {
+            i += 2
+            break
+          }
+          i++
+        }
       }
       continue
     }
@@ -361,6 +379,29 @@ export function truncateToWidth(s: string, maxCols: number): string {
       // A sequence the budget cannot even finish is dropped, never split.
       out += seq
       i += seq.length
+      continue
+    }
+    // OSC (`ESC ] … BEL` or `ESC ] … ESC \`) is the OTHER escape family and is
+    // what renderMarkdown emits for OSC-8 hyperlinks. Without this branch the
+    // URL's characters counted as visible columns and the cut landed INSIDE
+    // the sequence (`\x1b]…`), destroying the link. Copy it whole too; one
+    // whose terminator was already lost is kept as-is rather than half-cut.
+    if (text.charCodeAt(i) === 27 && text[i + 1] === ']') {
+      let j = i + 2
+      while (j < text.length) {
+        if (text[j] === String.fromCharCode(7)) {
+          j++
+          break
+        }
+        if (text.charCodeAt(j) === 27 && text[j + 1] === '\\') {
+          j += 2
+          break
+        }
+        j++
+      }
+      const seq = text.slice(i, j)
+      out += seq
+      i = j
       continue
     }
     const cp = text.codePointAt(i) as number
