@@ -21,6 +21,7 @@ import { createInfoCommands } from './info-commands.js'
 import { createSessionCommands } from './session-commands.js'
 import { createTreeCommands } from './tree-commands.js'
 import { createSchedulerCommands } from './scheduler-commands.js'
+import { createDevCommands } from './dev-commands.js'
 import {
   shouldRunWizard,
   chooseLanguage,
@@ -3560,6 +3561,297 @@ async function main(): Promise<void> {
     return sub === 'set' && !!sessionGoal
   }
 
+  /** Dev-only self-development commands (registry, group e). */
+  const selfReviewCommand = async (raw: string): Promise<void> => {
+    const focus = raw.trim()
+
+    // Remember where to return
+    const originalWorkdir: string = reviewMode
+      ? reviewMode.originalWorkdir
+      : currentWorkdir
+
+    if (editor) editor.lock(t('msg.input_locked'))
+    try {
+      const result = await mod.selfReview({
+        browser,
+        config,
+        focus: focus || undefined,
+        transcript,
+        locale: currentLocale,
+      })
+
+      // Switch to review mode:
+      //  - working directory = snapshot
+      //  - we do NOT reset the chat — inside selfReview a fresh chat was
+      //    already created and the review prompt sent, we return in it
+      reviewMode = {
+        snapDir: result.snapDir,
+        snapName: path.basename(result.snapDir),
+        originalWorkdir,
+      }
+      currentWorkdir = result.snapDir
+      freshChatNext = false
+      sendSystemPromptNext = false
+      currentChatId = await browser.getCurrentChatId()
+      saveLastChat(currentChatId, currentWorkdir)
+
+      console.log(
+        theme.user(t('self.review_hint', { name: reviewMode.snapName })),
+      )
+    } catch (e) {
+      console.error(theme.error(t('self.review_failed')), (e as Error).message)
+      if (debug) console.error((e as Error).stack)
+    } finally {
+      if (editor) editor.unlock()
+    }
+  }
+
+  const selfFixCommand = async (raw: string): Promise<void> => {
+    const rest = raw.trim()
+    if (!rest) {
+      console.error(theme.error(t('self.fix_usage')))
+      return
+    }
+    const sp = rest.indexOf(' ')
+    const name = sp === -1 ? rest : rest.slice(0, sp)
+    const focus = sp === -1 ? '' : rest.slice(sp + 1).trim()
+
+    const snapRoot = path.join(ZAMES_HOME, 'snapshots', name)
+    const stat = await fs.stat(snapRoot).catch(() => null)
+    if (!stat || !stat.isDirectory()) {
+      console.error(theme.error(t('self.snapshot_not_found', { v: snapRoot })))
+      return
+    }
+
+    const originalWorkdir: string = reviewMode
+      ? reviewMode.originalWorkdir
+      : currentWorkdir
+
+    // Fresh chat + review prompt for this snapshot
+    try {
+      const { runAgentLoop: ral } = await import('./agent-loop.js')
+      const tools = mod.createTools(snapRoot, { undo: null })
+
+      await browser.newChat()
+      const sysPrompt = mod.buildSystemPrompt({
+        workdir: snapRoot,
+        tools,
+        locale: currentLocale,
+      })
+      console.log(theme.system(t('self.init_review_chat')))
+      await browser.ask(sysPrompt, { timeout: 60_000 })
+
+      if (focus) {
+        const ui = mod.createSpinner(currentLocale)
+        ui.thinking()
+        await ral({
+          browser,
+          tools,
+          task: focus,
+          workdir: snapRoot,
+          maxIterations: currentMaxIter(),
+          freshChat: false,
+          sendSystemPrompt: false,
+          transcript,
+          onThinking: () => ui.thinking(),
+          onToolCall: (name, toolArgs) => ui.toolCall(name, toolArgs),
+          onToolResult: (r) => ui.toolResult(r),
+          onAssistantMessage: (m) => {
+            ui.assistant(m)
+          },
+          onWarning: (m) => ui.warning(m),
+          locale: currentLocale,
+        })
+      }
+
+      reviewMode = {
+        snapDir: snapRoot,
+        snapName: name,
+        originalWorkdir,
+      }
+      currentWorkdir = snapRoot
+      freshChatNext = false
+      sendSystemPromptNext = false
+      currentChatId = await browser.getCurrentChatId()
+      saveLastChat(currentChatId, currentWorkdir)
+
+      console.log(theme.user(t('self.fix_hint', { name })))
+    } catch (e) {
+      console.error(theme.error(t('self.enter_failed')), (e as Error).message)
+    }
+  }
+
+  const selfDoneCommand = async (_raw: string): Promise<void> => {
+    if (!reviewMode) {
+      console.log(theme.system(t('self.not_in_review')))
+      return
+    }
+    const back = reviewMode.originalWorkdir
+    reviewMode = null
+    currentWorkdir = back
+    // Since the chat is busy with the review context, we'll create a new one for regular work
+    freshChatNext = true
+    sendSystemPromptNext = true
+    console.log(theme.system(t('self.done_hint', { v: back })))
+  }
+
+  const selfListCommand = async (_raw: string): Promise<void> => {
+    try {
+      await mod.selfList({ config, locale: currentLocale })
+    } catch (e) {
+      console.error(theme.error(t('msg.error')), (e as Error).message)
+    }
+  }
+
+  const selfDiffCommand = async (raw: string): Promise<void> => {
+    const name = raw.trim()
+    if (!name) {
+      console.error(theme.error(t('self.diff_usage')))
+      return
+    }
+    try {
+      await mod.selfDiff({ config, name })
+    } catch (e) {
+      console.error(theme.error(t('msg.error')), (e as Error).message)
+    }
+  }
+
+  const selfApplyCommand = async (raw: string): Promise<void> => {
+    const name = raw.trim()
+    if (!name) {
+      console.error(theme.error(t('self.apply_usage')))
+      return
+    }
+    try {
+      await mod.selfApply({ config, name })
+    } catch (e) {
+      console.error(theme.error(t('msg.error')), (e as Error).message)
+    }
+  }
+
+  const improveCommand = async (raw: string): Promise<void> => {
+    // Backlog-driven self-improvement: pick the next open BACKLOG item (or a
+    // specific id) and run the standard task loop on it. The agent reads
+    // BACKLOG.md itself for the details, so a FRESH agent needs no external
+    // context — this is the reproducible hand-off path.
+    const arg = raw.trim()
+    let backlogText: string
+    try {
+      backlogText = await fs.readFile(
+        path.join(currentWorkdir, 'BACKLOG.md'),
+        'utf-8',
+      )
+    } catch {
+      console.error(theme.warn(t('improve.no_backlog')))
+      return
+    }
+    const items = mod.commands.parseBacklogItems(backlogText)
+    const item = mod.commands.nextBacklogItem(items, arg || undefined)
+    if (!item) {
+      console.log(
+        theme.dim(
+          arg ? t('improve.not_found', { v: arg }) : t('improve.all_done'),
+        ),
+      )
+      return
+    }
+    console.log(
+      theme.system(t('improve.start', { id: item.id, title: item.title })),
+    )
+    const improveBase = mod.createTools(currentWorkdir, {
+      undo,
+      todos: todoStore,
+      readOnly: planMode,
+    })
+    const improveTools = mergeTools(improveBase, mcpPool?.tools, planMode)
+    if (editor) editor.busy = true
+    try {
+      await mod.runTask(
+        runTaskDeps(),
+        browser,
+        improveTools,
+        mod.commands.buildImprovePrompt(item),
+        currentWorkdir,
+        {
+          transcript,
+          freshChat: false,
+          sendSystemPrompt: false,
+          queue: pendingQueue,
+          ui: editor || null,
+          onChatReady: (chatId) => {
+            if (chatId) {
+              currentChatId = chatId
+              saveLastChat(chatId, currentWorkdir)
+            }
+          },
+          getTokenUsage: () => browser.getLastTokenUsage(),
+          selfImprovement: devMode,
+        },
+      )
+    } finally {
+      if (editor) editor.busy = false
+    }
+    // Auto-prune: a finished item keeps its summary line but loses the
+    // archived <details> copy of its original text, so BACKLOG.md does not
+    // grow on every /improve. Best-effort — a read/write failure must not
+    // break the command.
+    try {
+      const raw = await fs.readFile(
+        path.join(currentWorkdir, 'BACKLOG.md'),
+        'utf-8',
+      )
+      const col = mod.collapseBacklog(raw)
+      if (col.changed) {
+        await fs.writeFile(
+          path.join(currentWorkdir, 'BACKLOG.md'),
+          col.text,
+          'utf-8',
+        )
+        console.log(
+          theme.dim(t('improve.collapsed', { n: String(col.collapsed) })),
+        )
+      }
+    } catch {}
+  }
+
+  const backlogCommand = async (raw: string): Promise<void> => {
+    // Record an improvement idea without implementing it. `/backlog
+    // collapse` prunes the archived blocks instead. The LLM only PLACES
+    // the item; the pure helpers in src/backlog.ts own the format.
+    const note = raw.trim()
+    const backlogFile = path.join(currentWorkdir, 'BACKLOG.md')
+    let backlogText: string
+    try {
+      backlogText = await fs.readFile(backlogFile, 'utf-8')
+    } catch {
+      console.error(theme.warn(t('backlog.none')))
+      return
+    }
+    if (!note) {
+      console.log(theme.dim(t('backlog.usage')))
+      return
+    }
+    if (note === 'collapse') {
+      const col = mod.collapseBacklog(backlogText)
+      if (!col.changed) {
+        console.log(theme.dim(t('backlog.empty')))
+      } else {
+        await fs.writeFile(backlogFile, col.text, 'utf-8')
+        console.log(
+          theme.system(t('improve.collapsed', { n: String(col.collapsed) })),
+        )
+      }
+      return
+    }
+    // Deterministic append: no model round-trip is needed to record a
+    // one-line note, and a pure helper cannot invent a different id than
+    // the one the operator is shown.
+    const parsed = parseBacklogNote(note)
+    const res = mod.appendBacklogItem(backlogText, parsed)
+    await fs.writeFile(backlogFile, res.text, 'utf-8')
+    console.log(theme.system(t('backlog.adding', { v: res.id })))
+  }
+
   while (running) {
     let input: string | null
     let inputAttachments: Array<{ path: string; name: string; mime: string }> =
@@ -3581,11 +3873,14 @@ async function main(): Promise<void> {
         let tail
         // The non-TTY fallback prompt mirrors buildPrompt(): bare, no dir.
         if (reviewMode) {
+          // Widen: a helper function may have reset `reviewMode` to null,
+          // which TS narrows to `never` at this point otherwise.
+          const rm = reviewMode as ReviewMode | null
           tail =
             theme.dim('(') +
             theme.warn(t('prompt.review')) +
             theme.dim(':') +
-            theme.dir(reviewMode.snapName) +
+            theme.dir(rm ? rm.snapName : '') +
             theme.dim(') ')
         }
         input = await promptOnce(theme.prompt('❯ ') + tail)
@@ -3600,17 +3895,6 @@ async function main(): Promise<void> {
     const lower = trimmed.toLowerCase()
 
     if (['/exit', '/quit', 'exit', 'quit'].includes(lower)) break
-
-    // Dev-only commands (backlog / self-review) must not run outside dev mode.
-    // Hiding them from /help is not enough: a user could type the command by
-    // hand, and it would rewrite their project's BACKLOG.md or snapshot src/.
-    if (!devMode) {
-      const devCmd = mod.commands.isDevOnlyCommand(lower)
-      if (devCmd) {
-        console.error(theme.warn(t('msg.dev_only', { v: devCmd })))
-        continue
-      }
-    }
 
     // Group (a): the informational commands (/status, /chat, /pwd,
     // /transcript, /cost, /limits, /memory, /skills). The dispatch is a DATA
@@ -3786,6 +4070,33 @@ async function main(): Promise<void> {
       }
     }
 
+    // Group (e): the dev-only self-development commands (/improve, /backlog,
+    // /self-*). Every entry carries `devOnly`, so a regular user is rejected
+    // with msg.dev_only BEFORE any handler runs (hiding them from /help is not
+    // enough — the command can be typed by hand).
+    {
+      const devCommands = createDevCommands({
+        improve: (arg) => improveCommand(arg),
+        backlog: (note) => backlogCommand(note),
+        selfReview: (focus) => selfReviewCommand(focus),
+        selfFix: (rest) => selfFixCommand(rest),
+        selfDone: () => selfDoneCommand(''),
+        selfList: () => selfListCommand(''),
+        selfDiff: (name) => selfDiffCommand(name),
+        selfApply: (name) => selfApplyCommand(name),
+      })
+      if (
+        await dispatchCommand(devCommands, trimmed, {
+          print: (line) => console.log(line),
+          devMode,
+          onDevOnlyRejected: (name) =>
+            console.error(theme.warn(t('msg.dev_only', { v: '/' + name }))),
+        })
+      ) {
+        continue
+      }
+    }
+
     // `!command` — run a shell command directly, without asking the model
     // (like Claude Code's bash mode). The same sandbox guard as the Bash tool
     // applies, so a direct command cannot leave the project either.
@@ -3840,184 +4151,6 @@ async function main(): Promise<void> {
             )
           }
         }
-      }
-      continue
-    }
-
-    if (lower === '/self-review' || lower.startsWith('/self-review ')) {
-      const focus = trimmed.slice('/self-review'.length).trim()
-
-      // Remember where to return
-      const originalWorkdir: string = reviewMode
-        ? reviewMode.originalWorkdir
-        : currentWorkdir
-
-      if (editor) editor.lock(t('msg.input_locked'))
-      try {
-        const result = await mod.selfReview({
-          browser,
-          config,
-          focus: focus || undefined,
-          transcript,
-          locale: currentLocale,
-        })
-
-        // Switch to review mode:
-        //  - working directory = snapshot
-        //  - we do NOT reset the chat — inside selfReview a fresh chat was
-        //    already created and the review prompt sent, we continue in it
-        reviewMode = {
-          snapDir: result.snapDir,
-          snapName: path.basename(result.snapDir),
-          originalWorkdir,
-        }
-        currentWorkdir = result.snapDir
-        freshChatNext = false
-        sendSystemPromptNext = false
-        currentChatId = await browser.getCurrentChatId()
-        saveLastChat(currentChatId, currentWorkdir)
-
-        console.log(
-          theme.user(t('self.review_hint', { name: reviewMode.snapName })),
-        )
-      } catch (e) {
-        console.error(
-          theme.error(t('self.review_failed')),
-          (e as Error).message,
-        )
-        if (debug) console.error((e as Error).stack)
-      } finally {
-        if (editor) editor.unlock()
-      }
-      continue
-    }
-
-    if (lower === '/self-fix' || lower.startsWith('/self-fix ')) {
-      const rest = trimmed.slice('/self-fix'.length).trim()
-      if (!rest) {
-        console.error(theme.error(t('self.fix_usage')))
-        continue
-      }
-      const sp = rest.indexOf(' ')
-      const name = sp === -1 ? rest : rest.slice(0, sp)
-      const focus = sp === -1 ? '' : rest.slice(sp + 1).trim()
-
-      const snapRoot = path.join(ZAMES_HOME, 'snapshots', name)
-      const stat = await fs.stat(snapRoot).catch(() => null)
-      if (!stat || !stat.isDirectory()) {
-        console.error(
-          theme.error(t('self.snapshot_not_found', { v: snapRoot })),
-        )
-        continue
-      }
-
-      const originalWorkdir: string = reviewMode
-        ? reviewMode.originalWorkdir
-        : currentWorkdir
-
-      // Fresh chat + review prompt for this snapshot
-      try {
-        const { runAgentLoop: ral } = await import('./agent-loop.js')
-        const tools = mod.createTools(snapRoot, { undo: null })
-
-        await browser.newChat()
-        const sysPrompt = mod.buildSystemPrompt({
-          workdir: snapRoot,
-          tools,
-          locale: currentLocale,
-        })
-        console.log(theme.system(t('self.init_review_chat')))
-        await browser.ask(sysPrompt, { timeout: 60_000 })
-
-        if (focus) {
-          const ui = mod.createSpinner(currentLocale)
-          ui.thinking()
-          await ral({
-            browser,
-            tools,
-            task: focus,
-            workdir: snapRoot,
-            maxIterations: currentMaxIter(),
-            freshChat: false,
-            sendSystemPrompt: false,
-            transcript,
-            onThinking: () => ui.thinking(),
-            onToolCall: (name, toolArgs) => ui.toolCall(name, toolArgs),
-            onToolResult: (r) => ui.toolResult(r),
-            onAssistantMessage: (m) => {
-              ui.assistant(m)
-            },
-            onWarning: (m) => ui.warning(m),
-            locale: currentLocale,
-          })
-        }
-
-        reviewMode = {
-          snapDir: snapRoot,
-          snapName: name,
-          originalWorkdir,
-        }
-        currentWorkdir = snapRoot
-        freshChatNext = false
-        sendSystemPromptNext = false
-        currentChatId = await browser.getCurrentChatId()
-        saveLastChat(currentChatId, currentWorkdir)
-
-        console.log(theme.user(t('self.fix_hint', { name })))
-      } catch (e) {
-        console.error(theme.error(t('self.enter_failed')), (e as Error).message)
-      }
-      continue
-    }
-
-    if (lower === '/self-done') {
-      if (!reviewMode) {
-        console.log(theme.system(t('self.not_in_review')))
-        continue
-      }
-      const back = reviewMode.originalWorkdir
-      reviewMode = null
-      currentWorkdir = back
-      // Since the chat is busy with the review context, we'll create a new one for regular work
-      freshChatNext = true
-      sendSystemPromptNext = true
-      console.log(theme.system(t('self.done_hint', { v: back })))
-      continue
-    }
-
-    if (lower === '/self-list') {
-      try {
-        await mod.selfList({ config, locale: currentLocale })
-      } catch (e) {
-        console.error(theme.error(t('msg.error')), (e as Error).message)
-      }
-      continue
-    }
-
-    if (lower === '/self-diff' || lower.startsWith('/self-diff ')) {
-      const name = trimmed.slice('/self-diff'.length).trim()
-      if (!name) {
-        console.error(theme.error(t('self.diff_usage')))
-        continue
-      }
-      try {
-        await mod.selfDiff({ config, name })
-      } catch (e) {
-        console.error(theme.error(t('msg.error')), (e as Error).message)
-      }
-      continue
-    }
-
-    if (lower === '/self-apply' || lower.startsWith('/self-apply ')) {
-      const name = trimmed.slice('/self-apply'.length).trim()
-      if (!name) {
-        console.error(theme.error(t('self.apply_usage')))
-        continue
-      }
-      try {
-        await mod.selfApply({ config, name })
-      } catch (e) {
-        console.error(theme.error(t('msg.error')), (e as Error).message)
       }
       continue
     }
@@ -4903,131 +5036,6 @@ async function main(): Promise<void> {
         continue
       }
       console.log(theme.system(t('adddir.note', { v: res.path })))
-      continue
-    }
-
-    if (lower === '/improve' || lower.startsWith('/improve ')) {
-      // Backlog-driven self-improvement: pick the next open BACKLOG item (or a
-      // specific id) and run the standard task loop on it. The agent reads
-      // BACKLOG.md itself for the details, so a FRESH agent needs no external
-      // context — this is the reproducible hand-off path.
-      const arg = trimmed.slice('/improve'.length).trim()
-      let backlogText: string
-      try {
-        backlogText = await fs.readFile(
-          path.join(currentWorkdir, 'BACKLOG.md'),
-          'utf-8',
-        )
-      } catch {
-        console.error(theme.warn(t('improve.no_backlog')))
-        continue
-      }
-      const items = mod.commands.parseBacklogItems(backlogText)
-      const item = mod.commands.nextBacklogItem(items, arg || undefined)
-      if (!item) {
-        console.log(
-          theme.dim(
-            arg ? t('improve.not_found', { v: arg }) : t('improve.all_done'),
-          ),
-        )
-        continue
-      }
-      console.log(
-        theme.system(t('improve.start', { id: item.id, title: item.title })),
-      )
-      const improveBase = mod.createTools(currentWorkdir, {
-        undo,
-        todos: todoStore,
-        readOnly: planMode,
-      })
-      const improveTools = mergeTools(improveBase, mcpPool?.tools, planMode)
-      if (editor) editor.busy = true
-      try {
-        await mod.runTask(
-          runTaskDeps(),
-          browser,
-          improveTools,
-          mod.commands.buildImprovePrompt(item),
-          currentWorkdir,
-          {
-            transcript,
-            freshChat: false,
-            sendSystemPrompt: false,
-            queue: pendingQueue,
-            ui: editor || null,
-            onChatReady: (chatId) => {
-              if (chatId) {
-                currentChatId = chatId
-                saveLastChat(chatId, currentWorkdir)
-              }
-            },
-            getTokenUsage: () => browser.getLastTokenUsage(),
-            selfImprovement: devMode,
-          },
-        )
-      } finally {
-        if (editor) editor.busy = false
-      }
-      // Auto-prune: a finished item keeps its summary line but loses the
-      // archived <details> copy of its original text, so BACKLOG.md does not
-      // grow on every /improve. Best-effort — a read/write failure must not
-      // break the command.
-      try {
-        const raw = await fs.readFile(
-          path.join(currentWorkdir, 'BACKLOG.md'),
-          'utf-8',
-        )
-        const col = mod.collapseBacklog(raw)
-        if (col.changed) {
-          await fs.writeFile(
-            path.join(currentWorkdir, 'BACKLOG.md'),
-            col.text,
-            'utf-8',
-          )
-          console.log(
-            theme.dim(t('improve.collapsed', { n: String(col.collapsed) })),
-          )
-        }
-      } catch {}
-      continue
-    }
-
-    if (lower === '/backlog' || lower.startsWith('/backlog ')) {
-      // Record an improvement idea without implementing it. `/backlog
-      // collapse` prunes the archived blocks instead. The LLM only PLACES
-      // the item; the pure helpers in src/backlog.ts own the format.
-      const note = trimmed.slice('/backlog'.length).trim()
-      const backlogFile = path.join(currentWorkdir, 'BACKLOG.md')
-      let backlogText: string
-      try {
-        backlogText = await fs.readFile(backlogFile, 'utf-8')
-      } catch {
-        console.error(theme.warn(t('backlog.none')))
-        continue
-      }
-      if (!note) {
-        console.log(theme.dim(t('backlog.usage')))
-        continue
-      }
-      if (note === 'collapse') {
-        const col = mod.collapseBacklog(backlogText)
-        if (!col.changed) {
-          console.log(theme.dim(t('backlog.empty')))
-        } else {
-          await fs.writeFile(backlogFile, col.text, 'utf-8')
-          console.log(
-            theme.system(t('improve.collapsed', { n: String(col.collapsed) })),
-          )
-        }
-        continue
-      }
-      // Deterministic append: no model round-trip is needed to record a
-      // one-line note, and a pure helper cannot invent a different id than
-      // the one the operator is shown.
-      const parsed = parseBacklogNote(note)
-      const res = mod.appendBacklogItem(backlogText, parsed)
-      await fs.writeFile(backlogFile, res.text, 'utf-8')
-      console.log(theme.system(t('backlog.adding', { v: res.id })))
       continue
     }
 
