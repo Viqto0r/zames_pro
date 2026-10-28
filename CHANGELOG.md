@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **tui:** stop the ora spinner from fighting the TUI (53 MB/s redraw storm)
 - **tui:** put the caret on the input row when the suggestion popup is open
 - **tui:** run /tasks live while the agent works instead of queueing it
 - **tui:** draw the operator bar on every row of a multi-line message
