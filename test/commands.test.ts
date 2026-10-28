@@ -674,3 +674,29 @@ test('renderDoctor warns when the system prompt exceeds its budget', () => {
   assert.match(over, /\[WARN\] prompt/)
   assert.match(over, /budget/)
 })
+
+// N21: /doctor names the password store and warns on a degraded keychain.
+test('renderDoctor reports the password store', () => {
+  const base = {
+    nodeVersion: 'v24',
+    platform: 'linux',
+    workdir: '/p',
+    gitOk: true,
+    configOk: true,
+    mcpServers: 0,
+    mcpTools: 0,
+    transcriptOk: true,
+  }
+  const ok = renderDoctor({
+    ...base,
+    passwordStore: { store: 'keychain', degraded: false },
+  } as never)
+  assert.match(ok, /password\s+keychain/)
+  assert.doesNotMatch(ok, /\[WARN\] password/)
+  const bad = renderDoctor({
+    ...base,
+    passwordStore: { store: 'config', degraded: true },
+  } as never)
+  assert.match(bad, /\[WARN\] password/)
+  assert.match(bad, /keychain unavailable/)
+})

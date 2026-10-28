@@ -404,6 +404,8 @@ export interface DoctorInput {
   authSaved?: boolean
   /** Configured context window (tokens), shown for reference. */
   contextLimit?: number
+  /** N21: where the provider password lives, and whether that store is real. */
+  passwordStore?: { store: string; degraded: boolean }
   /** Size of the system prompt in bytes (N6/N12: the context budget). */
   systemPromptBytes?: number
   /** Byte budget above which the prompt row is a WARN. */
@@ -502,6 +504,14 @@ export function renderDoctor(
     }),
   )
   row(d.transcriptOk, 'transcript', onoff(d.transcriptOk))
+  if (d.passwordStore) {
+    row(
+      !d.passwordStore.degraded,
+      'password',
+      d.passwordStore.store +
+        (d.passwordStore.degraded ? ' (keychain unavailable)' : ''),
+    )
+  }
   if (typeof d.systemPromptBytes === 'number') {
     const budget = d.systemPromptBudget ?? SYSTEM_PROMPT_BUDGET_BYTES
     const size = kb(d.systemPromptBytes)
