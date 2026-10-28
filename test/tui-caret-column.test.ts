@@ -23,7 +23,8 @@ const src = readFileSync(
 test('the caret x includes the gutter, the border and the padding', () => {
   assert.match(src, /const cursorX =/, 'cursorX is missing')
   const at = src.indexOf('const cursorX =')
-  const block = src.slice(at, at + 800)
+  assert.ok(at > 0, 'cursorX not found')
+  const block = src.slice(at, at + 1200)
   assert.match(block, /screenGutter\(/, 'the root gutter is not counted')
   assert.match(
     block,
