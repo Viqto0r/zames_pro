@@ -773,6 +773,11 @@ export class DeepSeekBrowser {
   }
 
   async restart(): Promise<void> {
+    // The dialogue the operator was in. A relaunch lands on the BASE url, whose
+    // URL has no id, so getCurrentChatId() answers null and the next
+    // `freshChat` opened a SECOND chat — the resumed conversation vanished.
+    // Remember it BEFORE the context dies and re-open it after the launch.
+    const chatBefore = (await this.getCurrentChatId().catch(() => null)) ?? null
     try {
       if (this.context) await this.context.close()
     } catch (e) {
@@ -785,6 +790,15 @@ export class DeepSeekBrowser {
     // second window is created while one is alive.
     await this._launchOnce()
     await this._fixHeadlessUserAgent()
+    // Put the operator BACK into the chat instead of leaving them in a new one.
+    // A failure is not fatal: the caller (ask) retries the send and the loop's
+    // resumeChatId still points at the right chat.
+    if (chatBefore) {
+      const ok = await this.openChat(chatBefore).catch(() => false)
+      if (ok) this._netChatId = chatBefore
+      else if (this.debug)
+        console.error('restart: could not reopen chat ' + chatBefore)
+    }
   }
 
   /**

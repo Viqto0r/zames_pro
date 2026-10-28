@@ -304,8 +304,21 @@ export async function runAgentLoop({
   }
 
   if (freshChat) {
-    await browser.newChat()
-    transcript?.log('new_chat')
+    // A RESUMED chat must win over "fresh": the caller marks a chat fresh only
+    // when it has no live id (a page restart dropped it). Sending into newChat()
+    // there opened a SECOND chat and the operator saw the dialogue vanish —
+    // the very regression this branch prevents. A provider that cannot navigate
+    // simply ignores the id.
+    const resumeId = browser.resumeChatId || null
+    const reopened =
+      resumeId && browser.openChat
+        ? await browser.openChat(resumeId).catch(() => false)
+        : false
+    if (!reopened) await browser.newChat()
+    transcript?.log(
+      reopened ? 'reopen_chat' : 'new_chat',
+      resumeId ? { id: resumeId } : undefined,
+    )
     // SessionStart hook: a fresh chat is the start of a session, so a
     // hook can inject context or set up state. Best-effort, output is logged.
     try {

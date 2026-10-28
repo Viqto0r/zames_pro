@@ -173,6 +173,8 @@ export interface GlmBrowserOptions {
 }
 
 export class GlmBrowser {
+  /** The chat a send must join (set by the agent loop; see types.ts). */
+  resumeChatId: string | null = null
   providerName = 'glm'
   headless: boolean
   debug: boolean
@@ -493,6 +495,9 @@ export class GlmBrowser {
   }
 
   async restart(): Promise<void> {
+    // Remember the dialogue BEFORE the context dies: a relaunch lands on the
+    // BASE url, so the id is lost and the next send started a NEW chat.
+    const chatBefore = (await this.getCurrentChatId().catch(() => null)) ?? null
     try {
       if (this.context) await this.context.close()
     } catch (e) {
@@ -500,6 +505,12 @@ export class GlmBrowser {
     }
     await this._launchOnce()
     await this._fixHeadlessUserAgent()
+    if (chatBefore) {
+      const ok = await this.openChat(chatBefore).catch(() => false)
+      if (ok) this._netChatId = chatBefore
+      else if (this.debug)
+        console.error('restart: could not reopen chat ' + chatBefore)
+    }
   }
 
   /**

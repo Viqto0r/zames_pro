@@ -1584,6 +1584,13 @@ async function main(): Promise<void> {
   // /resume <n> handler that read it was removed).
   let lastChats: ChatInfo[]
   let currentChatId: string | null = null
+  // The chat the NEXT send must land in. `currentChatId` is only a cache of
+  // "the id seen on the page"; after a page restart that cache is stale and
+  // the URL carries no id, so `freshChatNext` opened a NEW chat and the
+  // operator lost the resumed dialogue. This id is set on resume/restore and
+  // cleared when a genuinely fresh chat starts; the agent loop reads it via
+  // `browser.resumeChatId`.
+  let resumeChatId: string | null = null
   // The last task the operator sent (used by /retry). Plain text only.
   let lastTaskText = ''
   let running = true
@@ -1818,6 +1825,7 @@ async function main(): Promise<void> {
       console.log(theme.system(t('msg.opening_chat', { id: resumeId })))
       await browser.openChat(resumeId)
       currentChatId = resumeId
+      resumeChatId = resumeId
       freshChatNext = false
       sendSystemPromptNext = promptOnResume()
       saveLastChat(resumeId, currentWorkdir)
@@ -2729,6 +2737,7 @@ async function main(): Promise<void> {
     try {
       await browser.openChat(pick.id)
       currentChatId = pick.id
+      resumeChatId = pick.id
       freshChatNext = false
       sendSystemPromptNext = promptOnResume()
       saveLastChat(pick.id, currentWorkdir, pick.title)
@@ -2833,6 +2842,9 @@ async function main(): Promise<void> {
     // text instead of returning to the prompt (Claude Code starts a turn the
     // moment a goal is set). Reset every iteration because it is declared here.
     let taskOverride: string | null = null
+    // Publish the chat the next send must join (see resumeChatId above):
+    // the loop may restart the page, which loses the URL id.
+    browser.resumeChatId = resumeChatId
     try {
       if (editor) {
         editor.setPrompt(buildPrompt())
@@ -2936,6 +2948,7 @@ async function main(): Promise<void> {
       if (editor) editor.lock(t('msg.input_locked'))
       try {
         await browser.newChat()
+        resumeChatId = null
         freshChatNext = false
         sendSystemPromptNext = true
         // A new chat starts a fresh checklist: keeping the old tasks would
@@ -3541,6 +3554,7 @@ async function main(): Promise<void> {
         console.log(theme.system(t('msg.opening_chat', { id: last.id })))
         await browser.openChat(last.id)
         currentChatId = last.id
+        resumeChatId = last.id
         freshChatNext = false
         sendSystemPromptNext = promptOnResume()
         saveLastChat(last.id, currentWorkdir, last.title)
@@ -3579,6 +3593,7 @@ async function main(): Promise<void> {
         console.log(theme.system(t('msg.opening_chat', { id })))
         await browser.openChat(id)
         currentChatId = id
+        resumeChatId = id
         freshChatNext = false
         sendSystemPromptNext = promptOnResume()
         saveLastChat(id, currentWorkdir)

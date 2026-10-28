@@ -203,6 +203,8 @@ export interface QwenBrowserOptions {
 
 export class QwenBrowser {
   providerName = 'qwen'
+  /** The chat a send must join (set by the agent loop; see types.ts). */
+  resumeChatId: string | null = null
   headless: boolean
   debug: boolean
   channel: string | null
@@ -500,6 +502,17 @@ export class QwenBrowser {
     // usually already usable, and every later step (_awaitInput, waitForLogin)
     // polls. Bailing out here turned a transient slowness into a hard startup
     // failure.
+    // A relaunch lands on the BASE url: re-open the dialogue the operator was
+    // in, or a pending resume id, instead of silently starting a new chat.
+    const back =
+      this.resumeChatId || (await this.getCurrentChatId().catch(() => null))
+    if (back) {
+      const ok = await this.openChat(back).catch(() => false)
+      if (ok) {
+        await this._dismissOverlays()
+        return
+      }
+    }
     await this.page
       .goto(CHAT_URL, { waitUntil: 'domcontentloaded' })
       .catch(() => {})

@@ -428,6 +428,17 @@ export interface BrowserLike {
    */
   providerName?: string
   newChat: () => Promise<void>
+  /**
+   * The chat the NEXT send must land in, or null to start a fresh one.
+   *
+   * A send is what CREATES a chat, so before the first message this id is the
+   * only way to know where to go: `getCurrentChatId()` reads the URL of the
+   * landing page, which carries no id, so after a page restart or a relaunch
+   * the agent "forgot" the resumed chat and opened a NEW one instead of
+   * continuing the dialogue. The agent loop sets this from the resumed/current
+   * chat; a provider that can navigate (openChat) prefers it over newChat().
+   */
+  resumeChatId?: string | null
   stopGeneration: () => Promise<boolean>
   // Set by stopGeneration() (Esc/Ctrl+C). Optional so test doubles do not
   // have to provide them. The agent loop checks them after each tool so a
