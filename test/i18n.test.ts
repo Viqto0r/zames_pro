@@ -20,6 +20,7 @@ import { configMessages } from '../src/i18n/config.ts'
 import { promptMessages } from '../src/i18n/prompt.ts'
 import { qwenMessages } from '../src/i18n/qwen.ts'
 import { glmMessages } from '../src/i18n/glm.ts'
+import { wizardMessages } from '../src/i18n/wizard.ts'
 
 test('translate возвращает строку на нужном языке', () => {
   assert.equal(translate('ru')('common.yes'), 'да')
@@ -83,6 +84,7 @@ test('секции CATALOG не пересекаются по ключам', () 
     ['prompt', promptMessages],
     ['qwen', qwenMessages],
     ['glm', glmMessages],
+    ['wizard', wizardMessages],
   ]
   const seen = new Map<string, string>()
   const duplicates: string[] = []

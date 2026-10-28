@@ -16,6 +16,7 @@ import { selfReviewMessages } from './i18n/self-review.js'
 import { mcpMessages } from './i18n/mcp.js'
 import { configMessages } from './i18n/config.js'
 import { promptMessages } from './i18n/prompt.js'
+import { wizardMessages } from './i18n/wizard.js'
 import { qwenMessages } from './i18n/qwen.js'
 import { glmMessages } from './i18n/glm.js'
 
@@ -64,6 +65,7 @@ export const CATALOG: Record<string, { ru: string; en: string }> = {
   ...mcpMessages,
   ...configMessages,
   ...promptMessages,
+  ...wizardMessages,
   ...qwenMessages,
   ...glmMessages,
 }

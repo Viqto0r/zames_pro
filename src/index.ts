@@ -16,6 +16,12 @@ import { setInputBorder } from './tui/ui-colors.js'
 import { nonReloadableSources, diffChanged } from './dev-watch.js'
 import { noteSwallowed } from './swallow.js'
 import { pickFallbackProvider } from './provider-fallback.js'
+import {
+  shouldRunWizard,
+  chooseLanguage,
+  chooseProvider,
+  providerNote,
+} from './first-run.js'
 
 import { DeepSeekBrowser, headlessUACacheReady } from './browser.js'
 import { QwenBrowser } from './qwen-browser.js'
@@ -1499,6 +1505,77 @@ async function main(): Promise<void> {
       ),
     )
   }
+  /**
+   * N19: the FIRST-RUN wizard. A brand-new install (no `~/.zames/config.json`)
+   * otherwise lands straight in a chat with no explanation of the language,
+   * the backend choice or why DeepSeek needs a real sign-in. It runs ONCE,
+   * BEFORE the input loop (inside the loop it blocked the very first prompt),
+   * never in a scripted / non-TTY session, and Esc accepts the defaults.
+   */
+  const runFirstRunWizard = async (): Promise<void> => {
+    if (
+      !shouldRunWizard({
+        configExists: (() => {
+          try {
+            return readFileSync(CONFIG_PATHS.HOME_CONFIG, 'utf-8').length > 0
+          } catch {
+            return false
+          }
+        })(),
+        isTTY: !!(process.stdin.isTTY && process.stdout.isTTY),
+        nonInteractiveLogin: process.env.ZAMES_NONINTERACTIVE_LOGIN === '1',
+        oneShot: !!getArg('--task', null),
+      })
+    ) {
+      return
+    }
+    try {
+      console.log(theme.system(t('wizard.welcome')))
+      const ru = await askOperatorConfirm(
+        editor,
+        t('wizard.language'),
+        t,
+        currentLocale,
+      )
+      const locale: 'ru' | 'en' = ru ? 'ru' : 'en'
+      config.ui.locale = locale
+      currentLocale = locale
+      chooseLanguage(
+        { step: 0, locale: null, provider: null, needsLogin: false },
+        locale,
+      )
+      // A provider id is free-form, not yes/no: read it with the raw prompt
+      // (the same one the sign-in uses). An empty answer keeps the default.
+      const rawProvider = await promptOnce(theme.prompt(t('wizard.provider')))
+      const picked = isProviderId(String(rawProvider || '').trim())
+        ? asProviderId(String(rawProvider || '').trim())
+        : asProviderId(config.provider)
+      chooseProvider(
+        { step: 1, locale, provider: null, needsLogin: false },
+        picked,
+      )
+      config.provider = picked
+      setProviderEnabledFlag(picked)
+      console.log(theme.dim(providerNote(picked)))
+      try {
+        writeConfigValue('home', 'provider', picked)
+        writeConfigValue('home', 'ui.locale', locale)
+      } catch (e) {
+        noteSwallowed('wizard_config_write', e, debug)
+      }
+      console.log(theme.system(t('wizard.hint')))
+    } catch (e) {
+      // Esc / a closed stdin: accept the defaults, never block the first run.
+      noteSwallowed('first_run_wizard', e, debug)
+      console.log(theme.dim(t('wizard.skipped')))
+    }
+  }
+
+  // N19: the wizard runs ONCE here, BEFORE the input loop and before the
+  // browser is launched (a provider picked here must be the one that starts).
+  // It used to be inserted INSIDE the loop, where it held the first prompt:
+  // the terminal looked ready while a modal waited, and every command hung.
+  await runFirstRunWizard()
   console.log(theme.system(t('msg.interactive')))
   console.log(theme.system(t('msg.queue_hint')))
   console.log(theme.dim(t('msg.first_hint')))
