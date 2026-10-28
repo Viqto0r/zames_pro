@@ -1531,13 +1531,14 @@ async function main(): Promise<void> {
     }
     try {
       console.log(theme.system(t('wizard.welcome')))
-      const ru = await askOperatorConfirm(
-        editor,
-        t('wizard.language'),
-        t,
-        currentLocale,
+      // A raw line reader, NOT askOperatorConfirm: that one is a y/N dialog
+      // (Enter = "no"), which is wrong here — the DEFAULT for a fresh install is
+      // English, so an empty answer must keep it. Read a word and normalize.
+      const answer = await promptOnce(t('wizard.language') + ' ')
+      const wantRu = /^(ru|russian|\u0440\u0443\u0441)/i.test(
+        String(answer || '').trim(),
       )
-      const locale: 'ru' | 'en' = ru ? 'ru' : 'en'
+      const locale: 'ru' | 'en' = wantRu ? 'ru' : 'en'
       config.ui.locale = locale
       currentLocale = locale
       chooseLanguage(

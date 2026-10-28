@@ -7,8 +7,8 @@ export const wizardMessages: Record<string, { ru: string; en: string }> = {
     en: 'First run. Three quick choices: language, provider and sign-in. Enter accepts the default.',
   },
   'wizard.language': {
-    ru: 'Интерфейс на русском? (y/N)',
-    en: 'Interface in Russian? (y/N)',
+    ru: 'Язык интерфейса [en/ru] (en):',
+    en: 'Interface language [en/ru] (en):',
   },
   'wizard.provider': {
     ru: 'Провайдер [deepseek/qwen/glm] (deepseek): ',
