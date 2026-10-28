@@ -1458,8 +1458,22 @@ async function main(): Promise<void> {
     onContextLimit,
   )
 
-  const bootSpinner = mod.createSpinner(currentLocale)
-  bootSpinner.thinking()
+  // NO ora spinner while the TUI is going to own the terminal.
+  //
+  // ora writes to stderr and erases/redraws ITS OWN line; Ink (the TUI)
+  // repaints the WHOLE frame through log-update on the same terminal. The two
+  // invalidate each other every tick: measured 53 MB / ~5.9 M `\e[1A\e[0K`
+  // sequences in 60 s of `waitForLogin` (the operator saw a caret that "does
+  // not work" — the screen was being repainted ~100k times a second). The TUI
+  // status bar already animates that phase, so the ora spinner is only for the
+  // non-TUI path. `bootSpinner` stays a no-op stop() object so the error path
+  // below needs no branching.
+  const tuiWillRun =
+    !!(process.stdin.isTTY && process.stdout.isTTY) && !!config.ui.tui
+  const bootSpinner = tuiWillRun
+    ? { thinking() {}, stop() {}, setLocale() {} }
+    : mod.createSpinner(currentLocale)
+  if (!tuiWillRun) bootSpinner.thinking()
 
   try {
     await browser.launch()
