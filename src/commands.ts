@@ -1125,6 +1125,11 @@ export function splitCommandArgs(rest: string): string[] {
   const DQ = String.fromCharCode(34)
   let cur = ''
   let quote = ''
+  // A QUOTED token exists even when it is empty: `cmd a ""` supplies an empty
+  // positional. Without this flag an empty `""` was dropped, so a declared
+  // argument the operator deliberately left blank counted as MISSING and the
+  // command was refused with the usage hint.
+  let quoted = false
   for (let i = 0; i < s.length; i++) {
     const ch = s[i]
     if (quote) {
@@ -1137,18 +1142,20 @@ export function splitCommandArgs(rest: string): string[] {
     }
     if (ch === SQ || ch === DQ) {
       quote = ch
+      quoted = true
       continue
     }
     if (ch.charCodeAt(0) <= 32) {
-      if (cur) {
+      if (cur || quoted) {
         out.push(cur)
         cur = ''
+        quoted = false
       }
       continue
     }
     cur += ch
   }
-  if (cur) out.push(cur)
+  if (cur || quoted) out.push(cur)
   return out
 }
 
@@ -1262,7 +1269,9 @@ export function missingCommandArgs(
   const parts = splitCommandArgs(rest)
   const missing: string[] = []
   for (let i = 0; i < names.length; i++) {
-    if (!parts[i]) missing.push(names[i])
+    // `undefined` means the position was never supplied; an EMPTY string is a
+    // deliberately blank value (`cmd "" second`) and must not be reported.
+    if (parts[i] === undefined) missing.push(names[i])
   }
   return missing
 }
