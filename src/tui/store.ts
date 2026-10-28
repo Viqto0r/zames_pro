@@ -16,7 +16,7 @@
 
 import type { Attachment } from '../attachments.js'
 import type { SlashCommand } from '../input/layout.js'
-import type { Locale } from '../i18n.js'
+import { DEFAULT_LOCALE, type Locale } from '../i18n.js'
 import { initialEditState, type EditState } from './edit.js'
 
 export type LogKind =
@@ -144,7 +144,7 @@ function initialState(): TuiState {
     history: [],
     prompt: '> ',
     commands: [],
-    locale: 'ru',
+    locale: DEFAULT_LOCALE,
     contextText: null,
     contextLevel: null,
     queueLength: 0,

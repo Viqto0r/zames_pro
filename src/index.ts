@@ -87,6 +87,7 @@ import {
   normalizeLocale,
   localeDisplayName,
   isLocale,
+  DEFAULT_LOCALE,
   type Locale,
 } from './i18n.js'
 import { Transcript } from './transcript.js'
@@ -256,7 +257,7 @@ setInputBorder(config.ui?.inputBorder)
 // Current interface/agent language. Changed by the /config lang <ru|en> command.
 let currentLocale: Locale = isLocale(config.ui?.locale)
   ? config.ui.locale
-  : 'ru'
+  : DEFAULT_LOCALE
 // Translation: reads currentLocale at call time, so a language change takes
 // effect immediately, without a restart (for lines printed afterwards).
 const t = (key: string, params?: Record<string, string | number>): string =>

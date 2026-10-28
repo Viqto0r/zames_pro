@@ -21,7 +21,10 @@ import { glmMessages } from './i18n/glm.js'
 
 export type Locale = 'ru' | 'en'
 
-export const DEFAULT_LOCALE: Locale = 'ru'
+// English is the default for a fresh install: the package is published for an
+// international audience and the operator asked for English out of the box.
+// `ui.locale` still overrides it, and the first-run wizard offers Russian.
+export const DEFAULT_LOCALE: Locale = 'en'
 
 export interface LocaleInfo {
   code: Locale

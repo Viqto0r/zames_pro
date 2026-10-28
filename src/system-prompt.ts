@@ -1,6 +1,6 @@
 import type { ToolDef } from './types.js'
 import path from 'path'
-import { translate, type Locale } from './i18n.js'
+import { translate, DEFAULT_LOCALE, type Locale } from './i18n.js'
 import type { LoadedContext } from './context.js'
 
 export interface BuildSystemPromptOptions {
@@ -255,7 +255,7 @@ export function buildSystemPrompt({
   workdir,
   tools,
   gitContext = null,
-  locale = 'ru',
+  locale = DEFAULT_LOCALE,
   attachments = [],
   context = null,
   selfImprovement = false,

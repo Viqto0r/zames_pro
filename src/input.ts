@@ -8,7 +8,7 @@ import {
   DOTS,
   renderDots,
 } from './spinner.js'
-import { translate, type Locale } from './i18n.js'
+import { translate, DEFAULT_LOCALE, type Locale } from './i18n.js'
 import {
   AttachmentStore,
   parseImagePaste,
@@ -271,7 +271,7 @@ export class LineEditor {
   constructor({
     prompt = '> ',
     commands = [],
-    locale = 'ru',
+    locale = DEFAULT_LOCALE,
   }: LineEditorOptions = {}) {
     this.locale = locale
     this.promptStr = prompt

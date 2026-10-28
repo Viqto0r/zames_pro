@@ -2,7 +2,12 @@ import { providerLabel, providerHasModelPicker } from './providers.js'
 import path from 'path'
 import os from 'os'
 import { isImageName } from './attachments.js'
-import { translate, type TranslateFn } from './i18n.js'
+import {
+  translate,
+  DEFAULT_LOCALE,
+  type Locale,
+  type TranslateFn,
+} from './i18n.js'
 
 // Helpers for the slash commands (/diff, /cost, /export, /doctor, /review,
 // /add-dir, /queue, /goal, custom commands). Pure functions, unit-tested
@@ -780,7 +785,7 @@ export function formatRestoredHistory(
  * the system prompt), so the model is told to keep facts, decisions, file
  * paths, commands and the exact current state of the work.
  */
-export function buildCompactPrompt(locale: 'ru' | 'en' = 'ru'): string {
+export function buildCompactPrompt(locale: Locale = DEFAULT_LOCALE): string {
   if (locale === 'en') {
     return (
       'Compact the conversation so far into a handover summary for a NEW chat. ' +

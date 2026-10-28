@@ -4,7 +4,7 @@ import { providerLabel as providerHumanLabel } from './providers.js'
 import { loadProjectContext } from './context.js'
 import { getGitContext, formatGitContext } from './gitTools.js'
 import type { BrowserLike, ToolArgs, ToolDef, TranscriptLike } from './types.js'
-import { translate, type Locale } from './i18n.js'
+import { translate, DEFAULT_LOCALE, type Locale } from './i18n.js'
 import { substituteAttachmentMarkers } from './commands.js'
 import {
   needsCompletionNudge,
@@ -212,7 +212,7 @@ export async function runAgentLoop({
   onChatReady = () => {},
   onWarning = () => {},
   debugLog = false,
-  locale = 'ru',
+  locale = DEFAULT_LOCALE,
   askDeadlineMs = 240_000,
   maxAfterToolRetries = 6,
   onAutoCompact = null,

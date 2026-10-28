@@ -1,7 +1,7 @@
 import ora, { type Ora } from 'ora'
 import { theme, divider } from './theme.js'
 import { renderMarkdown } from './markdown.js'
-import { translate, type Locale } from './i18n.js'
+import { translate, DEFAULT_LOCALE, type Locale } from './i18n.js'
 import { truncateToWidth, wrapToWidth } from './input/layout.js'
 import { contentWidth } from './width.js'
 
@@ -24,7 +24,7 @@ export interface SpinnerUI {
 
 // Phrases for the "agent is working" spinner. Chosen in random order.
 // The text comes from i18n via the key 'spinner.phrases' (strings separated by "|").
-export function randomThinkingPhrase(locale: Locale = 'ru'): string {
+export function randomThinkingPhrase(locale: Locale = DEFAULT_LOCALE): string {
   const raw = translate(locale)('spinner.phrases')
   const phrases = raw.split('|').filter((s) => s.trim().length)
   if (!phrases.length) return ''
@@ -49,7 +49,7 @@ export function renderDots(n: number): string {
   return theme.brown(d + DOTS_PAD.slice(d.length))
 }
 
-export function createSpinner(locale: Locale = 'ru'): SpinnerUI {
+export function createSpinner(locale: Locale = DEFAULT_LOCALE): SpinnerUI {
   // Set by the caller (index.ts) to the same todos summary the LineEditor
   // shows, so the non-TTY path has parity.
   let onTasksQuery: (() => string) | null = null
