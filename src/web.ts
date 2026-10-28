@@ -260,6 +260,23 @@ export function isPrivateIp(ip: string): boolean {
           (v6[7] & 0xff),
       )
     }
+    // IPv4-TRANSLATED ::ffff:0:a.b.c.d (RFC 2765): the embedded IPv4 sits in
+    // the LAST two groups with one extra zero group between `ffff` and it.
+    // Only the mapped form above was judged, so `::ffff:0:7f00:1` (= 127.0.0.1)
+    // stayed "public" and WebFetch could reach localhost/metadata through it.
+    const translatedV4 =
+      v6.slice(0, 4).every((g) => g === 0) && v6[4] === 0xffff && v6[5] === 0
+    if (translatedV4) {
+      return isPrivateIp(
+        (v6[6] >> 8) +
+          '.' +
+          (v6[6] & 0xff) +
+          '.' +
+          (v6[7] >> 8) +
+          '.' +
+          (v6[7] & 0xff),
+      )
+    }
   }
   if (low === '::1' || low === '::') return true
   // IPv6 link-local is fe80::/10, i.e. fe80..febf (the old `startsWith('fe80')`

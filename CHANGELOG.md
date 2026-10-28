@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **web:** treat the IPv4-translated ::ffff:0:a.b.c.d literal as private
+
 ## [2.90.1] - 2026-10-28
 
 ### Fixed
@@ -437,7 +441,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **mcp:** a schema property named __proto__ becomes a real parameter
+- **mcp:** a schema property named **proto** becomes a real parameter
 
 ## [2.82.123] - 2026-10-24
 
@@ -1486,7 +1490,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **commands:** keep an unsupplied  position as written in a custom command
+- **commands:** keep an unsupplied position as written in a custom command
 - **subagent:** count a subagent run only once it actually starts
 - **attach:** do not cut an inlined @file inside a surrogate pair
 - **checkpoint:** a bare out-of-range rewind index no longer matches a stamp prefix
@@ -1606,7 +1610,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **changelog:** keep drafted group headings on their own line
 - **tui:** decode modified and release wheel reports correctly
 - **shell:** normalize an invalid Bash timeout instead of crashing the tool
-- **cost:** keep per-tool stats safe for __proto__/constructor tool names
+- **cost:** keep per-tool stats safe for **proto**/constructor tool names
 - **tui:** mark blocked/aborted tool calls as errors in the result icon
 - **mcp:** do not split a surrogate pair when truncating an MCP result
 - **context:** discover skills at the documented 3 levels deep
