@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.90.6] - 2026-10-28
+
+### Fixed
+
+- **tui:** keep the reverse-search position when the query is refined
+
 ## [2.90.5] - 2026-10-28
 
 ### Fixed
