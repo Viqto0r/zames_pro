@@ -108,6 +108,14 @@ export interface RunAgentLoopOptions {
    */
   onContextLimit?: (() => Promise<boolean>) | null
   /**
+   * N8: called ONCE when the task cannot continue on the active provider
+   * (the retry budgets are exhausted). The callback decides (pure
+   * pickFallbackProvider + the operator) whether to switch to another
+   * AUTHORIZED provider, performs the handoff and returns true when the task
+   * may be retried on the new backend. `null` = no fallback configured.
+   */
+  onProviderExhausted?: ((err: Error) => Promise<boolean>) | null
+  /**
    * Fill percentage (of ui.contextLimit) at which onAutoCompact fires.
    * Default 95. Only used when onAutoCompact is provided.
    */
@@ -217,6 +225,7 @@ export async function runAgentLoop({
   maxAfterToolRetries = 6,
   onAutoCompact = null,
   onContextLimit = null,
+  onProviderExhausted = null,
   autoCompactPct = 95,
   contextLimit = 1_000_000,
   getTokenUsage = null,
@@ -278,6 +287,13 @@ export async function runAgentLoop({
     ;(
       browser as { onContextLimit?: (() => Promise<boolean>) | null }
     ).onContextLimit = onContextLimit
+  }
+  if ('onProviderExhausted' in browser) {
+    ;(
+      browser as {
+        onProviderExhausted?: ((err: Error) => Promise<boolean>) | null
+      }
+    ).onProviderExhausted = onProviderExhausted
   }
   const safeAssistantThought = safe(onAssistantThought)
   const safeToolCall = safe(onToolCall)

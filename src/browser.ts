@@ -214,6 +214,8 @@ export interface DeepSeekBrowserOptions {
    * of retrying into the same, permanently rejected chat.
    */
   onContextLimit?: (() => Promise<boolean>) | null
+  /** N8: switch to an authorized fallback provider (see agent-loop). */
+  onProviderExhausted?: ((err: Error) => Promise<boolean>) | null
   /**
    * Explicit User-Agent. When omitted, the browser derives one from the real
    * engine version and strips the "Headless" marker (DeepSeek's CDN 403s a
@@ -256,6 +258,8 @@ export class DeepSeekBrowser {
   // recovery is capped independently of askRetries.
   maxContextLimitRetries: number
   onContextLimit: (() => Promise<boolean>) | null
+  /** N8: switch to an authorized fallback provider (see agent-loop). */
+  onProviderExhausted: ((err: Error) => Promise<boolean>) | null
   serverBusyWaitMs: number
   // Retries for a turn the server truncated (generation_err / INCOMPLETE).
   maxIncompleteRetries: number
@@ -437,6 +441,7 @@ export class DeepSeekBrowser {
     this.incompleteWaitMs = incompleteWaitMs
     this.maxContextLimitRetries = maxContextLimitRetries
     this.onContextLimit = onContextLimit || null
+    this.onProviderExhausted = null
     this.autoContinue = autoContinue
     this.continueMinGapMs = continueMinGapMs
     this.loginTimeoutMs = loginTimeoutMs
@@ -1979,6 +1984,8 @@ export class DeepSeekBrowser {
     let attempt = 0
     let rateLimitRetries = 0
     let serverBusyRetries = 0
+    // N8: the fallback switch is tried ONCE per ask(), not per family.
+    let fallbackAttempted = false
     // Bumped when DeepSeek truncated the turn (`generation_err`/INCOMPLETE).
     // The retry does NOT consume a regular ask() attempt: it is a server-side
     // hiccup, not a failed send, and it is more likely in the reasoning
@@ -2146,6 +2153,33 @@ export class DeepSeekBrowser {
             // the failed send's time adds nothing: that send never went out.
             this._lastSentAt = Date.now()
             continue
+          }
+
+          // The retry BUDGETS of the specific families are exhausted (or this
+          // is a generic failure on the last attempt): give the injected N8
+          // hook ONE chance to continue the task on an AUTHORIZED fallback
+          // provider. It performs the switch and, when it succeeds, the SAME
+          // prompt is resent on the new backend.
+          if (!fallbackAttempted && this.onProviderExhausted) {
+            const budgetLeft =
+              rateLimitRetries < this.maxRateLimitRetries ||
+              serverBusyRetries < this.maxServerBusyRetries ||
+              attempt < this.askRetries - 1
+            if (!budgetLeft) {
+              fallbackAttempted = true
+              let switched = false
+              try {
+                switched = await this.onProviderExhausted(e as Error)
+              } catch (re) {
+                noteSwallowed('_onProviderExhausted', re, this.debug)
+              }
+              if (switched) {
+                attempt = 0
+                rateLimitRetries = 0
+                serverBusyRetries = 0
+                continue
+              }
+            }
           }
 
           this._notice(

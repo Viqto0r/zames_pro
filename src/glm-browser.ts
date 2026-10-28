@@ -193,6 +193,8 @@ export class GlmBrowser {
   // Ask() budget for the context-limit recovery (a compaction, not a resend).
   maxContextLimitRetries: number
   onContextLimit: (() => Promise<boolean>) | null
+  /** N8: switch to an authorized fallback provider (see agent-loop). */
+  onProviderExhausted: ((err: Error) => Promise<boolean>) | null = null
   startWaitMs: number
   sendButtonWaitMs: number
   model: string
@@ -1628,6 +1630,8 @@ export class GlmBrowser {
     // The exhausted-context recovery is a COMPACTION (a new chat), not a
     // resend, so it has its own budget.
     let contextLimitRetries = 0
+    // N8: the fallback switch is tried ONCE per ask().
+    let fallbackAttempted = false
     this._askInFlight++
     try {
       while (attempt < this.askRetries) {
@@ -1743,6 +1747,25 @@ export class GlmBrowser {
                   error: (re as Error).message,
                 }),
               )
+            }
+          }
+          // N8: the active provider exhausted its budgets. Give the injected
+          // hook ONE chance to continue on an AUTHORIZED fallback provider.
+          if (!fallbackAttempted && this.onProviderExhausted) {
+            fallbackAttempted = true
+            let switched = false
+            try {
+              switched = await this.onProviderExhausted(lastErr)
+            } catch (e) {
+              noteSwallowed('_onProviderExhausted', e, this.debug)
+            }
+            if (switched) {
+              attempt = 0
+              rateLimitRetries = 0
+              serverBusyRetries = 0
+              incompleteRetries = 0
+              contextLimitRetries = 0
+              continue
             }
           }
           this._notice(

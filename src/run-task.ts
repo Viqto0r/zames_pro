@@ -57,6 +57,8 @@ export interface RunTaskOptions {
    * a fresh chat, returning true when the resend may proceed.
    */
   onContextLimit?: (() => Promise<boolean>) | null
+  /** N8: continue on an authorized fallback provider (see agent-loop). */
+  onProviderExhausted?: ((err: Error) => Promise<boolean>) | null
   /** Fill percentage at which onAutoCompact fires. */
   autoCompactPct?: number
   /** The context window size (tokens) for the threshold. */
@@ -444,6 +446,7 @@ export async function runTask(
     onChatReady,
     onAutoCompact = null,
     onContextLimit = null,
+    onProviderExhausted = null,
     autoCompactPct = 95,
     contextLimit = 1_000_000,
     getTokenUsage = null,
@@ -597,6 +600,7 @@ export async function runTask(
         // loop awaits it.
         onAutoCompact,
         onContextLimit,
+        onProviderExhausted,
         autoCompactPct,
         contextLimit,
         getTokenUsage,

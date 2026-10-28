@@ -14,6 +14,8 @@ import {
 } from './theme.js'
 import { setInputBorder } from './tui/ui-colors.js'
 import { nonReloadableSources, diffChanged } from './dev-watch.js'
+import { noteSwallowed } from './swallow.js'
+import { pickFallbackProvider } from './provider-fallback.js'
 
 import { DeepSeekBrowser, headlessUACacheReady } from './browser.js'
 import { QwenBrowser } from './qwen-browser.js'
@@ -23,6 +25,7 @@ import { canShowWindow } from './browser-login.js'
 import {
   isProviderId,
   asProviderId,
+  providerGuestAllowed,
   providerChatUrlPrefix,
   providerLabel,
   providerHasModelPicker,
@@ -2834,6 +2837,112 @@ async function main(): Promise<void> {
     return true
   }
 
+  /**
+   * N8: continue the task on an AUTHORIZED fallback provider after the active
+   * one exhausted its retries. Returns true when the backend really switched
+   * (the caller then resends the same prompt). A guest session or a dead
+   * marker is never used: the operator is told which provider can be
+   * authorized and how.
+   */
+  const fallbackToAuthorizedProvider = async (err: Error): Promise<boolean> => {
+    const configured = (config.browser.fallbackProviders || []).filter(
+      isProviderId,
+    )
+    if (!configured.length) return false
+    const active = asProviderId(config.provider)
+    const candidates = configured
+      .filter((id) => id !== active)
+      .map((id) => ({
+        id,
+        guestAllowed: providerGuestAllowed(id),
+        // Only a REAL session counts. The marker is the evidence; the switch
+        // below re-checks it with waitForLogin().
+        guestSession: !authMarkerExists(id),
+        authMarker: authMarkerExists(id) ? 'yes' : '',
+      }))
+    const decision = await pickFallbackProvider(
+      active,
+      candidates,
+      async (id) => authMarkerExists(id),
+      (raw, id) => raw === 'yes' && authMarkerExists(id),
+    )
+    if (!decision.provider) {
+      console.error(
+        theme.warn(
+          t('provider.fallback_none', {
+            from: providerLabel(active),
+            providers:
+              (decision.authorizable.length
+                ? decision.authorizable
+                : configured
+              )
+                .map((id) => providerLabel(id))
+                .join(', ') || '-',
+          }),
+        ),
+      )
+      return false
+    }
+    const target = decision.provider
+    if (config.browser.fallbackMode !== 'auto') {
+      const ok = await askOperatorConfirm(
+        editor,
+        t('provider.fallback_ask', {
+          from: providerLabel(active),
+          to: providerLabel(target),
+        }),
+        t,
+        currentLocale,
+      )
+      if (!ok) return false
+    }
+    console.log(
+      theme.system(
+        t('provider.fallback_switch', {
+          from: providerLabel(active),
+          to: providerLabel(target),
+        }),
+      ),
+    )
+    transcript.log('provider_fallback', {
+      from: active,
+      to: target,
+      error: err.message.slice(0, 200),
+    })
+    // A switch failure leaves the old browser in place, so returning false is
+    // safe. The handoff machinery is the SAME one /provider uses.
+    try {
+      config.provider = target
+      setProviderEnabledFlag(target)
+      writeConfigValue('home', 'provider', target)
+      const nextBrowser = createProviderBrowser(target, onContextLimit)
+      await nextBrowser.waitForLogin()
+      const prev = browser
+      browser = nextBrowser
+      try {
+        await prev.close()
+      } catch (e) {
+        noteSwallowed('fallback_close_prev', e, debug)
+      }
+      currentChatId = await browser.getCurrentChatId()
+      resumeChatId = null
+      saveLastChat(currentChatId, currentWorkdir)
+      freshChatNext = true
+      sendSystemPromptNext = true
+      return true
+    } catch (e) {
+      console.error(
+        theme.error(
+          t('provider.switch_failed', {
+            v: providerLabel(target),
+            error: (e as Error).message,
+          }),
+        ),
+      )
+      return false
+    }
+  }
+
   while (running) {
     let input: string | null
     let inputAttachments: Array<{ path: string; name: string; mime: string }> =
@@ -4967,6 +5076,12 @@ async function main(): Promise<void> {
               }
             : null,
           onContextLimit: recoverFromContextLimit,
+          // N8: when the active provider exhausted its retries, continue on an
+          // AUTHORIZED fallback (auth marker + a confirmed login, never a
+          // guest) when the operator configured one. The switch reuses the
+          // existing provider handoff; the SAME task is then retried.
+          onProviderExhausted: async (err: Error) =>
+            await fallbackToAuthorizedProvider(err),
           autoCompactPct: config.browser.autoCompactPct,
           contextLimit: effectiveContextLimit(),
           getTokenUsage: () => browser.getLastTokenUsage(),
