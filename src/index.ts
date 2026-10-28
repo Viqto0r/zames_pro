@@ -16,6 +16,8 @@ import { setInputBorder } from './tui/ui-colors.js'
 import { nonReloadableSources, diffChanged } from './dev-watch.js'
 import { noteSwallowed } from './swallow.js'
 import { pickFallbackProvider } from './provider-fallback.js'
+import { dispatchCommand } from './command-registry.js'
+import { createInfoCommands } from './info-commands.js'
 import {
   shouldRunWizard,
   chooseLanguage,
@@ -3021,6 +3023,34 @@ async function main(): Promise<void> {
       ),
     )
   }
+  /** The live session state rendered by /status (and the registry handler). */
+  const statusSnapshot = (): Parameters<typeof formatStatus>[0] => {
+    const statusToggles = browser.getToggleStatesSync()
+    return {
+      workdir: currentWorkdir,
+      reviewMode: reviewMode ? reviewMode.snapName : null,
+      origDir: reviewMode ? reviewMode.originalWorkdir : null,
+      chatId: currentChatId,
+      freshNext: freshChatNext,
+      promptNext: sendSystemPromptNext,
+      lastChat: loadLastChat(currentWorkdir),
+      sessionsDir: sessionsDir(),
+      devMode,
+      maxIterations: currentMaxIter(),
+      headless,
+      debug,
+      deepThinking: statusToggles.deepThinking,
+      webSearch: statusToggles.webSearch,
+      undo: config.undo.enabled,
+      checkpoint: config.checkpoint.enabled,
+      transcriptFile: transcript.file,
+      goal: sessionGoal,
+      localeName: localeDisplayName(currentLocale),
+      mcpToolCount: mcpPool ? mcpPool.status().toolCount : null,
+      tokenUsage: browser.getLastTokenUsage(),
+    }
+  }
+
   while (running) {
     let input: string | null
     let inputAttachments: Array<{ path: string; name: string; mime: string }> =
@@ -3069,6 +3099,111 @@ async function main(): Promise<void> {
       const devCmd = mod.commands.isDevOnlyCommand(lower)
       if (devCmd) {
         console.error(theme.warn(t('msg.dev_only', { v: devCmd })))
+        continue
+      }
+    }
+
+    // Group (a): the informational commands (/status, /chat, /pwd,
+    // /transcript, /cost, /limits, /memory, /skills). The dispatch is a DATA
+    // lookup, so the command is dispatched and advertised from the same entry.
+    {
+      const infoCommands = createInfoCommands({
+        t,
+        statusLines: () => formatStatus(statusSnapshot(), t),
+        currentChatId: () => currentChatId,
+        resolveChatId: () => browser.getCurrentChatId(),
+        chatUrl: (id) => `${browserProviderUrl()}/${id}`,
+        workdir: () => currentWorkdir,
+        transcriptFile: () => transcript.file,
+        costReport: () => {
+          let stats = mod.commands.summarizeTranscript([])
+          if (transcript.file) {
+            try {
+              stats = mod.commands.summarizeTranscript(
+                mod.commands.parseTranscript(
+                  readFileSync(transcript.file, 'utf-8'),
+                ),
+              )
+            } catch (e) {
+              noteSwallowed('cost_report', e, debug)
+            }
+          }
+          return [
+            mod.commands.renderCost(
+              stats,
+              transcript.file,
+              browser.getLastTokenUsage(),
+              t,
+            ),
+          ]
+        },
+        limitsReport: async () => {
+          const { readSendEvents, summarizeSends, sendLogPath } =
+            await import('./send-telemetry.js')
+          const logsDir = config.transcript.dir
+          const events = readSendEvents(logsDir, config.provider)
+          if (!events.length) {
+            return [
+              limitsEmptyMessage(sendLogPath(logsDir, config.provider), t),
+            ]
+          }
+          return formatLimits(
+            summarizeSends(events),
+            {
+              providerLabel: providerLabel(config.provider),
+              intervalMs: browser.sendIntervalMs(),
+              adaptive: providerAdaptiveThrottle(config.provider),
+            },
+            t,
+          ).map((line) =>
+            line.kind === 'title' ? line.text : '  ' + line.text,
+          )
+        },
+        memoryReport: async () => {
+          const { loadProjectContext } = await import('./context.js')
+          const ctx = await loadProjectContext(currentWorkdir)
+          const out: string[] = []
+          const show = (
+            title: string,
+            files: Array<{ path: string }>,
+          ): void => {
+            out.push(title)
+            if (!files.length) {
+              out.push(t('common.none'))
+              return
+            }
+            for (const f of files) out.push(f.path)
+          }
+          show(t('memory.agents'), ctx.agents)
+          show(t('memory.memory'), ctx.memory)
+          return out
+        },
+        skillsReport: async () => {
+          const { loadSkills } = await import('./context.js')
+          const skills = await loadSkills(currentWorkdir)
+          if (!skills.length) return [t('skills.none')]
+          const out = [t('skills.title', { n: String(skills.length) })]
+          for (const s of skills) {
+            const src = s.path ? s.source : 'built-in'
+            out.push(
+              '/' +
+                s.name +
+                ' [' +
+                src +
+                '] ' +
+                (s.description || t('common.none')),
+            )
+            if (s.path) out.push(s.path)
+          }
+          return out
+        },
+      })
+      if (
+        await dispatchCommand(infoCommands, trimmed, {
+          print: (line) => console.log(line),
+          devMode,
+        })
+      ) {
         continue
       }
     }
@@ -4214,38 +4349,6 @@ async function main(): Promise<void> {
       await autoReload()
       await refreshDynamicCommands(currentWorkdir)
       if (editor) editor.setCommands(buildSlashCommands())
-      continue
-    }
-
-    if (lower === '/status') {
-      const statusToggles = browser.getToggleStatesSync()
-      const statusLines = formatStatus(
-        {
-          workdir: currentWorkdir,
-          reviewMode: reviewMode ? reviewMode.snapName : null,
-          origDir: reviewMode ? reviewMode.originalWorkdir : null,
-          chatId: currentChatId,
-          freshNext: freshChatNext,
-          promptNext: sendSystemPromptNext,
-          lastChat: loadLastChat(currentWorkdir),
-          sessionsDir: sessionsDir(),
-          devMode,
-          maxIterations: currentMaxIter(),
-          headless,
-          debug,
-          deepThinking: statusToggles.deepThinking,
-          webSearch: statusToggles.webSearch,
-          undo: config.undo.enabled,
-          checkpoint: config.checkpoint.enabled,
-          transcriptFile: transcript.file,
-          goal: sessionGoal,
-          localeName: localeDisplayName(currentLocale),
-          mcpToolCount: mcpPool ? mcpPool.status().toolCount : null,
-          tokenUsage: browser.getLastTokenUsage(),
-        },
-        t,
-      )
-      for (const line of statusLines) console.log(theme.system(line))
       continue
     }
 
