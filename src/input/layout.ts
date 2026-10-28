@@ -152,7 +152,11 @@ export function expandPastes(
 
 function safeJson(v: unknown): string {
   try {
-    return JSON.stringify(v)
+    // `JSON.stringify(undefined)` returns the VALUE `undefined`, not a string:
+    // the typed-as-string result then broke `truncateToWidth` and the
+    // `detail ? …` branches (a REPL/args-less tool printed nothing useful).
+    const s = JSON.stringify(v)
+    return s === undefined ? String(v) : s
   } catch {
     return String(v)
   }
