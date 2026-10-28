@@ -259,6 +259,10 @@ export const configMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Логин DeepSeek для авто-входа',
     en: 'DeepSeek login for auto sign-in',
   },
+  'cfg.f.browser_passwordStore': {
+    ru: 'Где хранить пароль: config (в файле), none (не хранить), keychain (системное хранилище)',
+    en: 'Where to keep the password: config (in the file), none (never store), keychain (OS keychain)',
+  },
   'cfg.f.browser_authPassword': {
     ru: 'Пароль DeepSeek для авто-входа',
     en: 'DeepSeek password for auto sign-in',
@@ -375,5 +379,17 @@ export const configMessages: Record<string, { ru: string; en: string }> = {
   'cfg.menu.back_hint': {
     ru: 'Esc — назад к группам',
     en: 'Esc — back to the groups',
+  },
+  'provider.fallback_ask': {
+    ru: 'Лимит провайдера {from} исчерпан. Продолжить задачу на {to}? (browser.fallbackMode=auto переключает без вопроса)',
+    en: 'The {from} limit is exhausted. Continue the task on {to}? (browser.fallbackMode=auto switches without asking)',
+  },
+  'provider.fallback_none': {
+    ru: '✖ Лимит {from} исчерпан, а резервного провайдера нет. Авторизуй одного через /provider <id> (нужен настоящий вход, гостевой режим не подходит) и задай browser.fallbackProviders.',
+    en: '✖ {from} is exhausted and there is no fallback provider. Authorize one with /provider <id> (a real sign-in; a guest session is not enough) and set browser.fallbackProviders.',
+  },
+  'provider.fallback_switch': {
+    ru: 'Лимит {from} исчерпан — переключаюсь на {to} и продолжаю задачу.',
+    en: '{from} is exhausted — switching to {to} and continuing the task.',
   },
 }

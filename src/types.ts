@@ -62,6 +62,20 @@ export interface BrowserAuthConfig {
 }
 
 export interface BrowserConfig {
+  /**
+   * N21: where the provider password lives — `config` (the historical plain
+   * field), `none` (never stored) or `keychain` (the OS store, with a config
+   * fallback plus a warning when no tool is available).
+   */
+  passwordStore: 'none' | 'keychain' | 'config'
+  /**
+   * Providers a task may CONTINUE on after the active one exhausted its
+   * retries. Empty (default) = off. Only an AUTHORIZED provider (auth marker
+   * plus a confirmed login) is used — never a guest session.
+   */
+  fallbackProviders: string[]
+  /** `ask` = confirm with the operator before switching; `auto` = switch. */
+  fallbackMode: 'ask' | 'auto'
   answerTimeoutMs: number
   askRetries: number
   stabilityChecks: number

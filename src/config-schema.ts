@@ -297,6 +297,14 @@ export const CONFIG_SCHEMA: ConfigField[] = [
     groupKey: 'cfg.group.login',
   },
   {
+    path: 'browser.passwordStore',
+    type: 'enum',
+    values: ['none', 'keychain', 'config'],
+    labelKey: 'cfg.f.browser_passwordStore',
+    topKey: 'cfg.top.browser',
+    groupKey: 'cfg.group.login',
+  },
+  {
     path: 'browser.auth.saveSession',
     type: 'boolean',
     labelKey: 'cfg.f.browser_authSaveSession',

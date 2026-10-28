@@ -26,6 +26,11 @@ const HOME_CONFIG = path.join(ZAMES_HOME, 'config.json')
 // The PROJECT config path is resolved LAZILY: `/cd` changes process.cwd() at
 // runtime, so freezing it at import time meant a `.zamesrc.json` in the new
 // working directory was never read (and writes went to the OLD directory).
+/** The HOME config file (`~/.zames/config.json`). */
+export function homeConfigPath(): string {
+  return HOME_CONFIG
+}
+
 export function projectConfigPath(): string {
   return path.join(process.cwd(), '.zamesrc.json')
 }
@@ -138,6 +143,13 @@ export const DEFAULTS: ZamesConfig = {
     // out of the main context, and the main chat is restored afterwards.
     subagents: true,
     maxSubagents: 3,
+    // N8: providers a task may CONTINUE on after the active one exhausted its
+    // retries. Empty by default (off): a fallback is only used for an
+    // AUTHORIZED provider (auth marker + a confirmed login), never a guest.
+    fallbackProviders: [] as string[],
+    // `ask` (the default) asks the operator before switching; `auto` switches
+    // without a prompt.
+    fallbackMode: 'ask' as 'ask' | 'auto',
     deepThinking: false,
     webSearch: true,
     // OFF by default: the telemetry file only serves diagnosis and manual
@@ -150,6 +162,9 @@ export const DEFAULTS: ZamesConfig = {
       password: '',
       saveSession: true,
     },
+    // N21: where the password lives. `config` keeps the historical field,
+    // `none` never stores it, `keychain` uses the OS store (with a fallback).
+    passwordStore: 'config' as 'none' | 'keychain' | 'config',
   },
 
   ui: {
