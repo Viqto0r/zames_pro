@@ -135,7 +135,13 @@ test('loadProjectContext picks up AGENTS.md and MEMORY.md', async (t) => {
   const ctx = await loadProjectContext(root)
   assert.ok(ctx.agents.some((f) => f.path.endsWith('AGENTS.md')))
   assert.ok(ctx.memory.some((f) => f.path.endsWith('MEMORY.md')))
-  assert.match(ctx.agents[0].content, /be nice/)
+  // Find OUR file, not the first one in the list: the loader also picks up
+  // AGENTS.md files from the filesystem root down to the workdir, so on a
+  // machine with a parent AGENTS.md entry [0] is that one, not the one this
+  // test wrote.
+  const own = ctx.agents.find((f) => f.path === path.join(root, 'AGENTS.md'))
+  assert.ok(own, 'the AGENTS.md written by the test is missing')
+  assert.match(own!.content, /be nice/)
 })
 
 // An EXISTING but 0-byte AGENTS.md was dropped by a truthiness check,
