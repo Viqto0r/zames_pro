@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **first-run:** ask for language and provider once, before the input loop
+- **provider:** continue a task on an authorized fallback provider
+- **browser:** count swallowed failures instead of silent catches
+- **config:** add the password store and fallback provider settings
+- **commands:** introduce the slash-command registry and its five groups
+- **browser:** model the ask phase decision as a pure state machine
+- **browser:** share the send slot and the ask retry policy
+- **browser:** share the helpers and the error families across providers
+- **dev:** warn about every non-reloadable module, not just browser.ts
+- **doctor:** report where the provider password is stored
+- **doctor:** report the system prompt size against its budget
+- **config:** choose the password store
+- **first-run:** add the wizard step logic
+- **provider:** add the fallback decision
+- **prompt:** pin the system prompt budget
+- **swallow:** count swallowed exceptions
+- **i18n:** default to English on the first run
+- **agent-loop:** nudge once when a code edit was never verified
+
+### Fixed
+
+- **first-run:** run the wizard before the browser so its provider is the one launched
+- **first-run:** read the language as a word, not a y/N dialog
+- **browser:** keep the resumed chat open across a restart and a page relaunch
+
+### Changed
+
+- **commands:** dispatch the dev-only group through the registry
+- **commands:** dispatch the scheduler and context group through the registry
+- **commands:** dispatch the git, undo and rewind group through the registry
+- **commands:** dispatch the session and chat group through the registry
+- **commands:** dispatch the informational group through the registry
+- **i18n:** drop the browser-only reload hint superseded by the generic one
+
 ## [2.89.0] - 2026-10-27
 
 ### Added
