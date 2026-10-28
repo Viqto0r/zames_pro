@@ -63,7 +63,14 @@ export function fullScreenLayout(
   const panelRows = HEADER_ROWS + STATUS_ROWS + box + suggestRows + HINT_ROWS
   const logHeight = Math.max(1, termRows - panelRows)
   // The caret counts the SAME viewport the reservation uses.
-  const cursorTop = HEADER_ROWS + logHeight + suggestRows + STATUS_ROWS + 1
+  // The suggestion popup is drawn ABOVE the box and the box does NOT move, so
+  // the caret row must NOT include `suggestRows`: adding it put the terminal
+  // caret on the popup line (the operator saw the block cursor between
+  // `/chats` and the box). The popup only SHRINKS the log viewport — which
+  // `logHeight` above already accounts for.
+  // `cursorTop` is the row of the input BOX top border (the popup and the
+  // buffer rows are added by InputLine, where they are actually rendered).
+  const cursorTop = HEADER_ROWS + logHeight + STATUS_ROWS + 1
   return {
     headerRows: HEADER_ROWS,
     statusRows: STATUS_ROWS,

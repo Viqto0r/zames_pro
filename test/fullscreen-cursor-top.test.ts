@@ -69,7 +69,15 @@ test('the suggestion popup is reserved ABOVE the input box', () => {
   // The popup takes rows from the LOG, not from the panel below it.
   assert.equal(without.logHeight - withPopup.logHeight, 4)
   assert.equal(withPopup.panelRows - without.panelRows, 4)
-  assert.equal(withPopup.cursorTop, without.cursorTop)
+  // The popup SHRINKS the log, so the box (and with it `cursorTop`) moves UP by
+  // the same number of rows. The popup's OWN rows are added by InputLine, where
+  // it is rendered: folding them in here too put the caret on the popup line.
+  assert.equal(without.cursorTop - withPopup.cursorTop, 4)
+  // The caret row is the box top + the rows ABOVE the box text (the popup),
+  // and it must be the SAME visual row as the box's text row in both cases.
+  const textRowWithout = without.cursorTop + 1
+  const textRowWith = withPopup.cursorTop + withPopup.suggestRows + 1
+  assert.equal(textRowWith, textRowWithout)
 })
 
 test('a suggestion list taller than the screen still leaves a visible box', () => {

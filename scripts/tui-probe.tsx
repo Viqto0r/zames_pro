@@ -20,7 +20,13 @@ store.set({
   workdir: '/tmp',
   prompt: '> ',
   locale: 'en',
-  commands: [],
+  // A few REAL commands so typing `/chats` opens the suggestion popup: the
+  // caret row with the popup open is exactly the geometry this probe checks.
+  commands: [
+    { name: '/chats', description: 'the chat list' },
+    { name: '/chat', description: 'current chat id' },
+    { name: '/status', description: 'session status' },
+  ],
   mouseScroll: process.env.PROBE_MOUSE === '1',
   edit: { ...initialEditState(), buf: process.argv[2] ?? '' },
 })

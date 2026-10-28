@@ -67,6 +67,7 @@ import {
   suggestWindow,
   completeSlashCommand,
 } from '../input/suggest.js'
+import { suggestRowCount } from '../input/suggest.js'
 import type { Attachment } from '../attachments.js'
 import { UI, inputBorderStyle } from './ui-colors.js'
 
@@ -474,7 +475,17 @@ export function InputLine(props: InputLineProps): React.ReactElement {
     // DOUBLE-counted wide chars: a CJK buffer put the caret at the line end
     // instead of under the cursor.
     2 + lay.cursorCol
-  setCursorPosition({ x: cursorX, y: (props.cursorTop ?? 3) + cursorRow })
+  // The suggestion popup is drawn ABOVE the box in THIS component, so it pushes
+  // the input rows DOWN by its own height. `cursorTop` (from the app) counts
+  // the rows above the INPUT BOX, not above the popup, so the popup rows are
+  // added HERE — exactly where they are rendered. (A caller that folded them
+  // in as well double-counted them and the caret landed inside the popup.)
+  const popupRows =
+    suggestions.length > 0 ? suggestRowCount(st.buf, props.commands, cols) : 0
+  setCursorPosition({
+    x: cursorX,
+    y: (props.cursorTop ?? 3) + popupRows + cursorRow,
+  })
 
   const { shown, moreCount } = suggestWindow(suggestions, suggestOffset)
   const t = translate(props.locale)

@@ -63,7 +63,9 @@ export function TuiApp({
         locale={state.locale}
         commands={state.commands}
         locked={state.locked}
-        cursorTop={3 + suggestRows}
+        // 3 = divider + status + the box TOP border. The popup sits ABOVE
+        // the box and does not move it, so it must not shift the caret.
+        cursorTop={3}
       />
     </Box>
   )
