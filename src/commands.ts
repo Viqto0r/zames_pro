@@ -2,6 +2,7 @@ import { providerLabel, providerHasModelPicker } from './providers.js'
 import path from 'path'
 import os from 'os'
 import { isImageName } from './attachments.js'
+import { SYSTEM_PROMPT_BUDGET_BYTES, kb, overBudget } from './prompt-budget.js'
 import {
   translate,
   DEFAULT_LOCALE,
@@ -403,6 +404,12 @@ export interface DoctorInput {
   authSaved?: boolean
   /** Configured context window (tokens), shown for reference. */
   contextLimit?: number
+  /** Size of the system prompt in bytes (N6/N12: the context budget). */
+  systemPromptBytes?: number
+  /** Byte budget above which the prompt row is a WARN. */
+  systemPromptBudget?: number
+  /** Size of the loaded AGENTS.md / MEMORY.md context, in bytes. */
+  contextBytes?: number
   /** `git remote` has an `origin` (push/pull possible). */
   hasOrigin?: boolean
   /** Configured minimum pause between agent sends (ms). */
@@ -495,6 +502,23 @@ export function renderDoctor(
     }),
   )
   row(d.transcriptOk, 'transcript', onoff(d.transcriptOk))
+  if (typeof d.systemPromptBytes === 'number') {
+    const budget = d.systemPromptBudget ?? SYSTEM_PROMPT_BUDGET_BYTES
+    const size = kb(d.systemPromptBytes)
+    const ctx =
+      typeof d.contextBytes === 'number' && d.contextBytes > 0
+        ? ' + ' + kb(d.contextBytes) + ' context'
+        : ''
+    row(
+      !overBudget(d.systemPromptBytes, budget),
+      'prompt',
+      size +
+        ctx +
+        (overBudget(d.systemPromptBytes, budget)
+          ? ' > ' + kb(budget) + ' budget'
+          : ' (budget ' + kb(budget) + ')'),
+    )
+  }
   if (typeof d.contextLimit === 'number' && d.contextLimit > 0) {
     row(
       true,

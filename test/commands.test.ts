@@ -645,3 +645,32 @@ test('diffStatGitArgs: mirrors diffGitArgs and honours --staged', () => {
   assert.deepEqual(diffStatGitArgs(false), ['diff', '--stat'])
   assert.deepEqual(diffStatGitArgs(true), ['diff', '--staged', '--stat'])
 })
+
+// N12: /doctor reports the system-prompt size against the N6 budget.
+test('renderDoctor warns when the system prompt exceeds its budget', () => {
+  const base = {
+    nodeVersion: 'v24',
+    platform: 'linux',
+    workdir: '/p',
+    gitOk: true,
+    configOk: true,
+    mcpServers: 0,
+    mcpTools: 0,
+    transcriptOk: true,
+  }
+  const under = renderDoctor({
+    ...base,
+    systemPromptBytes: 10_000,
+    systemPromptBudget: 24_000,
+    contextBytes: 4096,
+  } as never)
+  assert.match(under, /prompt\s+9\.8 KB \+ 4\.0 KB context/)
+  assert.doesNotMatch(under, /\[WARN\] prompt/)
+  const over = renderDoctor({
+    ...base,
+    systemPromptBytes: 30_000,
+    systemPromptBudget: 24_000,
+  } as never)
+  assert.match(over, /\[WARN\] prompt/)
+  assert.match(over, /budget/)
+})
