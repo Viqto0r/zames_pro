@@ -28,9 +28,11 @@ import {
   tokenStatusLevel,
   wrapToWidth,
   truncateToWidth,
+  screenInnerCols,
+  screenGutter,
   type SlashCommand,
 } from '../input/layout.js'
-import { contentWidth } from '../width.js'
+import { contentWidth, setContentWidth } from '../width.js'
 import { theme } from '../theme.js'
 import { renderMarkdown } from '../markdown.js'
 import { summarizeToolCall, looksLikeToolError } from '../tool-summary.js'
@@ -296,7 +298,13 @@ export class TuiEditor {
     this.attachments.reset()
     // A turn separator + a BAR-marked, clearly-colored operator message, so an
     // operator turn never blends with the model's answer (operator request).
-    this.printAbove(theme.turnRule('─'.repeat(contentWidth())))
+    // The turn rule must fit the PANE, not the terminal: the root keeps a
+    // gutter on both sides (screenGutter) and Ink wraps a longer line onto a
+    // second row, which looked like a stray line above the message.
+    // `screenInnerCols` ALREADY subtracts the gutter on both sides.
+    this.printAbove(
+      theme.turnRule('─'.repeat(screenInnerCols(process.stdout.columns || 80))),
+    )
     // The BAR is a per-row marker, drawn by LogView (entry.bar), so every
     // visual row of a long message starts with `▌` instead of only the first.
     this.store.pushLog(
@@ -570,7 +578,19 @@ export class TuiEditor {
 
   assistant(msg: string): void {
     this.stop()
-    const rendered = renderMarkdown(msg)
+    // renderMarkdown wraps to width.ts's CONTENT width, which defaults to the
+    // terminal width. Inside the TUI the pane is narrower (the root pads by
+    // the gutter), so an answer wrapped to the terminal width overflowed the
+    // gutter and wrapped again. Point width.ts at the pane for this render.
+    const pane = screenInnerCols(process.stdout.columns || 80)
+    const prev = contentWidth()
+    setContentWidth(pane)
+    let rendered: string
+    try {
+      rendered = renderMarkdown(msg)
+    } finally {
+      setContentWidth(prev)
+    }
     this.printAbove(
       '\n' + theme.assistant(translate(this.locale)('editor.answer')),
     )
