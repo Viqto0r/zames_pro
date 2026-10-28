@@ -17,7 +17,19 @@ export interface BannerInfo {
 
 /** Visible width of a string (ANSI stripped, wide chars counted as 2). */
 function width(s: string): number {
-  return visLen(s.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, ''))
+  return visLen(stripAnsi(s))
+}
+
+/**
+ * Remove CSI AND OSC escapes. An OSC body (an OSC-8 hyperlink, a terminal
+ * title) is NOT visible text: a CSI-only regex counted every URL character as
+ * a column, so the banner box was drawn too wide and the config menu's erase
+ * height disagreed with the real screen (duplicated rows).
+ */
+function stripAnsi(s: string): string {
+  return String(s ?? '')
+    .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
+    .replace(/\x1b\][\s\S]*?(?:\x07|\x1b\\|$)/g, '')
 }
 
 /**
@@ -50,6 +62,10 @@ function box(lines: string[], maxWidth: number): string {
 }
 
 /** Truncate an (ANSI-carrying) string to `max` visible columns. */
+export function clipToWidth(s: string, max: number): string {
+  return clip(s, max)
+}
+
 function clip(s: string, max: number): string {
   if (width(s) <= max) return s
   // The content carries a couple of ANSI runs, so the tail is dropped by
@@ -58,7 +74,7 @@ function clip(s: string, max: number): string {
   let out = ''
   let visible = 0
   let i = 0
-  const esc = /\x1b\[[0-9;?]*[A-Za-z]/y
+  const esc = /\x1b\[[0-9;?]*[A-Za-z]|\x1b\][\s\S]*?(?:\x07|\x1b\\|$)/y
   while (i < s.length && visible < max - 1) {
     esc.lastIndex = i
     const m = esc.exec(s)

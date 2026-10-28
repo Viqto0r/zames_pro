@@ -40,7 +40,12 @@ const ESC = String.fromCharCode(27)
 // (input.ts keeps its own private helper): the regex must match a real CSI,
 // otherwise visCols over-counts and the erase moves to the wrong row.
 function stripAnsiLocal(s: string): string {
-  return s.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
+  // CSI AND OSC: a menu line never carries a hyperlink today, but a field
+  // value or a group label may, and an OSC body counted as visible columns
+  // made the erase height disagree with the real screen (duplicated rows).
+  return String(s ?? '')
+    .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
+    .replace(/\x1b\][\s\S]*?(?:\x07|\x1b\\|$)/g, '')
 }
 
 // Visible COLUMNS of a line (ANSI removed, wide chars counted as 2). Using the
