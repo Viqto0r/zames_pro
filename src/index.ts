@@ -1375,136 +1375,6 @@ async function main(): Promise<void> {
   const onContextLimit = (): Promise<boolean> =>
     contextLimitRecovery ? contextLimitRecovery() : Promise.resolve(false)
 
-  let browser: ChatProvider = createProviderBrowser(
-    asProviderId(config.provider),
-    onContextLimit,
-  )
-
-  const bootSpinner = mod.createSpinner(currentLocale)
-  bootSpinner.thinking()
-
-  try {
-    await browser.launch()
-    bootSpinner.stop()
-    await browser.waitForLogin()
-  } catch (e) {
-    bootSpinner.stop()
-    console.error(theme.error(t('msg.browser_error')), (e as Error).message)
-    if (debug) console.error((e as Error).stack)
-    await browser.close().catch(() => {})
-    await transcript.close()
-    process.exit(1)
-  }
-
-  // DeepSeek UI health probe. The agent drives a page we do not control, so a
-  // redesign silently breaks selectors and the FIRST symptom is a task hanging
-  // on "input field not found". Probe the always-present controls right after
-  // login and warn the operator up front. Best-effort: a probe failure must
-  // never block startup.
-  const warnUiHealth = (h: {
-    ok: boolean
-    missing: string[]
-    missingCritical: string[]
-  }): void => {
-    if (h.missingCritical.length) {
-      console.error(
-        theme.warn(
-          t('ui.probe_failed', {
-            v: h.missingCritical.join(', '),
-            provider: providerLabel(config.provider),
-          }),
-        ),
-      )
-    } else if (h.missing.length) {
-      console.error(
-        theme.warn(
-          t('ui.probe_degraded', {
-            v: h.missing.join(', '),
-            provider: providerLabel(config.provider),
-          }),
-        ),
-      )
-    }
-  }
-  try {
-    warnUiHealth(await browser.probeUiHealth())
-  } catch {}
-
-  // One-shot mode
-  if (task) {
-    const baseTools = mod.createTools(currentWorkdir, {
-      undo,
-      readOnly: planMode,
-    })
-    const tools = mergeTools(baseTools, mcpPool?.tools, planMode)
-
-    let freshChat = true
-    let sendSystemPrompt = true
-
-    // By default we start a new chat. To continue a previous session —
-    // explicitly: --chat <id> or --resume-last.
-    let resumeId = chatIdArg
-    if (!resumeId && resumeLastFlag && !newChatFlag) {
-      const last = loadLastSession(currentWorkdir, config.provider)
-      if (last && last.id) {
-        resumeId = last.id
-        console.log(theme.system(t('msg.resuming', { id: resumeId })))
-      }
-    }
-
-    if (resumeId) {
-      try {
-        console.log(theme.system(t('msg.opening_chat', { id: resumeId })))
-        await browser.openChat(resumeId)
-        freshChat = false
-        sendSystemPrompt =
-          resendPrompt || config.browser.resendPromptOnResume === true
-        saveLastChat(resumeId, currentWorkdir)
-      } catch (e) {
-        console.error(
-          theme.error(t('msg.open_chat_error', { v: (e as Error).message })),
-        )
-      }
-    }
-
-    await autoReload()
-
-    const result = await mod.runTask(
-      runTaskDeps(),
-      browser,
-      tools,
-      task,
-      currentWorkdir,
-      {
-        transcript,
-        freshChat,
-        sendSystemPrompt,
-        selfImprovement: devMode,
-        onChatReady: (chatId) => {
-          if (chatId) saveLastChat(chatId, currentWorkdir)
-        },
-      },
-    )
-    // One-shot mode (--task) is documented for scripts/CI. A failed agent run
-    // used to exit 0, so the CI job stayed green; surface it as exit code 1.
-    if (!result.ok) process.exitCode = 1
-    await browser.close()
-    await mod.closeWeb().catch(() => {})
-    if (mcpPool) await mcpPool.close().catch(() => {})
-    await transcript.close()
-    return
-  }
-
-  if (
-    providerNeedsVisibleBrowser(config.provider) &&
-    headlessFor(config.provider)
-  ) {
-    console.log(
-      theme.warn(
-        t('provider.needs_headed', { v: providerLabel(config.provider) }),
-      ),
-    )
-  }
   /**
    * N19: the FIRST-RUN wizard. A brand-new install (no `~/.zames/config.json`)
    * otherwise lands straight in a chat with no explanation of the language,
@@ -1577,6 +1447,61 @@ async function main(): Promise<void> {
   // It used to be inserted INSIDE the loop, where it held the first prompt:
   // the terminal looked ready while a modal waited, and every command hung.
   await runFirstRunWizard()
+  let browser: ChatProvider = createProviderBrowser(
+    asProviderId(config.provider),
+    onContextLimit,
+  )
+
+  const bootSpinner = mod.createSpinner(currentLocale)
+  bootSpinner.thinking()
+
+  try {
+    await browser.launch()
+    bootSpinner.stop()
+    await browser.waitForLogin()
+  } catch (e) {
+    bootSpinner.stop()
+    console.error(theme.error(t('msg.browser_error')), (e as Error).message)
+    if (debug) console.error((e as Error).stack)
+    await browser.close().catch(() => {})
+    await transcript.close()
+    process.exit(1)
+  }
+
+  // DeepSeek UI health probe. The agent drives a page we do not control, so a
+  // redesign silently breaks selectors and the FIRST symptom is a task hanging
+  // on "input field not found". Probe the always-present controls right after
+  // login and warn the operator up front. Best-effort: a probe failure must
+  // never block startup.
+  const warnUiHealth = (h: {
+    ok: boolean
+    missing: string[]
+    missingCritical: string[]
+  }): void => {
+    if (h.missingCritical.length) {
+      console.error(
+        theme.warn(
+          t('ui.probe_failed', {
+            v: h.missingCritical.join(', '),
+            provider: providerLabel(config.provider),
+          }),
+        ),
+      )
+    } else if (h.missing.length) {
+      console.error(
+        theme.warn(
+          t('ui.probe_degraded', {
+            v: h.missing.join(', '),
+            provider: providerLabel(config.provider),
+          }),
+        ),
+      )
+    }
+  }
+  try {
+    warnUiHealth(await browser.probeUiHealth())
+  } catch {}
+
   console.log(theme.system(t('msg.interactive')))
   console.log(theme.system(t('msg.queue_hint')))
   console.log(theme.dim(t('msg.first_hint')))
@@ -3021,6 +2946,81 @@ async function main(): Promise<void> {
     }
   }
 
+  // One-shot mode
+  if (task) {
+    const baseTools = mod.createTools(currentWorkdir, {
+      undo,
+      readOnly: planMode,
+    })
+    const tools = mergeTools(baseTools, mcpPool?.tools, planMode)
+
+    let freshChat = true
+    let sendSystemPrompt = true
+
+    // By default we start a new chat. To continue a previous session —
+    // explicitly: --chat <id> or --resume-last.
+    let resumeId = chatIdArg
+    if (!resumeId && resumeLastFlag && !newChatFlag) {
+      const last = loadLastSession(currentWorkdir, config.provider)
+      if (last && last.id) {
+        resumeId = last.id
+        console.log(theme.system(t('msg.resuming', { id: resumeId })))
+      }
+    }
+
+    if (resumeId) {
+      try {
+        console.log(theme.system(t('msg.opening_chat', { id: resumeId })))
+        await browser.openChat(resumeId)
+        freshChat = false
+        sendSystemPrompt =
+          resendPrompt || config.browser.resendPromptOnResume === true
+        saveLastChat(resumeId, currentWorkdir)
+      } catch (e) {
+        console.error(
+          theme.error(t('msg.open_chat_error', { v: (e as Error).message })),
+        )
+      }
+    }
+
+    await autoReload()
+
+    const result = await mod.runTask(
+      runTaskDeps(),
+      browser,
+      tools,
+      task,
+      currentWorkdir,
+      {
+        transcript,
+        freshChat,
+        sendSystemPrompt,
+        selfImprovement: devMode,
+        onChatReady: (chatId) => {
+          if (chatId) saveLastChat(chatId, currentWorkdir)
+        },
+      },
+    )
+    // One-shot mode (--task) is documented for scripts/CI. A failed agent run
+    // used to exit 0, so the CI job stayed green; surface it as exit code 1.
+    if (!result.ok) process.exitCode = 1
+    await browser.close()
+    await mod.closeWeb().catch(() => {})
+    if (mcpPool) await mcpPool.close().catch(() => {})
+    await transcript.close()
+    return
+  }
+
+  if (
+    providerNeedsVisibleBrowser(config.provider) &&
+    headlessFor(config.provider)
+  ) {
+    console.log(
+      theme.warn(
+        t('provider.needs_headed', { v: providerLabel(config.provider) }),
+      ),
+    )
+  }
   while (running) {
     let input: string | null
     let inputAttachments: Array<{ path: string; name: string; mime: string }> =
