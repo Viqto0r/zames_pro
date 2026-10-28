@@ -45,7 +45,13 @@ export interface ProviderHandoff {
  */
 export function handoffFromLabel(h: ProviderHandoff): string {
   if (h.from) return providerLabel(h.from)
-  return h.provider === 'qwen' ? 'DeepSeek' : 'Qwen'
+  // Legacy files were written when exactly TWO backends existed (deepseek and
+  // qwen), so "the other one" is only meaningful for those two. A GLM file
+  // has no such pair — labelling it `Qwen` told the new chat the summary came
+  // from a provider that never wrote it. The original backend is the honest
+  // fallback.
+  if (h.provider === 'qwen') return 'DeepSeek'
+  return 'DeepSeek'
 }
 
 /**
