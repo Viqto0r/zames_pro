@@ -20,6 +20,7 @@ import { dispatchCommand } from './command-registry.js'
 import { createInfoCommands } from './info-commands.js'
 import { createSessionCommands } from './session-commands.js'
 import { createTreeCommands } from './tree-commands.js'
+import { createSchedulerCommands } from './scheduler-commands.js'
 import {
   shouldRunWizard,
   chooseLanguage,
@@ -3402,6 +3403,163 @@ async function main(): Promise<void> {
     }
   }
 
+  /** /loop <interval> <task>. */
+  const loopCommand = (rest: string): void => {
+    const sp = rest.indexOf(' ')
+    const intervalStr = sp === -1 ? rest : rest.slice(0, sp)
+    const taskStr = sp === -1 ? '' : rest.slice(sp + 1).trim()
+    const ms = parseInterval(intervalStr)
+    if (!ms && intervalStr) {
+      // Say WHY the job was not added. A bare `10` is not a typo the agent
+      // can spot: it IS a valid interval (10 SECONDS), while an operator who
+      // meant ten minutes needs the `m` suffix.
+      console.error(theme.error(t('sched.interval_typo', { v: intervalStr })))
+      return
+    }
+    if (!ms || !taskStr) {
+      console.error(theme.error(t('sched.loop_usage')))
+      return
+    }
+    // A very short loop (e.g. "/loop 1s ...") would keep the agent sending
+    // back-to-back and hit the rate limit. Enforce a floor; the send throttle
+    // is 15s, so anything faster is pointless anyway.
+    if (ms < MIN_LOOP_MS) {
+      console.error(
+        theme.error(
+          t('sched.loop_too_short', {
+            min: formatInterval(MIN_LOOP_MS),
+          }),
+        ),
+      )
+      return
+    }
+    const job = scheduler.addLoop(ms, taskStr, Date.now())
+    startScheduleTicker()
+    console.log(
+      theme.system(
+        t('sched.added', {
+          id: String(job.id),
+          when: formatInterval(ms),
+          task: taskStr,
+        }),
+      ),
+    )
+    // Tell the operator WHEN it will actually run. A scheduled task never
+    // interrupts a running turn: it is queued and starts only when the
+    // agent is idle (or right after the current task). The bare "added"
+    // line made a first /loop look like a no-op, so the operator re-sent the
+    // task by hand (the very report this line answers).
+    console.log(theme.dim(t('sched.added_hint')))
+  }
+
+  /** /cron "<expr>" <task>. */
+  const cronCommand = (rest: string): void => {
+    // A cron expression is exactly 5 whitespace-separated fields; the task
+    // is everything after them.
+    const parts = rest.split(/\s+/)
+    if (parts.length < 6) {
+      console.error(theme.error(t('sched.cron_usage')))
+      return
+    }
+    const cronExpr = parts.slice(0, 5).join(' ')
+    const taskStr = parts.slice(5).join(' ').trim()
+    if (!parseCron(cronExpr) || !taskStr) {
+      console.error(theme.error(t('sched.cron_usage')))
+      return
+    }
+    const job = scheduler.addCron(cronExpr, taskStr, Date.now())
+    if (!job) {
+      console.error(theme.error(t('sched.cron_usage')))
+      return
+    }
+    startScheduleTicker()
+    const nextIn = formatInterval(Math.max(0, job.nextAt - Date.now()))
+    console.log(
+      theme.system(
+        t('sched.added', {
+          id: String(job.id),
+          when: cronExpr + ' (in ~' + nextIn + ')',
+          task: taskStr,
+        }),
+      ),
+    )
+    console.log(theme.dim(t('sched.added_hint')))
+  }
+
+  /** /jobs [rm <id>|clear]. */
+  const jobsCommand = (raw: string): void => {
+    const sub = raw.trim().toLowerCase()
+    if (sub === 'clear') {
+      const n = scheduler.clear()
+      if (scheduleTimer) {
+        clearInterval(scheduleTimer)
+        scheduleTimer = null
+      }
+      console.log(theme.system(t('sched.cleared', { n: String(n) })))
+      return
+    }
+    if (sub.startsWith('rm ') || sub.startsWith('remove ')) {
+      const id = Number(sub.replace(/^(rm|remove)\s+/, ''))
+      if (!Number.isInteger(id) || !scheduler.remove(id)) {
+        console.error(theme.error(t('sched.rm_usage')))
+        return
+      }
+      if (!scheduler.count() && scheduleTimer) {
+        clearInterval(scheduleTimer)
+        scheduleTimer = null
+      }
+      console.log(theme.system(t('sched.removed', { id: String(id) })))
+      return
+    }
+    const jobs = scheduler.list()
+    if (!jobs.length) {
+      console.log(theme.dim(t('sched.none')))
+      return
+    }
+    console.log(theme.system(t('sched.title')))
+    for (const j of jobs) {
+      console.log(theme.assistant(formatJobLine(j, Date.now())))
+    }
+    console.log(theme.dim(t('sched.remove_hint')))
+  }
+
+  /** /compact: summarize the chat and continue in a fresh one. */
+  const compactCommand = async (): Promise<void> => {
+    // Compaction: ask DeepSeek (in the CURRENT chat) to compress the
+    // history into a handover summary, then start a NEW chat, resend the
+    // system prompt and post the summary as the carried-over context.
+    // Shared with the AUTO-compact path via performCompact() so both
+    // paths stay identical (same retries, same fallback, same resend).
+    const res = await performCompact({
+      browser,
+      providerLabel: providerLabel(config.provider),
+      currentChatId,
+      workdir: currentWorkdir,
+      locale: currentLocale,
+      task: task ?? undefined,
+      transcript,
+      ui: editor,
+      buildSystemPrompt: mod.buildSystemPrompt,
+      tools: mod.createTools(currentWorkdir, { undo, todos: todoStore }),
+      answerTimeoutMs: providerAnswerTimeoutMs(),
+      fallbackLimit: COMPACT_FALLBACK_LIMIT,
+      selfImprovement: devMode,
+    })
+    if (res.ok) {
+      currentChatId = res.chatId
+      saveLastChat(currentChatId, currentWorkdir)
+      freshChatNext = false
+      // The new chat already carries the system prompt and the context.
+      sendSystemPromptNext = false
+    }
+  }
+
+  /** /goal: set/show/clear the condition. Returns whether it was SET. */
+  const goalCommand = async (line: string): Promise<boolean> => {
+    const sub = await handleGoal(line)
+    return sub === 'set' && !!sessionGoal
+  }
+
   while (running) {
     let input: string | null
     let inputAttachments: Array<{ path: string; name: string; mime: string }> =
@@ -3597,6 +3755,29 @@ async function main(): Promise<void> {
       })
       if (
         await dispatchCommand(treeCommands, trimmed, {
+          print: (line) => console.log(line),
+          devMode,
+        })
+      ) {
+        continue
+      }
+    }
+
+    // Group (d): the scheduler and context commands (/compact, /goal, /loop,
+    // /cron, /jobs). /goal needs the result: setting a condition STARTS a
+    // turn, so the branch above (goalCommand) keeps the fall-through and this
+    // group only owns /compact, /loop, /cron and /jobs.
+    {
+      const schedulerCommands = createSchedulerCommands({
+        compact: () => compactCommand(),
+        goal: async (line) => ((await goalCommand(line)) ? 'set' : 'handled'),
+        currentGoal: () => sessionGoal,
+        loop: (rest) => loopCommand(rest),
+        cron: (rest) => cronCommand(rest),
+        jobs: (rest) => jobsCommand(rest),
+      }).filter((c) => c.name !== 'goal')
+      if (
+        await dispatchCommand(schedulerCommands, trimmed, {
           print: (line) => console.log(line),
           devMode,
         })
@@ -4137,141 +4318,15 @@ async function main(): Promise<void> {
     }
 
     if (lower === '/goal' || lower.startsWith('/goal ')) {
-      const sub = await handleGoal(trimmed)
-      // Claude Code parity: setting a goal STARTS a turn immediately, with the
-      // condition itself as the directive (no separate prompt needed). The
-      // completion loop in runTask() then keeps working until the evaluator
-      // reports MET/IMPOSSIBLE. We fall through to the regular task path with
-      // an override task text instead of returning to the prompt.
-      if (sub === 'set' && sessionGoal) {
+      // A freshly SET goal FALLS THROUGH: the condition itself becomes the
+      // next task instead of returning to the prompt (Claude Code parity).
+      if (await goalCommand(trimmed)) {
         taskOverride =
           'Work toward this completion goal until it is satisfied. ' +
           'Do not call respond with a final summary until the condition is met.'
       } else {
         continue
       }
-    }
-
-    if (lower === '/loop' || lower.startsWith('/loop ')) {
-      const rest = trimmed.slice('/loop'.length).trim()
-      const sp = rest.indexOf(' ')
-      const intervalStr = sp === -1 ? rest : rest.slice(0, sp)
-      const taskStr = sp === -1 ? '' : rest.slice(sp + 1).trim()
-      const ms = parseInterval(intervalStr)
-      if (!ms && intervalStr) {
-        // Say WHY the job was not added. A bare `10` is not a typo the agent
-        // can spot: it IS a valid interval (10 SECONDS), while an operator who
-        // meant ten minutes needs the `m` suffix.
-        console.error(theme.error(t('sched.interval_typo', { v: intervalStr })))
-        continue
-      }
-      if (!ms || !taskStr) {
-        console.error(theme.error(t('sched.loop_usage')))
-        continue
-      }
-      // A very short loop (e.g. "/loop 1s ...") would keep the agent sending
-      // back-to-back and hit the rate limit. Enforce a floor; the send throttle
-      // is 15s, so anything faster is pointless anyway.
-      if (ms < MIN_LOOP_MS) {
-        console.error(
-          theme.error(
-            t('sched.loop_too_short', {
-              min: formatInterval(MIN_LOOP_MS),
-            }),
-          ),
-        )
-        continue
-      }
-      const job = scheduler.addLoop(ms, taskStr, Date.now())
-      startScheduleTicker()
-      console.log(
-        theme.system(
-          t('sched.added', {
-            id: String(job.id),
-            when: formatInterval(ms),
-            task: taskStr,
-          }),
-        ),
-      )
-      // Tell the operator WHEN it will actually run. A scheduled task never
-      // interrupts a running turn: it is queued and starts only when the
-      // agent is idle (or right after the current task). The bare "added"
-      // line made a first /loop look like a no-op, so the operator re-sent the
-      // task by hand (the very report this line answers).
-      console.log(theme.dim(t('sched.added_hint')))
-      continue
-    }
-
-    if (lower === '/cron' || lower.startsWith('/cron ')) {
-      const rest = trimmed.slice('/cron'.length).trim()
-      // A cron expression is exactly 5 whitespace-separated fields; the task
-      // is everything after them.
-      const parts = rest.split(/\s+/)
-      if (parts.length < 6) {
-        console.error(theme.error(t('sched.cron_usage')))
-        continue
-      }
-      const cronExpr = parts.slice(0, 5).join(' ')
-      const taskStr = parts.slice(5).join(' ').trim()
-      if (!parseCron(cronExpr) || !taskStr) {
-        console.error(theme.error(t('sched.cron_usage')))
-        continue
-      }
-      const job = scheduler.addCron(cronExpr, taskStr, Date.now())
-      if (!job) {
-        console.error(theme.error(t('sched.cron_usage')))
-        continue
-      }
-      startScheduleTicker()
-      const nextIn = formatInterval(Math.max(0, job.nextAt - Date.now()))
-      console.log(
-        theme.system(
-          t('sched.added', {
-            id: String(job.id),
-            when: cronExpr + ' (in ~' + nextIn + ')',
-            task: taskStr,
-          }),
-        ),
-      )
-      console.log(theme.dim(t('sched.added_hint')))
-      continue
-    }
-
-    if (lower === '/jobs' || lower.startsWith('/jobs ')) {
-      const sub = trimmed.slice('/jobs'.length).trim().toLowerCase()
-      if (sub === 'clear') {
-        const n = scheduler.clear()
-        if (scheduleTimer) {
-          clearInterval(scheduleTimer)
-          scheduleTimer = null
-        }
-        console.log(theme.system(t('sched.cleared', { n: String(n) })))
-        continue
-      }
-      if (sub.startsWith('rm ') || sub.startsWith('remove ')) {
-        const id = Number(sub.replace(/^(rm|remove)\s+/, ''))
-        if (!Number.isInteger(id) || !scheduler.remove(id)) {
-          console.error(theme.error(t('sched.rm_usage')))
-          continue
-        }
-        if (!scheduler.count() && scheduleTimer) {
-          clearInterval(scheduleTimer)
-          scheduleTimer = null
-        }
-        console.log(theme.system(t('sched.removed', { id: String(id) })))
-        continue
-      }
-      const jobs = scheduler.list()
-      if (!jobs.length) {
-        console.log(theme.dim(t('sched.none')))
-        continue
-      }
-      console.log(theme.system(t('sched.title')))
-      for (const j of jobs) {
-        console.log(theme.assistant(formatJobLine(j, Date.now())))
-      }
-      console.log(theme.dim(t('sched.remove_hint')))
-      continue
     }
 
     if (lower === '/queue' || lower.startsWith('/queue ')) {
@@ -4848,37 +4903,6 @@ async function main(): Promise<void> {
         continue
       }
       console.log(theme.system(t('adddir.note', { v: res.path })))
-      continue
-    }
-
-    if (lower === '/compact') {
-      // Compaction: ask DeepSeek (in the CURRENT chat) to compress the
-      // history into a handover summary, then start a NEW chat, resend the
-      // system prompt and post the summary as the carried-over context.
-      // Shared with the AUTO-compact path via performCompact() so both
-      // paths stay identical (same retries, same fallback, same resend).
-      const res = await performCompact({
-        browser,
-        providerLabel: providerLabel(config.provider),
-        currentChatId,
-        workdir: currentWorkdir,
-        locale: currentLocale,
-        task: task ?? undefined,
-        transcript,
-        ui: editor,
-        buildSystemPrompt: mod.buildSystemPrompt,
-        tools: mod.createTools(currentWorkdir, { undo, todos: todoStore }),
-        answerTimeoutMs: providerAnswerTimeoutMs(),
-        fallbackLimit: COMPACT_FALLBACK_LIMIT,
-        selfImprovement: devMode,
-      })
-      if (res.ok) {
-        currentChatId = res.chatId
-        saveLastChat(currentChatId, currentWorkdir)
-        freshChatNext = false
-        // The new chat already carries the system prompt and the context.
-        sendSystemPromptNext = false
-      }
       continue
     }
 
