@@ -419,12 +419,42 @@ export function searchCancel(s: EditState): EditState {
 }
 
 export function searchInput(s: EditState, ch: string): EditState {
-  return searchRefresh({ ...s, searchQuery: s.searchQuery + ch }, true)
+  // Refine from the CURRENT match, not from the newest entry: after
+  // `searchNext` walked back, re-searching from the bottom jumped FORWARD to a
+  // newer entry and the operator lost the place they were browsing.
+  return searchRefreshFrom(
+    { ...s, searchQuery: s.searchQuery + ch },
+    s.searchIndex,
+  )
 }
 
 export function searchBackspace(s: EditState): EditState {
   if (!s.searchQuery.length) return s
-  return searchRefresh({ ...s, searchQuery: s.searchQuery.slice(0, -1) }, true)
+  return searchRefreshFrom(
+    { ...s, searchQuery: s.searchQuery.slice(0, -1) },
+    s.searchIndex,
+  )
+}
+
+/** Re-search from `from` (inclusive) walking BACK; -1 when nothing matches. */
+function searchRefreshFrom(s: EditState, from: number): EditState {
+  const q = s.searchQuery
+  const start = Math.min(from, s.history.length - 1)
+  for (let i = start; i >= 0; i--) {
+    if (q === '' || s.history[i].toLowerCase().includes(q.toLowerCase())) {
+      const buf = s.history[i]
+      return { ...s, searchIndex: i, buf, cursor: Array.from(buf).length }
+    }
+  }
+  // Nothing at or ABOVE the current match: look at the newer entries too, so a
+  // query that only matches a newer line is still found.
+  for (let i = start + 1; i < s.history.length; i++) {
+    if (s.history[i].toLowerCase().includes(q.toLowerCase())) {
+      const buf = s.history[i]
+      return { ...s, searchIndex: i, buf, cursor: Array.from(buf).length }
+    }
+  }
+  return { ...s, searchIndex: -1 }
 }
 
 /**
