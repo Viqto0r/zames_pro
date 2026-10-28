@@ -14,8 +14,10 @@ import {
 } from './theme.js'
 import { setInputBorder } from './tui/ui-colors.js'
 import { nonReloadableSources, diffChanged } from './dev-watch.js'
-import { noteSwallowed } from './swallow.js'
+import { noteSwallowed, swallowedReport } from './swallow.js'
 import { pickFallbackProvider } from './provider-fallback.js'
+import { SYSTEM_PROMPT_BUDGET_BYTES } from './prompt-budget.js'
+import { resolvePasswordStore } from './password-store.js'
 import { dispatchCommand } from './command-registry.js'
 import { createInfoCommands } from './info-commands.js'
 import { createSessionCommands } from './session-commands.js'
@@ -5021,6 +5023,41 @@ async function main(): Promise<void> {
               transcriptOk: !!transcript.file,
               authSaved: authMarkerExists(),
               contextLimit: effectiveContextLimit(),
+              // N12: the system-prompt size against the N6 budget. The prompt
+              // is rebuilt here because /doctor is a READ-ONLY view: nothing
+              // else in the process holds the string.
+              systemPromptBytes: Buffer.byteLength(
+                mod.buildSystemPrompt({
+                  workdir: currentWorkdir,
+                  tools: mod.createTools(currentWorkdir, {
+                    undo,
+                    todos: todoStore,
+                  }),
+                  locale: currentLocale,
+                  selfImprovement: devMode,
+                  provider: config.provider,
+                }),
+              ),
+              systemPromptBudget: SYSTEM_PROMPT_BUDGET_BYTES,
+              // N21: WHERE the password lives, and whether that store is real
+              // on this machine (a degraded keychain shows as a WARN).
+              passwordStore: resolvePasswordStore(
+                config.browser.passwordStore,
+                {
+                  secretTool: false,
+                  security: false,
+                  powershell: false,
+                  platform:
+                    process.platform === 'darwin'
+                      ? 'darwin'
+                      : process.platform === 'win32'
+                        ? 'win32'
+                        : 'linux',
+                },
+              ),
+              // N7: the top swallowed-failure tags — a broken selector stops
+              // being invisible.
+              swallowedTop: swallowedReport(5),
               hasOrigin: gitOk
                 ? (await runGitArgs(['remote'], currentWorkdir, 5000)).includes(
                     'origin',

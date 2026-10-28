@@ -406,6 +406,8 @@ export interface DoctorInput {
   contextLimit?: number
   /** N21: where the provider password lives, and whether that store is real. */
   passwordStore?: { store: string; degraded: boolean }
+  /** Top swallowed-failure tags (N7): a broken selector stops being invisible. */
+  swallowedTop?: Array<{ tag: string; count: number }>
   /** Size of the system prompt in bytes (N6/N12: the context budget). */
   systemPromptBytes?: number
   /** Byte budget above which the prompt row is a WARN. */
@@ -511,6 +513,12 @@ export function renderDoctor(
       d.passwordStore.store +
         (d.passwordStore.degraded ? ' (keychain unavailable)' : ''),
     )
+  }
+  if (d.swallowedTop && d.swallowedTop.length) {
+    const txt = d.swallowedTop.map((x) => x.tag + ':' + x.count).join(', ')
+    // WARN, not OK: a swallowed failure is a SELECTOR (or a page read) that
+    // broke and was hidden - exactly what this row exists to surface.
+    row(false, 'swallowed', txt)
   }
   if (typeof d.systemPromptBytes === 'number') {
     const budget = d.systemPromptBudget ?? SYSTEM_PROMPT_BUDGET_BYTES
