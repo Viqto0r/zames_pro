@@ -27,7 +27,7 @@ import {
   SUGGEST_PAGE,
   type SlashCommand,
 } from '../input/layout.js'
-import { screenInnerCols } from '../input/layout.js'
+import { screenInnerCols, screenGutter } from '../input/layout.js'
 import {
   insertText,
   insertPaste,
@@ -474,7 +474,11 @@ export function InputLine(props: InputLineProps): React.ReactElement {
     // code re-measured `rowText` up to `cursorCol` code points, which
     // DOUBLE-counted wide chars: a CJK buffer put the caret at the line end
     // instead of under the cursor.
-    2 + lay.cursorCol
+    // 2 (box border + inner padding) + the ROOT gutter (paddingLeft of the
+    // full-screen/inline root) + the column inside the box. The gutter was
+    // forgotten: at 170 columns the root pads 2, so the caret sat exactly 2
+    // cells LEFT of the text the operator typed.
+    screenGutter(columns || 80) + 2 + lay.cursorCol
   // The suggestion popup is drawn ABOVE the box in THIS component, so it pushes
   // the input rows DOWN by its own height. `cursorTop` (from the app) counts
   // the rows above the INPUT BOX, not above the popup, so the popup rows are
