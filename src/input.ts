@@ -1550,8 +1550,11 @@ export class LineEditor {
   _wordLeft() {
     const chars = Array.from(this.buf)
     let i = this.cursor
-    while (i > 0 && /\s/.test(chars[i - 1])) i--
-    while (i > 0 && !/\s/.test(chars[i - 1])) i--
+    // A NEWLINE is a hard boundary, like in the TUI's edit.ts: the caret must
+    // not jump to the previous LINE's word (the two engines must behave the
+    // same).
+    while (i > 0 && chars[i - 1] !== NL && /\s/.test(chars[i - 1])) i--
+    while (i > 0 && chars[i - 1] !== NL && !/\s/.test(chars[i - 1])) i--
     this.cursor = i
   }
 
@@ -1559,8 +1562,9 @@ export class LineEditor {
   _wordRight() {
     const chars = Array.from(this.buf)
     let i = this.cursor
-    while (i < chars.length && /\s/.test(chars[i])) i++
-    while (i < chars.length && !/\s/.test(chars[i])) i++
+    // Stop at a NEWLINE (mirrors _wordLeft and the TUI's edit.ts).
+    while (i < chars.length && chars[i] !== NL && /\s/.test(chars[i])) i++
+    while (i < chars.length && chars[i] !== NL && !/\s/.test(chars[i])) i++
     this.cursor = i
   }
 
@@ -1568,8 +1572,9 @@ export class LineEditor {
   _deleteWordLeft() {
     const chars = Array.from(this.buf)
     let i = this.cursor
-    while (i > 0 && /\s/.test(chars[i - 1])) i--
-    while (i > 0 && !/\s/.test(chars[i - 1])) i--
+    // Never eat the line break (see _wordLeft).
+    while (i > 0 && chars[i - 1] !== NL && /\s/.test(chars[i - 1])) i--
+    while (i > 0 && chars[i - 1] !== NL && !/\s/.test(chars[i - 1])) i--
     chars.splice(i, this.cursor - i)
     this.buf = chars.join('')
     this.cursor = i
@@ -1581,8 +1586,9 @@ export class LineEditor {
   _deleteWordRight() {
     const chars = Array.from(this.buf)
     let i = this.cursor
-    while (i < chars.length && /\s/.test(chars[i])) i++
-    while (i < chars.length && !/\s/.test(chars[i])) i++
+    // Stop at a NEWLINE (see _wordRight).
+    while (i < chars.length && chars[i] !== NL && /\s/.test(chars[i])) i++
+    while (i < chars.length && chars[i] !== NL && !/\s/.test(chars[i])) i++
     chars.splice(this.cursor, i - this.cursor)
     this.buf = chars.join('')
   }
