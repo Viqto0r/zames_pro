@@ -230,6 +230,11 @@ export function applyUpdateHunk(
   const hasCRLF = content.includes('\r\n')
   const eol = hasCRLF ? '\r\n' : NL
   let fileLines = content.split(/\r?\n/)
+  // Hunks are ordered top-to-bottom, so the search for the next block must not
+  // go back before the end of the previous one. Searching from 0 made a hunk
+  // re-find a region an EARLIER hunk had already consumed (or, once that text
+  // was gone, fail with "Context not found").
+  let searchFrom = 0
 
   for (const block of splitHunks(hunkLines)) {
     const oldLines: string[] = []
@@ -259,7 +264,7 @@ export function applyUpdateHunk(
       }
     }
 
-    const at = locateBlock(fileLines, oldLines, block.oldStart, 0)
+    const at = locateBlock(fileLines, oldLines, block.oldStart, searchFrom)
     if (at === -1) {
       return {
         ok: false,
@@ -273,6 +278,9 @@ export function applyUpdateHunk(
       ...newLines,
       ...fileLines.slice(at + oldLines.length),
     ]
+    // The next block starts after the lines this hunk just produced: its text
+    // cannot legitimately live BEFORE them.
+    searchFrom = at + newLines.length
   }
 
   return { ok: true, content: fileLines.join(eol) }
