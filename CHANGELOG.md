@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.90.11] - 2026-10-29
+
+### Fixed
+
+- **input:** stop legacy word movement and deletion at a newline
+
 ## [2.90.10] - 2026-10-29
 
 ### Fixed
