@@ -41,7 +41,6 @@
     "qwen-models-smoke": "tsx scripts/qwen-models-smoke.mts",
     "sched-smoke": "tsx scripts/sched-smoke.mts",
     "render-demo": "tsx scripts/render-demo.mts",
-    "demo:replay": "tsx scripts/demo-replay.mts",
     "render-how": "tsx scripts/render-how-it-works.mts",
     "build:readme": "tsx scripts/build-readme.mts",
     "build:llms": "tsx scripts/build-llms.mts",
