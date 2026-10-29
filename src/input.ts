@@ -1634,10 +1634,22 @@ export class LineEditor {
   _searchRefresh(resetToNewest = false) {
     const q = this._searchQuery
     if (resetToNewest) this._searchIndex = this.history.length - 1
-    for (let i = this._searchIndex; i >= 0; i--) {
+    const from = this._searchIndex
+    for (let i = from; i >= 0; i--) {
       if (q === '' || this.history[i].toLowerCase().includes(q.toLowerCase())) {
         this._searchIndex = i
         return
+      }
+    }
+    // Nothing at or ABOVE the current match: a query that only matches a NEWER
+    // entry is still found (an empty query always matches, so this only runs
+    // for a real query).
+    if (q !== '' && from >= 0) {
+      for (let i = from + 1; i < this.history.length; i++) {
+        if (this.history[i].toLowerCase().includes(q.toLowerCase())) {
+          this._searchIndex = i
+          return
+        }
       }
     }
     // No match from here: signal it and leave the buffer as-is.
@@ -1693,14 +1705,18 @@ export class LineEditor {
   // A character typed during search extends the query; Backspace trims it.
   _searchInput(ch: string) {
     this._searchQuery += ch
-    this._searchRefresh(true)
+    // Refine from the CURRENT match: resetting to the newest entry made the
+    // search jump FORWARD after `_searchNext` walked back, so the operator
+    // lost the place they were browsing (the TUI was already fixed).
+    this._searchRefresh(false)
     this._searchStatus()
   }
 
   _searchBackspace() {
     if (!this._searchQuery.length) return
     this._searchQuery = this._searchQuery.slice(0, -1)
-    this._searchRefresh(true)
+    // Same rule as _searchInput: keep the current position.
+    this._searchRefresh(false)
     this._searchStatus()
   }
 
