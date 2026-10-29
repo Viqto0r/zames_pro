@@ -1,9 +1,14 @@
-# Решение проблем
+---
+layout: doc
+title: 'Решение проблем'
+description: 'Вход и капча, headless 403, рейт-лимиты и отсутствующие библиотеки Chromium в zames_pro.'
+lang: ru
+alt_url: /troubleshooting.html
+---
 
-Типичные проблемы и что делать. Каждый способ ниже — реальная команда или
-настройка, которая есть в zames.
+<div class="wrap" markdown="1">
 
-## Первый вход не проходит / в браузере капча
+### Первый вход не проходит / в браузере капча
 
 Симптом: `zames` просит вход, окно браузера (с `--headed`) открывается, и
 сайт показывает слайдер-капчу; или холодный вход в headless просто не удаётся.
@@ -16,7 +21,7 @@
 `/config set browser.auth.password ""`. Для GLM headed-режим — практический
 единственный: слайдер Aliyun гейтит и первую ОТПРАВКУ.
 
-## Вход работает в видимом окне, но не в headless
+### Вход работает в видимом окне, но не в headless
 
 Симптом: `zames --headed` входит нормально, а обычный `zames` показывает
 простую страницу `403 ERROR`.
@@ -27,7 +32,7 @@ Headless Chromium сообщает в User-Agent `HeadlessChrome/<v>`, и CDN с
 слово `Headless`: явный UA имеет приоритет и не патчится. Строку браузера
 показывает `/doctor`.
 
-## «Something went wrong when opening your profile»
+### «Something went wrong when opening your profile»
 
 Симптом: браузер показывает эту страницу вместо чата.
 
@@ -35,10 +40,10 @@ Headless Chromium сообщает в User-Agent `HeadlessChrome/<v>`, и CDN с
 Классический случай — `@playwright/mcp`, запущенный без `--isolated`: по
 умолчанию он берёт `~/.zames/profile`, тот же профиль, что и у агента.
 Закройте второй браузер, и в конфиге MCP всегда передавайте `--isolated`
-(или отдельный `--user-data-dir`). См. [MCP](docs/mcp-ru.md). Никогда не
+(или отдельный `--user-data-dir`). См. [MCP](/mcp-ru.html). Никогда не
 удаляйте `~/.zames/profile`, пока браузер может быть запущен.
 
-## «Messages too frequent» / рейт-лимит
+### «Messages too frequent» / рейт-лимит
 
 Симптом: чат показывает «Messages too frequent. Try again later.», а агент
 ждёт, повторяет или останавливается с сообщением о рейт-лимите.
@@ -51,7 +56,7 @@ Headless Chromium сообщает в User-Agent `HeadlessChrome/<v>`, и CDN с
 сводка сессии — в `/cost`. Часто единственное реальное решение — подождать:
 лимит считается на аккаунт.
 
-## «Length limit reached. Please start a new chat.»
+### «Length limit reached. Please start a new chat.»
 
 Симптом: чат отказывает в КАЖДОМ следующем сообщении с этим уведомлением.
 
@@ -62,7 +67,7 @@ zames обрабатывает это сам — компактит и откр�
 повтор задачи. Заполнение видно на строке статуса и в `/cost`; порог
 auto-compact — `browser.autoCompactPct`.
 
-## Гостевые лимиты Qwen / GLM
+### Гостевые лимиты Qwen / GLM
 
 Симптом: Qwen отвечает `RateLimited` через несколько ходов; GLM показывает
 капчу на первой отправке.
@@ -73,7 +78,7 @@ auto-compact — `browser.autoCompactPct`.
 `zames --headed --provider glm`). Гость годится для быстрой пробы, но не для
 долгой задачи.
 
-## В Linux / WSL не хватает системных библиотек Chromium
+### В Linux / WSL не хватает системных библиотек Chromium
 
 Симптом: Chromium не стартует с ошибкой разделяемой библиотеки
 (`libnss3.so`, `libatk-1.0.so.0`, ...) — или об этом сообщает postinstall.
@@ -87,7 +92,7 @@ sudo npx playwright install-deps chromium
 
 Шаг postinstall пробует то же самое, если есть `sudo` без пароля.
 
-## `/config set` сообщает об успехе, но после перезапуска значение прежнее
+### `/config set` сообщает об успехе, но после перезапуска значение прежнее
 
 Симптом: `/config set ui.locale en` применяется сразу, но следующий запуск
 снова со старым значением.
@@ -96,3 +101,5 @@ sudo npx playwright install-deps chromium
 в `~/.zames/config.json`. Найдите ключ в `<проект>/.zamesrc.json` и уберите
 его там (файл в .gitignore, поэтому `git status` его не покажет). zames
 предупреждает и при старте, и сразу после сохранения (`cfg.shadowed`).
+
+</div>

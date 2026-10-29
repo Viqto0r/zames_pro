@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="{{ page.lang | default: site.lang | default: 'en' }}">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% if page.title and page.title != site.title %}{{ page.title }} — {{ site.title }}{% else %}{{ site.title }}{% endif %}</title>
+    <meta name="description" content="{{ page.description | default: site.description | strip_newlines | escape }}" />
+    <meta name="author" content="Viktor Aleksandrov" />
+    <link rel="canonical" href="{{ page.url | absolute_url }}" />
+    <link rel="icon" href="{{ '/assets/favicon.svg' | relative_url }}" type="image/svg+xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="zames_pro" />
+    <meta property="og:title" content="{% if page.title and page.title != site.title %}{{ page.title }} — {{ site.title }}{% else %}{{ site.title }}{% endif %}" />
+    <meta property="og:description" content="{{ page.description | default: site.description | strip_newlines | escape }}" />
+    <meta property="og:url" content="{{ page.url | absolute_url }}" />
+    <meta property="og:image" content="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="zames_pro — terminal coding agent without an API key" />
+    <meta name="twitter:description" content="Drive a DeepSeek, Qwen or GLM web chat through a real browser from your terminal. Reads and edits files, runs commands, commits to git — no API key, no per-token bill." />
+    <meta name="twitter:image" content="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png" />
+    <link rel="stylesheet" href="{{ '/assets/site.css' | relative_url }}" />
+  </head>
+  <body>
+    {% assign is_ru = false %}{% if page.lang == 'ru' %}{% assign is_ru = true %}{% endif %}
+    {% comment %}
+      The Russian and English pages live under DIFFERENT URLs (a Russian
+      command page is /commands-ru.html, not /ru/commands.html), so the header
+      and footer links are translated from the current page URL instead of
+      being hardcoded per layout: `page_url` is the canonical EN path and
+      `alt_url` the same page in the other language, both set in front matter
+      or derived below.
+    {% endcomment %}
+    <header class="site-header">
+      <div class="wrap">
+        <a class="brand" href="{% if is_ru %}{{ '/ru/' | relative_url }}{% else %}{{ '/' | relative_url }}{% endif %}">
+          <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/logo.jpg" alt="zames_pro logo" width="30" height="30" />
+          <span>zames_pro</span>
+        </a>
+        <nav class="site-nav">
+          <a href="{% if is_ru %}{{ '/ru/#features' | relative_url }}{% else %}{{ '/#features' | relative_url }}{% endif %}">{{ site.ui.features | default: 'Features' }}</a>
+          <a href="{% if is_ru %}{{ '/ru/#how-it-works' | relative_url }}{% else %}{{ '/#how-it-works' | relative_url }}{% endif %}">{{ site.ui.how | default: 'How it works' }}</a>
+          <a href="{% if is_ru %}{{ '/ru/#providers' | relative_url }}{% else %}{{ '/#providers' | relative_url }}{% endif %}">{{ site.ui.providers | default: 'Providers' }}</a>
+          <a href="{% if is_ru %}{{ '/ru/#why' | relative_url }}{% else %}{{ '/#why' | relative_url }}{% endif %}">{{ site.ui.why | default: 'Why zames' }}</a>
+          <a href="{% if is_ru %}{{ '/ru/#install' | relative_url }}{% else %}{{ '/#install' | relative_url }}{% endif %}">{{ site.ui.install | default: 'Install' }}</a>
+          <a href="https://github.com/Viqto0r/zames_pro">GitHub</a>
+          <a href="https://www.npmjs.com/package/zames_pro">npm</a>
+        </nav>
+        <div class="lang-switch">
+          {% if is_ru %}
+          <a href="{{ page.alt_url | default: '/' | relative_url }}">EN</a>
+          <a href="{{ page.url | relative_url }}" class="active">RU</a>
+          {% else %}
+          <a href="{{ page.url | relative_url }}" class="active">EN</a>
+          <a href="{{ page.alt_url | default: '/ru/' | relative_url }}">RU</a>
+          {% endif %}
+        </div>
+      </div>
+    </header>
+
+    <main>{{ content }}</main>
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <div class="footer-grid">
+          <div class="about">
+            <a class="brand" href="{% if is_ru %}{{ '/ru/' | relative_url }}{% else %}{{ '/' | relative_url }}{% endif %}">
+              <img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/logo.jpg" alt="zames_pro" width="30" height="30" />
+              <span>zames_pro</span>
+            </a>
+            <p>{{ site.ui.footer_about | default: 'A free, open-source terminal coding agent that runs on your own DeepSeek, Qwen or GLM web chat account — no API key, no per-token bill.' }}</p>
+          </div>
+          <div>
+            <h4>{{ site.ui.project | default: 'Project' }}</h4>
+            <ul>
+              <li><a href="https://github.com/Viqto0r/zames_pro">GitHub</a></li>
+              <li><a href="https://www.npmjs.com/package/zames_pro">npm</a></li>
+              <li><a href="https://github.com/Viqto0r/zames_pro/blob/master/CHANGELOG.md">Changelog</a></li>
+              <li><a href="https://github.com/Viqto0r/zames_pro/blob/master/CONTRIBUTING.md">Contributing</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>{{ site.ui.docs | default: 'Documentation' }}</h4>
+            <ul>
+              <li><a href="{{ '/readme/en' | relative_url }}">README (EN)</a></li>
+              <li><a href="{{ '/readme/ru' | relative_url }}">README (RU)</a></li>
+              <li><a href="{% if is_ru %}{{ '/commands-ru' | relative_url }}{% else %}{{ '/commands' | relative_url }}{% endif %}">{% if is_ru %}Команды и инструменты{% else %}Commands &amp; tools{% endif %}</a></li>
+              <li><a href="{% if is_ru %}{{ '/configuration-ru' | relative_url }}{% else %}{{ '/configuration' | relative_url }}{% endif %}">{% if is_ru %}Конфигурация{% else %}Configuration{% endif %}</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>{{ site.ui.help | default: 'Help' }}</h4>
+            <ul>
+              <li><a href="{% if is_ru %}{{ '/mcp-ru' | relative_url }}{% else %}{{ '/mcp' | relative_url }}{% endif %}">MCP</a></li>
+              <li><a href="{% if is_ru %}{{ '/troubleshooting-ru' | relative_url }}{% else %}{{ '/troubleshooting' | relative_url }}{% endif %}">{% if is_ru %}Решение проблем{% else %}Troubleshooting{% endif %}</a></li>
+              <li><a href="https://github.com/Viqto0r/zames_pro/issues">Issues</a></li>
+              <li><a href="https://github.com/Viqto0r/zames_pro/blob/master/LICENSE">MIT License</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="fine">
+          © {{ site.time | date: '%Y' }} zames_pro · MIT · Not affiliated with DeepSeek, Alibaba or Zhipu AI. Automating a website may violate its terms of use.
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -2,7 +2,33 @@ title: zames_pro — terminal coding agent
 description: >-
   A terminal coding agent that drives real web chat LLMs (DeepSeek, Qwen,
   GLM) through a browser — no API key required.
-theme: jekyll-theme-primer
+theme: null
 lang: en
+# GitHub Pages serves the project site from /zames_pro/, so a root-absolute
+# link would 404. `relative_url` in the layouts adds this prefix.
+url: https://viqto0r.github.io
+baseurl: /zames_pro
 plugins:
   - jekyll-sitemap
+  - jekyll-seo-tag
+
+# Header/footer strings live here (not in the layout) so the RU pages can
+# shadow them per page with their own `ui:` block in front matter.
+ui:
+  features: Features
+  how: How it works
+  providers: Providers
+  why: Why zames
+  install: Install
+  project: Project
+  docs: Documentation
+  help: Help
+  home: Home
+  footer_about: >-
+    A free, open-source terminal coding agent that runs on your own DeepSeek,
+    Qwen or GLM web chat account — no API key, no per-token bill.
+
+# Jekyll would otherwise skip the asset folder only when it is named
+# `assets`; this is explicit so a rename does not silently drop the CSS.
+include:
+  - assets

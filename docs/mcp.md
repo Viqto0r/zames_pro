@@ -1,8 +1,14 @@
-# MCP (external tools)
+---
+layout: doc
+title: 'MCP (external tools)'
+description: 'How to plug external MCP tool servers into zames_pro, with a safe Playwright MCP example.'
+lang: en
+alt_url: /mcp-ru.html
+---
 
-How to plug external MCP tool servers into zames_pro. The README is a short overview.
+<div class="wrap" markdown="1">
 
-## MCP (external tools)
+### MCP (external tools)
 
 zames can use tools from [MCP](https://modelcontextprotocol.io) servers.
 The flagship example is @playwright/mcp: it gives the agent a real browser
@@ -38,7 +44,7 @@ Their tools show up in the agent as `server__tool` (e.g.
 A server that fails to connect is skipped with a warning and never breaks the
 agent.
 
-### Recommended servers (verified)
+#### Recommended servers (verified)
 
 A few small, high-value servers tested end to end with zames (on the DeepSeek
 and Qwen backends; the MCP layer is provider-agnostic, so they work with GLM
@@ -69,3 +75,5 @@ too):
 
 Keep the stack SMALL: every server loads its tool definitions into the model's
 context. Add one when you feel its absence, not before.
+
+</div>

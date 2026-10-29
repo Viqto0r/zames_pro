@@ -1,8 +1,14 @@
-# Commands and tools
+---
+layout: doc
+title: 'Commands and tools'
+description: 'Every tool and every slash command of zames_pro, the terminal coding agent without an API key.'
+lang: en
+alt_url: /commands-ru.html
+---
 
-The full tool list and every slash command of zames_pro. The README is a short overview.
+<div class="wrap" markdown="1">
 
-## Tools
+### Tools
 
 The agent has the same style of tools as Claude Code / Codex CLI:
 
@@ -26,7 +32,7 @@ The agent has the same style of tools as Claude Code / Codex CLI:
 All file tools stay inside the working directory (sandbox). `Write`/`Edit` and
 `MultiEdit`/`ApplyPatch` make a backup (undo) before touching a file.
 
-## Slash commands
+### Slash commands
 
 Type / in the prompt for hints (Tab completes) — that list is always complete,
 `/help <command>` describes any single one. Besides the session and config
@@ -106,7 +112,7 @@ It comes from the provider's own token counter (DeepSeek's
 `accumulated_token_usage`, Qwen's `input_tokens`, GLM's `prompt_tokens`) and is
 hidden until the first answer delivers it.
 
-## Project context, skills and memory
+### Project context, skills and memory
 
 Like Codex / Claude Code, zames reads project instructions and reusable
 workflows from your repository and from `~/.zames`.
@@ -138,3 +144,5 @@ Skills and custom commands show up in the «/» completion list and in `/help`.
 /remember <text>              append a durable note to MEMORY.md
 /init [--force]               analyze the project and create AGENTS.md
 ```
+
+</div>

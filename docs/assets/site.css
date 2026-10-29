@@ -1,0 +1,762 @@
+/* GitHub Pages styles for the zames_pro site.
+  
+   Why a hand-written stylesheet instead of a theme: jekyll-theme-primer is a
+   GitHub-README look that gives a landing page no hierarchy (one narrow
+   column, no hero, no cards). The site is one landing page plus a handful of
+   doc pages, so a ~300-line sheet beats a theme dependency and a Jekyll
+   plugin list. Everything is scoped to classes the layout emits, so a plain
+   Markdown page without the layout keeps GitHub's default look. */
+
+:root {
+  --bg: #0b1020;
+  --bg-soft: #111830;
+  --card: #141c36;
+  --card-hover: #1a2444;
+  --border: #24304f;
+  --text: #e6ebf5;
+  --muted: #9aa7c2;
+  --accent: #6ee7b7;
+  --accent-2: #60a5fa;
+  --accent-3: #c084fc;
+  --code-bg: #0a0f1e;
+  --radius: 14px;
+  --max: 1080px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #ffffff;
+    --bg-soft: #f6f8fc;
+    --card: #ffffff;
+    --card-hover: #f2f6ff;
+    --border: #dde4f0;
+    --text: #16202f;
+    --muted: #5a6b85;
+    --accent: #0f9d70;
+    --accent-2: #1f6feb;
+    --accent-3: #7c3aed;
+    --code-bg: #0d1220;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 76px;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
+  font-size: 16.5px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent-2);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.wrap {
+  width: 100%;
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ---------- header ---------- */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  border-bottom: 1px solid var(--border);
+}
+
+.site-header .wrap {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  height: 64px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.brand:hover {
+  text-decoration: none;
+}
+
+.brand img {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-left: auto;
+  font-size: 14.5px;
+}
+
+.site-nav a {
+  color: var(--muted);
+}
+
+.site-nav a:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.lang-switch {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.lang-switch a {
+  padding: 3px 11px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.lang-switch a.active {
+  background: var(--accent);
+  color: #06121a;
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .site-nav {
+    display: none;
+  }
+}
+
+/* ---------- hero ---------- */
+
+.hero {
+  position: relative;
+  padding: 72px 0 40px;
+  text-align: center;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: -40% -10% auto;
+  height: 620px;
+  background:
+    radial-gradient(
+      circle at 30% 20%,
+      color-mix(in srgb, var(--accent) 22%, transparent),
+      transparent 55%
+    ),
+    radial-gradient(
+      circle at 72% 10%,
+      color-mix(in srgb, var(--accent-2) 20%, transparent),
+      transparent 55%
+    );
+  pointer-events: none;
+}
+
+.hero > * {
+  position: relative;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-soft);
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.hero-badge strong {
+  color: var(--accent);
+}
+
+.hero h1 {
+  margin: 22px 0 0;
+  font-size: clamp(34px, 6vw, 58px);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.hero h1 em {
+  font-style: normal;
+  background: linear-gradient(
+    100deg,
+    var(--accent),
+    var(--accent-2) 55%,
+    var(--accent-3)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hero p.lead {
+  max-width: 720px;
+  margin: 20px auto 0;
+  color: var(--muted);
+  font-size: 18px;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 30px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 22px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text);
+  background: var(--bg-soft);
+  transition:
+    transform 0.12s ease,
+    background 0.12s ease;
+}
+
+.btn:hover {
+  text-decoration: none;
+  transform: translateY(-1px);
+  background: var(--card-hover);
+}
+
+.btn-primary {
+  background: linear-gradient(100deg, var(--accent), var(--accent-2));
+  border-color: transparent;
+  color: #06121a;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(100deg, var(--accent), var(--accent-2));
+  filter: brightness(1.08);
+}
+
+.install {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 26px;
+  padding: 10px 14px 10px 18px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--code-bg);
+  font-family:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 14.5px;
+  color: #d7e0f0;
+}
+
+.install .prompt {
+  color: var(--accent);
+  user-select: none;
+}
+
+.hero-shot {
+  margin: 44px auto 0;
+  max-width: 980px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.55);
+}
+
+.hero-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ---------- sections ---------- */
+
+section {
+  padding: 56px 0;
+}
+
+.section-head {
+  max-width: 680px;
+  margin: 0 auto 34px;
+  text-align: center;
+}
+
+.section-head h2 {
+  margin: 0;
+  font-size: clamp(24px, 3.4vw, 32px);
+  letter-spacing: -0.02em;
+}
+
+.section-head p {
+  margin: 10px 0 0;
+  color: var(--muted);
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.card {
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.card:hover {
+  background: var(--card-hover);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+
+/* The docs grid uses <a class="card">: keep the text colour and drop the
+   underline, otherwise a documentation link looks like a broken paragraph. */
+a.card,
+a.card:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+
+a.card p {
+  color: var(--muted);
+}
+
+.provider code,
+.card code {
+  word-break: break-word;
+}
+
+.card h3 {
+  margin: 0 0 8px;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+}
+
+.card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.card .icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  font-size: 19px;
+}
+
+/* ---------- steps ---------- */
+
+.steps {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  counter-reset: step;
+}
+
+.step {
+  position: relative;
+  padding: 22px 22px 22px 64px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.step::before {
+  counter-increment: step;
+  content: counter(step);
+  position: absolute;
+  left: 20px;
+  top: 20px;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent-2) 18%, transparent);
+  color: var(--accent-2);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.step h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+}
+
+.step p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14.5px;
+}
+
+.step code {
+  font-size: 13px;
+}
+
+/* ---------- providers ---------- */
+
+.providers {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.provider {
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: linear-gradient(
+    160deg,
+    var(--card),
+    color-mix(in srgb, var(--card) 70%, var(--bg-soft))
+  );
+}
+
+.provider h3 {
+  margin: 0 0 4px;
+  font-size: 17px;
+}
+
+.provider .tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  vertical-align: middle;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+
+.provider p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 14.5px;
+}
+
+.provider code {
+  font-size: 13px;
+}
+
+/* ---------- code blocks ---------- */
+
+pre,
+code {
+  font-family:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+code {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent-2) 12%, transparent);
+  font-size: 0.9em;
+}
+
+pre {
+  position: relative;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--code-bg);
+  color: #d7e0f0;
+  overflow-x: auto;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+pre code {
+  padding: 0;
+  background: none;
+  color: inherit;
+  font-size: inherit;
+}
+
+/* ---------- docs pages ---------- */
+
+.doc {
+  padding: 44px 0 64px;
+}
+
+.doc .wrap {
+  max-width: 860px;
+}
+
+.doc h1 {
+  margin: 0 0 6px;
+  font-size: clamp(28px, 4vw, 38px);
+  letter-spacing: -0.025em;
+}
+
+.doc h2 {
+  margin: 40px 0 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 23px;
+  letter-spacing: -0.015em;
+}
+
+.doc h3 {
+  margin: 26px 0 8px;
+  font-size: 18px;
+}
+
+.doc h4 {
+  margin: 20px 0 6px;
+  font-size: 16px;
+}
+
+/* The doc body is wrapped in <div class="wrap" markdown="1"> so the page text
+   keeps the same column as the header; without this the Markdown inside the
+   div would lose its spacing. */
+.doc-lead {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 17px;
+}
+
+.doc .wrap > :first-child {
+  margin-top: 0;
+}
+
+.doc p,
+.doc li {
+  color: color-mix(in srgb, var(--text) 88%, var(--muted));
+}
+
+.doc ul,
+.doc ol {
+  padding-left: 22px;
+}
+
+.doc li {
+  margin: 6px 0;
+}
+
+.doc table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 18px 0;
+  font-size: 14.5px;
+}
+
+.doc th,
+.doc td {
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.doc th {
+  background: var(--bg-soft);
+}
+
+.doc blockquote {
+  margin: 18px 0;
+  padding: 10px 18px;
+  border-left: 3px solid var(--accent);
+  background: var(--bg-soft);
+  border-radius: 0 8px 8px 0;
+  color: var(--muted);
+}
+
+.doc img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.doc hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 32px 0;
+}
+
+.doc-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 40px;
+  padding-top: 22px;
+  border-top: 1px solid var(--border);
+  font-size: 14.5px;
+}
+
+.doc-nav a {
+  padding: 6px 13px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+}
+
+.doc-nav a:hover {
+  color: var(--text);
+  border-color: var(--accent);
+  text-decoration: none;
+}
+
+/* ---------- footer ---------- */
+
+.site-footer {
+  margin-top: 40px;
+  padding: 40px 0;
+  border-top: 1px solid var(--border);
+  background: var(--bg-soft);
+  font-size: 14.5px;
+  color: var(--muted);
+}
+
+.footer-grid {
+  display: grid;
+  gap: 28px;
+  grid-template-columns: 1.4fr repeat(3, 1fr);
+}
+
+@media (max-width: 860px) {
+  .footer-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .footer-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.site-footer h4 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text);
+}
+
+.site-footer ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.site-footer li {
+  margin: 7px 0;
+}
+
+.site-footer a {
+  color: var(--muted);
+}
+
+.site-footer a:hover {
+  color: var(--text);
+}
+
+.site-footer .about p {
+  margin: 10px 0 0;
+  max-width: 320px;
+}
+
+.site-footer .fine {
+  margin-top: 28px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ---------- narrow screens ---------- */
+
+@media (max-width: 620px) {
+  body {
+    font-size: 16px;
+  }
+
+  .hero {
+    padding: 44px 0 28px;
+  }
+
+  .hero p.lead {
+    font-size: 16.5px;
+  }
+
+  section {
+    padding: 40px 0;
+  }
+
+  .install {
+    max-width: 100%;
+    overflow-x: auto;
+    font-size: 13px;
+  }
+
+  pre {
+    font-size: 13px;
+  }
+
+  .doc h1 {
+    font-size: 27px;
+  }
+
+  .site-footer {
+    padding: 32px 0;
+  }
+}

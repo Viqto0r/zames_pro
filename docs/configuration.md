@@ -1,8 +1,14 @@
-# Configuration and themes
+---
+layout: doc
+title: 'Configuration and themes'
+description: 'All zames_pro settings, the /config command and the 29 bundled terminal color themes.'
+lang: en
+alt_url: /configuration-ru.html
+---
 
-Every setting, the /config command and the bundled terminal themes. The README is a short overview.
+<div class="wrap" markdown="1">
 
-## Configuration
+### Configuration
 
 Global config: `~/.zames/config.json`
 Local (per project): `.zamesrc.json`
@@ -36,13 +42,13 @@ Changes are written to the HOME config (`~/.zames/config.json`), NOT to the
 project `.zamesrc.json` — a personal toggle must not leak into git — and applied
 right away (where possible without a restart).
 
-### Language
+#### Language
 
 `/config lang ru` or `/config lang en` switches both the interface language
 (help, messages, spinner) and the language the agent answers you in. The
 locale lives in `ui.locale` in the config file.
 
-### Themes
+#### Themes
 
 `/theme` opens a pick list with a LIVE preview: the arrow keys repaint the
 terminal as you move, Enter saves, Esc restores the previous palette.
@@ -79,3 +85,5 @@ setting: `/config set ui.inputBorder <round|single|double|bold|none>`
 `▌` bar on every row.
 
 Agent data is stored in `~/.zames`: browser profile, logs, undo history, sessions.
+
+</div>
