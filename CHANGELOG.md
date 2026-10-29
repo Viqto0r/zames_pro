@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.90.10] - 2026-10-29
+
+### Fixed
+
+- **commands:** never cut a restored message in the middle of a surrogate pair
+
 ## [2.90.9] - 2026-10-28
 
 ### Fixed
