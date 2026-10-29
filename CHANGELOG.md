@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.90.16] - 2026-10-29
+
+### Fixed
+
+- **browser:** apply the sanitized headless UA to the relaunch explicitly
+
 ## [2.90.15] - 2026-10-29
 
 ### Changed
