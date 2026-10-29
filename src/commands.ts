@@ -749,6 +749,11 @@ export function normalizeRestoredMessage(
     if (/^Tool result for /.test(text)) return null
     if (/^You are a coding agent running in a terminal/.test(text)) return null
     if (/^You stopped after a tool result/.test(text)) return null
+    // The agent loop's own watchdog nudge is protocol noise written by US,
+    // not by the operator: when an answer timed out the loop resends this
+    // text as the "user" message. It used to leak into the restored dialogue
+    // (a dozen copies after a flaky run), so drop it like the other nudges.
+    if (/^The previous turn was cut off/.test(text)) return null
     if (/^\[system\]/.test(text)) return null
     if (/^The user ran \//.test(text)) return null
     return { role: 'user', text }
