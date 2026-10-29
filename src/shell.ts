@@ -78,6 +78,54 @@ export function assertCommandInsideRoot(root: string, command: string): void {
   if (/\bchroot\b/i.test(cmd)) {
     throw new Error('Sandbox: chroot is forbidden')
   }
+
+  // A RECURSIVE deletion aimed at an absolute path, `~`, `.`, `..` or the root
+  // itself can never be "inside the root": a single typo in a cleanup command
+  // destroyed the whole project tree (and the directories above it) in a real
+  // session. Only the destructive form is refused — `rm file.txt` and
+  // `rm -rf tmp/build` stay allowed.
+  const rmRe = /(?:^|[;&|(]\s*)\s*(?:sudo\s+)?rm\s+([^;&|)]+)/gi
+  let rm: RegExpExecArray | null
+  while ((rm = rmRe.exec(cmd))) {
+    const words = rm[1].trim().split(/\s+/)
+    const recursive = words.some(
+      (w) => w === '--recursive' || /^-[a-zA-Z]*[rR][a-zA-Z]*$/.test(w),
+    )
+    if (!recursive) continue
+    for (const w of words) {
+      if (w.startsWith('-')) continue
+      const raw = w.replace(/["']/g, '')
+      if (!raw) continue
+      if (
+        raw === '/' ||
+        raw === '.' ||
+        raw === '..' ||
+        raw === '~' ||
+        raw.startsWith('~/') ||
+        raw.startsWith('/') ||
+        raw.startsWith('..')
+      ) {
+        throw new Error(
+          'Sandbox: recursive rm of an absolute/outside path is forbidden (' +
+            raw +
+            ')',
+        )
+      }
+      // A RELATIVE target is resolved against the root; anything that escapes
+      // (a `../` inside a longer path) is refused too.
+      const target = path.resolve(root, raw)
+      const rel = path.relative(root, target)
+      if (rel.startsWith('..') || path.isAbsolute(rel)) {
+        throw new Error(
+          'Sandbox: recursive rm outside ' +
+            root +
+            ' is forbidden (' +
+            raw +
+            ')',
+        )
+      }
+    }
+  }
 }
 
 function formatExecResult(
