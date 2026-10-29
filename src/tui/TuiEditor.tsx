@@ -293,6 +293,15 @@ export class TuiEditor {
 
   // ---------- submission ----------
 
+  /**
+   * Submit a message as if the operator pressed Enter. The demo recorder
+   * (scripts/demo-replay.mts) needs the REAL entry path — the turn rule and
+   * the bar-marked rows — without a keypress.
+   */
+  submitQuestion(text: string): void {
+    this.handleSubmit(text, [])
+  }
+
   private handleSubmit(display: string, atts: Attachment[]): void {
     const text = expandPastes(this.store.getSnapshot().pastes, display)
     this.attachments.reset()
