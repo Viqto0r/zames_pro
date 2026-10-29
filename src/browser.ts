@@ -355,6 +355,8 @@ export class DeepSeekBrowser {
   // `_netCapture` (which is '' in exactly those cases) made them dead code and
   // the agent hung until the timeout.
   _netBody: string
+  /** The RAW body of the LATEST completion body only (see _onResponse). */
+  _netTurnBody: string
   _netHookInstalled: boolean
   // The page object the net hook was installed on. A RELAUNCH (e.g. the
   // headless UA fix) creates a NEW page; comparing against this lets
@@ -476,6 +478,7 @@ export class DeepSeekBrowser {
     this._apiPow = ''
     this._lastHistoryError = ''
     this._netBody = ''
+    this._netTurnBody = ''
     this._netHookInstalled = false
     this._netHookPage = null
     this.onSendStart = null
@@ -753,6 +756,12 @@ export class DeepSeekBrowser {
           this._lastSentAt = Date.now()
         }
         this._netBody = body
+        // The last body of ONE completion turn. _netBody aggregates EVERY
+        // answer-ish body of the session, so an EARLIER turn's `generation_err`
+        // keeps matching long after a healthy turn started — the agent then
+        // "resends" a task the server never truncated. Every incomplete check
+        // below reads THIS snapshot instead.
+        this._netTurnBody = body
         const cid = url.match(
           /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/,
         )
@@ -2694,7 +2703,7 @@ export class DeepSeekBrowser {
       // code and the agent hung on "Stopped" until the timeout.
       if (
         this._netCaptureAt >= this._lastSentAt &&
-        isGenerationIncompleteText(this._netBody)
+        isGenerationIncompleteText(this._netTurnBody)
       ) {
         // PREFER the Continue button: it RESUMES the same truncated turn (a
         // `chat/continue` request). Resending the prompt creates a NEW turn and
@@ -2702,12 +2711,13 @@ export class DeepSeekBrowser {
         if (this.autoContinue && (await this._clickContinueIfVisible())) {
           this._askDebug('CLICKED Continue (incomplete, start-loop)')
           this._netBody = ''
+          this._netTurnBody = ''
           this._netCaptureAt = 0
           this._netNoAnswer = false
           await this.page.waitForTimeout(500)
           continue
         }
-        throw new GenerationIncompleteError(this._netBody.slice(-300))
+        throw new GenerationIncompleteError(this._netTurnBody.slice(-300))
       }
       // A FINISHED turn with NO answer (only reasoning): the UI shows a
       // Continue button. Click it (or, if autoContinue is off, keep waiting)
@@ -2819,19 +2829,20 @@ export class DeepSeekBrowser {
       // treating this as "send failed" and hammering Enter.
       if (
         this._netCaptureAt >= this._lastSentAt &&
-        (isGenerationIncompleteText(this._netBody) || this._netNoAnswer)
+        (isGenerationIncompleteText(this._netTurnBody) || this._netNoAnswer)
       ) {
         // Prefer Continue (resumes the same turn); resend only if unavailable.
         if (this.autoContinue && (await this._clickContinueIfVisible())) {
           this._askDebug('CLICKED Continue (incomplete, pre-loop)')
           this._netBody = ''
+          this._netTurnBody = ''
           this._netCaptureAt = 0
           this._netNoAnswer = false
           await this.page.waitForTimeout(500)
           started = true
           // fall through to the finish loop by NOT returning here
         } else {
-          throw new GenerationIncompleteError(this._netBody.slice(-300))
+          throw new GenerationIncompleteError(this._netTurnBody.slice(-300))
         }
       }
       if (
@@ -2938,7 +2949,7 @@ export class DeepSeekBrowser {
       // so `_netCapture` is empty and the old guard was dead code).
       const truncated =
         this._netCaptureAt >= this._lastSentAt &&
-        isGenerationIncompleteText(this._netBody)
+        isGenerationIncompleteText(this._netTurnBody)
       const noAnswer =
         this._netNoAnswer && this._netCaptureAt >= this._lastSentAt
       if ((truncated || noAnswer) && this.autoContinue) {
@@ -2951,6 +2962,7 @@ export class DeepSeekBrowser {
               ')',
           )
           this._netBody = ''
+          this._netTurnBody = ''
           this._netNoAnswer = false
           this._netCaptureAt = 0
           await this.page.waitForTimeout(500)
@@ -2963,7 +2975,7 @@ export class DeepSeekBrowser {
       // the prompt right away (that is the only remaining way to continue).
       if (truncated || noAnswer) {
         throw new GenerationIncompleteError(
-          (this._netBody || 'finished without answer').slice(-300),
+          (this._netTurnBody || 'finished without answer').slice(-300),
         )
       }
       // Reasoning-mode pause: DeepSeek caps the THINK phase and shows a
@@ -3018,7 +3030,7 @@ export class DeepSeekBrowser {
       const netFinishedWithAnswer =
         !!this._netCapture &&
         this._netCaptureAt >= this._lastSentAt &&
-        isFinishedWithAnswer(this._netBody)
+        isFinishedWithAnswer(this._netTurnBody)
       if (netFinishedWithAnswer) {
         netFinishedTicks++
         // Two ticks (~2 x stabilityDelayMs) is enough for the final DOM/capture
@@ -3042,9 +3054,9 @@ export class DeepSeekBrowser {
       // period give up so ask() resends the prompt instead of a long spinner.
       if (
         this._netCaptureAt >= this._lastSentAt &&
-        isFinishedWithAnswer(this._netBody) === false &&
-        isGenerationIncompleteText(this._netBody) === false &&
-        (this._netNoAnswer || isFinishedWithoutAnswer(this._netBody))
+        isFinishedWithAnswer(this._netTurnBody) === false &&
+        isGenerationIncompleteText(this._netTurnBody) === false &&
+        (this._netNoAnswer || isFinishedWithoutAnswer(this._netTurnBody))
       ) {
         deadTicks++
         if (deadTicks >= 6 && !(await this._continueButtonVisible())) {
@@ -3053,6 +3065,17 @@ export class DeepSeekBrowser {
         }
       } else {
         deadTicks = 0
+      }
+      // The SSE stream is already complete: FINISHED with a real answer means
+      // the server will add nothing more. Waiting for the DOM to settle
+      // (2 x 400ms) on top of that only added latency to every turn.
+      if (
+        netFresh &&
+        isFinishedWithAnswer(this._netTurnBody) &&
+        this._netCapture.trim()
+      ) {
+        this._askDebug('RETURN net-finished-answer')
+        return this._cleanAnswer(this._netCapture) || cur
       }
       if (isNew && cur === last) {
         stable++
