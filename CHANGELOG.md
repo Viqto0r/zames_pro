@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.90.14] - 2026-10-29
+
+### Fixed
+
+- **sandbox:** block a recursive rm of an absolute or outside path
+
 ## [2.90.13] - 2026-10-29
 
 ### Fixed
