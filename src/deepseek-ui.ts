@@ -309,26 +309,48 @@ export const CONTEXT_LIMIT_RE =
 
 // ---------- network protocol (SSE) ----------
 
-export const GENERATION_ERR_RE = /"finish_reason":\s*"generation_err"/i
+// Every protocol marker is anchored to the START OF A LINE and to the exact
+// shape it has in the stream. Why: the old patterns matched the quoted pair
+// ANYWHERE in the body, and a chat/completion REQUEST body carries the whole
+// conversation — our own tool results and answers included. A task or a tool
+// output that merely MENTIONED the marker (e.g. while working on this very
+// detector) then looked like a truncated turn and the agent resent a task the
+// server never truncated. Inside a JSON string value those quotes are
+// ESCAPED, so a line-anchored pattern cannot match them.
+const MARKER_START = '^(?:data: ?|\\{)[^\\n]*?"'
+
+export const GENERATION_ERR_RE = new RegExp(
+  MARKER_START + 'finish_reason": ?"generation_err"',
+  'im',
+)
 // The server gave up on the turn ("Server busy, please try again later."):
 // finish_reason is `generation_timeout` and there is NO RESPONSE fragment, so
 // extractAnswer() returns '' and the finish loop would wait out the whole
 // timeout. Same failure family as generation_err — the turn did not complete,
 // so ask() must resend instead of hanging.
-export const GENERATION_TIMEOUT_RE = /"finish_reason":\s*"generation_timeout"/i
+export const GENERATION_TIMEOUT_RE = new RegExp(
+  MARKER_START + 'finish_reason": ?"generation_timeout"',
+  'im',
+)
 // DeepSeek emits the generation status in TWO shapes: the initial message as a
 // JSON property (`"quasi_status":"FINISHED"` inside v.response) and later
 // BATCH updates (`{"p":"quasi_status","v":"FINISHED"}`). The old regex only
 // matched the BATCH form, so a FINISHED-without-answer turn that came in the
 // PROPERTY form (the real "Server is temporarily unavailable" case) was NOT
 // detected — the agent hung on "Stopped" until the timeout. Match both.
-export const INCOMPLETE_STATUS_RE = /"quasi_status"(?::|,"v":)"INCOMPLETE"/i
+export const INCOMPLETE_STATUS_RE = new RegExp(
+  MARKER_START + 'quasi_status"(?: ?: ?| ?,"v": ?)"INCOMPLETE"',
+  'im',
+)
 
 // A turn that ENDED (`quasi_status: FINISHED`) but produced NO answer text —
 // the reasoning was generated and the model stopped WITHOUT a RESPONSE
 // fragment. The UI shows Stopped + Continue. Matches both the JSON-property
 // and the BATCH shape (see INCOMPLETE_STATUS_RE).
-export const FINISHED_STATUS_RE = /"quasi_status"(?::|,"v":)"FINISHED"/i
+export const FINISHED_STATUS_RE = new RegExp(
+  MARKER_START + 'quasi_status"(?: ?: ?| ?,"v": ?)"FINISHED"',
+  'im',
+)
 
 // Only a completion/continue turn carries a real answer. Gating the capture
 // assignment to these URLs keeps a future endpoint (which happens to return a
