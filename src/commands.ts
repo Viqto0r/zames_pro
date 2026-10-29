@@ -737,7 +737,13 @@ export function normalizeRestoredMessage(
   // it silently left the operator with a dialogue where the agent's own reply
   // was missing. Keep such a message but shorten it for display.
   if (text.length > RESTORED_MESSAGE_MAX) {
-    text = text.slice(0, RESTORED_MESSAGE_MAX) + '…'
+    // Never split a surrogate PAIR: the cut is in UTF-16 units, so a high half
+    // alone would reach the terminal as a broken code point (same rule as
+    // truncateToolResult / capReport / cutHookText).
+    let cut = RESTORED_MESSAGE_MAX
+    const last = text.charCodeAt(cut - 1)
+    if (last >= 0xd800 && last <= 0xdbff) cut--
+    text = text.slice(0, cut) + '…'
   }
   if (m.role === 'user') {
     if (/^Tool result for /.test(text)) return null
