@@ -118,6 +118,7 @@ import {
   writeCachedHeadlessUA,
   headlessUACacheReady,
   sanitizeHeadlessUA,
+  needsHeadlessUaFix,
   writeAuthMarker,
   isGenerationIncompleteText,
   isRateLimitText,
@@ -576,6 +577,11 @@ export class DeepSeekBrowser {
    */
   async _fixHeadlessUserAgent(): Promise<void> {
     if (!this.headless) return
+    // An already-sanitized UA (from the cache or a previous fix) needs no
+    // relaunch; an EMPTY field or a config UA that still carries the marker
+    // must be fixed, which the old blanket `if (this.userAgent) return` skipped
+    // on Qwen/GLM.
+    if (!needsHeadlessUaFix(this.userAgent)) return
     try {
       const ua: string = await this.page.evaluate(readUserAgentInDom)
       const fixed = sanitizeHeadlessUA(ua)
@@ -583,20 +589,30 @@ export class DeepSeekBrowser {
       this.userAgent = fixed
       // Remember the good UA for this engine build so the NEXT headless start
       // uses it immediately (no relaunch). Keyed by executable path.
-      void writeCachedHeadlessUA(headlessEngineKey(), fixed)
+      await writeCachedHeadlessUA(headlessEngineKey(), fixed)
       if (this.debug)
         console.error(
           'profile: headless UA -> relaunching with a plain Chrome UA',
         )
       await this.context.close().catch(() => {})
-      await this._launchOnce()
+      // Pass the UA EXPLICITLY: it was just sanitized, and relying on the field
+      // meant the relaunch could read the page's own UA back and keep the
+      // HeadlessChrome marker (a 403 / login wall from DeepSeek's CDN).
+      await this._launchOnce(fixed)
     } catch (e) {
       if (this.debug)
         console.error('profile: UA fix failed:', (e as Error).message)
     }
   }
 
-  async _launchOnce(): Promise<void> {
+  /**
+   * Launch the persistent context. `uaOverride` applies a User-Agent to THIS
+   * launch without storing it first: the UA fix reads the engine UA from the
+   * page it is about to close, so passing the value explicitly is the only way
+   * the relaunch cannot fall back to the un-sanitized UA (a stored field was
+   * read by the OLD page and then re-read by the new one).
+   */
+  async _launchOnce(uaOverride?: string): Promise<void> {
     const options: Parameters<typeof chromium.launchPersistentContext>[1] = {
       headless: this.headless,
       // 30ms slowMo per Playwright action added up over thousands of DOM
@@ -606,7 +622,8 @@ export class DeepSeekBrowser {
       args: ['--disable-blink-features=AutomationControlled'],
     }
     if (this.channel) options.channel = this.channel
-    if (this.userAgent) options.userAgent = this.userAgent
+    const ua = uaOverride || this.userAgent
+    if (ua) options.userAgent = ua
 
     try {
       this.context = await chromium.launchPersistentContext(

@@ -439,3 +439,19 @@ export async function nukeProfile(dir: string = USER_DATA_DIR) {
     await fs.rm(dir, { recursive: true, force: true })
   } catch {}
 }
+
+/**
+ * PURE: does this browser still need the headless User-Agent fix?
+ *
+ * `_fixHeadlessUserAgent()` bails out for an "already configured" UA — but
+ * using `if (this.userAgent) return` was wrong: the field is also the ENGINE's
+ * own UA captured from the page, and a config UA that merely CONTAINS the
+ * `HeadlessChrome` marker needs the fix just as much. The only value that can
+ * skip the fix is one that is already sanitized (and non-empty — an empty
+ * string means "ask the engine", not "use a blank UA").
+ */
+export function needsHeadlessUaFix(ua: string | null | undefined): boolean {
+  const value = String(ua ?? '')
+  if (!value) return true
+  return sanitizeHeadlessUA(value) !== value
+}

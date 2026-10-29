@@ -47,6 +47,7 @@ import {
   readCachedHeadlessUA,
   writeCachedHeadlessUA,
   sanitizeHeadlessUA,
+  needsHeadlessUaFix,
   cleanSingletonFiles,
   profileLooksLocked,
   nukeProfile,
@@ -444,33 +445,41 @@ export class QwenBrowser {
   // Strip only the marker; an explicit UA from the config always wins.
   async _fixHeadlessUserAgent(): Promise<void> {
     if (!this.headless) return
-    if (this.userAgent) return
+    // A UA that is ALREADY sanitized came from the cache; there is nothing to
+    // fix and nothing to relaunch for. Any other value (including an empty
+    // one) is the engine's own UA, which may still carry the marker — the old
+    // blanket `if (this.userAgent) return` skipped the fix for exactly that
+    // case, leaving `HeadlessChrome` in the live browser.
+    if (!needsHeadlessUaFix(this.userAgent)) return
     try {
       const ua: string = await this.page.evaluate(readUserAgentInDom)
       const fixed = sanitizeHeadlessUA(ua)
       if (fixed === ua) return
       this.userAgent = fixed
-      void writeCachedHeadlessUA(headlessEngineKey(), fixed)
+      await writeCachedHeadlessUA(headlessEngineKey(), fixed)
       if (this.debug)
         console.error(
           'qwen profile: headless UA -> relaunching plain Chrome UA',
         )
       await this.context.close().catch(() => {})
-      await this._launchOnce()
+      // Apply the UA to THIS launch explicitly: re-reading it from the fresh
+      // page would keep the marker the fix exists to remove.
+      await this._launchOnce(fixed)
     } catch (e) {
       if (this.debug)
         console.error('qwen profile: UA fix failed:', (e as Error).message)
     }
   }
 
-  async _launchOnce(): Promise<void> {
+  async _launchOnce(uaOverride?: string): Promise<void> {
     const options: Parameters<typeof chromium.launchPersistentContext>[1] = {
       headless: this.headless,
       slowMo: 10,
       args: ['--disable-blink-features=AutomationControlled'],
     }
     if (this.channel) options.channel = this.channel
-    if (this.userAgent) options.userAgent = this.userAgent
+    const ua = uaOverride || this.userAgent
+    if (ua) options.userAgent = ua
 
     try {
       this.context = await chromium.launchPersistentContext(
