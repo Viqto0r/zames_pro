@@ -1862,6 +1862,10 @@ export class QwenBrowser {
     report(gap)
     this._emitSendState('paused')
     await this._sleepInterruptible(gap, report)
+
+    // Back to GENERATING: nothing has been sent yet, so a "done" badge here
+    // would show up before the question even left the page.
+    if (!this._abort && !this._askCancelled) this._emitSendState('generating')
   }
 
   async _sleepInterruptible(
@@ -1925,9 +1929,9 @@ export class QwenBrowser {
             agent,
             attachments,
           })
-          if (answer !== '(прервано пользователем)') {
-            this._emitSendState('settled')
-          }
+          // No transient 'settled' here: the next send flips the state
+          // back to 'generating' and that add/remove pair is the status-row
+          // flicker (same fix as the DeepSeek provider).
           return answer
         } catch (e) {
           lastErr = e as Error
