@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **ui:** same no-flicker phase rule for qwen and glm
+
 ## [2.90.18] - 2026-10-30
 
 ### Fixed
