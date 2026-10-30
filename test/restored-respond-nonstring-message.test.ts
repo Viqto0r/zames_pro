@@ -8,7 +8,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseAssistantToolCall } from '../src/commands.ts'
+import { parseAssistantToolCall } from '../src/restore-history.ts'
 
 test('a non-string respond message is not returned as raw protocol text', () => {
   for (const raw of [

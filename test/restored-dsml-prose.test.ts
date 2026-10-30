@@ -7,7 +7,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { normalizeRestoredMessage } from '../src/commands.ts'
+import { normalizeRestoredMessage } from '../src/restore-history.ts'
 
 test('an answer that mentions DSML as prose is kept', () => {
   const r = normalizeRestoredMessage({

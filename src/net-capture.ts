@@ -140,9 +140,24 @@ function pickAnswerText(node: unknown): string {
     }
   }
 
-  for (const key of ['content', 'text', 'answer', 'response']) {
+  // A DeepSeek response OBJECT ({"response":{fragments:[...]}}) must not be
+  // read as a string answer: `response` is a NODE here, and only a string
+  // under it is text.
+  for (const key of ['content', 'text', 'answer']) {
     const v = obj[key]
     if (typeof v === 'string' && v) return v
+  }
+  const respText = obj.response
+  if (typeof respText === 'string' && respText) return respText
+  // The DeepSeek shape: v.response.fragments[] -> type RESPONSE -> content.
+  const frags = (obj.response as Record<string, unknown> | undefined)?.fragments
+  if (Array.isArray(frags)) {
+    let acc = ''
+    for (const fr of frags as Record<string, unknown>[]) {
+      if (fr && fr.type === 'RESPONSE' && typeof fr.content === 'string')
+        acc += fr.content
+    }
+    if (acc) return acc
   }
 
   for (const key of ['delta', 'message', 'data', 'payload', 'v']) {
@@ -183,7 +198,10 @@ const MIN_REAL_ANSWER_CHARS = 1
  * a closing `}` / `]` / `)` left by a truncation that began mid-structure).
  * Listing only the opening brackets let a lone `}` count as a COMPLETE answer.
  */
-const TRUNCATED_HEAD_RE = /^[\s{}[\]()]*$/
+// A lone `{`, `[`, `<`, a bracket pair or whitespace: the SNAPSHOT of a
+// RESPONSE that is still streaming, never an answer. `<` matters because a
+// DSML call starts with a bare `<>` chunk.
+const TRUNCATED_HEAD_RE = /^[\s{}[\]()<>]*$/
 
 // How many chars of RESPONSE text the body carries, or -1 when there is NO
 // RESPONSE fragment at all. The fragment is SSE/JSON-encoded, so the content
@@ -200,8 +218,12 @@ function responseContentLength(body: string): number {
   // captured without the SSE framing) measured as 0 even when it carried a
   // real SHORT answer. Count the content strings from the raw body and decode
   // them, so an escaped quote does not inflate the count.
+  // The chunk may contain a RAW newline (SSE wraps long lines and a fragment
+  // decoded here can carry one), which `.`-based classes do not match: the
+  // old `\.` alternative then ended the match at the first line break and a
+  // MULTI-LINE answer measured as a single head char. `[\s\S]` covers it.
   let len = 0
-  const re = /"type":"RESPONSE"[^}]*?"content":"((?:[^"\\]|\\.)*)"/g
+  const re = /"type":"RESPONSE"[^}]*?"content":"((?:[^"\\]|\\[\s\S])*)"/g
   let m: RegExpExecArray | null
   while ((m = re.exec(b)) !== null) {
     let text = m[1]
@@ -243,6 +265,36 @@ export function isFinishedWithoutAnswer(body: string): boolean {
 }
 
 /**
+ * True when a FINISHED body still carries NO complete answer — its only
+ * RESPONSE text is a truncated head (empty, a bare `{`, or a lone newline).
+ *
+ * Such a body used to be reported as a DEAD turn right away, but DeepSeek
+ * streams the answer: the first fragment is only a SNAPSHOT of the first bytes
+ * (`"content":"{\\""` for a DSML/XML call) and the rest arrives in APPEND
+ * chunks a moment later. Treating the snapshot as final made the finish loop
+ * click Continue / throw `GenerationIncompleteError` on turns that were still
+ * answering, so the real answer never reached the parser and the operator saw
+ * `DeepSeek оборвал ответ` / `не ответил за 120с`.
+ *
+ * The snapshot is rebuilt from the RAW body on every network event, so the
+ * finish loop just keeps waiting while this returns true: the next event
+ * carries more text and `isFinishedWithAnswer()` takes over.
+ */
+export function isFinishedAwaitingAnswer(body: string): boolean {
+  const b = String(body || '')
+  if (!b) return false
+  if (!FINISHED_STATUS_RE.test(b)) return false
+  // Measured on 83 live FINISHED bodies: the fragment-regex measure called a
+  // COMPLETE DSML/JSON tool call (<200 chars) a snapshot, so the finish loop
+  // kept waiting and re-sent healthy turns. The real signal is a FINISHED body
+  // with NO answer at all, or nothing but a truncated head (a lone `{`, `<`,
+  // a newline) — that is a SNAPSHOT of a call still arriving. Anything else
+  // already carries the answer.
+  const text = extractAnswer(b).trim()
+  return text === '' || TRUNCATED_HEAD_RE.test(text)
+}
+
+/**
  * True when the SSE body shows a turn that ENDED (`quasi_status: FINISHED`)
  * AND carried a non-empty RESPONSE fragment — i.e. the server is done and the
  * answer is COMPLETE. This is the network-authoritative "the turn is over"
@@ -256,10 +308,13 @@ export function isFinishedWithAnswer(body: string): boolean {
   const b = String(body || '')
   if (!b) return false
   if (!FINISHED_STATUS_RE.test(b)) return false
-  // A truncated RESPONSE head (a lone `{`) is NOT a complete answer: the
-  // finish loop would return it as the model's text and the tool-call parser
-  // would fail on it. Require real content (see responseTextLength).
-  return responseContentLength(b) >= MIN_REAL_ANSWER_CHARS
+  // The measure is the DECODED answer text, not the fragment regex: a live
+  // DSML/JSON tool call arrives as a short RESPONSE whose first bytes are a
+  // bare `<` / `{`, and the regex read that as a 1-char "answer", so a
+  // COMPLETE turn was never recognised as finished (the loop kept waiting and
+  // re-sent it). A truncated head is still not an answer.
+  const text = extractAnswer(b).trim()
+  return text !== '' && !TRUNCATED_HEAD_RE.test(text)
 }
 
 // The CONTEXT size (in tokens) DeepSeek reports for the current answer.

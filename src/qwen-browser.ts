@@ -203,6 +203,13 @@ export interface QwenBrowserOptions {
 }
 
 export class QwenBrowser {
+  /**
+   * True while a CONTEXT-LIMIT compaction runs in a fresh chat: that chat
+   * starts EMPTY (no system prompt yet), so a COMPACT prompt is tiny and must
+   * NOT be refused with a rate limit by the adaptive throttle.
+   */
+  compactInProgress = false
+
   providerName = 'qwen'
   /** The chat a send must join (set by the agent loop; see types.ts). */
   resumeChatId: string | null = null
@@ -273,6 +280,7 @@ export class QwenBrowser {
   _appliedThinking: -1 | 0 | 1
   _appliedWebSearch: -1 | 0 | 1
   _apiAuth: string
+  /** Last error from fetchChatMessages ('' on success). */
   _lastHistoryError: string
   _netBody: string
   _netHookInstalled: boolean
@@ -1835,6 +1843,9 @@ export class QwenBrowser {
 
   async _waitForSendSlot(agent: boolean): Promise<void> {
     if (!agent) return
+    // A COMPACTION send goes into a FRESH chat with a tiny prompt; the
+    // fixed gap learned in the OLD chat must not delay the recovery.
+    if (this.compactInProgress) return
     if (!this._lastSentAt) return
     const gap = this.sendIntervalMs() - (Date.now() - this._lastSentAt)
     if (gap <= 0) return

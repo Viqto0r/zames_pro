@@ -4,9 +4,11 @@ import {
   buildCompactPrompt,
   buildCompactCarryover,
   isUsableCompactSummary,
+} from './commands.js'
+import {
   trimRestoredMessages,
   formatRestoredHistory,
-} from './commands.js'
+} from './restore-history.js'
 import type { BrowserLike, ToolDef } from './types.js'
 import { loadHooks, runLifecycleHooks } from './hooks.js'
 
@@ -213,11 +215,13 @@ export async function performCompact(
 
     if (!summary) {
       let fallback = ''
+      let historyLen = 0
       try {
         const all =
           browser.fetchChatMessages && currentChatId
             ? await browser.fetchChatMessages(currentChatId).catch(() => [])
             : []
+        historyLen = all.length
         const msgs = trimRestoredMessages(all, 0)
         if (msgs.length) {
           fallback = formatRestoredHistory(msgs, { limit: fallbackLimit })
@@ -228,7 +232,35 @@ export async function performCompact(
         summary = fallback
         log(t('compact.summary_fallback', { v: String(fallbackLimit) }))
       } else {
-        const err = summaryErr || t('common.unknown')
+        // When the history endpoint gave NOTHING there is no model error to
+        // report: say WHICH count came back, otherwise the operator sees a
+        // bare "unknown" and cannot tell a blocked fetch from an empty chat.
+        // `_lastHistoryError` is part of the provider contract (types.ts), so
+        // it is read WITHOUT a cast.
+        const histErr = String(browser._lastHistoryError || '')
+        if (process.env.ZAMES_COMPACT_DEBUG)
+          console.error(
+            'compact debug: historyLen=' +
+              historyLen +
+              ' id=' +
+              currentChatId +
+              ' err=' +
+              (histErr || '-'),
+          )
+        // The reason must be ACTIONABLE: a model error, a BLOCKED history
+        // fetch (auth/HTTP) and a TOO-SHORT history end here, and a bare
+        // "unknown" hides which one it was.
+        const err = summaryErr
+          ? summaryErr
+          : histErr
+            ? t('compact.summary_failed', { v: histErr })
+            : historyLen <= 0
+              ? t('compact.summary_failed', { v: 'history empty' }) +
+                ' (' +
+                historyLen +
+                ')'
+              : t('compact.summary_failed', { v: 'history too short' })
+        ' (' + historyLen + ')'
         log(t('compact.summary_failed', { v: err }))
         return {
           ok: false,
@@ -254,6 +286,10 @@ export async function performCompact(
     const prevOnContextLimit = (
       browser as { onContextLimit?: (() => Promise<boolean>) | null }
     ).onContextLimit
+    // Compact sends skip the adaptive throttle: a fresh chat with a tiny
+    // prompt must not be refused for "too frequent" (see _waitForSendSlot).
+    const holder = browser as { compactInProgress?: boolean }
+    holder.compactInProgress = true
     if (contextExhausted && 'onContextLimit' in browser) {
       ;(
         browser as { onContextLimit?: (() => Promise<boolean>) | null }
@@ -273,6 +309,7 @@ export async function performCompact(
         agent: false,
       })
     } finally {
+      holder.compactInProgress = false
       if (contextExhausted && 'onContextLimit' in browser) {
         ;(
           browser as { onContextLimit?: (() => Promise<boolean>) | null }
@@ -314,13 +351,18 @@ export async function performCompact(
       beforeTokens,
     }
   } catch (e) {
-    log((e as Error).message)
+    // A thrown NON-Error (a rejected Playwright call, a string) used to give
+    // `error: undefined` and the caller reported a bare "unknown": the real
+    // reason for a failed compaction was lost.
+    const reason =
+      e instanceof Error ? e.message : String(e || 'compaction failed')
+    log(reason)
     return {
       ok: false,
       chatId: currentChatId,
       summaryChars: 0,
       beforeTokens,
-      error: (e as Error).message,
+      error: reason || 'compaction failed',
     }
   } finally {
     if (ui && !skipUiLock) ui.unlock()

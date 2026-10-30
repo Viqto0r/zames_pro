@@ -6,7 +6,7 @@
 // indication at all.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { normalizeRestoredMessage } from '../src/commands.js'
+import { normalizeRestoredMessage } from '../src/restore-history.ts'
 
 const longAnswer = 'Report line. '.repeat(8000) // ~104k chars, no protocol noise
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { unescapeJsonString } from '../src/commands.ts'
+import { unescapeJsonString } from '../src/restore-history.ts'
 
 // unescapeJsonString decodes the JSON escapes inside a captured `respond`
 // message, which is then PRINTED (restored dialogue, /resume). A `\uD800`

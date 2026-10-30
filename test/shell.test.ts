@@ -105,9 +105,13 @@ test('killBackground escalates to SIGKILL when SIGTERM is trapped', async () => 
   await new Promise((r) => setTimeout(r, 2500))
   const { execFileSync } = await import('node:child_process')
   const ps = execFileSync('ps', ['-eo', 'pid,args'], { encoding: 'utf-8' })
+  // Scope the probe to THIS test: a parallel test file (the suite runs
+  // several at once) or another agent run can own a `sleep 30` of its own,
+  // and a bare substring match reported it as our orphan (flaky).
   const survivors = ps
     .split(String.fromCharCode(10))
-    .filter((l) => l.includes('sleep 30') && !l.includes('ps -eo'))
+    .filter((l) => l.includes('trap') && l.includes('sleep 30'))
+    .filter((l) => !l.includes('ps -eo'))
   assert.equal(survivors.length, 0, 'orphan left: ' + survivors.join(' | '))
 })
 

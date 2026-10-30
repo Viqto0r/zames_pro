@@ -82,6 +82,18 @@ export function scrapeGlmChatMessages(
   const uniq = Array.from(new Set(containers))
   const blocks = uniq.filter((b) => !uniq.some((o) => o !== b && o.contains(b)))
 
+  // A REASONING block is UI state, not the answer. It is not always a PARENT
+  // of the text (a provider may render it as a sibling of the answer), so the
+  // message text is read from a CLONE with the reasoning subtrees removed —
+  // otherwise the restored dialogue printed the whole THINK phase.
+  const contentOf = (e: Element): string => {
+    const clone = e.cloneNode(true) as HTMLElement
+    for (const t of Array.from(clone.querySelectorAll('*'))) {
+      if (thinkRe.test((t.className || '').toString())) t.remove()
+    }
+    return (clone.textContent || '').trim()
+  }
+
   const out: ChatMessage[] = []
   for (const c of blocks) {
     const role: ChatMessage['role'] = userRe.test(
@@ -89,7 +101,7 @@ export function scrapeGlmChatMessages(
     )
       ? 'user'
       : 'assistant'
-    const text = (c.textContent || '').trim()
+    const text = contentOf(c)
     if (!text) continue
     out.push({ role, text })
   }

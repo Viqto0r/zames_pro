@@ -178,8 +178,11 @@ export function glmContextWindow(model: string | undefined): number | null {
 // limit.
 export const RATE_LIMIT_RE =
   /too many requests|rate limit|too frequent|please try again later|слишком часто/i
+// The same lesson as the DeepSeek pattern: a normal answer may SAY "try
+// again later" or "high demand", so the phrase must be a standalone notice
+// and not a clause inside the reply.
 export const SERVER_BUSY_RE =
-  /server is busy|service unavailable|try again later|high demand/i
+  /(?:^|[\n!?]\s*|\.\s+|:\s+)(?:server is busy|service unavailable|high demand|try again later)(?:[.!,]|$)/im
 
 // ---------- attachments ----------
 

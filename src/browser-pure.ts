@@ -352,6 +352,17 @@ export function isRateLimitText(text: string): boolean {
 // start a new chat." and will refuse every further send into this chat. Distinct
 // from the rate limit (which clears with time) and from a server hiccup — the
 // only recovery is compaction, so ask() must not retry in the same chat.
+/**
+ * A toast container can include the surrounding CONVERSATION, so a task that
+ * merely quotes "Length limit reached" (as the smoke script does while
+ * testing this detector) looked like a refused send and killed the run. A
+ * real notice is its OWN message: SHORT, and the phrase starts it.
+ */
+export function isContextLimitNotice(text: string): boolean {
+  const t = String(text || '').trim()
+  if (!t || t.length > 400) return false
+  return isContextLimitText(t)
+}
 export function isContextLimitText(text: string): boolean {
   return CONTEXT_LIMIT_RE.test(String(text || ''))
 }

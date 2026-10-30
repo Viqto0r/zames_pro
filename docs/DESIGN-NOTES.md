@@ -370,6 +370,24 @@ incremental BATCH path. A detector keyed on ONE textual shape silently misses
 the other; when adding a protocol detector, match every shape the live captures
 show.
 
+### The line anchor must reach PAST the first quoted key
+
+A later commit anchored these markers to the start of a line, because a
+chat/completion REQUEST body carries the whole conversation: a task or a tool
+result that merely MENTIONED `"finish_reason":"generation_err"` looked like a
+truncated turn, and the agent resent a task the server never truncated. The
+anchor was written as `^(?:data: ?|\{)[^\n]*?"`, which is NOT the same as
+"lazy": the class excludes only the newline, so it stops at the FIRST quote of
+the line and the marker is expected right there. The real BATCH line is
+`data: {"p":"response","o":"BATCH","v":[{"p":"accumulated_token_usage",...},{"p":"quasi_status","v":"FINISHED"}]}`
+— `quasi_status` is the FOURTH quoted key — so 67 of 67 live FINISHED bodies
+stopped matching. It failed silently (a shorter answer, no Continue click, no
+retry). Fix: `^(?:data: ?|\{).*?"`. Covered by test/deepseek-ui.test.ts, which
+now feeds the real BATCH line shape AND a marker mentioned inside our own
+(escaped) text — the two cases the anchor has to tell apart. LESSON: when a
+regex is anchored for precision, test it against a REAL captured line, not a
+hand-made fragment; a fragment passes both the loose and the broken pattern.
+
 ### Related: `generation_timeout` (Server busy) was undetected too
 
 While auditing the protocol detectors against the real captures, a SECOND body
@@ -384,7 +402,6 @@ that carry it: all 3 are now detected. Covered by test/deepseek-ui.test.ts.
 The AUDIT method is the takeaway: for EVERY protocol detector, count how many
 real bodies contain the marker vs how many the detector actually matches. A
 non-zero gap is a silent hang. This caught both fixes.
-
 
 ## The Continue button: auto-resume, throttle and the "Stopped" family
 
@@ -505,13 +522,14 @@ and inline (`TuiApp` + `<Static>`).
 ### The input box height MUST come from layoutInput, not from newline count
 
 `inputBoxRows(prompt, buf, cursor, cols)` (src/input/layout.ts) = 2 border rows
-+ `layoutInput(...).rows.length` VISUAL rows. Using
-`buf.split('
+
+- `layoutInput(...).rows.length` VISUAL rows. Using
+  `buf.split('
 ').length` under-counted a WORD-WRAPPED long line, so the second
-line printed over the first and the caret drifted. FullScreenApp reserves
-`logHeight` from this number and InputLine renders from the SAME layout call, so
-they cannot disagree. Any new row above the input must update `cursorTop` in the
-same change.
+  line printed over the first and the caret drifted. FullScreenApp reserves
+  `logHeight` from this number and InputLine renders from the SAME layout call, so
+  they cannot disagree. Any new row above the input must update `cursorTop` in the
+  same change.
 
 A SECOND clipping source sat in the HEADER: the title row was assembled from
 `left.length`/`dir.length` (code points, not columns) and the workdir was never
@@ -754,6 +772,7 @@ and drops `general_agent` from `flags` BEFORE the request leaves the page.
 Controlled by `disableAgentRuntime` (default true).
 
 After the rewrite (measured):
+
 - the model answers honestly: "no command was executed … I'd be fabricating
   results if I claimed to have run it";
 - a real `runAgentLoop` creates the file in OUR workdir
@@ -802,3 +821,111 @@ so the warning says "may break", not "breaks".
   stable control was seen) — part C verifies the body instead
 - "AI Slides" / "Full-Stack" / image generation as part of the answer protocol
   (they change the format and would break the tool-call protocol)
+
+## A FINISHED turn looks answerless while its call is still arriving
+
+`isFinishedWithoutAnswer()` measures the RESPONSE fragment with a
+`"type":"RESPONSE"[^}]*?"content":"..."` regex. DeepSeek sends the FIRST
+bytes of the answer as a SNAPSHOT inside `v.response.fragments[]` and then
+APPENDS the rest through `response/fragments/-1/content` chunks. When the model
+starts with a DSML/XML call the snapshot is a bare `{` (or a bare newline),
+which `TRUNCATED_HEAD_RE` rejects: the body looked like "FINISHED with no
+answer", so the finish loop CLICKED Continue or threw
+`GenerationIncompleteError` on a turn that was answering fine, the real answer
+never reached the parser, and the operator saw the watchdog line
+`DeepSeek не ответил за 120с (1/6)`.
+
+`isFinishedAwaitingAnswer()` (src/net-capture.ts) separates the two cases: a
+FINISHED body whose only RESPONSE text is still a TRUNCATED HEAD has NOT
+finished answering — the rest of the text is on its way. `browser.ts` consults
+it in ALL FOUR places that could act on a head-only body: it is skipped when
+setting `_netNoAnswer`, not thrown on in the start-wait, does not count as a
+SETTLED answer, and not counted as a dead turn in the finish loop. Without the
+start-wait/SETTLED pair the loop returned the OLD text as the answer, the
+parser found no tool call in it and the loop resent the task — the exact
+spiral the operator reported (4 resends, then the 5-resend give-up).
+
+The signal is the length of the DECODED RESPONSE text, NOT a grep for the
+APPEND marker: the escaped `"p":"response/fragments/-1/content"` text that our
+own tool result merely mentions must not look like a live stream.
+
+Scale check on the live captures: ~80 FINISHED bodies, 24 of them head-only —
+the exact rate the operator reported ("appears less often now, but still
+appears"). Covered by test/finished-closing-bracket.test.ts (a live stream vs a
+stream that died right after the snapshot).
+
+## The restored dialogue: a page.evaluate function reference is NOT safe
+
+`readChatMessages()` (the DOM fallback for /resume, /resume-id and startup)
+passed `scrapeChatMessages` to `page.evaluate` as a FUNCTION. Playwright
+serializes the function's source into the page — and tsx/esbuild prefixes
+EVERY named function it transpiles with a `__name(...)` helper. The page has no
+`__name`, so the evaluate threw `ReferenceError: __name is not defined` and the
+`.catch(() => [])` turned that into an EMPTY dialogue. Live symptom: the history
+API worked, the DOM fallback always returned 0 messages.
+
+Fix: the in-page scraper is now a SOURCE STRING
+(`scrapeChatMessagesSource()`), compiled inside the page with
+`new Function(...)`. Rule: any callback handed to `page.evaluate` in the
+provider modules must be a source string or an ANONYMOUS arrow — a named
+function declaration gets the helper and dies in the page.
+
+## Restored dialogue: measured selectors, not guesses
+
+Measured on a live 2-turn chat: `div.ds-message` is the per-turn container;
+`[data-message-id]`, `[class*="chat-message"]` and `[class*="message-item"]`
+match NOTHING, and the old `[class*="_message"]` catch-all matched a class-name
+HASH (`_63c77b1`) — it only ever produced false turns. The turn layout is
+`div.ds-message` → `div.ds-think-content` (reasoning, a SIBLING) +
+`div.ds-markdown.ds-assistant-message-main-content` (the answer).
+
+Consequences encoded in `scrapeChatMessages` / `normalizeRestoredMessage`:
+
+- the message is read from a CLONE with the reasoning subtrees removed (the old
+  `inThink` ancestor check never fired: the reasoning is not an ancestor of the
+  container);
+- the reasoning BODY can be a bare text node, so the block text is split into
+  paragraphs and the answer is the LAST one; the `Thought for N seconds`
+  header (also a text node, no class) is dropped with it;
+- `stripThinkBlocks` / `stripUserFraming` / the tool-call filter are
+  PROVIDER-NEUTRAL and live in `src/restore-history.ts` (they used to sit in
+  `commands.ts` and be applied only by the DeepSeek DOM path, so a Qwen/GLM
+  restore printed the raw stored text: tool calls and reasoning included).
+  EVERY tool-call syntax the parser knows is dropped, `respond` is unwrapped.
+
+## Live long-run lessons (measured, 2026-10-30)
+
+A 20+ turn live run (scripts/long-chain-smoke.mts, an ISOLATED copy of the
+profile) exposed three false-positive detectors that the unit fixtures could not:
+
+1. **`isFinishedAwaitingAnswer()` misclassified a COMPLETE tool call.** It
+   compared `responseContentLength()` (a FRAGMENT-regex measure) with a
+   threshold. A live DSML/JSON call arrives as a SHORT RESPONSE whose first
+   bytes are a bare `<` or `{`, so the body measured as a 1-char "snapshot":
+   the finish loop kept waiting, hit the watchdog and RESENT a healthy turn
+   (`оборвал ответ (N/4)`), 63 of 83 captured FINISHED bodies affected.
+   Fix: the signal is the DECODED answer (`extractAnswer()`), not the fragment
+   regex: a FINISHED body is "awaiting" only when its text is empty or a
+   truncated head (`{`, `[`, `<`, a lone newline). Covered by
+   test/finished-closing-bracket.test.ts (a real live DSML stream).
+   `isFinishedWithAnswer()` uses the same measure now — the fragment regex made
+   a complete call look unanswered.
+
+2. **`SERVER_BUSY_RE` matched a phrase inside the ANSWER.** The toast container
+   can include the surrounding conversation, so a normal answer saying "the
+   server is busy" / "try again later" threw `ServerBusyError`: the loop clicked
+   Continue and resent a turn that had answered fine (6 Continue clicks on ONE
+   answer in the log). Fix: the phrase must be a standalone clause
+   (start/newline/punctuation/JSON key). The DOM toast check was ALSO removed
+   from both finish loops — the SSE body is the authoritative place
+   (`_netServerBusy`); the toast only ever produced false positives. The GLM
+   and Qwen patterns got the same shape rule.
+
+3. **A `/loop`-style long run dies on the CONTEXT LIMIT, not on a bug** — the
+   recovery (`onContextLimit`) must pass `contextExhausted: true` so
+   `performCompact` builds the summary from the history endpoint instead of
+   asking a chat that refuses every send. The smoke script mirrors that path.
+
+LESSON: for every protocol detector, measure it against REAL captured bodies
+(count matched vs should-match) — a hand-made fixture passes both the broken
+and the fixed pattern.

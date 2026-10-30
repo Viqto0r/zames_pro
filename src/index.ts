@@ -116,7 +116,7 @@ import {
   isFullStampSelector,
 } from './checkpoint.js'
 import { selfReview, selfDiff, selfApply, selfList } from './self-review.js'
-import { type RestoredMessage } from './commands.js'
+import { type RestoredMessage } from './restore-history.js'
 import { performCompact } from './compact.js'
 import { clampGoalCondition } from './goal.js'
 import { applyBrowserLiveConfig, applyStoreLiveConfig } from './config-live.js'
@@ -433,6 +433,7 @@ const RELOADABLE = [
   // long-lived LineEditor, itself not reloadable) and spinner.ts, which already
   // picks up a fresh copy transitively.
   'commands',
+  'restore-history',
   'run-task',
   'attach-refs',
 ]
@@ -453,12 +454,14 @@ interface ModBag {
   backlogStats: typeof import('./backlog.js').backlogStats
   backlogNeedsPruning: typeof import('./backlog.js').backlogNeedsPruning
   commands: typeof import('./commands.js')
+  restore: typeof import('./restore-history.js')
   attach: typeof import('./attach-refs.js')
   runTask: typeof import('./run-task.js').runTask
 }
 
 const mod: ModBag = {
   commands: null as unknown as ModBag['commands'],
+  restore: null as unknown as ModBag['restore'],
   attach: null as unknown as ModBag['attach'],
   runTask: null as unknown as ModBag['runTask'],
   createTools,
@@ -545,6 +548,8 @@ async function reloadModules(): Promise<{ count: number; errors: string[] }> {
 
   if (pick('commands', 'missingCommandArgs'))
     mod.commands = loaded.get('commands') as ModBag['commands']
+  if (pick('restore-history', 'trimRestoredMessages'))
+    mod.restore = loaded.get('restore-history') as ModBag['restore']
   if (pick('attach-refs', 'resolveAttachPath'))
     mod.attach = loaded.get('attach-refs') as ModBag['attach']
   if (pick('run-task', 'runTask'))
@@ -1178,8 +1183,8 @@ async function printRestoredHistory(
   // those. The "truncated" note must compare the DISPLAYABLE count with the
   // limit (comparing `all.length` always fired, because tool-calls are
   // dropped and the raw history is always longer).
-  const displayable = mod.commands.trimRestoredMessages(all, 0)
-  const messages = mod.commands.trimRestoredMessages(all)
+  const displayable = mod.restore.trimRestoredMessages(all, 0)
+  const messages = mod.restore.trimRestoredMessages(all)
   // Always surface the diagnostic line when the history could not be turned
   // into anything printable — otherwise "the dialogue is empty" is a dead end
   // (was the fetch blocked? did the chat really have no user turns?).
@@ -1243,7 +1248,7 @@ async function printRestoredHistory(
     out(
       theme.dim(
         t('chats.history_truncated', {
-          n: String(mod.commands.RESTORED_HISTORY_LIMIT),
+          n: String(mod.restore.RESTORED_HISTORY_LIMIT),
         }),
       ),
     )
@@ -4231,7 +4236,7 @@ async function main(): Promise<void> {
           if (cid) {
             const all = await browser.fetchChatMessages(cid).catch(() => [])
             chatHasMessages =
-              mod.commands.trimRestoredMessages(all, 0).length > 0
+              mod.restore.trimRestoredMessages(all, 0).length > 0
           }
         }
 
@@ -4266,9 +4271,9 @@ async function main(): Promise<void> {
               const all = cid
                 ? await browser.fetchChatMessages(cid).catch(() => [])
                 : []
-              const msgs = mod.commands.trimRestoredMessages(all, 0)
+              const msgs = mod.restore.trimRestoredMessages(all, 0)
               if (msgs.length) {
-                summary = mod.commands.formatRestoredHistory(msgs, {
+                summary = mod.restore.formatRestoredHistory(msgs, {
                   limit: 40,
                 })
               }

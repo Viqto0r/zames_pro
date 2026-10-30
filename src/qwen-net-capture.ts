@@ -1,3 +1,5 @@
+import { SERVER_BUSY_RE } from './qwen-ui.js'
+
 // Extraction of the RAW model answer from Qwen Chat's (chat.qwen.ai) network
 // data. The DOM distorts the answer (markdown/LaTeX/link auto-detection), so
 // — exactly like the DeepSeek path (net-capture.ts) — the answer the agent
@@ -294,7 +296,14 @@ export function isServerBusyText(body: string): boolean {
   // can be a server-busy notice.
   const errNotice = /event:\s*error|"type"\s*:\s*"error"|"error"\s*:/i.test(b)
   if (!errNotice && hasAnswerContent(b)) return false
-  return /server is busy|service unavailable|try again later/i.test(b)
+  // A bare notice without JSON framing (`Service unavailable`) is still a
+  // notice; a sentence that merely mentions one is not (SERVER_BUSY_RE needs
+  // the clause to start at the beginning / after punctuation / after a JSON
+  // key).
+  return (
+    SERVER_BUSY_RE.test(b) ||
+    /^(?:please )?try again later[.!]?$/i.test(b.trim())
+  )
 }
 
 // The chat's CONTEXT WINDOW is exhausted. Qwen refuses the turn and no retry

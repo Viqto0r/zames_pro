@@ -174,6 +174,13 @@ export interface GlmBrowserOptions {
 }
 
 export class GlmBrowser {
+  /**
+   * True while a CONTEXT-LIMIT compaction runs in a fresh chat: that chat
+   * starts EMPTY (no system prompt yet), so a COMPACT prompt is tiny and must
+   * NOT be refused with a rate limit by the adaptive throttle.
+   */
+  compactInProgress = false
+
   /** The chat a send must join (set by the agent loop; see types.ts). */
   resumeChatId: string | null = null
   providerName = 'glm'
@@ -229,6 +236,7 @@ export class GlmBrowser {
   _lastTokenUsage: number | null
   _toggles: { deepThinking: boolean; webSearch: boolean }
   _apiAuth: string
+  /** Last error from fetchChatMessages ('' on success). */
   _lastHistoryError: string
   _netBody: string
   _netHookInstalled: boolean
@@ -1568,6 +1576,12 @@ export class GlmBrowser {
 
   async _waitForSendSlot(agent: boolean): Promise<void> {
     if (!agent) return
+    // A COMPACTION send is not a user turn: it goes into a FRESH chat whose
+    // whole content is the (tiny) system prompt + summary. Waiting out a
+    // block learned in the OLD chat, or being refused for "too frequent" on
+    // a two-message chat, killed the only recovery path. The throttle is
+    // irrelevant there — the send carries a few hundred tokens.
+    if (this.compactInProgress) return
     const gap = this.sendRuntime.waitMs()
     if (gap <= 0) return
     const report = (leftMs: number) => {

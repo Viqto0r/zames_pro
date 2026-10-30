@@ -215,8 +215,15 @@ export const LOGIN_SELECTORS = [
 // Qwen's rate-limit / busy notices (best-effort; the toast may be short-lived).
 export const RATE_LIMIT_RE =
   /too many requests|rate limit|too frequent|please try again later|слишком часто/i
+// A notice, not a phrase inside the answer (same lesson as the DeepSeek
+// pattern): the classifier also requires an error payload or an answer-less
+// body, and the phrase must stand alone.
+// A NOTICE, not a phrase inside a reply: the phrase must start a clause
+// (start of the text, after a newline/punctuation/colon, or right after a
+// `"content":"` / `"error":"` JSON key) and end one. A normal answer that
+// says "try again later" therefore does not look like a dead server.
 export const SERVER_BUSY_RE =
-  /server is busy|service unavailable|try again later/i
+  /(?:^|[\n!?:]\s*|\.\s+|"(?:content|error)"\s*:\s*")(?:server is busy|service unavailable|try again later)(?=[.!,]|"|$)/im
 
 // ---------- toggles (thinking mode / web search) ----------
 

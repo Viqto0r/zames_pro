@@ -16,6 +16,7 @@ import {
   extractTokenUsage,
   dumpNetBody,
   isFinishedWithoutAnswer,
+  isFinishedAwaitingAnswer,
   isFinishedWithAnswer,
 } from './net-capture.js'
 import { rewriteFailedAttachments } from './commands.js'
@@ -25,7 +26,7 @@ import {
   parseHistoryMessages,
   extractChatMessages,
   scrapeChatList,
-  scrapeChatMessages,
+  scrapeChatMessagesSource,
 } from './browser-chats.js'
 import {
   CHAT_URL,
@@ -123,6 +124,7 @@ import {
   isGenerationIncompleteText,
   isRateLimitText,
   isServerBusyText,
+  isContextLimitNotice,
   isContextLimitText,
   normText,
   cleanAnswer,
@@ -347,6 +349,7 @@ export class DeepSeekBrowser {
   _apiPow: string
   // Last error from fetchChatMessages ('' on success). Surfaced under --debug
   // so a missing restored history can be diagnosed.
+  /** Last error from fetchChatMessages ('' on success). */
   _lastHistoryError: string
   // The RAW SSE body of the LAST answer response. Unlike `_netCapture`, this
   // is kept even when the body carries no RESPONSE text (a truncated turn:
@@ -763,7 +766,7 @@ export class DeepSeekBrowser {
         // `!extracted` guard skipped the check and the finish loop waited out
         // the whole askDeadlineMs. Run the check on the RAW body regardless of
         // whether a (bogus) fragment was extracted.
-        if (isFinishedWithoutAnswer(body)) {
+        if (isFinishedWithoutAnswer(body) && !isFinishedAwaitingAnswer(body)) {
           // The UI shows Stopped + Continue. Record it with a fresh timestamp
           // so the ask() loops do not wait out the timeout — they click
           // Continue / resend.
@@ -2460,6 +2463,7 @@ export class DeepSeekBrowser {
     report(gap)
     this._emitSendState('paused')
     await this._sleepInterruptible(gap, report)
+    if (!this._abort && !this._askCancelled) this._emitSendState('settled')
   }
 
   // Sleep in small slices so Esc/Ctrl+C can cancel the wait promptly.
@@ -2668,15 +2672,22 @@ export class DeepSeekBrowser {
       // Checked BEFORE the rate limit and the server hiccup: DeepSeek shows the
       // context notice INSTEAD of an answer, and both of those branches would
       // retry the same send into a chat that can never accept it again.
-      if (isContextLimitText(pageText)) {
+      // A toast container can carry the TEXT of the conversation: a task
+      // that merely MENTIONS "Length limit reached" (the smoke script does)
+      // made the send look refused and every later turn died on the
+      // compaction path. Only a notice that is its own message counts — see
+      // isContextLimitNotice().
+      if (isContextLimitNotice(pageText)) {
         throw new ContextLimitError(pageText.slice(0, 300))
       }
       if (isRateLimitText(pageText)) {
         throw new RateLimitError(pageText.slice(0, 300))
       }
-      if (isServerBusyText(pageText)) {
-        throw new ServerBusyError(pageText.slice(0, 300))
-      }
+      // NOT checked here: a server-busy NOTICE lives in a toast that can
+      // carry the surrounding answer text, and a normal answer that merely
+      // mentions "the server is busy" made this throw and RESENT a healthy
+      // turn (live: 6 Continue clicks on one answer). The SSE body is the
+      // authoritative place for it (_netServerBusy, see _onResponse).
       // The rate limit may be visible ONLY in the SSE body (the DOM toast is
       // short-lived and easy to miss). The old code threw ds.send_no_new_answer
       // at the deadline while the chat plainly showed "Messages too frequent".
@@ -2692,7 +2703,32 @@ export class DeepSeekBrowser {
       // truncated body has NO RESPONSE fragment, so extractAnswer() returned
       // '' and `_netCapture` was empty — guarding on it made this branch dead
       // code and the agent hung on "Stopped" until the timeout.
+      // A truncated turn whose first RESPONSE fragment is only a HEAD (a bare
+      // `{` or a newline) is NOT dead: DeepSeek streams the answer and the rest
+      // arrives in APPEND chunks a moment later, so keep waiting instead of
+      // resending. Without this every DSML/XML answer produced the false
+      // "DeepSeek оборвал ответ" message.
+      const awaitingAnswer =
+        this._netCaptureAt >= this._lastSentAt &&
+        isFinishedAwaitingAnswer(this._netBody)
+      if (awaitingAnswer) {
+        this._askDebug('START-loop awaiting-answer (head-only snapshot)')
+      }
+
+      // A COMPLETE answer wins over a stale truncation marker: the model
+      // may quote `generation_err` (our own detector source) or DeepSeek may
+      // end the turn with a marker AFTER the answer arrived. Resending or
+      // clicking Continue then LOSES a good answer (live: turn 10 repeated
+      // turn 9 and hit the watchdog).
+      const doneAnswer =
+        this._netCaptureAt >= this._lastSentAt &&
+        isFinishedWithAnswer(this._netBody)
+      if (doneAnswer) {
+        this._askDebug('START-loop FINISHED-with-answer, return')
+        return this._cleanAnswer(this._netCapture)
+      }
       if (
+        !awaitingAnswer &&
         this._netCaptureAt >= this._lastSentAt &&
         isGenerationIncompleteText(this._netBody)
       ) {
@@ -2732,6 +2768,11 @@ export class DeepSeekBrowser {
         (await this._clickContinueIfVisible())
       ) {
         this._askDebug('CLICKED Continue (start-loop)')
+        // A click RESUMES the turn. Without the wait the next tick clicks
+        // again the instant the button is still painted, and a "messages
+        // too frequent" hits from our OWN burst of chat/continue requests.
+        this._lastContinueAt = Date.now()
+        await this.page.waitForTimeout(500)
       }
       const cur = await this._readLastAnswerTextCleanDom().catch(() => '')
       // Cheap growth signal instead of the whole-body length.
@@ -2780,7 +2821,16 @@ export class DeepSeekBrowser {
         this.autoContinue &&
         this.deepThinking &&
         (await this._continueButtonVisible())
-      if (differs && cur === lastStartCur && notGenerating && !paused) {
+      // A head-only snapshot with no appended text yet is NOT settled: the
+      // answer is still arriving, so a repeated DOM read must not be returned
+      // as a finished answer (that was the "DeepSeek оборвал ответ" loop).
+      if (
+        !awaitingAnswer &&
+        differs &&
+        cur === lastStartCur &&
+        notGenerating &&
+        !paused
+      ) {
         settledTicks++
         if (settledTicks >= 2) {
           this._askDebug('SETTLED-differs return len=' + cur.length)
@@ -2910,9 +2960,9 @@ export class DeepSeekBrowser {
         if (isRateLimitText(pageText)) {
           throw new RateLimitError(pageText.slice(0, 300))
         }
-        if (isServerBusyText(pageText)) {
-          throw new ServerBusyError(pageText.slice(0, 300))
-        }
+        // The server-busy check is deliberately ABSENT: its toast can contain
+        // the answer text, and a healthy answer that mentioned it threw here
+        // (see the start-wait comment).
       }
       // The rate limit may exist only in the SSE body (the DOM toast is
       // short-lived). Without this the loop waited out the deadline and threw
@@ -2936,12 +2986,33 @@ export class DeepSeekBrowser {
       // and duplicates the work — only do that when there is no button to
       // click. Runs on the RAW `_netBody` (a truncated body has no RESPONSE,
       // so `_netCapture` is empty and the old guard was dead code).
+      // A COMPLETE answer is NOT truncated, whatever marker the body also
+      // carries (a quoted `generation_err`, a late status): acting on it
+      // would resend a healthy turn (live: a turn repeated the previous
+      // answer and hit the watchdog).
+      const doneAnswer =
+        this._netCaptureAt >= this._lastSentAt &&
+        isFinishedWithAnswer(this._netBody)
       const truncated =
+        !doneAnswer &&
         this._netCaptureAt >= this._lastSentAt &&
         isGenerationIncompleteText(this._netBody)
       const noAnswer =
-        this._netNoAnswer && this._netCaptureAt >= this._lastSentAt
+        !doneAnswer &&
+        this._netNoAnswer &&
+        this._netCaptureAt >= this._lastSentAt
       if ((truncated || noAnswer) && this.autoContinue) {
+        // MEASURED: a COMPLETE DSML tool call ends with the event `close`
+        // and `{click_behavior:'none', auto_resume:false}`, yet the DOM may
+        // still paint a "Continue" control for a moment. Clicking it sends a
+        // chat/continue request into an ENDED turn — the reply is "Messages
+        // too frequent" and the answer is lost. If the SSE says FINISHED
+        // WITH an answer, accept it first; Continue is for a turn that has
+        // NOT finished.
+        if (isFinishedWithAnswer(this._netBody)) {
+          this._askDebug('SKIP Continue: FINISHED with answer')
+          return this._cleanAnswer(this._netCapture)
+        }
         if (await this._clickContinueIfVisible()) {
           this._askDebug(
             'CLICKED Continue (finish-loop, truncated=' +
@@ -3044,7 +3115,9 @@ export class DeepSeekBrowser {
         this._netCaptureAt >= this._lastSentAt &&
         isFinishedWithAnswer(this._netBody) === false &&
         isGenerationIncompleteText(this._netBody) === false &&
-        (this._netNoAnswer || isFinishedWithoutAnswer(this._netBody))
+        (this._netNoAnswer ||
+          (isFinishedWithoutAnswer(this._netBody) &&
+            !isFinishedAwaitingAnswer(this._netBody)))
       ) {
         deadTicks++
         if (deadTicks >= 6 && !(await this._continueButtonVisible())) {
@@ -3073,6 +3146,13 @@ export class DeepSeekBrowser {
           ) {
             if (await this._clickContinueIfVisible()) {
               this._askDebug('CLICKED Continue (before early return)')
+              // A model-generated tool call often ENDS with DeepSeek's own
+              // 'click to continue' offer (a Continue button inside the
+              // ANSWER), which is not a pause. Returning here is what the
+              // loop wants; the old unconditional `continue` spun until the
+              // watchdog and looked like a stalled agent.
+              this._askDebug('RETURN stable-with-continue len=' + cur.length)
+              return cur
             }
             stable = 0
           } else if (!(await this._isGenerating())) {
@@ -3309,6 +3389,11 @@ export class DeepSeekBrowser {
         },
         { chatId: id, auth, pow, historyUrl: HISTORY_MESSAGES_URL },
       )
+      // A Playwright page TIMES OUT on its own (30s default) and the
+      // in-page fetch has no timeout at all: on a rate-limited / hung chat
+      // the promise never settles, so /compact (and /resume) waited forever
+      // and reported a bare "unknown". Fail fast instead — the caller has a
+      // local fallback.
       .catch((e) => ({
         error: 'evaluate failed: ' + (e as Error).message,
         messages: null,
@@ -3349,22 +3434,39 @@ export class DeepSeekBrowser {
   // bottom. Used by /resume and /resume-id so the operator sees the restored
   // context in the terminal instead of just "Chat opened.".
   //
-  // Best-effort DOM scraping (the in-page scrapeChatMessages in
-  // browser-chats.ts, kept as a named export so the class stays thin): role
+  // Best-effort DOM scraping (the in-page scrapeChatMessages SOURCE in
+  // browser-chats.ts — a source string, NOT a function reference, because tsx
+  // injects a `__name` helper into a transpiled function and the page has no
+  // such global, which silently emptied this fallback): role
   // detection relies on the ds-assistant-message-* class, anything that is not
   // an assistant block is a user message, and the model's reasoning
   // (.ds-think-content) is skipped exactly like in _readLastAnswerText.
   async readChatMessages(): Promise<ChatMessage[]> {
     if (!this.page) return []
+    // The scraper travels as SOURCE and is compiled inside the page: tsx
+    // injects a `__name` helper into a transpiled function reference, the page
+    // has no such global, and the whole fallback threw a ReferenceError (the
+    // restored dialogue came back empty).
     const raw = await this.page
-      .evaluate(scrapeChatMessages, {
-        containerSels: MESSAGE_CONTAINER_SELECTORS,
-        answerSels: RESTORE_ANSWER_SELECTORS,
-        thinkRe: THINK_CLASS_RE.source,
-        assistantRe: ASSISTANT_CLASS_RE.source,
-        assistantSel: ASSISTANT_SELECTOR,
-        markdownSel: ANSWER_MARKDOWN_SELECTOR,
-      })
+      .evaluate(
+        (payload: { source: string; opts: unknown }) => {
+          const factory = new Function(
+            payload.source + '; return scrapeChatMessages',
+          ) as () => (o: unknown) => unknown
+          return factory()(payload.opts)
+        },
+        {
+          source: scrapeChatMessagesSource(),
+          opts: {
+            containerSels: MESSAGE_CONTAINER_SELECTORS,
+            answerSels: RESTORE_ANSWER_SELECTORS,
+            thinkRe: THINK_CLASS_RE.source,
+            assistantRe: ASSISTANT_CLASS_RE.source,
+            assistantSel: ASSISTANT_SELECTOR,
+            markdownSel: ANSWER_MARKDOWN_SELECTOR,
+          },
+        },
+      )
       .catch(() => [] as ChatMessage[])
     return raw as ChatMessage[]
   }

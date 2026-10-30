@@ -16,16 +16,18 @@ import {
   buildReviewPrompt,
   isDevOnlyCommand,
   DEV_ONLY_COMMANDS,
-  trimRestoredMessages,
-  formatRestoredHistory,
-  isDisplayableMessage,
-  RESTORED_HISTORY_LIMIT,
   splitCommandArgs,
   expandCommandArgs,
   missingCommandArgs,
   buildSlashCommandHints,
   SLASH_COMMANDS,
 } from '../src/commands.ts'
+import {
+  trimRestoredMessages,
+  formatRestoredHistory,
+  isDisplayableMessage,
+  RESTORED_HISTORY_LIMIT,
+} from '../src/restore-history.ts'
 import path from 'node:path'
 import os from 'node:os'
 
@@ -480,7 +482,7 @@ test('isDisplayableMessage drops the protocol noise', () => {
 
 // ---------- respond unwrapping (restored history) ----------
 
-import { parseAssistantToolCall } from '../src/commands.ts'
+import { parseAssistantToolCall } from '../src/restore-history.ts'
 
 test('trimRestoredMessages unwraps a respond call to its message', () => {
   const respond = JSON.stringify({

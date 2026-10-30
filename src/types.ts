@@ -427,6 +427,12 @@ export interface BrowserLike {
    * "DeepSeek" while driving Qwen). Optional so test doubles need not set it.
    */
   providerName?: string
+  /**
+   * Last error from fetchChatMessages ('' on success). Optional so a test
+   * double need not set it; /compact reports it instead of a bare "unknown"
+   * when the history endpoint refuses (auth / HTTP).
+   */
+  _lastHistoryError?: string
   newChat: () => Promise<void>
   /**
    * The chat the NEXT send must land in, or null to start a fresh one.

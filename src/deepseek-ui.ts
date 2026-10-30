@@ -115,12 +115,17 @@ export const RESTORE_ANSWER_SELECTORS = [
 ]
 
 // Message-level containers for the restored dialogue (broad first).
+// MEASURED on the live page (2-turn chat): `[data-message-id]` no longer
+// exists, `[class*="chat-message"]`/`[class*="message-item"]` match nothing,
+// and the bare `[class*="_message"]` catch-all was a class-name HASH tail
+// (`_63c77b1`) — so the whole DOM fallback returned an EMPTY dialogue. The
+// real containers are `div.ds-message` (one per turn) and its scroll wrapper.
 export const MESSAGE_CONTAINER_SELECTORS = [
+  'div.ds-message',
   '[data-message-id]',
   '[class*="ds-message"]',
   '[class*="chat-message"]',
   '[class*="message-item"]',
-  '[class*="_message"]',
 ]
 
 // A message block is "assistant" when it carries the assistant class OR a
@@ -258,7 +263,10 @@ export const TOGGLE_SELECTORS = [
   'button[aria-pressed]',
 ]
 
-export const DEEP_THINKING_RE = /глубок|deep\s*think/i
+// `deep\s*think` does NOT match DeepSeek's live label "DeepThink" (no space),
+// so the reasoning toggle was never found and never applied — the agent ran
+// without reasoning no matter what `browser.deepThinking` said.
+export const DEEP_THINKING_RE = /глубок|deep\s*think|think/i
 export const WEB_SEARCH_RE = /поиск|search/i
 
 // ---------- attachments ----------
@@ -292,8 +300,16 @@ export const RATE_LIMIT_RE =
 // Transient server-side hiccups (DeepSeek overloaded / hiccup). Unlike the
 // rate limit, these usually clear in seconds, so we retry quickly instead of
 // waiting minutes.
+// A toast container (role=alert / .toast) can include the TEXT OF THE
+// CONVERSATION around its notice, so a normal answer that merely SAYS
+// "try again later" or "the server is busy" looked like a dead server: the
+// loop threw ServerBusyError, clicked Continue and RESENT a healthy turn
+// (live: 6 Continue clicks on one answer). Match the notice SHAPE: the
+// phrase must be a STANDALONE CLAUSE (start/end of the text, after a
+// newline, or next to punctuation) and a sentence merely discussing it
+// ("if the server is busy, ...") must not match.
 export const SERVER_BUSY_RE =
-  /(server (is )?busy|server error|service (is )?unavailable|temporarily unavailable|internal server error|\b50[234]\b|server overloaded|сервер занят|сервер перегружен|сервис недоступен|внутренняя ошибка|попробуйте позже)/i
+  /(?:^|[\n!?]\s*|\.\s+|:\s+)(?:(?:(?:http|error|status|code)\s*[:#]?\s*)?5(?:02|03|04)(?:\s+(?:server\s+)?(?:error|unavailable|service\s+unavailable))?|server (?:is )?(?:temporarily )?(?:busy|overloaded)|service (?:is )?unavailable|temporarily unavailable|internal server error|bad gateway|gateway timeout|сервер (?:временно )?(?:занят|перегружен)|сервис недоступен|внутренняя ошибка сервера)(?:[.!,]|$)/im
 
 // The chat's CONTEXT WINDOW is exhausted. DeepSeek refuses to continue the
 // conversation and answers with a non-retryable notice instead of a model
@@ -317,7 +333,18 @@ export const CONTEXT_LIMIT_RE =
 // detector) then looked like a truncated turn and the agent resent a task the
 // server never truncated. Inside a JSON string value those quotes are
 // ESCAPED, so a line-anchored pattern cannot match them.
-const MARKER_START = '^(?:data: ?|\\{)[^\\n]*?"'
+// A marker is read from the RAW SSE body, which ALSO carries the RESPONSE
+// text of the model — and a tool call quoting this very code used to trip
+// the detector. The anchor is therefore (a) the start of a LINE (the body is
+// JSON-escaped, so a quote inside the text is `\"` and never a line start)
+// and (b) the marker key must be the FIRST quoted key of its object, i.e.
+// no unescaped `"` may precede it on the line. `[^\\n]*?` stops at the
+// first quote (which broke the BATCH shape `"p":"response",..."quasi_status"`),
+// `.*?` alone stops at the first UNESCAPED quote — exactly what is wanted.
+// `(?:[^"\\]|\\.)*?` skips ESCAPED quotes (`\"` inside the model text)
+// and stops at the first REAL one — so the marker may sit after other keys
+// of the same line, but a quote inside our own text never anchors it.
+const MARKER_START = '^(?:data: ?|\\{).*?"'
 
 export const GENERATION_ERR_RE = new RegExp(
   MARKER_START + 'finish_reason": ?"generation_err"',

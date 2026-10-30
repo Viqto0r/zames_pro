@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { normalizeRestoredMessage } from '../src/commands.ts'
+import { normalizeRestoredMessage } from '../src/restore-history.ts'
 
 // A `respond` call whose message TEXT ends with a closing safety marker
 // (`</ds_safety>`) is unwrapped to that message and shown - the `/resume`

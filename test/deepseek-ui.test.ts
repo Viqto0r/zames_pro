@@ -61,8 +61,15 @@ test('toggle selectors include a semantic fallback beyond the ds- class', () => 
 test('toggle label regexes are language-agnostic', () => {
   assert.equal(DEEP_THINKING_RE.test('Deep thinking'), true)
   assert.equal(DEEP_THINKING_RE.test('Глубокое мышление'), true)
+  // The LIVE label has no space: without it the reasoning toggle was never
+  // found, so the agent silently ran WITHOUT reasoning.
+  assert.equal(DEEP_THINKING_RE.test('DeepThink'), true)
   assert.equal(WEB_SEARCH_RE.test('Smart search'), true)
   assert.equal(WEB_SEARCH_RE.test('Поиск в сети'), true)
+  assert.equal(WEB_SEARCH_RE.test('Search'), true)
+  // The two toggles must never be confused with each other.
+  assert.equal(DEEP_THINKING_RE.test('Search'), false)
+  assert.equal(WEB_SEARCH_RE.test('DeepThink'), false)
 })
 
 test('login button + label do not match the Google button', () => {
@@ -103,8 +110,13 @@ test('SSE markers detect truncation / finished-without-answer', () => {
     isGenerationIncompleteText('data: {"finish_reason":"generation_err"}'),
     true,
   )
+  // The marker regexes are anchored to a line start on purpose (a mention of
+  // the marker inside our own text must not match), so the fixture carries
+  // the real BATCH line shape rather than a bare fragment.
   assert.equal(
-    isGenerationIncompleteText('"quasi_status","v":"INCOMPLETE"'),
+    isGenerationIncompleteText(
+      'data: {"p":"response","o":"BATCH","v":[{"p":"quasi_status","v":"INCOMPLETE"}]}',
+    ),
     true,
   )
   // A server-side timeout ("Server busy, please try again later."): the turn
@@ -114,13 +126,28 @@ test('SSE markers detect truncation / finished-without-answer', () => {
     isGenerationIncompleteText('data: {"finish_reason":"generation_timeout"}'),
     true,
   )
-  assert.equal(GENERATION_ERR_RE.test('"finish_reason":"stop"'), false)
+  assert.equal(GENERATION_ERR_RE.test('data: {"finish_reason":"stop"}'), false)
   assert.equal(
-    INCOMPLETE_STATUS_RE.test('"quasi_status","v":"FINISHED"'),
+    INCOMPLETE_STATUS_RE.test(
+      'data: {"p":"response","o":"BATCH","v":[{"p":"quasi_status","v":"FINISHED"}]}',
+    ),
     false,
   )
   // isFinishedWithoutAnswer() lives in net-capture.ts and uses this.
-  assert.equal(FINISHED_STATUS_RE.test('"quasi_status","v":"FINISHED"'), true)
+  assert.equal(
+    FINISHED_STATUS_RE.test(
+      'data: {"p":"response","o":"BATCH","v":[{"p":"quasi_status","v":"FINISHED"}]}',
+    ),
+    true,
+  )
+  // A mention inside our OWN text (escaped quotes in a JSON string value)
+  // must never be read as a protocol marker.
+  assert.equal(
+    isGenerationIncompleteText(
+      'data: {"text":"a tool result that says \\"quasi_status\\",\\"v\\":\\"INCOMPLETE\\""}',
+    ),
+    false,
+  )
 })
 
 test('rate-limit vs server-busy stay distinct (the shared toast tail is not a rate limit)', () => {
@@ -132,4 +159,17 @@ test('rate-limit vs server-busy stay distinct (the shared toast tail is not a ra
   )
   assert.equal(isServerBusyText('Server is busy. Try again later.'), true)
   assert.equal(isServerBusyText('Messages too frequent.'), false)
+})
+
+test('a normal answer discussing a busy server is not a server-busy notice', () => {
+  // A toast container can include the surrounding conversation text; the old
+  // pattern matched "server is busy" anywhere, so a healthy answer threw
+  // ServerBusyError and the loop resent the turn (live: 6 Continue clicks).
+  const answer =
+    'If the server is busy, retry later. The answer: the server error text must be parsed.'
+  assert.equal(isServerBusyText(answer), false)
+  // The real notice still matches, alone or after a separator.
+  assert.equal(isServerBusyText('Server busy, please try again later.'), true)
+  assert.equal(isServerBusyText('Ошибка: Сервер занят, попробуйте позже'), true)
+  assert.equal(isServerBusyText('Сервер занят, попробуйте позже'), true)
 })

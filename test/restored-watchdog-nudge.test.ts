@@ -6,7 +6,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { normalizeRestoredMessage } from '../src/commands.ts'
+import { normalizeRestoredMessage } from '../src/restore-history.ts'
 
 const TIMEOUT_NUDGE =
   'The previous turn was cut off (the answer did not arrive in time), so the work is NOT finished. ' +

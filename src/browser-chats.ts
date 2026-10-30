@@ -153,72 +153,110 @@ export interface ScrapeMessagesOptions {
  * builds match both an outer and an inner container, which printed each turn
  * twice). The model's reasoning (think class) is skipped.
  */
-export function scrapeChatMessages(
-  opts: ScrapeMessagesOptions,
-): Array<{ role: string; text: string }> {
-  const think = new RegExp(opts.thinkRe, 'i')
-  const assistantRe = new RegExp(opts.assistantRe, 'i')
-  const inThink = (e: Element | null): boolean => {
-    let n: Element | null = e
-    while (n) {
-      const cls = (n.className || '').toString()
-      if (think.test(cls)) return true
-      n = n.parentElement
-    }
-    return false
-  }
-  const textOf = (e: Element): string => {
-    const h = e as HTMLElement
-    const t = h.innerText || h.textContent || ''
-    const NL = String.fromCharCode(10)
-    return t.replace(new RegExp(NL + '{3,}', 'g'), NL + NL).trim()
-  }
+// The in-page scraper is a SOURCE STRING compiled inside the page, not a
+// function reference: tsx/esbuild injects a `__name(...)` helper into every
+// NAMED function expression it transpiles, Playwright serializes that helper
+// into the page, and the page has no such global — the whole scraper then threw
+// `ReferenceError: __name is not defined` and the DOM fallback returned an
+// EMPTY dialogue. Keeping the text here makes the in-page code explicit and
+// testable (it is compiled with `new Function` by `scrapeChatMessagesInPage`).
+const SCRAPE_CHAT_MESSAGES_SOURCE = [
+  'function scrapeChatMessages(opts) {',
+  "  const think = new RegExp(opts.thinkRe, 'i')",
+  "  const assistantRe = new RegExp(opts.assistantRe, 'i')",
+  '  const inThink = (e) => {',
+  '    let n = e',
+  '    while (n) {',
+  "      if (think.test((n.className || '').toString())) return true",
+  '      n = n.parentElement',
+  '    }',
+  '    return false',
+  '  }',
+  '  const textOf = (e) => {',
+  "    const t = e.innerText || e.textContent || ''",
+  '    const NL = String.fromCharCode(10)',
+  "    return t.replace(new RegExp(NL + '{3,}', 'g'), NL + NL).trim()",
+  '  }',
+  '  // A REASONING block is UI state, not the answer, and it is not always a',
+  '  // PARENT of the text: DeepSeek renders it as a sibling that precedes the',
+  '  // markdown answer, so reading innerText printed the whole reasoning in the',
+  '  // restored dialogue. Remove the reasoning SUBTREES, then read the rest.',
+  '  const contentOf = (e) => {',
+  '    // The reasoning text is INSIDE the message, so it must be removed',
+  '    // before reading: the header line (Thought for N seconds) AND the',
+  '    // body that follows it. The answer is the part AFTER the body.',
+  '    const clone = e.cloneNode(true)',
+  '    let hadThink = false',
+  "    for (const t of Array.from(clone.querySelectorAll('*'))) {",
+  "      if (think.test((t.className || '').toString())) {",
+  '        hadThink = true',
+  '        t.remove()',
+  '      }',
+  '    }',
+  '    // The reasoning BODY can be a bare TEXT NODE (no element to remove),',
+  '    // and a cloned node may even lose the block structure, so the text is',
+  '    // taken from the ORIGINAL message and split into paragraphs: the',
+  '    // reasoning is the first one, the answer is the last one.',
+  '    const full = textOf(e)',
+  '    const nl = String.fromCharCode(10)',
+  '    const blocks = full.split(nl + nl).filter((p) => p.trim())',
+  "    if (!hadThink && !/^(thought|thinking|think) for/.test(blocks[0] || '')) {",
+  '      return full.trim()',
+  '    }',
+  "    const answer = blocks[blocks.length - 1] || ''",
+  "    const hdr = new RegExp('^(thought|thinking|think) for[^' + nl + ']*' + nl + '*')",
+  "    return answer.replace(hdr, '').trim()",
+  '  }',
+  '  // A USER bubble carries only the operator text; an assistant turn has a',
+  '  // rendered markdown wrapper (live: div.ds-markdown with',
+  '  // .ds-assistant-message-main-content).',
+  '  const looksAssistant = (e) => {',
+  "    if (assistantRe.test((e.className || '').toString())) return true",
+  '    if (e.querySelector(opts.assistantSel)) return true',
+  '    if (e.querySelector(opts.markdownSel)) return true',
+  '    return false',
+  '  }',
+  '  let blocks = []',
+  '  for (const s of opts.containerSels) {',
+  '    const found = Array.from(document.querySelectorAll(s)).filter(',
+  '      (e) => !inThink(e) && contentOf(e).length > 0,',
+  '    )',
+  '    if (found.length) {',
+  '      blocks = found',
+  '      break',
+  '    }',
+  '  }',
+  '  if (blocks.length > 1) {',
+  '    const unique = Array.from(new Set(blocks))',
+  '    blocks = unique.filter(',
+  '      (b) => !unique.some((other) => other !== b && other.contains(b)),',
+  '    )',
+  '  }',
+  '  const out = []',
+  '  if (blocks.length) {',
+  '    for (const b of blocks) {',
+  '      const t = contentOf(b)',
+  '      if (!t) continue',
+  "      out.push({ role: looksAssistant(b) ? 'assistant' : 'user', text: t })",
+  '    }',
+  '    if (out.length) return out',
+  '  }',
+  '  for (const s of opts.answerSels) {',
+  '    const list = Array.from(document.querySelectorAll(s)).filter(',
+  '      (e) => !inThink(e),',
+  '    )',
+  '    if (!list.length) continue',
+  '    for (const el of list) {',
+  '      const t = contentOf(el)',
+  "      if (t) out.push({ role: 'assistant', text: t })",
+  '    }',
+  '    break',
+  '  }',
+  '  return out',
+  '}',
+].join(String.fromCharCode(10))
 
-  const looksAssistant = (e: Element): boolean => {
-    const cls = (e.className || '').toString()
-    if (assistantRe.test(cls)) return true
-    if (e.querySelector(opts.assistantSel)) return true
-    if (e.querySelector(opts.markdownSel)) return true
-    return false
-  }
-
-  let blocks: Element[] = []
-  for (const s of opts.containerSels) {
-    const found = Array.from(document.querySelectorAll(s)).filter(
-      (e) => !inThink(e) && textOf(e).length > 0,
-    )
-    if (found.length) {
-      blocks = found
-      break
-    }
-  }
-  if (blocks.length > 1) {
-    const unique = Array.from(new Set(blocks))
-    blocks = unique.filter(
-      (b) => !unique.some((other) => other !== b && other.contains(b)),
-    )
-  }
-
-  const out: Array<{ role: string; text: string }> = []
-  if (blocks.length) {
-    for (const b of blocks) {
-      const t = textOf(b)
-      if (!t) continue
-      out.push({ role: looksAssistant(b) ? 'assistant' : 'user', text: t })
-    }
-    if (out.length) return out
-  }
-
-  for (const s of opts.answerSels) {
-    const list = Array.from(document.querySelectorAll(s)).filter(
-      (e) => !inThink(e),
-    )
-    if (!list.length) continue
-    for (const el of list) {
-      const t = textOf(el)
-      if (t) out.push({ role: 'assistant', text: t })
-    }
-    break
-  }
-  return out
+/** The in-page scraper SOURCE (compiled inside the page, see above). */
+export function scrapeChatMessagesSource(): string {
+  return SCRAPE_CHAT_MESSAGES_SOURCE
 }

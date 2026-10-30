@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **restore:** drop the loop's timeout nudge
+- **deepseek:** do not read a protocol marker mentioned in our own text
+- **restore:** keep the loop's timeout nudge out of the restored dialogue
+- **browser:** stop misreading a completed turn as truncated
+
+### Changed
+
+- drop the _netTurnBody and restore-nudge changes
+
 ## [2.90.16] - 2026-10-29
 
 ### Fixed

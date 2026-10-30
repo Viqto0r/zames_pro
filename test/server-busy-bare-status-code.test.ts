@@ -21,11 +21,22 @@ for (const text of NOT_BUSY) {
   })
 }
 
-// The real status codes still classify as a hiccup.
-test('a real 503 status is still server-busy', () => {
+// The WORDING still classifies as a hiccup.
+test('a real service-unavailable notice is still server-busy', () => {
   assert.equal(SERVER_BUSY_RE.test('HTTP 503 Service Unavailable'), true)
+  assert.equal(SERVER_BUSY_RE.test('Bad gateway'), true)
+})
+
+// The BARE numeric status code was dropped on purpose: the regex runs against
+// the text of a toast container that can include the answer, so `502/503/504`
+// matched inside ids, counts and file names. A notice ALWAYS carries the
+// wording around the code.
+test('a status code needs its notice shape, not just digits', () => {
+  // `HTTP 503` / `Status: 502` / a lone `504` are the notice; `503` inside a
+  // word, id or file name is not (see NOT_BUSY above).
   assert.equal(SERVER_BUSY_RE.test('Status: 502'), true)
   assert.equal(SERVER_BUSY_RE.test('504'), true)
+  assert.equal(SERVER_BUSY_RE.test('Uploaded report_503_final.pdf'), false)
 })
 
 // And the wording still works.
