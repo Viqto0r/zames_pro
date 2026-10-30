@@ -2036,9 +2036,9 @@ export class DeepSeekBrowser {
           // The answer has settled (the finish loop returned it): mark the
           // lifecycle state so the status line shows "settled" instead of
           // still looking like generation.
-          if (answer !== '(прервано пользователем)') {
-            this._emitSendState('settled')
-          }
+          // No 'settled' badge here: the next send flips the state right
+          // back to 'generating', and that add/remove pair is what makes the
+          // status row flicker. 'generating' is cleared by the caller.
           return answer
         } catch (e) {
           lastErr = e as Error
@@ -2410,7 +2410,11 @@ export class DeepSeekBrowser {
     }
     this._emitSendState('paused')
     tick(totalSec * 1000)
-    return await this._sleepInterruptible(totalSec * 1000, tick)
+    const aborted = await this._sleepInterruptible(totalSec * 1000, tick)
+    // The wait is over and the send is about to go out: leave the badge on
+    // 'generating' ('paused' left it showing a paused dot forever).
+    if (!aborted) this._emitSendState('generating')
+    return aborted
   }
 
   // Pause between sends. Applied ONLY to agent messages
@@ -2463,7 +2467,9 @@ export class DeepSeekBrowser {
     report(gap)
     this._emitSendState('paused')
     await this._sleepInterruptible(gap, report)
-    if (!this._abort && !this._askCancelled) this._emitSendState('settled')
+    // Back to GENERATING, not settled: nothing has been sent yet, so a
+    // "✓ done" badge here showed up before the question even left the page.
+    if (!this._abort && !this._askCancelled) this._emitSendState('generating')
   }
 
   // Sleep in small slices so Esc/Ctrl+C can cancel the wait promptly.
