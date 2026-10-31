@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **qwen,glm:** headless login probe and headed runs
 - **ui:** same no-flicker phase rule for qwen and glm
 
 ## [2.90.18] - 2026-10-30
