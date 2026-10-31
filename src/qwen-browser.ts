@@ -768,27 +768,42 @@ export class QwenBrowser {
    */
   async probeLogin(): Promise<ProbeResult> {
     if (!this.page) return 'unknown'
-    try {
-      const r = await this.page.evaluate(() => {
-        const hasToken = (() => {
+    // MEASURED live: on a freshly navigated page the React app has not
+    // hydrated yet, so localStorage is still EMPTY and the guest CTA is
+    // painted. That made a genuinely signed-in session report "out"; the
+    // headless run continued as a GUEST and every send hit Qwen's
+    // "Confirm your age" gate. Wait for the app to write its tokens
+    // (`token` / `qwen_access_token_state`, seen on the live profile).
+    const hydrationDeadline = Date.now() + 20_000
+    while (Date.now() < hydrationDeadline) {
+      try {
+        const hasToken = await this.page.evaluate(() => {
           try {
-            return !!localStorage.getItem('token')
+            return !!(
+              localStorage.getItem('token') ||
+              localStorage.getItem('qwen_access_token_state')
+            )
           } catch {
             return false
           }
-        })()
-        const body = document.body ? document.body.innerText : ''
-        const signInVisible = /\b(log ?in|sign ?in)\b/i.test(body)
-        return { hasToken, signInVisible }
-      })
-      if (r.hasToken) return 'in'
-      if (r.signInVisible) return 'out'
-      return 'unknown'
-    } catch {
-      return 'unknown'
+        })
+        if (hasToken) return 'in'
+      } catch {
+        // the page may be mid-navigation: retry on the next tick
+      }
+      await this.page.waitForTimeout(500)
     }
+    try {
+      const signInVisible = await this.page.evaluate(() => {
+        const body = document.body ? document.body.innerText : ''
+        return /\b(log ?in|sign ?in)\b/i.test(body)
+      })
+      if (signInVisible) return 'out'
+    } catch {
+      // fall through to unknown
+    }
+    return 'unknown'
   }
-
   /**
    * A human signs in inside a VISIBLE window (a one-time code cannot be typed
    * into a terminal), then zames returns to headless. The decision sequence is
@@ -950,7 +965,10 @@ export class QwenBrowser {
     // guest, so no error) the guest notice. The visible window and the return
     // to headless are the SHARED interactiveBrowserLogin path.
     const interactive = loginIsInteractive({
-      isTTY: !!(process.stdin.isTTY && process.stdout.isTTY),
+      // A HEADED run IS interactive: the visible window is exactly what the
+      // human needs for the one-time code, even when stdin is a pipe (a smoke
+      // script). Requiring a TTY there failed the run with LoginRequired.
+      isTTY: !!(process.stdin.isTTY && process.stdout.isTTY) || !this.headless,
       oneShot: false,
       scheduled: false,
       env: process.env,
@@ -989,9 +1007,11 @@ export class QwenBrowser {
       now: () => Date.now(),
       interactive,
       stayHeaded: !this.headless,
-      // A guest is usable, but a real session is strongly recommended; the
-      // notice tells the operator why.
-      guestAllowed: true,
+      // A guest is usable ONLY when nobody can sign in: with a terminal the
+      // window is opened instead (a slow-hydrating session must not be
+      // mistaken for a guest — that turned a signed-in run into a guest and
+      // Qwen's age gate then blocked every send).
+      guestAllowed: false,
       canShowWindow: canShowWindow(
         process.env as Record<string, string | undefined>,
         process.platform,
@@ -1001,6 +1021,7 @@ export class QwenBrowser {
         : undefined,
       timeoutMs: this.loginTimeoutMs,
     })
+    if (process.env.ZAMES_LOGIN_DEBUG) console.error('qwen outcome=' + outcome)
     if (outcome === 'guest') this._notice(this._t('qwen.guest_mode'))
     await this._persistSessionIfNeeded().catch(() => {})
   }

@@ -817,7 +817,7 @@ export class GlmBrowser {
    */
   async waitForLogin(): Promise<void> {
     const interactive = loginIsInteractive({
-      isTTY: !!process.stdin.isTTY,
+      isTTY: !!process.stdin.isTTY || !this.headless,
       oneShot: false,
       scheduled: false,
       env: process.env,

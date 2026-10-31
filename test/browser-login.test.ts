@@ -80,11 +80,12 @@ test('auto-login runs FIRST, before any window', async () => {
   assert.deepEqual(calls, ['auto'])
 })
 
-test('a guest is accepted without a window', async () => {
+test('a guest is accepted without a window on a NON-interactive run', async () => {
   const calls: string[] = []
   const out = await interactiveBrowserLogin(
     deps({
       guestAllowed: true,
+      interactive: false,
       relaunch: async () => {
         calls.push('relaunch')
       },

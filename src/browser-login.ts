@@ -109,8 +109,14 @@ export async function interactiveBrowserLogin(
     return 'auto'
   }
 
-  // 3) A guest is usable and no window is needed.
-  if (deps.guestAllowed) return 'guest'
+  // 3) A guest is usable and no window is needed — but ONLY on a non-
+  //    interactive run. MEASURED live (Qwen): a saved session that the
+  //    probe cannot read yet (the app hydrates slowly, or the session lives
+  //    in a cookie the probe does not look at) turned into "guest" while an
+  //    OPERATOR was right there, and the run then died on the age gate.
+  //    With a terminal we open the window instead: the human either sees
+  //    his session already there or signs in once.
+  if (deps.guestAllowed && !deps.interactive) return 'guest'
 
   // 4) Non-interactive: fail fast instead of hanging on a window nobody sees.
   if (!deps.interactive) throw new LoginRequiredError(deps.provider)
