@@ -32,6 +32,31 @@ test('the tool-result watchdog nudge is still dropped', () => {
   )
 })
 
+// The OTHER loop nudges leaked into /chats the same way: a flaky run showed
+// them as the operator's own messages ("❯ Вы: Your previous answer was not
+// recognized as a tool call…"). Every one of them is written by the loop, so
+// every one must be dropped.
+test('every agent-loop self-nudge is dropped from the restored dialogue', () => {
+  const nudges = [
+    'Your previous answer was not recognized as a tool call. Do NOT reply with prose',
+    'You wrote plain text without a tool call. Plain text is a PROTOCOL VIOLATION',
+    'You stopped after a tool call and wrote plain text. Plain text is a PROTOCOL VIOLATION',
+    'You stopped mid-task without finishing. If the task is DONE',
+    'Last step: call the respond tool with the final message to the operator.',
+    'You have called the SAME tool with the SAME arguments several times in a row.',
+    'It looks like you meant to call a tool but did not. If the task is not finished',
+    'Continue the task. If you need a tool — reply with EXACTLY one JSON tool-call object',
+    'Before finishing: you wrote/edited a runnable code file in this task, but you have not run',
+  ]
+  for (const text of nudges) {
+    assert.equal(
+      normalizeRestoredMessage({ role: 'user', text }),
+      null,
+      text.slice(0, 50),
+    )
+  }
+})
+
 // The guard is anchored to the START of the message: the loop always writes
 // the nudge as the whole message, while an operator may QUOTE it.
 test('a message that only quotes the nudge is kept', () => {

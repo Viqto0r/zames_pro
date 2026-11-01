@@ -161,6 +161,22 @@ export const CONFIG_SCHEMA: ConfigField[] = [
     groupKey: 'cfg.group.chat',
   },
   {
+    path: 'browser.infiniteRetries',
+    type: 'boolean',
+    labelKey: 'cfg.f.browser_infiniteRetries',
+    topKey: 'cfg.top.browser',
+    groupKey: 'cfg.group.recovery',
+  },
+  {
+    path: 'browser.maxRetryWaitMs',
+    type: 'number',
+    min: 0,
+    max: 7200000,
+    labelKey: 'cfg.f.browser_maxRetryWaitMs',
+    topKey: 'cfg.top.browser',
+    groupKey: 'cfg.group.recovery',
+  },
+  {
     path: 'browser.deepThinking',
     type: 'boolean',
     labelKey: 'cfg.f.browser_deepThinking',

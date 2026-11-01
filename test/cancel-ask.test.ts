@@ -151,16 +151,25 @@ function qwenSource(): string {
 
 test('Qwen ask() stops when a retry wait was interrupted', () => {
   const src = qwenSource()
-  // Every retry sleep in ask() must be checked for interruption.
+  // Every retry sleep in ask() must be checked for interruption. The
+  // multiline form is `if (` on its own line, then the awaited call, then
+  // the closing `)` — so the check looks BEFORE the call for the `if (`
+  // and, after it, for the closing paren that makes the value a condition.
   const sleeps = [
-    ...src.matchAll(/await this\._sleepInterruptible\(([^)]*)\)/g),
-  ].filter((m) => !/gap/.test(m[1]))
+    ...src.matchAll(/await this\._sleepInterruptible\([\s\S]*?\)\s*\)/g),
+  ].filter((m) => !/gap/.test(m[0]))
   assert.ok(sleeps.length >= 3, 'expected the three retry sleeps')
   for (const m of sleeps) {
-    const after = src.slice(m.index - 10, m.index + 260)
+    const before = src.slice(Math.max(0, m.index - 30), m.index)
+    const tail = src.slice(m.index + m[0].length - 3, m.index + m[0].length)
     assert.ok(
-      /if\s*\(\s*await this\._sleepInterruptible/.test(after),
-      'a retry sleep result is ignored: ' + m[0],
+      /if\s*\(\s*$/.test(before) &&
+        /\)\s*\n\s*\)/.test(
+          m[0] +
+            tail +
+            src.slice(m.index + m[0].length, m.index + m[0].length + 3),
+        ),
+      'a retry sleep result is ignored: ' + m[0].slice(0, 60),
     )
   }
 })

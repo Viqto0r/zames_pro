@@ -1,3 +1,4 @@
+import { backoffWaitMs } from './retry-backoff.js'
 // GLM (chat.z.ai) provider — the third chat backend zames can drive.
 //
 // WHY a separate class (the same reason QwenBrowser exists): the backends
@@ -127,6 +128,8 @@ export interface GlmBrowserOptions {
   channel?: string | null
   answerTimeoutMs?: number
   askRetries?: number
+  infiniteRetries?: boolean
+  maxRetryWaitMs?: number
   stabilityChecks?: number
   stabilityDelayMs?: number
   minSendIntervalMs?: number
@@ -189,6 +192,8 @@ export class GlmBrowser {
   channel: string | null
   answerTimeoutMs: number
   askRetries: number
+  infiniteRetries: boolean
+  maxRetryWaitMs: number
   stabilityChecks: number
   stabilityDelayMs: number
   minSendIntervalMs: number
@@ -270,6 +275,8 @@ export class GlmBrowser {
     channel = null,
     answerTimeoutMs = 300000,
     askRetries = 3,
+    infiniteRetries = true,
+    maxRetryWaitMs = 1800000,
     stabilityChecks = 2,
     stabilityDelayMs = 400,
     minSendIntervalMs = 0,
@@ -302,6 +309,8 @@ export class GlmBrowser {
     this.channel = channel
     this.answerTimeoutMs = answerTimeoutMs
     this.askRetries = askRetries
+    this.infiniteRetries = infiniteRetries
+    this.maxRetryWaitMs = maxRetryWaitMs
     this.stabilityChecks = stabilityChecks
     this.stabilityDelayMs = stabilityDelayMs
     this.minSendIntervalMs = minSendIntervalMs
@@ -1645,6 +1654,12 @@ export class GlmBrowser {
   ): Promise<string> {
     let lastErr: Error | null = null
     let attempt = 0
+    const backoffCfg = {
+      infiniteRetries: this.infiniteRetries,
+      maxRetries: Math.max(1, this.maxRateLimitRetries),
+      baseWaitMs: 5000,
+      maxWaitMs: this.maxRetryWaitMs,
+    }
     let rateLimitRetries = 0
     let serverBusyRetries = 0
     let incompleteRetries = 0
@@ -1655,7 +1670,7 @@ export class GlmBrowser {
     let fallbackAttempted = false
     this._askInFlight++
     try {
-      while (attempt < this.askRetries) {
+      while (this.infiniteRetries || attempt < this.askRetries) {
         try {
           const answer = await this._askOnce(prompt, {
             timeout,
@@ -1711,45 +1726,73 @@ export class GlmBrowser {
           }
           if (/rate limit|too frequent/i.test(msg)) {
             this.sendRuntime.onOutcome('rate_limit', { errorText: msg })
-            if (rateLimitRetries >= this.maxRateLimitRetries) break
+            if (
+              !this.infiniteRetries &&
+              rateLimitRetries >= this.maxRateLimitRetries
+            )
+              break
             rateLimitRetries++
             this._notice(
               this._t('glm.rate_limit_wait', {
-                min: Math.ceil(this.rateLimitWaitMs / 60000),
+                min: Math.ceil(
+                  backoffWaitMs(backoffCfg, rateLimitRetries) / 60000,
+                ),
                 attempt: rateLimitRetries,
-                max: this.maxRateLimitRetries,
+                max: this.infiniteRetries ? '∞' : this.maxRateLimitRetries,
               }),
             )
-            if (await this._sleepInterruptible(this.rateLimitWaitMs))
+            if (
+              await this._sleepInterruptible(
+                backoffWaitMs(backoffCfg, rateLimitRetries),
+              )
+            )
               return '(прервано пользователем)'
             continue
           }
           if (e instanceof GlmServerBusyError || /server busy/i.test(msg)) {
             this.sendRuntime.onOutcome('busy', { errorText: msg })
-            if (serverBusyRetries >= this.maxServerBusyRetries) break
+            if (
+              !this.infiniteRetries &&
+              serverBusyRetries >= this.maxServerBusyRetries
+            )
+              break
             serverBusyRetries++
             this._notice(
               this._t('glm.server_busy_wait', {
-                sec: Math.ceil(this.serverBusyWaitMs / 1000),
+                sec: Math.ceil(
+                  backoffWaitMs(backoffCfg, serverBusyRetries) / 1000,
+                ),
                 attempt: serverBusyRetries,
-                max: this.maxServerBusyRetries,
+                max: this.infiniteRetries ? '∞' : this.maxServerBusyRetries,
               }),
             )
-            if (await this._sleepInterruptible(this.serverBusyWaitMs))
+            if (
+              await this._sleepInterruptible(
+                backoffWaitMs(backoffCfg, serverBusyRetries),
+              )
+            )
               return '(прервано пользователем)'
             continue
           }
           if (e instanceof GlmIncompleteError) {
             this.sendRuntime.onOutcome('incomplete', { errorText: msg })
-            if (incompleteRetries >= this.maxIncompleteRetries) break
+            if (
+              !this.infiniteRetries &&
+              incompleteRetries >= this.maxIncompleteRetries
+            )
+              break
             incompleteRetries++
             this._notice(
               this._t('glm.incomplete_retry', {
                 attempt: incompleteRetries,
-                max: this.maxIncompleteRetries,
+                max: this.infiniteRetries ? '∞' : this.maxIncompleteRetries,
               }),
             )
-            if (await this._sleepInterruptible(this.incompleteWaitMs))
+            if (
+              await this._sleepInterruptible(
+                backoffWaitMs(backoffCfg, incompleteRetries),
+              )
+            )
               return '(прервано пользователем)'
             continue
           }

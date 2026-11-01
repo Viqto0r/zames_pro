@@ -1,3 +1,4 @@
+import { backoffWaitMs } from './retry-backoff.js'
 import { buildSystemPrompt } from './system-prompt.js'
 import { isContextLimitText } from './browser-pure.js'
 import { providerLabel as providerHumanLabel } from './providers.js'
@@ -91,6 +92,8 @@ export interface RunAgentLoopOptions {
    * gives up. Default 6. Configurable via browser.maxAfterToolRetries.
    */
   maxAfterToolRetries?: number
+  infiniteRetries?: boolean
+  maxRetryWaitMs?: number
   /**
    * Called at the safe seam AFTER a tool result and BEFORE the next send
    * when the context is nearly full. The callback compacts the chat (opens a
@@ -223,6 +226,8 @@ export async function runAgentLoop({
   locale = DEFAULT_LOCALE,
   askDeadlineMs = 240_000,
   maxAfterToolRetries = 6,
+  infiniteRetries = true,
+  maxRetryWaitMs = 30 * 60_000,
   onAutoCompact = null,
   onContextLimit = null,
   onProviderExhausted = null,
@@ -538,6 +543,15 @@ export async function runAgentLoop({
   // The nudge is sent at most ONCE per task: it is a hint, not a guard.
   let completionNudgeSent = false
   const MAX_AFTER_TOOL_RETRIES = Math.max(0, Math.floor(maxAfterToolRetries))
+  // The watchdog and the transient send families share ONE backoff
+  // (src/retry-backoff.ts): with infiniteRetries on (default) the wait grows
+  // 5s -> 10s -> ... up to maxRetryWaitMs instead of giving up.
+  const watchdogBackoff = {
+    infiniteRetries,
+    maxRetries: MAX_AFTER_TOOL_RETRIES,
+    baseWaitMs: 5000,
+    maxWaitMs: maxRetryWaitMs,
+  }
   // One-time hint when the context nears full while auto-compact is OFF:
   // the operator is told about /compact instead of silently degrading. Set
   // once per task so the terminal is not spammed.
@@ -634,11 +648,17 @@ export async function runAgentLoop({
       safeWarning(
         tr('ds.answer_timeout', {
           sec: Math.round(askDeadlineMs / 1000),
-          attempt: Math.min(afterToolRetries + 1, MAX_AFTER_TOOL_RETRIES),
-          max: MAX_AFTER_TOOL_RETRIES,
+          attempt: infiniteRetries
+            ? afterToolRetries + 1
+            : Math.min(afterToolRetries + 1, MAX_AFTER_TOOL_RETRIES),
+          max: infiniteRetries ? '∞' : MAX_AFTER_TOOL_RETRIES,
         }),
       )
-      if (afterToolRetries < MAX_AFTER_TOOL_RETRIES) {
+      const watchdogWaitMs = backoffWaitMs(
+        watchdogBackoff,
+        afterToolRetries + 1,
+      )
+      if (infiniteRetries || afterToolRetries < MAX_AFTER_TOOL_RETRIES) {
         afterToolRetries++
         // The retry used to `continue` with the UNCHANGED `message`: a bare
         // re-send of the same task text. The model then saw the task arrive a
@@ -652,7 +672,7 @@ export async function runAgentLoop({
           'no text before or after, for example: ' +
           '{"tool": "Bash", "args": {"command": "..."}}. ' +
           'If the task is really done — call respond with the final message.'
-        await new Promise((r) => setTimeout(r, 1500))
+        await new Promise((r) => setTimeout(r, watchdogWaitMs))
         continue
       }
       transcript?.log('ask_timeout_exhausted', {

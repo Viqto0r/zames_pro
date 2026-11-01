@@ -9,6 +9,11 @@ import {
 // The ask() retry policy shared by the providers. Every branch of the old
 // three-copy loop is pinned here so a fix in one place cannot silently drop a
 // family (rate limit / busy / incomplete / context limit / fatal / generic).
+//
+// INCREMENTAL RETRIES are the default now: a transient family does not run out
+// of attempts, its WAIT escalates instead (5m -> 10m -> 20m -> capped), and
+// only a fatal error or a cancel ends the wait. The counted mode is still
+// reachable with `browser.infiniteRetries false` and pinned below.
 
 const budgets: RetryBudgets = {
   askRetries: 3,
@@ -27,80 +32,143 @@ const fresh = (over: Partial<RetryState> = {}): RetryState => ({
   ...over,
 })
 
-test('a rate limit waits the long pause while its budget lasts', () => {
-  const d = decideRetry('rate-limit', fresh(), budgets, waits)
-  assert.deepEqual(d, {
+// Jitter off so the waits are exact in the assertions.
+const infinite = {
+  infiniteRetries: true,
+  maxRetries: 6,
+  baseWaitMs: 300_000,
+  maxWaitMs: 30 * 60_000,
+}
+const counted = {
+  infiniteRetries: false,
+  maxRetries: 6,
+  baseWaitMs: 300_000,
+  maxWaitMs: 0,
+}
+const decide = (
+  family: Parameters<typeof decideRetry>[0],
+  state: RetryState,
+  backoff?: Parameters<typeof decideRetry>[4],
+): ReturnType<typeof decideRetry> =>
+  decideRetry(family, state, budgets, waits, backoff, { jitter: false })
+
+const waitMsOf = (d: ReturnType<typeof decideRetry>): number =>
+  (d as { waitMs: number }).waitMs
+
+test('a rate limit waits the family pause and escalates on every retry', () => {
+  const first = decide('rate-limit', fresh(), infinite)
+  assert.deepEqual(first, {
     kind: 'wait',
     family: 'rate-limit',
     waitMs: waits.rateLimitMs,
   })
+  // 5m -> 10m -> 20m -> 30m (the ceiling).
+  assert.equal(
+    waitMsOf(decide('rate-limit', fresh({ rateLimitRetries: 1 }), infinite)),
+    2 * waits.rateLimitMs,
+  )
+  assert.equal(
+    waitMsOf(decide('rate-limit', fresh({ rateLimitRetries: 2 }), infinite)),
+    4 * waits.rateLimitMs,
+  )
+  assert.equal(
+    waitMsOf(decide('rate-limit', fresh({ rateLimitRetries: 3 }), infinite)),
+    30 * 60_000,
+  )
 })
 
-test('an exhausted rate-limit budget gives up', () => {
+test('an infinite family never gives up, however many retries were made', () => {
+  for (const n of [2, 50, 1000]) {
+    assert.equal(
+      decide('rate-limit', fresh({ rateLimitRetries: n }), infinite).kind,
+      'wait',
+    )
+  }
+})
+
+test('a Retry-After from the server wins over the learned curve', () => {
   const d = decideRetry(
     'rate-limit',
-    fresh({ rateLimitRetries: 2 }),
+    fresh(),
     budgets,
-    waits,
+    { ...waits, retryAfterMs: 12 * 60_000 },
+    infinite,
+    { jitter: false },
   )
-  assert.equal(d.kind, 'give-up')
+  assert.equal(waitMsOf(d), 12 * 60_000)
+  // ...but it is still capped by maxRetryWaitMs.
+  const capped = decideRetry(
+    'rate-limit',
+    fresh(),
+    budgets,
+    { ...waits, retryAfterMs: 24 * 3600_000 },
+    infinite,
+    { jitter: false },
+  )
+  assert.equal(waitMsOf(capped), 30 * 60_000)
 })
 
-test('server busy and incomplete have their own short pauses', () => {
-  assert.equal(decideRetry('server-busy', fresh(), budgets, waits).kind, 'wait')
-  assert.equal(decideRetry('incomplete', fresh(), budgets, waits).kind, 'wait')
-  const busy = decideRetry('server-busy', fresh(), budgets, waits) as {
-    waitMs: number
-  }
-  assert.equal(busy.waitMs, waits.serverBusyMs)
+test('with infiniteRetries off the counted budget applies again', () => {
+  // The counted mode uses `maxRetries` (6) as the family budget, so a state
+  // below it still waits and a state at the ceiling gives up.
   assert.equal(
-    decideRetry('server-busy', fresh({ serverBusyRetries: 2 }), budgets, waits)
-      .kind,
+    decide('rate-limit', fresh({ rateLimitRetries: 2 }), counted).kind,
+    'wait',
+  )
+  assert.equal(
+    decide('server-busy', fresh({ serverBusyRetries: 2 }), counted).kind,
+    'wait',
+  )
+  assert.equal(
+    decide('incomplete', fresh({ incompleteRetries: 2 }), counted).kind,
+    'wait',
+  )
+  assert.equal(
+    decide('rate-limit', fresh({ rateLimitRetries: 6 }), counted).kind,
     'give-up',
   )
   assert.equal(
-    decideRetry('incomplete', fresh({ incompleteRetries: 2 }), budgets, waits)
-      .kind,
+    decide('server-busy', fresh({ serverBusyRetries: 6 }), counted).kind,
+    'give-up',
+  )
+  assert.equal(
+    decide('incomplete', fresh({ incompleteRetries: 6 }), counted).kind,
     'give-up',
   )
 })
 
 test('a context limit compacts into a fresh chat, not a resend', () => {
-  assert.deepEqual(decideRetry('context-limit', fresh(), budgets, waits), {
+  assert.deepEqual(decide('context-limit', fresh(), infinite), {
     kind: 'compact',
     family: 'context-limit',
   })
+  // The compaction budget is counted even in the infinite mode.
   assert.equal(
-    decideRetry(
-      'context-limit',
-      fresh({ contextLimitRetries: 2 }),
-      budgets,
-      waits,
-    ).kind,
+    decide('context-limit', fresh({ contextLimitRetries: 2 }), infinite).kind,
     'give-up',
   )
 })
 
 test('a fatal family gives up at once (guest limit, captcha, age gate)', () => {
-  assert.equal(decideRetry('fatal', fresh(), budgets, waits).kind, 'give-up')
+  assert.equal(decide('fatal', fresh(), infinite).kind, 'give-up')
 })
 
 test('a generic failure uses the attempt budget with a growing pause', () => {
-  const d = decideRetry(null, fresh({ attempt: 0 }), budgets, waits)
-  assert.deepEqual(d, { kind: 'generic', waitMs: 2000 })
-  assert.deepEqual(decideRetry(null, fresh({ attempt: 1 }), budgets, waits), {
+  assert.deepEqual(decide(null, fresh({ attempt: 0 }), infinite), {
+    kind: 'generic',
+    waitMs: 2000,
+  })
+  assert.deepEqual(decide(null, fresh({ attempt: 1 }), infinite), {
     kind: 'generic',
     waitMs: 4000,
   })
-  // The last attempt of the budget gives up instead of waiting forever.
-  assert.equal(
-    decideRetry(null, fresh({ attempt: 2 }), budgets, waits).kind,
-    'give-up',
-  )
+  // A generic failure is NOT transient: the last attempt gives up even with
+  // the infinite mode on.
+  assert.equal(decide(null, fresh({ attempt: 2 }), infinite).kind, 'give-up')
 })
 
 test('the classification is per FAMILY, not per message text', () => {
   // Same wording, different family: the decision follows the class.
-  assert.equal(decideRetry('fatal', fresh(), budgets, waits).kind, 'give-up')
-  assert.equal(decideRetry('rate-limit', fresh(), budgets, waits).kind, 'wait')
+  assert.equal(decide('fatal', fresh(), infinite).kind, 'give-up')
+  assert.equal(decide('rate-limit', fresh(), infinite).kind, 'wait')
 })

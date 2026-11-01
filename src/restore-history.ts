@@ -127,6 +127,26 @@ export function normalizeRestoredMessage(
     // the "user" message. It used to leak into the restored dialogue (a dozen
     // copies after a flaky run), so drop it like the other nudges.
     if (/^The previous turn was cut off/.test(text)) return null
+    // The OTHER loop nudges (a malformed call, a plain-text answer, "the work
+    // is NOT finished", "you stopped mid-task", a repeated call) are written by
+    // the agent to itself in the same way. A flaky run left a wall of these in
+    // /chats: the operator saw them as their OWN messages ("❯ Вы: Your previous
+    // answer was not recognized…") and thought the terminal history was wrong.
+    if (/^Your previous answer was not recognized as a tool call/.test(text))
+      return null
+    if (/^Plain text is a PROTOCOL VIOLATION/.test(text)) return null
+    if (/^You wrote plain text without a tool call/.test(text)) return null
+    if (/^You stopped after a tool call and wrote plain text/.test(text))
+      return null
+    if (/^You stopped mid-task without finishing/.test(text)) return null
+    if (/^Last step: call the respond tool/.test(text)) return null
+    if (/^You have called the SAME tool with the SAME arguments/.test(text))
+      return null
+    if (/^It looks like you meant to call a tool but did not/.test(text))
+      return null
+    if (/^Continue the task\. If you need a tool/.test(text)) return null
+    if (/^Before finishing: you wrote\/edited a runnable code file/.test(text))
+      return null
     if (/^\[system\]/.test(text)) return null
     if (/^The user ran \//.test(text)) return null
     // `/compact` posts its summary as a USER turn, prefixed with a marker the

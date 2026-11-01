@@ -70,6 +70,10 @@ export interface SubagentRunnerOptions {
   /** Answer timeout / watchdog config for the nested loop. */
   askDeadlineMs: number
   maxAfterToolRetries: number
+  /** Retry the watchdog forever with an escalating wait (browser config). */
+  infiniteRetries?: boolean
+  /** Ceiling for ONE retry wait (ms). */
+  maxRetryWaitMs?: number
   /** Permission prompt for an `ask` rule inside the subagent (optional). */
   onAskPermission?: (info: {
     tool: string
@@ -124,6 +128,8 @@ export function createSubagentRunner(
     maxSubagents,
     askDeadlineMs,
     maxAfterToolRetries,
+    infiniteRetries,
+    maxRetryWaitMs,
     onAskPermission,
   } = opts
 
@@ -204,6 +210,8 @@ export function createSubagentRunner(
         locale,
         askDeadlineMs,
         maxAfterToolRetries,
+        infiniteRetries,
+        maxRetryWaitMs,
         // A subagent NEVER touches BACKLOG.md, even in the operator's dev
         // mode: its sub-task is scoped, and a general subagent appending
         // "improvement" notes would be unrelated, unsupervised edits.

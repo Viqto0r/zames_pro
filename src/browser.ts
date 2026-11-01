@@ -136,6 +136,7 @@ import {
   profileLooksLocked,
   nukeProfile,
 } from './browser-pure.js'
+import { backoffWaitMs } from './retry-backoff.js'
 
 export {
   askPassword,
@@ -158,6 +159,8 @@ export interface DeepSeekBrowserOptions {
   channel?: string | null
   answerTimeoutMs?: number
   askRetries?: number
+  infiniteRetries?: boolean
+  maxRetryWaitMs?: number
   stabilityChecks?: number
   stabilityDelayMs?: number
   minSendIntervalMs?: number
@@ -246,6 +249,8 @@ export class DeepSeekBrowser {
   channel: string | null
   answerTimeoutMs: number
   askRetries: number
+  infiniteRetries: boolean
+  maxRetryWaitMs: number
   stabilityChecks: number
   stabilityDelayMs: number
   minSendIntervalMs: number
@@ -404,6 +409,8 @@ export class DeepSeekBrowser {
     channel = 'chrome',
     answerTimeoutMs = 180000,
     askRetries = 3,
+    infiniteRetries = true,
+    maxRetryWaitMs = 1800000,
     stabilityChecks = 2,
     stabilityDelayMs = 400,
     minSendIntervalMs = 15000,
@@ -433,6 +440,8 @@ export class DeepSeekBrowser {
     this.channel = channel
     this.answerTimeoutMs = answerTimeoutMs
     this.askRetries = askRetries
+    this.infiniteRetries = infiniteRetries
+    this.maxRetryWaitMs = maxRetryWaitMs
     this.stabilityChecks = stabilityChecks
     this.stabilityDelayMs = stabilityDelayMs
     this.minSendIntervalMs = minSendIntervalMs
@@ -2002,6 +2011,15 @@ export class DeepSeekBrowser {
   ): Promise<string> {
     let lastErr: Error | null = null
     let attempt = 0
+    // The transient families share ONE incremental backoff (retry-backoff.ts):
+    // with infiniteRetries on, the wait escalates instead of running out of
+    // attempts while the server is still asking us to wait.
+    const backoffCfg = {
+      infiniteRetries: this.infiniteRetries,
+      maxRetries: Math.max(1, this.maxRateLimitRetries),
+      baseWaitMs: 5000,
+      maxWaitMs: this.maxRetryWaitMs,
+    }
     let rateLimitRetries = 0
     let serverBusyRetries = 0
     // N8: the fallback switch is tried ONCE per ask(), not per family.
@@ -2048,7 +2066,10 @@ export class DeepSeekBrowser {
           // context is lost). The waits don't consume the regular ask() attempts.
           if (e instanceof RateLimitError) {
             rateLimitRetries++
-            if (rateLimitRetries > this.maxRateLimitRetries) {
+            if (
+              !this.infiniteRetries &&
+              rateLimitRetries > this.maxRateLimitRetries
+            ) {
               this._notice(
                 theme.error(
                   this._t('ds.rate_limit_give_up', {
@@ -2062,9 +2083,11 @@ export class DeepSeekBrowser {
             this._notice(
               theme.warn(
                 this._t('ds.rate_limit_wait', {
-                  min: Math.ceil(this.rateLimitWaitMs / 60000),
+                  min: Math.ceil(
+                    backoffWaitMs(backoffCfg, rateLimitRetries) / 60000,
+                  ),
                   attempt: rateLimitRetries,
-                  max: this.maxRateLimitRetries,
+                  max: this.infiniteRetries ? '∞' : this.maxRateLimitRetries,
                 }),
               ),
             )
@@ -2073,7 +2096,8 @@ export class DeepSeekBrowser {
             // The wait is ANIMATED through onSendPause (a live countdown), so the
             // operator sees the agent is waiting on the rate limit instead of a
             // frozen spinner. `_lastSentAt` is bumped so the countdown renders.
-            const waitSec = Math.ceil(this.rateLimitWaitMs / 1000)
+            const waitMs = backoffWaitMs(backoffCfg, rateLimitRetries)
+            const waitSec = Math.ceil(waitMs / 1000)
             const aborted = await this._waitRateLimit(waitSec)
             if (aborted) return '(прервано пользователем)'
             continue
@@ -2085,7 +2109,10 @@ export class DeepSeekBrowser {
           // explanation of what DeepSeek is doing.
           if (e instanceof ServerBusyError) {
             serverBusyRetries++
-            if (serverBusyRetries > this.maxServerBusyRetries) {
+            if (
+              !this.infiniteRetries &&
+              serverBusyRetries > this.maxServerBusyRetries
+            ) {
               this._notice(
                 theme.error(
                   this._t('ds.server_busy_give_up', {
@@ -2095,18 +2122,17 @@ export class DeepSeekBrowser {
               )
               throw e
             }
+            const busyWaitMs = backoffWaitMs(backoffCfg, serverBusyRetries)
             this._notice(
               theme.warn(
                 this._t('ds.server_busy_wait', {
-                  sec: Math.ceil(this.serverBusyWaitMs / 1000),
+                  sec: Math.ceil(busyWaitMs / 1000),
                   attempt: serverBusyRetries,
-                  max: this.maxServerBusyRetries,
+                  max: this.infiniteRetries ? '∞' : this.maxServerBusyRetries,
                 }),
               ),
             )
-            const aborted = await this._sleepInterruptible(
-              this.serverBusyWaitMs,
-            )
+            const aborted = await this._sleepInterruptible(busyWaitMs)
             if (aborted) return '(прервано пользователем)'
             continue
           }
@@ -2118,7 +2144,10 @@ export class DeepSeekBrowser {
           // button does) instead of waiting for an answer that will never come.
           if (e instanceof GenerationIncompleteError) {
             incompleteRetries++
-            if (incompleteRetries > this.maxIncompleteRetries) {
+            if (
+              !this.infiniteRetries &&
+              incompleteRetries > this.maxIncompleteRetries
+            ) {
               this._notice(
                 theme.error(
                   this._t('ds.incomplete_give_up', {
@@ -2132,13 +2161,15 @@ export class DeepSeekBrowser {
               theme.warn(
                 this._t('ds.incomplete_retry', {
                   attempt: incompleteRetries,
-                  max: this.maxIncompleteRetries,
+                  max: this.infiniteRetries ? '∞' : this.maxIncompleteRetries,
                 }),
               ),
             )
-            const aborted = await this._sleepInterruptible(
-              this.incompleteWaitMs,
+            const incompleteWaitMs = backoffWaitMs(
+              backoffCfg,
+              incompleteRetries,
             )
+            const aborted = await this._sleepInterruptible(incompleteWaitMs)
             if (aborted) return '(прервано пользователем)'
             continue
           }

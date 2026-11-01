@@ -53,7 +53,65 @@ const subjects = git([
 const parsed = subjects
   .map(parseConventionalCommit)
   .filter((c): c is NonNullable<typeof c> => c !== null)
-const body = renderChangelogDraft(groupCommits(parsed))
+// Hand-written Unreleased notes (a feature landed but is not committed yet,
+// or a commit message that does not follow the conventional format) must
+// SURVIVE the sync: only the AUTO-DRAFTED groups are replaced. The manual text
+// is everything in the current section that the draft would not produce; it is
+// appended after the drafted body so `changelog:check` never deletes it.
+const manualUnreleased = (current: string, drafted: string): string => {
+  const anchor = '## [Unreleased]'
+  const idx = current.indexOf(anchor)
+  if (idx < 0) return ''
+  const rest = current.slice(idx + anchor.length)
+  const next = rest.search(/\n## \[/)
+  const section = next < 0 ? rest : rest.slice(0, next)
+  const draftedLines = new Set(
+    drafted
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean),
+  )
+  const keep: string[] = []
+  let group = ''
+  for (const raw of section.split('\n')) {
+    const line = raw.trim()
+    if (/^#{2,3} /.test(line)) {
+      group = line.replace(/^#{2,3} /, '')
+      continue
+    }
+    if (!line.startsWith('- ')) continue
+    if (draftedLines.has(line)) continue
+    keep.push(line + '\u0000' + group)
+  }
+  if (!keep.length) return ''
+  const byGroup = new Map<string, string[]>()
+  for (const item of keep) {
+    const [line, g] = item.split('\u0000')
+    const list = byGroup.get(g) || []
+    list.push(line)
+    byGroup.set(g, list)
+  }
+  const order = ['Added', 'Fixed', 'Changed', 'Removed']
+  const out: string[] = []
+  for (const kind of order) {
+    const list = byGroup.get(kind)
+    if (!list || !list.length) continue
+    out.push('## ' + kind, '', ...list, '')
+  }
+  return out.join('\n').trimEnd()
+}
+
+const draftedBody = renderChangelogDraft(groupCommits(parsed))
+const onDiskForManual = fs.readFileSync(
+  path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '..',
+    'CHANGELOG.md',
+  ),
+  'utf-8',
+)
+const manual = manualUnreleased(onDiskForManual, draftedBody)
+const body = manual ? draftedBody + '\n\n' + manual : draftedBody
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const changelogPath = path.join(root, 'CHANGELOG.md')

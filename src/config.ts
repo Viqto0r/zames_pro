@@ -128,6 +128,13 @@ export const DEFAULTS: ZamesConfig = {
     // not waited out. 240s used to mean a 4-minute spinner per dead turn.
     askDeadlineMs: 120000,
     maxAfterToolRetries: 6,
+    // Infinite incremental retries for the transient families (rate limit,
+    // server busy, truncated turn, watchdog): the wait escalates 5m -> 10m
+    // -> 20m -> the ceiling instead of a hard attempt cap. Set false to get
+    // the old counted budget (maxRateLimitRetries / maxIncompleteRetries).
+    infiniteRetries: true,
+    // Ceiling for ONE retry wait (ms). 0 = no ceiling.
+    maxRetryWaitMs: 1800000,
     // Auto-compact is ON by default: a provider's context window is small and
     // per-model (GLM: 32k-128k), and running out of it mid-task is a hard stop
     // that loses the work, while a compaction at a safe seam only costs one

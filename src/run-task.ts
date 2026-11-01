@@ -594,6 +594,8 @@ export async function runTask(
         locale,
         askDeadlineMs: providerAskDeadlineMs(config),
         maxAfterToolRetries: config.browser.maxAfterToolRetries,
+        infiniteRetries: config.browser.infiniteRetries,
+        maxRetryWaitMs: config.browser.maxRetryWaitMs,
         // Auto-compact between tool calls when the context nears the window
         // limit. The callback is provided by the caller so it can refresh the
         // outer currentChatId; it serializes with the throttle because the

@@ -231,6 +231,14 @@ export const configMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Повторов после таймаута',
     en: 'Retries after a timeout',
   },
+  'cfg.f.browser_infiniteRetries': {
+    ru: 'Повторять бесконечно (с растущей паузой)',
+    en: 'Retry forever (with an escalating wait)',
+  },
+  'cfg.f.browser_maxRetryWaitMs': {
+    ru: 'Потолок одной паузы перед повтором, мс',
+    en: 'Ceiling for one retry wait, ms',
+  },
   'cfg.f.browser_continueMinGapMs': {
     ru: 'Мин. пауза перед нажатием Continue, мс',
     en: 'Min gap before a Continue click, ms',

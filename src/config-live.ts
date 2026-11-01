@@ -23,6 +23,8 @@ export const BROWSER_LIVE_CONFIG: Record<string, string> = {
   'browser.continueMinGapMs': 'continueMinGapMs',
   'browser.askDeadlineMs': 'askDeadlineMs',
   'browser.maxAfterToolRetries': 'maxAfterToolRetries',
+  'browser.infiniteRetries': 'infiniteRetries',
+  'browser.maxRetryWaitMs': 'maxRetryWaitMs',
 }
 
 /** Push a browser.* change onto the live instance. Returns true when a
@@ -38,6 +40,12 @@ export function applyBrowserLiveConfig(
   // A timing value must be a FINITE NON-NEGATIVE number: a NaN reached a live
   // field (a timer with NaN fires immediately) and a negative one is nonsense.
   // Reject the value instead of corrupting the field.
+  // A BOOLEAN toggle (browser.infiniteRetries) is a different shape: accept
+  // it as-is, otherwise every live toggle of it would be rejected here.
+  if (typeof value === 'boolean') {
+    browser[field] = value
+    return true
+  }
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
     return false
   }

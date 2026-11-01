@@ -1671,6 +1671,8 @@ async function main(): Promise<void> {
           maxSubagents: config.browser.maxSubagents,
           askDeadlineMs: providerAskDeadlineMs(config),
           maxAfterToolRetries: config.browser.maxAfterToolRetries,
+          infiniteRetries: config.browser.infiniteRetries,
+          maxRetryWaitMs: config.browser.maxRetryWaitMs,
           // An `ask` permission rule must also gate the subagent: otherwise a
           // guarded tool (e.g. a dangerous Bash command) would run inside the
           // subagent WITHOUT the operator's confirmation.

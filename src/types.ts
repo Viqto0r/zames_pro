@@ -114,6 +114,11 @@ export interface BrowserConfig {
    * loop gives up (afterToolRetries budget). Default 6.
    */
   maxAfterToolRetries: number
+  /** Retry the transient families (rate limit / server busy / truncated turn
+   *  / watchdog) FOREVER with an escalating wait. Default true. */
+  infiniteRetries: boolean
+  /** Ceiling for ONE retry wait (ms). 0 = no ceiling. Default 30 min. */
+  maxRetryWaitMs: number
   /**
    * Auto-compact the chat when its context nears the window limit, at the
    * safe seam between tool calls. Off by default (opt-in) because it opens a
