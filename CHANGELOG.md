@@ -7,19 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.91.0] - 2026-11-01
+
+### Added
+
+- **retry:** infinite incremental retries with escalating backoff
+
 ### Fixed
 
 - **qwen,glm:** headless login probe and headed runs
 - **ui:** same no-flicker phase rule for qwen and glm
-
-### Added
-
-- **retry:** infinite incremental retries (`browser.infiniteRetries`, on by default) - rate limit, server busy, a truncated turn and the ask() watchdog now wait 5m -> 10m -> 20m -> `browser.maxRetryWaitMs` (30m default) instead of running out of attempts; a server Retry-After wins over the curve
-- **retry:** the ask() watchdog never fires during a legitimate backoff - it retries with the same escalating wait and reports the attempt number
-
-### Fixed
-
-- **restore:** drop every agent-loop self-nudge from the restored dialogue (`/chats`, `/resume`) - the loop writes its own text as a user turn, and the filter only knew two of the nudge texts, so a flaky run showed "Your previous answer was not recognized as a tool call…" as the operator's own message
 
 ## [2.90.18] - 2026-10-30
 
