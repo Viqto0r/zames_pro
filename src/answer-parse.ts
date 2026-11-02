@@ -75,7 +75,16 @@ export function responseLooksLikeToolCall(rawResponse: string): boolean {
       /["']?(?:tool|args|command|path|old_string|content|content_base64)["']?\s*:/.test(
         raw,
       )) ||
-    /<\s*\|?\s*(DSML|invoke|parameter)/i.test(raw) ||
+    /<\s*\|?\s*(DSML|invoke|parameter|tool_use|tool_call|function_call|antml)/i.test(
+      raw,
+    ) ||
+    // OpenAI-style call wrappers: {"function_call": {...}},
+    // {"tool_calls": [...]}, {"name": "Bash", "arguments": "..."}. A real
+    // shape from the live chat — without these markers the answer was taken
+    // as prose and the agent silently stopped instead of calling the tool.
+    /["'](?:function_call|tool_calls?|arguments|parameters)["']\s*:/.test(
+      raw,
+    ) ||
     /^\s*\[?\s*\{[^}]*$/.test(raw.trim())
   )
 }

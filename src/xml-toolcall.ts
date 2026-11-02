@@ -260,5 +260,42 @@ export function parseXmlToolCalls(text: string): ParsedToolCall {
   // name in such an answer, so the call can't be restored — but it also must
   // not be silently taken as the final answer: agent-loop will ask to retry
   // (looksLikeToolCall triggers on the word parameter/DSML).
-  return null
+  //
+  // ONE exception is restorable: the tool name itself arrives as a parameter
+  // (a `name="tool"` parameter next to `name="args"`). A live answer used
+  // exactly this shape; before, it was dropped and the agent stalled after a
+  // call that never ran.
+  return parseBareDsmlCall(text)
+}
+
+// A call that arrived as a bare list of parameter tags with NO invoke wrapper:
+// the tool name is the `tool` (or `name`) parameter and the arguments are the
+// `args` parameter (JSON) or the remaining ones.
+function parseBareDsmlCall(text: string): ParsedToolCall {
+  if (!/<[^>]*?parameter/i.test(text)) return null
+  const args = parseParameters(text)
+  const toolRaw = args['tool'] ?? args['tool_name'] ?? args['name']
+  if (typeof toolRaw !== 'string' || !toolRaw.trim()) return null
+  const tool = toolRaw.trim()
+  let finalArgs: ToolArgs = {}
+  if ('args' in args) {
+    const a = args['args']
+    if (a && typeof a === 'object' && !Array.isArray(a)) {
+      finalArgs = a as ToolArgs
+    } else if (typeof a === 'string') {
+      try {
+        const parsed = JSON.parse(a)
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          finalArgs = parsed as ToolArgs
+        }
+      } catch {}
+    }
+  }
+  for (const k of Object.keys(args)) {
+    if (k === 'tool' || k === 'tool_name' || k === 'name' || k === 'args') {
+      continue
+    }
+    if (!(k in finalArgs)) finalArgs[k] = args[k]
+  }
+  return { tool, args: finalArgs }
 }
