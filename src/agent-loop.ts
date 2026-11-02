@@ -739,6 +739,13 @@ export async function runAgentLoop({
       (wdEmpty || wdStale || wdNoCall) &&
       watchdogRetries < MAX_WATCHDOG_RETRIES
     ) {
+      if (devDump && !wdEmpty) {
+        const dumped = await dumpUnparsedCall(rawResponse, {
+          provider: providerLabel,
+          where: 'loop:watchdog_no_call',
+        })
+        if (dumped) safeWarning('[dev] unparsed call saved: ' + dumped)
+      }
       watchdogRetries++
       transcript?.log('watchdog_nudge', {
         attempt: watchdogRetries,
