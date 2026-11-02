@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.94.2] - 2026-11-02
+
 ### Fixed
 
-- **dev:** the unparsed tool-call dump now writes into the CURRENT PROJECT (the workdir is passed through), not into whatever directory the process happened to start in - the dump could land outside the project and look missing
+- **dev:** write the unparsed-call dump into the project workdir
 
 ## [2.94.1] - 2026-11-02
 
