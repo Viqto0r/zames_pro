@@ -7,10 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.93.0] - 2026-11-02
+
 ### Fixed
 
-- **deepseek:** recognize foreign tool-call shapes - the OpenAI-style function_call / tool_calls / name+arguments wrappers and the Claude-style tool_use / antml tags were read as PROSE, so the call never ran and the agent silently stopped; they now count as a call, so the loop asks for a proper JSON call instead of finishing the task
-- **deepseek:** restore a tool call whose tool name arrived as a bare DSML parameter (no invoke wrapper) - the call was dropped and the agent stalled after a call that never ran
+- **deepseek:** recognize every tool-call shape the chat returns
 
 ## [2.92.0] - 2026-11-01
 
