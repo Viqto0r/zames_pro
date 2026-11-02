@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **dev:** save an unrecognized (but call-looking) answer to the unparsed folder under .zames in dev mode, for any provider, so the tool-call shape can be analyzed and the parser extended; the reload command now also refreshes the tool-call parser (answer-parse) without a restart
+
 ## [2.93.0] - 2026-11-02
 
 ### Fixed

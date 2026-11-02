@@ -555,6 +555,18 @@ async function reloadModules(): Promise<{ count: number; errors: string[] }> {
   if (pick('run-task', 'runTask'))
     mod.runTask = pick('run-task', 'runTask') as ModBag['runTask']
 
+  // answer-parse.ts and xml-toolcall.ts are NOT hot-reloadable: the loop
+  // keeps the parser functions in LIVE bindings, so /reload must push the
+  // freshly imported copy through it (a parser fix must not need a restart).
+  try {
+    const ap = (await import('./answer-parse.js')) as unknown
+    const loopMod = loaded.get('agent-loop')
+    const setter = loopMod ? loopMod['_setParserBindings'] : undefined
+    if (typeof setter === 'function') (setter as (m: unknown) => void)(ap)
+  } catch (e) {
+    errors.push('answer-parse: ' + (e as Error).message)
+  }
+
   return { count: loaded.size, errors }
 }
 
@@ -1268,6 +1280,7 @@ function runTaskDeps(): RunTaskDeps {
     config,
     runAgentLoop: mod.runAgentLoop,
     createSpinner: mod.createSpinner,
+    devDump: devMode,
     onAssistantMessage: (msg) => {
       lastAssistantMessage = msg
     },

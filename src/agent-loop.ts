@@ -80,6 +80,10 @@ export interface RunAgentLoopOptions {
   /** Warning for the operator (to the terminal, not only the transcript). */
   onWarning?: (text: string) => void
   debugLog?: boolean
+  /** Dev mode: dump an unrecognized (but call-looking) answer to disk.
+   *  Kept for analysis so the parser can be extended.
+   */
+  devDump?: boolean
   locale?: Locale
   /**
    * Hard deadline for one browser.ask() before the watchdog gives up on it
@@ -223,6 +227,7 @@ export async function runAgentLoop({
   onChatReady = () => {},
   onWarning = () => {},
   debugLog = false,
+  devDump = false,
   locale = DEFAULT_LOCALE,
   askDeadlineMs = 240_000,
   maxAfterToolRetries = 6,
@@ -780,6 +785,13 @@ export async function runAgentLoop({
       // agent stalls even though the model tried to call a tool.
       const looksLikeToolCall = responseLooksLikeToolCall(rawResponse)
       if (looksLikeToolCall && malformedRetries < MAX_MALFORMED_RETRIES) {
+        if (devDump) {
+          const dumped = await dumpUnparsedCall(rawResponse, {
+            provider: providerLabel,
+            where: 'loop:unparsed',
+          })
+          if (dumped) safeWarning('[dev] unparsed call saved: ' + dumped)
+        }
         malformedRetries++
         unparsedRetries++
         transcript?.log('malformed_toolcall', {
@@ -1686,13 +1698,78 @@ ${diag}`
 
 // The pure helpers (tool-call parser + answer heuristics) live in
 // answer-parse.ts  and are imported here for runAgentLoop. They are
-// NOT re-exported: importers get them from answer-parse.js directly .
+// NOT re-exported: importers get them from answer-parse.js directly.
+
+// parseToolCall and responseLooksLikeToolCall live in let bindings:
+// their modules (answer-parse.ts, xml-toolcall.ts) are NOT hot-reloadable,
+// so an edit to the parser was reported by the dev watcher and then
+// silently ignored for the whole run. /reload swaps them through
+// _setParserBindings().
 import {
-  parseToolCall,
-  responseLooksLikeToolCall,
   truncateToolResult,
   normForStale,
   looksLikeUnfinishedWork,
   isMeaningfulRespond,
   extractPreToolText,
 } from './answer-parse.js'
+import * as answerParse from './answer-parse.js'
+let parseToolCall: typeof answerParse.parseToolCall = answerParse.parseToolCall
+let responseLooksLikeToolCall: typeof answerParse.responseLooksLikeToolCall =
+  answerParse.responseLooksLikeToolCall
+
+export function _setParserBindings(m: {
+  parseToolCall: typeof answerParse.parseToolCall
+  responseLooksLikeToolCall: typeof answerParse.responseLooksLikeToolCall
+}): void {
+  parseToolCall = m.parseToolCall
+  responseLooksLikeToolCall = m.responseLooksLikeToolCall
+}
+
+let unparsedDumps = 0
+const UNPARSED_DUMP_MAX = 20
+const UNPARSED_DUMP_BYTES = 64 * 1024
+
+/** Dev mode: save an unrecognized (but call-looking) answer for analysis. */
+export async function dumpUnparsedCall(
+  raw: string,
+  meta: { provider?: string; where: string; workdir?: string },
+): Promise<string> {
+  if (unparsedDumps >= UNPARSED_DUMP_MAX) return ''
+  const text = String(raw || '')
+  if (!text.trim()) return ''
+  const fs = await import('node:fs/promises')
+  const p = await import('node:path')
+  const dir = p.join(meta.workdir || process.cwd(), '.zames', 'unparsed')
+  try {
+    await fs.mkdir(dir, { recursive: true })
+    unparsedDumps++
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const name =
+      stamp + '-' + String(meta.where || 'x').replace(/[^a-z0-9_-]+/gi, '_')
+    const file = p.join(dir, name + '.txt')
+    const NL = String.fromCharCode(10)
+    const head =
+      '# unparsed tool-call candidate' +
+      NL +
+      'when: ' +
+      new Date().toISOString() +
+      NL +
+      'provider: ' +
+      (meta.provider || '-') +
+      NL +
+      'where: ' +
+      meta.where +
+      NL +
+      'length: ' +
+      text.length +
+      NL +
+      NL +
+      '--- raw answer ---' +
+      NL +
+      NL
+    await fs.writeFile(file, head + text.slice(0, UNPARSED_DUMP_BYTES), 'utf-8')
+    return file
+  } catch {
+    return ''
+  }
+}

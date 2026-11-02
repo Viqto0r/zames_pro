@@ -116,6 +116,8 @@ export interface RunTaskDeps {
   locale: Locale
   debug: boolean
   maxIter: number
+  /** Dev mode: save an unrecognized tool-call answer to disk. */
+  devDump?: boolean
   config: ZamesConfig
   /** Hot-reloadable logic (runAgentLoop / createSpinner) from the mod bag. */
   runAgentLoop: typeof runAgentLoop
@@ -591,6 +593,7 @@ export async function runTask(
         },
         onChatReady,
         debugLog: debug,
+        devDump: deps.devDump === true,
         locale,
         askDeadlineMs: providerAskDeadlineMs(config),
         maxAfterToolRetries: config.browser.maxAfterToolRetries,
