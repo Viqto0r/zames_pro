@@ -297,7 +297,14 @@ function readConfigObject(file: string): Record<string, unknown> | null {
 export function providerAskDeadlineMs(cfg: ZamesConfig): number {
   if (cfg.provider === 'qwen') return cfg.qwen.answerTimeoutMs + 120_000
   if (cfg.provider === 'glm') return cfg.glm.answerTimeoutMs + 120_000
-  return cfg.browser.askDeadlineMs
+  // DeepSeek used to get askDeadlineMs (120s) as-is while its own
+  // answerTimeoutMs is 180s: the watchdog killed a live generation a
+  // minute early (25 answers lost in one 66-minute session). Same
+  // headroom as the other providers; never below a configured value.
+  return Math.max(
+    cfg.browser.askDeadlineMs,
+    cfg.browser.answerTimeoutMs + 60_000,
+  )
 }
 
 function deepMerge(
