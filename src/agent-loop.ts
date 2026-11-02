@@ -743,6 +743,7 @@ export async function runAgentLoop({
         const dumped = await dumpUnparsedCall(rawResponse, {
           provider: providerLabel,
           where: 'loop:watchdog_no_call',
+          workdir,
         })
         if (dumped) safeWarning('[dev] unparsed call saved: ' + dumped)
       }
@@ -796,6 +797,7 @@ export async function runAgentLoop({
           const dumped = await dumpUnparsedCall(rawResponse, {
             provider: providerLabel,
             where: 'loop:unparsed',
+            workdir,
           })
           if (dumped) safeWarning('[dev] unparsed call saved: ' + dumped)
         }
