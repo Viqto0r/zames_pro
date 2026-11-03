@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **prompt:** a throwaway script or scratch file must go to <project>/tmp with the right extension - the agent used to drop ad-hoc files (zz_c.txt, i1.py) into the project root, where they showed up in git status
+
 ## [2.94.7] - 2026-11-03
 
 ### Fixed

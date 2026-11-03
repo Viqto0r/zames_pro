@@ -296,6 +296,19 @@ export function buildSystemPrompt({
         'and it is not needed to read or edit files.\n'
       : ''
 
+  // Where a THROWAWAY script belongs. Without this rule the agent drops
+  // scratch files right into the project root with ad-hoc names (zz_c.txt,
+  // i1.py, tmp2.sh) and they end up in `git status`. The folder already
+  // exists, is gitignored and is wiped on every launch.
+  const tmpSection =
+    '\n## Throwaway files go to <project>/tmp\n\n' +
+    'A one-off script, a scratch dump, a generated sample or any other ' +
+    'temporary file MUST be written to <project>/tmp (it exists, is ' +
+    'gitignored and is wiped on every launch) and NOT into the project ' +
+    'root. Give it a descriptive name with the RIGHT extension (.mjs, ' +
+    '.py, .ts, .txt) - the extension is what makes a later read or run ' +
+    'work. Delete the file when you are done with it.\n'
+
   const gitSection = gitContext
     ? `\n## Git context\n\n${gitContext}\n`
     : '\n## Git context\n\nNot a git repository (or git is not installed).\n'
@@ -360,7 +373,7 @@ task is done (or when you must ask the operator), not between tool calls.
 You have access to the following tools:
 
 ${toolDescriptions}
-${runtimeSection}${gitSection}${attachSection}${contextSection}${selfSection}
+${runtimeSection}${tmpSection}${gitSection}${attachSection}${contextSection}${selfSection}
 ## Choosing the right tool
 
 Prefer the most specific tool; a wrong choice wastes a turn:
