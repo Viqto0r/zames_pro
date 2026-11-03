@@ -283,6 +283,7 @@ export async function runAgentLoop({
   // Coarse lifecycle of the send (generating/paused/settled) for the status
   // line. Same best-effort wiring as the other hooks.
   browser.onSendState = safe(onSendState)
+  const safeSendState = safe(onSendState)
   // Service notices (rate limit, server busy, resend) must reach the OPERATOR.
   // While a LineEditor is active a raw console.error is overwritten by the
   // editor's repaint, so the operator only saw the spinner. `onNotice` prints
@@ -689,6 +690,13 @@ export async function runAgentLoop({
     }
     await reportChat()
     transcript?.log('assistant_raw', { response: rawResponse })
+
+    // A returned answer is a FINISHED generation: clear the "generating" badge
+    // NOW, not when the next ask() happens to start. The operator used to see
+    // "▶ генерация" for minutes after the answer had already been printed
+    // (the tool-call parsing, a long Bash run) - it looked like the agent was
+    // still generating with nothing in flight.
+    safeSendState('settled')
 
     // The user aborted generation (Esc/Ctrl+C).
     if (/^\s*\(прервано пользователем\)\s*$/.test(rawResponse)) {

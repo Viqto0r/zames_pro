@@ -67,7 +67,9 @@ test('onSendState is wired and forwarded to the UI callback', async (t) => {
     onSendState: (s) => states.push(s),
   })
 
-  assert.deepEqual(states, ['generating', 'settled'])
+  // The loop also emits settled as soon as an answer comes back (so the
+  // badge clears immediately, not on the next send).
+  assert.deepEqual(states, ['generating', 'settled', 'settled'])
 })
 
 // The editor prefix must reflect the state and be cleared by stop().
