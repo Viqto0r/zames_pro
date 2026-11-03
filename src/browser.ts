@@ -2690,7 +2690,11 @@ export class DeepSeekBrowser {
     // Wait for the start: either Stop appeared, or the answer text changed,
     // or the page grew (a new answer node / longer last answer). In parallel we
     // catch the rate-limit toast (only toasts, not the whole body).
-    const startDeadline = Date.now() + 30_000
+    // MEASURED live: an answer either starts within a few seconds or the send
+    // did not go out at all. The old 30s + 20s windows meant FIFTY seconds of
+    // a frozen "generating" status on every missed start; 12s + 10s is
+    // plenty for DeepSeek to show the Stop button or start streaming.
+    const startDeadline = Date.now() + 12_000
     // A CHEAP growth signal (message-node count + last-answer length)
     // instead of document.body.innerText.length, which walked the whole page.
     const startSignal = await this._chatSignal()
@@ -2943,7 +2947,7 @@ export class DeepSeekBrowser {
       this._askDebug('START-failed, resending')
       await this.page.keyboard.press('Enter')
       this._lastSentAt = Date.now()
-      const retryDeadline = Date.now() + 20_000
+      const retryDeadline = Date.now() + 10_000
       while (Date.now() < retryDeadline) {
         if (this._abort || this._askCancelled) return '(прервано пользователем)'
         const cur2 = await this._readLastAnswerTextCleanDom().catch(() => '')
