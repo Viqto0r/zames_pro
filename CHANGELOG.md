@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.94.6] - 2026-11-03
+
+### Fixed
+
+- **ui:** clear the generating badge as soon as an answer comes back
+
 ## [2.94.5] - 2026-11-03
 
 ### Changed
