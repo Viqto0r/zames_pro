@@ -795,6 +795,15 @@ export async function runAgentLoop({
     }
 
     if (!parsed) {
+      // SILENT BACKGROUND POLL: {"tool": "BashOutput", "args": {...}} for a
+      // process that has ALREADY finished (the watchdog killed its promise,
+      // or the id is stale). The tool itself answers "no background process"
+      // and does not move the task forward, so an EMPTY model turn is not a
+      // stall worth a dev dump / a nudge - the loop simply re-asks quietly.
+      // Matching is DELIBERATELY narrow: only BashOutput with a plain id.
+      if (isEmptyPollCall(rawResponse)) {
+        continue
+      }
       // The answer looks like a (possibly truncated) tool call. We catch not
       // only explicit JSON but also XML/DSML forms, "dirty" variants and
       // unclosed fragments: if such an answer is silently taken as final, the
@@ -1747,6 +1756,28 @@ const UNPARSED_DUMP_MAX = 20
 const UNPARSED_DUMP_BYTES = 64 * 1024
 
 /** Dev mode: save an unrecognized (but call-looking) answer for analysis. */
+/**
+ * True when the raw answer is a bare `{"tool":"BashOutput","args":{"id":...}}`
+ * (optionally wrapped in whitespace/fences). A finished background process is
+ * polled by the model with such a call; the tool returns "no background
+ * process with id ..." which does not advance the task. Used to skip the
+ * stall nudge / dev dump for this one case only.
+ */
+export function isEmptyPollCall(raw: string): boolean {
+  const t = String(raw || '').trim()
+  if (!t || t.length > 400) return false
+  let obj: unknown
+  try {
+    obj = JSON.parse(t)
+  } catch {
+    return false
+  }
+  const o = obj as { tool?: unknown; args?: unknown } | null
+  if (!o || o.tool !== 'BashOutput') return false
+  const a = o.args as { id?: unknown } | null
+  return !!a && typeof a.id === 'string'
+}
+
 export async function dumpUnparsedCall(
   raw: string,
   meta: { provider?: string; where: string; workdir?: string },
