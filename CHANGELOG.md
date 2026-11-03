@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.94.5] - 2026-11-03
+
+### Changed
+
+- **deepseek:** cut the send-start deadline from 50s to 22s
+
 ## [2.94.4] - 2026-11-03
 
 ### Fixed
