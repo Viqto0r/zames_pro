@@ -338,6 +338,10 @@ export class DeepSeekBrowser {
   // threw ds.send_no_new_answer while the chat plainly showed the rate limit.
   // Reset before a send.
   _netRateLimited: boolean
+  // True when the LAST completion/continue body carried the server-busy
+  // notice ("Server busy, please try again later"). It arrives WITHOUT a
+  // DOM toast, so the SSE body is the authoritative source. Reset per send.
+  _netServerBusy: boolean
   _netChatId: string | null
   // The latest CONTEXT size (in tokens) DeepSeek reported in the current
   // chat. It is the `accumulated_token_usage` counter taken from the SSE
@@ -481,6 +485,7 @@ export class DeepSeekBrowser {
     this._netCaptureAt = 0
     this._netNoAnswer = false
     this._netRateLimited = false
+    this._netServerBusy = false
     this._netChatId = null
     this._lastTokenUsage = null
     this._toggles = { deepThinking, webSearch }
@@ -796,6 +801,13 @@ export class DeepSeekBrowser {
           // frequent".
           if (isRateLimitText(body)) {
             this._netRateLimited = true
+            this._netCapture = ''
+          }
+          // The SERVER-BUSY notice can arrive ONLY in the body: the toast is
+          // short-lived, and without this the loop waited out the deadline and
+          // reported "no answer" for a turn the server had refused.
+          if (isServerBusyText(body)) {
+            this._netServerBusy = true
             this._netCapture = ''
           }
           this._netCaptureAt = Date.now()
@@ -2610,6 +2622,7 @@ export class DeepSeekBrowser {
     this._netCaptureAt = 0
     this._netNoAnswer = false
     this._netRateLimited = false
+    this._netServerBusy = false
     this._netBody = ''
 
     // Align the DeepSeek chat toggles (deep thinking / web search) with the
@@ -2736,6 +2749,12 @@ export class DeepSeekBrowser {
         throw new RateLimitError(
           this._netBody.slice(0, 300) || 'rate limit (from network)',
         )
+      }
+      // Body-only server-busy notice: retry instead of waiting out the
+      // whole deadline (a live chat showed it while the agent reported
+      // "no answer").
+      if (this._netServerBusy && this._netCaptureAt >= this._lastSentAt) {
+        throw new ServerBusyError(this._netBody.slice(-300))
       }
       // The turn was truncated by the server: the SSE body carries
       // finish_reason=generation_err / quasi_status=INCOMPLETE and the UI
@@ -3015,6 +3034,12 @@ export class DeepSeekBrowser {
         throw new RateLimitError(
           this._netBody.slice(0, 300) || 'rate limit (from network)',
         )
+      }
+      // Body-only server-busy notice: retry instead of waiting out the
+      // whole deadline (a live chat showed it while the agent reported
+      // "no answer").
+      if (this._netServerBusy && this._netCaptureAt >= this._lastSentAt) {
+        throw new ServerBusyError(this._netBody.slice(-300))
       }
       // The exhausted context can likewise be visible only in the captured
       // body rather than in a toast, so ask() must see it here as well.

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **deepseek:** recognise the server-busy notice from the SSE body - the chat showed "Server busy, please try again later." while the agent waited out the whole deadline and reported "no answer"; it now retries with the escalating backoff like the other transient families
+
 ## [2.94.6] - 2026-11-03
 
 ### Fixed
