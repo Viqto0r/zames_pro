@@ -2767,7 +2767,10 @@ export class DeepSeekBrowser {
       if (
         !awaitingAnswer &&
         this._netCaptureAt >= this._lastSentAt &&
-        isGenerationIncompleteText(this._netBody)
+        isGenerationIncompleteText(this._netBody) &&
+        // A body can carry BOTH the marker and a real answer in a late
+        // fragment: never declare the turn dead while text is already there.
+        !(this._netCapture && this._netCapture.trim().length > 0)
       ) {
         // PREFER the Continue button: it RESUMES the same truncated turn (a
         // `chat/continue` request). Resending the prompt creates a NEW turn and
@@ -3033,7 +3036,10 @@ export class DeepSeekBrowser {
       const truncated =
         !doneAnswer &&
         this._netCaptureAt >= this._lastSentAt &&
-        isGenerationIncompleteText(this._netBody)
+        isGenerationIncompleteText(this._netBody) &&
+        // A truncation marker may arrive BEFORE a late RESPONSE fragment:
+        // never declare the turn dead while text is already captured.
+        !(this._netCapture && this._netCapture.trim().length > 0)
       const noAnswer =
         !doneAnswer &&
         this._netNoAnswer &&
