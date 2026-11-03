@@ -9,7 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **loop:** do not dump or nudge a stale  poll - a finished background process is polled by the model and the tool answers "no background process", which is not a stall (the dev dump filled up with these instead of real unparsed calls)
+- **loop:** do not dump or nudge a stale `BashOutput` poll - a finished
+  background process is polled by the model and the tool answers "no
+  background process", which is not a stall (the dev dump filled up with
+  these instead of real unparsed calls)
 
 ## [2.95.0] - 2026-11-03
 
