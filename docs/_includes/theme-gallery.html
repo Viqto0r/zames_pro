@@ -1,0 +1,53 @@
+{% comment %} The theme gallery, rendered at the TOP of every page's main
+content. Why an include and not docs/index.md: the landing pages are
+hand-written HTML inside Markdown, and 29 screenshots repeated twice (EN + RU)
+would drift the moment a theme is added. The data is docs/_data/themes.yml, so
+Jekyll loops over it and the pages stay readable. Why plain links and not a JS
+carousel: the screenshot IS the feature here (29 palettes ship with the agent),
+so the grid must work with JS off - every tile is a real link to the full-size
+PNG. site.js only upgrades a left click into a dialog lightbox. Each tile paints
+its OWN palette background (bg) before the PNG loads, and a light theme gets
+.is-light so its caption flips to dark text: without that a gallery of 29 images
+first flashes dark rectangles and then the five light palettes arrive as white
+holes. {% endcomment %}
+<aside class="theme-showcase" id="themes">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>{{ site.ui.themes | default: 'Themes' }}</h2>
+      <p>
+        {{ site.ui.theme_gallery_lead | default: 'Every palette ships with the
+        agent.' }}
+      </p>
+    </div>
+    <ul class="theme-gallery" role="list">
+      {% for t in site.data.themes %}
+      <li>
+        <a
+          class="theme-tile{% if t.light %} is-light{% endif %}"
+          href="{{ '/shots/theme-' | append: t.id | append: '.png' | relative_url }}"
+          data-label="{{ t.id }}"
+          style="--tile-bg: {{ t.bg }}; --tile-accent: {{ t.accent }}"
+        >
+          <img
+            src="{{ '/shots/theme-' | append: t.id | append: '.png' | relative_url }}"
+            alt="{% if page.lang == 'ru' %}Тема {{ t.id }}: образец сессии zames в терминале{% else %}The {{ t.id }} theme: a sample zames session in the terminal{% endif %}"
+            width="900"
+            height="520"
+            loading="lazy"
+            decoding="async"
+          />
+          <span class="theme-name">{{ t.id }}</span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    <p class="theme-more">
+      <a
+        href="{% if page.lang == 'ru' %}{{ '/configuration-ru' | relative_url }}{% else %}{{ '/configuration' | relative_url }}{% endif %}"
+      >
+        {% if page.lang == 'ru' %}Как выбрать тему: /theme и /config{% else
+        %}How to pick one: /theme and /config{% endif %} →
+      </a>
+    </p>
+  </div>
+</aside>

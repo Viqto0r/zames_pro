@@ -20,6 +20,13 @@ ui:
   providers: Providers
   why: Why zames
   install: Install
+  menu: Menu
+  themes: Themes
+  theme_gallery_lead: >-
+    Every palette ships with the agent. Click one to see it full size.
+  disclaimer: >-
+    Not affiliated with DeepSeek, Alibaba or Zhipu AI. Automating a website may
+    violate its terms of use.
   project: Project
   docs: Documentation
   help: Help

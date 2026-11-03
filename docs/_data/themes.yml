@@ -1,0 +1,128 @@
+# The 29 bundled terminal themes, as shown by the gallery on every page.
+# One entry per `docs/shots/theme-<id>.png`; `bg`/`accent` are the palette's
+# own colors, read off the screenshot so the tile can paint itself BEFORE the
+# PNG arrives (a gallery of 29 images that first flashes dark rectangles is
+# worse than one that never moves).
+#
+# `light` must match LIGHT_PALETTES in src/theme-light.ts: a light tile on a
+# dark page needs dark text on top of it.
+#
+# The ids and the order match ThemeName in src/types.ts and the list in
+# docs/configuration*.md; test/docs-themes.test.ts fails when a screenshot or a
+# ThemeName has no entry here.
+- id: zames
+  bg: '#23272e'
+  accent: '#c8b06a'
+  light: false
+- id: one-dark
+  bg: '#282c34'
+  accent: '#e5c07b'
+  light: false
+- id: dracula
+  bg: '#282a36'
+  accent: '#ffb86c'
+  light: false
+- id: gruvbox
+  bg: '#282828'
+  accent: '#fabd2f'
+  light: false
+- id: nord
+  bg: '#2e3440'
+  accent: '#ebcb8b'
+  light: false
+- id: monokai
+  bg: '#272822'
+  accent: '#e6db74'
+  light: false
+- id: solarized-dark
+  bg: '#002b36'
+  accent: '#b58900'
+  light: false
+- id: tokyo-night
+  bg: '#1a1b26'
+  accent: '#e0af68'
+  light: false
+- id: tokyo-storm
+  bg: '#24283b'
+  accent: '#e0af68'
+  light: false
+- id: catppuccin
+  bg: '#1e1e2e'
+  accent: '#f9e2af'
+  light: false
+- id: github-dark
+  bg: '#0d1117'
+  accent: '#d29922'
+  light: false
+- id: ayu
+  bg: '#0f1419'
+  accent: '#ffb454'
+  light: false
+- id: rose-pine
+  bg: '#191724'
+  accent: '#f6c177'
+  light: false
+- id: everforest
+  bg: '#2d353b'
+  accent: '#dbbc7f'
+  light: false
+- id: kanagawa
+  bg: '#1f1f28'
+  accent: '#e6c384'
+  light: false
+- id: night-owl
+  bg: '#011627'
+  accent: '#ecc48d'
+  light: false
+- id: material
+  bg: '#0f111a'
+  accent: '#ffcb6b'
+  light: false
+- id: palenight
+  bg: '#292d3e'
+  accent: '#ffcb6b'
+  light: false
+- id: zenburn
+  bg: '#3f3f3f'
+  accent: '#e3ceab'
+  light: false
+- id: selenized
+  bg: '#103c48'
+  accent: '#dbb32d'
+  light: false
+- id: iceberg
+  bg: '#161821'
+  accent: '#e2a478'
+  light: false
+- id: sonokai
+  bg: '#2c2e34'
+  accent: '#e7c664'
+  light: false
+- id: aurora
+  bg: '#191c27'
+  accent: '#ebcb8b'
+  light: false
+- id: cobalt2
+  bg: '#193549'
+  accent: '#ffc600'
+  light: false
+- id: one-light
+  bg: '#fafafa'
+  accent: '#c18401'
+  light: true
+- id: github-light
+  bg: '#ffffff'
+  accent: '#9a6700'
+  light: true
+- id: solarized-light
+  bg: '#fdf6e3'
+  accent: '#b58900'
+  light: true
+- id: gruvbox-light
+  bg: '#fbf1c7'
+  accent: '#b57614'
+  light: true
+- id: ayu-light
+  bg: '#fafafa'
+  accent: '#fa8d3e'
+  light: true

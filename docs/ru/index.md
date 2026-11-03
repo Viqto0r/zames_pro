@@ -13,6 +13,14 @@ ui:
   providers: Провайдеры
   why: Почему zames
   install: Установка
+  menu: Меню
+  themes: Темы
+  theme_gallery_lead: >-
+    Все палитры идут в комплекте с агентом. Нажмите на любую, чтобы открыть
+    скриншот в полном размере.
+  disclaimer: >-
+    Не связан с DeepSeek, Alibaba и Zhipu AI. Автоматизация сайта может
+    нарушать его условия использования.
   project: Проект
   docs: Документация
   help: Помощь
@@ -39,12 +47,17 @@ ui:
     </div>
     <div class="install"><span class="prompt">$</span> npm install -g zames_pro</div>
     <div class="hero-shot">
-      <img
-        src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png"
-        alt="Сессия zames_pro в терминале: агент читает файлы, выполняет команды и печатает ответ"
-        width="1385"
-        height="671"
-      />
+      <a class="hero-shot-link" href="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png" target="_blank" rel="noopener">
+        <img
+          src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png"
+          alt="Сессия zames_pro в терминале: агент читает файлы, выполняет команды и печатает ответ"
+          width="1385"
+          height="671"
+          loading="lazy"
+          decoding="async"
+        />
+      </a>
+      <p class="hero-shot-caption">Настоящая задача в настоящем терминале — агент читает файлы, гоняет тесты и печатает результат.</p>
     </div>
   </div>
 </section>
@@ -141,6 +154,8 @@ ui:
         alt="Как работает zames_pro: терминал отправляет задачу в веб-чат DeepSeek, Qwen или GLM через Playwright и выполняет вызовы инструментов локально"
         width="2240"
         height="360"
+        loading="lazy"
+        decoding="async"
       />
     </div>
     <div class="steps" style="margin-top: 24px">
@@ -294,6 +309,10 @@ zames</code></pre>
       <a class="card" href="{{ '/troubleshooting-ru' | relative_url }}">
         <h3>Решение проблем</h3>
         <p>Вход и капча, headless 403, рейт-лимиты, отсутствующие библиотеки.</p>
+      </a>
+      <a class="card" href="{{ '/ru/#themes' | relative_url }}">
+        <h3>Темы</h3>
+        <p>29 цветовых тем с живым предпросмотром и скриншотами.</p>
       </a>
       <a class="card" href="{{ '/' | relative_url }}">
         <h3>English version</h3>

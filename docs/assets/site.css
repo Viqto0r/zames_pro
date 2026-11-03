@@ -316,6 +316,21 @@ a:hover {
   height: auto;
 }
 
+.hero-shot-link {
+  display: block;
+  cursor: zoom-in;
+}
+
+.hero-shot-caption {
+  margin: 0;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-soft);
+  color: var(--muted);
+  font-size: 13.5px;
+  text-align: center;
+}
+
 /* ---------- sections ---------- */
 
 section {
@@ -758,5 +773,267 @@ pre code {
 
   .site-footer {
     padding: 32px 0;
+  }
+}
+
+/* ---------- mobile menu button ---------- */
+
+/* Hidden on a wide screen: the links are visible there. Under 720px the nav
+   becomes a dropdown (see the narrow-screen block below). */
+.nav-toggle {
+  display: none;
+  margin-left: auto;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg-soft);
+  cursor: pointer;
+}
+
+.nav-toggle span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  margin: 3px 0;
+  border-radius: 2px;
+  background: var(--text);
+}
+
+/* ---------- copy button on a code block ---------- */
+
+/* site.js injects it; a page without JS keeps the plain <pre>. */
+pre .copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--card) 80%, transparent);
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0.7;
+  transition:
+    opacity 0.15s ease,
+    color 0.15s ease;
+}
+
+pre:hover .copy-btn,
+pre .copy-btn:focus-visible {
+  opacity: 1;
+}
+
+pre .copy-btn.copied {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ---------- theme gallery ---------- */
+
+/* Rendered at the top of <main> on every page
+   (docs/_includes/theme-gallery.html). The tiles are real <a> links, so the
+   grid degrades to 29 big screenshots; site.js upgrades a left click into a
+   <dialog> lightbox. */
+.theme-showcase {
+  padding: 8px 0 40px;
+}
+
+.theme-showcase .section-head {
+  margin-bottom: 24px;
+}
+
+.theme-gallery {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.theme-tile {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  /* Paint the palette's own background before the PNG arrives: the first
+     paint must already look like a palette, not like a broken image. */
+  background: var(--tile-bg, var(--card));
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.theme-tile:hover,
+.theme-tile:focus-visible {
+  transform: translateY(-2px);
+  border-color: var(--tile-accent, var(--accent));
+  box-shadow: 0 14px 34px -18px var(--tile-accent, var(--accent));
+  text-decoration: none;
+}
+
+.theme-tile img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 900 / 520;
+  object-fit: cover;
+}
+
+/* The caption sits ON the palette background; a light palette needs dark
+   text, a dark one light text (the tile carries its own `bg`). */
+.theme-name {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tile-bg, #000) 72%, transparent);
+  color: color-mix(in srgb, var(--tile-accent, #fff) 80%, #fff);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(4px);
+}
+
+.theme-tile.is-light .theme-name {
+  background: rgba(255, 255, 255, 0.78);
+  color: #1b2430;
+}
+
+.theme-more {
+  margin: 16px 0 0;
+  text-align: center;
+  font-size: 14.5px;
+}
+
+/* ---------- lightbox ---------- */
+
+.lightbox {
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--text);
+  max-width: min(1120px, 94vw);
+}
+
+.lightbox::backdrop {
+  background: rgba(4, 8, 18, 0.72);
+  backdrop-filter: blur(3px);
+}
+
+.lightbox figure {
+  margin: 0;
+}
+
+.lightbox img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.lightbox-caption {
+  padding: 8px 14px 12px;
+  font-size: 13.5px;
+  color: var(--muted);
+  font-family:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.lightbox-close:hover {
+  background: var(--card-hover);
+}
+
+/* ---------- narrow screens: the menu becomes a dropdown ---------- */
+
+@media (max-width: 720px) {
+  .nav-toggle {
+    display: block;
+  }
+
+  .site-nav.open {
+    position: absolute;
+    top: 64px;
+    left: 0;
+    right: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 12px 24px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    box-shadow: 0 24px 40px -28px rgba(0, 0, 0, 0.7);
+  }
+
+  .site-nav.open a {
+    width: 100%;
+    padding: 9px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  }
+}
+
+@media (max-width: 620px) {
+  .theme-gallery {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+  }
+
+  .theme-showcase {
+    padding-top: 0;
+  }
+}
+
+/* ---------- motion and print ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  .site-header,
+  .site-footer,
+  .theme-showcase,
+  .lightbox,
+  .copy-btn {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
   }
 }

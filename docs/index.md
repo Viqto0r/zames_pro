@@ -26,12 +26,17 @@ alt_url: /ru/
     </div>
     <div class="install"><span class="prompt">$</span> npm install -g zames_pro</div>
     <div class="hero-shot">
-      <img
-        src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png"
-        alt="A zames_pro session in the terminal: the agent reads files, runs commands and prints its answer"
-        width="1385"
-        height="671"
-      />
+      <a class="hero-shot-link" href="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png" target="_blank" rel="noopener">
+        <img
+          src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png"
+          alt="A zames_pro session in the terminal: the agent reads files, runs commands and prints its answer"
+          width="1385"
+          height="671"
+          loading="lazy"
+          decoding="async"
+        />
+      </a>
+      <p class="hero-shot-caption">A real task in a real terminal — the agent reads files, runs the tests and prints the result.</p>
     </div>
   </div>
 </section>
@@ -126,6 +131,8 @@ alt_url: /ru/
         alt="How zames_pro works: the terminal sends the task to a DeepSeek, Qwen or GLM web chat through Playwright and runs the tool calls locally"
         width="2240"
         height="360"
+        loading="lazy"
+        decoding="async"
       />
     </div>
     <div class="steps" style="margin-top: 24px">
@@ -278,6 +285,10 @@ zames</code></pre>
       <a class="card" href="{{ '/troubleshooting' | relative_url }}">
         <h3>Troubleshooting</h3>
         <p>Sign-in and captcha, headless 403, rate limits, missing libraries.</p>
+      </a>
+      <a class="card" href="{{ '/#themes' | relative_url }}">
+        <h3>Themes</h3>
+        <p>29 color themes with a live preview and screenshots of every one.</p>
       </a>
       <a class="card" href="{{ '/ru/' | relative_url }}">
         <h3>Русская версия</h3>
