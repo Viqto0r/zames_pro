@@ -2708,11 +2708,15 @@ export class DeepSeekBrowser {
     // Wait for the start: either Stop appeared, or the answer text changed,
     // or the page grew (a new answer node / longer last answer). In parallel we
     // catch the rate-limit toast (only toasts, not the whole body).
-    // MEASURED live: an answer either starts within a few seconds or the send
-    // did not go out at all. The old 30s + 20s windows meant FIFTY seconds of
-    // a frozen "generating" status on every missed start; 12s + 10s is
-    // plenty for DeepSeek to show the Stop button or start streaming.
-    const startDeadline = Date.now() + 12_000
+    //
+    // MEASURED on 90 live turns: the server needs a MEDIAN of ~16s to deliver a
+    // completion body (min 11.7s, max 25.8s), so the old 12s window was shorter
+    // than a NORMAL turn. The loop then declared "the send did not go out" and
+    // pressed Enter AGAIN — a DUPLICATE turn that ended in "Messages too
+    // frequent". The window only has to cover the SEND (the input clearing, the
+    // Stop button appearing), not the answer, so 30s is generous without
+    // delaying a real miss by minutes.
+    const startDeadline = Date.now() + 30_000
     // A CHEAP growth signal (message-node count + last-answer length)
     // instead of document.body.innerText.length, which walked the whole page.
     const startSignal = await this._chatSignal()
@@ -2725,6 +2729,7 @@ export class DeepSeekBrowser {
     // the text has been stable for a couple of ticks.
     let settledTicks = 0
     let lastStartCur = ''
+    let stopTicks = 0
     while (Date.now() < startDeadline) {
       if (this._abort || this._askCancelled) return '(прервано пользователем)'
       const pageText = await this._readPageText()
@@ -2862,7 +2867,18 @@ export class DeepSeekBrowser {
       // to hang until the full timeout and the agent appeared to "stop".
       const netStarted =
         !!this._netCapture && this._netCaptureAt >= this._lastSentAt
-      if (changed || netStarted || grew) {
+      // The Stop button is the SERVER's own "a turn is running" signal, and it
+      // appears long before the first token reaches the DOM or the completion
+      // body is complete (measured: the body lands a median 16s after the
+      // send, while Stop shows up within a second). Without it a SLOW network
+      // looked like a failed send: the loop hit the start deadline and pressed
+      // Enter again, producing a duplicate turn. A lingering Stop from the
+      // previous generation is ruled out by requiring TWO consecutive ticks
+      // with the button visible, so a single stray paint does not start us.
+      const stopVisible = await this._isGenerating()
+      if (stopVisible) stopTicks++
+      else stopTicks = 0
+      if (changed || netStarted || grew || stopTicks >= 2) {
         started = true
         this._askDebug(
           'STARTED changed=' +
