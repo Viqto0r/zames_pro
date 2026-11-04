@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.95.3] - 2026-11-04
+
+### Fixed
+
+- **deepseek:** an appended answer is not a dead turn
+- slow start
+
 ## [2.95.2] - 2026-11-04
 
 ### Changed
