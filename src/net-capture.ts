@@ -256,12 +256,16 @@ export function isFinishedWithoutAnswer(body: string): boolean {
   if (!b) return false
   const finished = FINISHED_STATUS_RE.test(b)
   if (!finished) return false
-  // A RESPONSE fragment with real content means the model DID answer.
-  const len = responseContentLength(b)
-  if (len >= MIN_REAL_ANSWER_CHARS) return false
-  // No RESPONSE fragment at all (len === -1) or only a truncated head:
-  // treat the absence of a real answer as "no answer produced".
-  return true
+  // MEASURED live: `responseContentLength` only sees the SNAPSHOT fragment
+  // (`v.response.fragments[]`), while DeepSeek appends the REAL answer through
+  // bare `data: {"v":...}` chunks. A live body with a `\n\n` snapshot and
+  // 1121 chars of appended text measured 2 chars, so 18 of 71 healthy bodies
+  // were classified as "finished WITHOUT an answer" — the finish loop then
+  // threw `GenerationIncompleteError` (no Continue button), ask() resent the
+  // task and the operator saw "DeepSeek оборвал ответ" on a perfectly good
+  // turn. The DECODED answer is the truth: use the real extractor.
+  const text = extractAnswer(b).trim()
+  return text === '' || TRUNCATED_HEAD_RE.test(text)
 }
 
 /**
