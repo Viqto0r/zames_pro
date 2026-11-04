@@ -22,7 +22,6 @@ alt_url: /ru/
     <div class="hero-actions">
       <a class="btn btn-primary" href="#install">Get started</a>
       <a class="btn" href="https://github.com/Viqto0r/zames_pro" rel="noopener">View on GitHub</a>
-      <a class="btn" href="{{ '/themes' | relative_url }}">See the themes</a>
     </div>
     <div class="install"><span class="prompt">$</span> npm install -g zames_pro</div>
     <div class="hero-shot">
