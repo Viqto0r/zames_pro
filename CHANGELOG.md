@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.95.2] - 2026-11-04
+
+### Changed
+
+- fix-deepseek-head-only
+- test: pin the streamed-answer head snapshot (the resend loop)
+- docs: theme gallery, mobile menu and code copy buttons
+
 ## [2.95.1] - 2026-11-03
 
 ### Fixed
