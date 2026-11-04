@@ -770,6 +770,11 @@ export class DeepSeekBrowser {
           this._lastSentAt = Date.now()
         }
         this._netBody = body
+        // The answer clock drives the "is this body FRESH?" gate in both
+        // ask loops. A body that carries a (head) fragment but no decodable
+        // answer text left the clock at 0, so every detector below saw a
+        // stale body and stayed silent. Give it a fresh timestamp.
+        if (!this._netCaptureAt) this._netCaptureAt = Date.now()
         const cid = url.match(
           /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/,
         )
@@ -3073,6 +3078,16 @@ export class DeepSeekBrowser {
         !doneAnswer &&
         this._netNoAnswer &&
         this._netCaptureAt >= this._lastSentAt
+      // A HEAD-ONLY snapshot is NOT a dead turn: DeepSeek opens a turn
+      // with a RESPONSE fragment that holds only newlines, and the text
+      // arrives in the following bare `data: {"v":...}` chunks.
+      // `_netBody` is the body of the LAST network event, so a poll that
+      // lands between the snapshot and the first chunk sees FINISHED with
+      // no answer, and the old code threw at once (the operator saw
+      // "DeepSeek оборвал ответ") while the chat was still streaming.
+      const headOnly =
+        this._netCaptureAt >= this._lastSentAt &&
+        isFinishedAwaitingAnswer(this._netBody)
       if ((truncated || noAnswer) && this.autoContinue) {
         // MEASURED: a COMPLETE DSML tool call ends with the event `close`
         // and `{click_behavior:'none', auto_resume:false}`, yet the DOM may
@@ -3104,7 +3119,9 @@ export class DeepSeekBrowser {
       // autoContinue is off. Do NOT wait out the whole timeout — the turn is
       // dead (truncated / finished with no answer), so tell ask() to RESEND
       // the prompt right away (that is the only remaining way to continue).
-      if (truncated || noAnswer) {
+      // EXCEPT a head-only snapshot: the rest of the answer is still on
+      // its way (see `headOnly`), so keep waiting for the append chunks.
+      if ((truncated || noAnswer) && !headOnly) {
         throw new GenerationIncompleteError(
           (this._netBody || 'finished without answer').slice(-300),
         )
