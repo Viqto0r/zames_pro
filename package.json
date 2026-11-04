@@ -20,7 +20,7 @@
   ],
   "scripts": {
     "start": "node ./dist/index.js",
-    "dev": "ZAMES_NET_DEBUG=1 tsx ./src/index.ts --dev --headed",
+    "dev": "ZAMES_NET_DEBUG=1 ZAMES_ASK_DEBUG=1 tsx ./src/index.ts --dev --headed",
     "clean": "tsx scripts/clean-dist.mts",
     "build": "tsx scripts/clean-dist.mts && tsc -p tsconfig.build.json",
     "coverage:gate": "tsx scripts/coverage-gate.mts",
