@@ -64,5 +64,19 @@ export default tseslint.config(
       'no-useless-assignment': 'off',
     },
   },
+  {
+    // The GitHub Pages assets under docs/ run in a BROWSER, not in Node:
+    // `document`/`window`/`navigator` are legitimately undefined to the Node
+    // globals above. Scope the browser globals to that folder instead of
+    // turning `no-undef` off project-wide.
+    files: ['docs/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'script',
+      globals: {
+        ...globals.browser,
+      },
+    },
+  },
   prettier,
 )
