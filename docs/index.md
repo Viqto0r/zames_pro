@@ -9,7 +9,7 @@ lang: en
 alt_url: /ru/
 ---
 
-<section class="hero">
+<section class="hero" id="top">
   <div class="wrap">
     <span class="hero-badge"><strong>No API key</strong> · free · open source · MIT</span>
     <h1>Your terminal coding agent,<br /><em>powered by the web chat you already use</em></h1>
@@ -21,8 +21,8 @@ alt_url: /ru/
     </p>
     <div class="hero-actions">
       <a class="btn btn-primary" href="#install">Get started</a>
-      <a class="btn" href="https://github.com/Viqto0r/zames_pro">View on GitHub</a>
-      <a class="btn" href="https://www.npmjs.com/package/zames_pro">npm package</a>
+      <a class="btn" href="https://github.com/Viqto0r/zames_pro" rel="noopener">View on GitHub</a>
+      <a class="btn" href="{{ '/themes' | relative_url }}">See the themes</a>
     </div>
     <div class="install"><span class="prompt">$</span> npm install -g zames_pro</div>
     <div class="hero-shot">
@@ -286,9 +286,9 @@ zames</code></pre>
         <h3>Troubleshooting</h3>
         <p>Sign-in and captcha, headless 403, rate limits, missing libraries.</p>
       </a>
-      <a class="card" href="{{ '/#themes' | relative_url }}">
+      <a class="card" href="{{ '/themes' | relative_url }}">
         <h3>Themes</h3>
-        <p>29 color themes with a live preview and screenshots of every one.</p>
+        <p>All 29 color themes, each with a real session screenshot.</p>
       </a>
       <a class="card" href="{{ '/ru/' | relative_url }}">
         <h3>Русская версия</h3>

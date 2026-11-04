@@ -98,12 +98,12 @@ test('the layouts exist and are wired into the config', () => {
   for (const layout of ['default', 'doc']) {
     const html = read(`docs/_layouts/${layout}.html`)
     assert.ok(
-      html.includes('<main>') || html.includes('layout: default'),
+      /<main[ >]/.test(html) || html.includes('layout: default'),
       `${layout}: neither a <main> nor the default layout chain`,
     )
   }
   const base = read('docs/_layouts/default.html')
-  assert.ok(base.includes('<main>'), 'default: no <main>')
+  assert.ok(/<main[ >]/.test(base), 'default: no <main>')
   assert.ok(base.includes('site.css'), 'default: the stylesheet is not linked')
   const config = read('docs/_config.yml')
   // `theme: null` matters: a Jekyll theme would inject its own layout and
@@ -125,6 +125,27 @@ test('the landing pages are bilingual and cross-linked', () => {
       `the landing page lost the #${anchor} section`,
     )
   }
+})
+
+// The header links #themes at the dedicated themes page, not at a section of
+// the landing page: the 29-screenshot grid used to sit ABOVE the hero and had
+// to be moved off it. A dead link is invisible in CI without this check.
+test('the themes page exists, is bilingual and is linked', () => {
+  const en = frontMatter(read('docs/themes.md'))
+  const ru = frontMatter(read('docs/themes-ru.md'))
+  assert.equal(en.lang, 'en')
+  assert.equal(ru.lang, 'ru')
+  assert.equal(en.alt_url, '/themes-ru.html')
+  assert.equal(ru.alt_url, '/themes.html')
+  const layout = read('docs/_layouts/default.html')
+  assert.ok(
+    layout.includes("'/themes'") && layout.includes("'/themes-ru'"),
+    'the header/footer no longer link the themes pages',
+  )
+  assert.ok(
+    !layout.includes('/#themes'),
+    'the header still links the removed landing-page gallery',
+  )
 })
 
 test('the paired doc pages point at each other', () => {

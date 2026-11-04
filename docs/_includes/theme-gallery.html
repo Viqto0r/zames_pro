@@ -1,15 +1,15 @@
-{% comment %} The theme gallery, rendered at the TOP of every page's main
-content. Why an include and not docs/index.md: the landing pages are
-hand-written HTML inside Markdown, and 29 screenshots repeated twice (EN + RU)
+{% comment %} The theme gallery: its own page (docs/themes.md and
+docs/themes-ru.md), included only where the page sets `theme_gallery: true`. Why
+an include and not a hand-written grid: 29 screenshots repeated in EN and RU
 would drift the moment a theme is added. The data is docs/_data/themes.yml, so
 Jekyll loops over it and the pages stay readable. Why plain links and not a JS
 carousel: the screenshot IS the feature here (29 palettes ship with the agent),
 so the grid must work with JS off - every tile is a real link to the full-size
-PNG. site.js only upgrades a left click into a dialog lightbox. Each tile paints
-its OWN palette background (bg) before the PNG loads, and a light theme gets
-.is-light so its caption flips to dark text: without that a gallery of 29 images
-first flashes dark rectangles and then the five light palettes arrive as white
-holes. {% endcomment %}
+PNG. site.js only collapses the grid behind the toggle below and upgrades a left
+click into a dialog lightbox. Each tile paints its OWN palette background (bg)
+before the PNG loads, and a light theme gets .is-light so its caption flips to
+dark text: without that a gallery of 29 images first flashes dark rectangles and
+then the five light palettes arrive as white holes. {% endcomment %}
 <aside class="theme-showcase" id="themes">
   <div class="wrap">
     <div class="section-head">
@@ -19,7 +19,23 @@ holes. {% endcomment %}
         agent.' }}
       </p>
     </div>
-    <ul class="theme-gallery" role="list">
+    {% comment %} The toggle starts hidden and is revealed by site.js, which is
+    also what collapses the grid: with JS off the gallery stays open and a dead
+    button is never shown. The labels are server-rendered so the button has its
+    text before the click, only the "show all" / "hide" swap happens
+    client-side. {% endcomment %}
+    <button
+      class="theme-toggle"
+      type="button"
+      aria-controls="theme-gallery"
+      aria-expanded="false"
+      data-more="{{ site.ui.theme_show_all | default: 'Show all 29 themes' }}"
+      data-less="{{ site.ui.theme_collapse | default: 'Hide themes' }}"
+      hidden
+    >
+      {{ site.ui.theme_show_all | default: 'Show all 29 themes' }}
+    </button>
+    <ul class="theme-gallery" role="list" id="theme-gallery">
       {% for t in site.data.themes %}
       <li>
         <a

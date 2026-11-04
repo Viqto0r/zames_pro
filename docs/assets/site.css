@@ -47,7 +47,9 @@
 
 html {
   scroll-behavior: smooth;
-  scroll-padding-top: 76px;
+  /* The header is 64px tall and sticky, so a jump to #install would put the
+     heading UNDER it without this. */
+  scroll-padding-top: 84px;
 }
 
 body {
@@ -71,6 +73,32 @@ body {
 a {
   color: var(--accent-2);
   text-decoration: none;
+}
+
+/* A keyboard user must SEE where they are: the default outline disappears on
+   a dark background and a custom ring is the only reliable cue. */
+:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Keyboard users should be able to skip the header on every page. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 8px;
+  z-index: 40;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--card);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.skip-link:focus {
+  left: 16px;
 }
 
 a:hover {
@@ -169,7 +197,9 @@ a:hover {
 
 .hero {
   position: relative;
-  padding: 72px 0 40px;
+  /* The first screen is the whole pitch: a visitor has to see the headline,
+     the install line and the start of the screenshot without scrolling. */
+  padding: 56px 0 36px;
   text-align: center;
   overflow: hidden;
 }
@@ -329,6 +359,28 @@ a:hover {
   color: var(--muted);
   font-size: 13.5px;
   text-align: center;
+}
+
+/* The demo screenshot is the only thing above the fold that needs a real
+   click target: a hover cue plus the zoom-in cursor says it opens full size. */
+.hero-shot-link:hover img,
+.hero-shot-link:focus-visible img {
+  transform: scale(1.004);
+  transition: transform 0.2s ease;
+}
+
+/* The install one-liner is the most useful thing to copy on the whole site,
+   so it gets a copy button like a <pre> block (site.js does the work). */
+.install {
+  position: relative;
+  padding-right: 46px;
+}
+
+.install .copy-btn {
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  opacity: 1;
 }
 
 /* ---------- sections ---------- */
@@ -588,6 +640,29 @@ pre code {
   font-size: 17px;
 }
 
+/* A breadcrumb above the title: "Home / Commands" makes it obvious which
+   site and which section a deep doc page belongs to. */
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.crumbs a {
+  color: var(--muted);
+}
+
+.crumbs a:hover {
+  color: var(--text);
+}
+
+.crumbs span[aria-current] {
+  color: var(--text);
+}
+
 .doc .wrap > :first-child {
   margin-top: 0;
 }
@@ -611,6 +686,13 @@ pre code {
   border-collapse: collapse;
   margin: 18px 0;
   font-size: 14.5px;
+}
+
+/* The option tables are wide; on a phone they must scroll rather than push
+   the whole page sideways. */
+.doc table {
+  display: block;
+  overflow-x: auto;
 }
 
 .doc th,
@@ -655,6 +737,15 @@ pre code {
   padding-top: 22px;
   border-top: 1px solid var(--border);
   font-size: 14.5px;
+}
+
+/* The copy above the body is a way OUT of a wrong page, so it sits right
+   under the intro and has no divider of its own. */
+.doc-nav-top {
+  margin: 18px 0 30px;
+  padding: 0;
+  border-top: 0;
+  font-size: 13.5px;
 }
 
 .doc-nav a {
@@ -853,6 +944,47 @@ pre .copy-btn.copied {
   list-style: none;
 }
 
+/* The themes page lists all 29 palettes and is meant to be browsed, so the
+   grid starts OPEN there. The same grid on a page that opts into a shorter
+   block gets a collapsed state from site.js: with JS off the tiles stay
+   visible instead of becoming an empty box. */
+.theme-gallery.is-collapsed {
+  max-height: 300px;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
+}
+
+.theme-toggle {
+  display: block;
+  /* No top margin: the button is the gallery's header, the grid follows it. */
+  margin: 0 auto 14px;
+  padding: 9px 22px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.theme-toggle:hover,
+.theme-toggle:focus-visible {
+  border-color: var(--accent);
+  background: var(--card-hover);
+}
+
+/* site.js reveals the button and closes the grid together; the hidden
+   attribute stays the source of truth for a JS-off page. */
+.theme-toggle[hidden] {
+  display: none;
+}
+
 .theme-tile {
   position: relative;
   display: block;
@@ -890,11 +1022,13 @@ pre .copy-btn.copied {
   position: absolute;
   left: 8px;
   bottom: 8px;
-  padding: 2px 8px;
+  /* A palette name is the only label a tile has: it must stay readable on a
+     light palette too, so the pill gets its own contrast. */
+  padding: 3px 10px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--tile-bg, #000) 72%, transparent);
-  color: color-mix(in srgb, var(--tile-accent, #fff) 80%, #fff);
-  font-size: 11.5px;
+  background: color-mix(in srgb, var(--tile-bg, #000) 80%, transparent);
+  color: color-mix(in srgb, var(--tile-accent, #fff) 85%, #fff);
+  font-size: 12.5px;
   font-weight: 600;
   letter-spacing: 0.02em;
   backdrop-filter: blur(4px);

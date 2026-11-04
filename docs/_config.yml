@@ -24,6 +24,8 @@ ui:
   themes: Themes
   theme_gallery_lead: >-
     Every palette ships with the agent. Click one to see it full size.
+  theme_show_all: Show all 29 themes
+  theme_collapse: Hide themes
   disclaimer: >-
     Not affiliated with DeepSeek, Alibaba or Zhipu AI. Automating a website may
     violate its terms of use.

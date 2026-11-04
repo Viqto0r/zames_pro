@@ -70,7 +70,14 @@
     /ru/commands.html), so the header and footer links are translated from the
     current page URL instead of being hardcoded per layout: `page_url` is the
     canonical EN path and `alt_url` the same page in the other language, both
-    set in front matter or derived below. {% endcomment %}
+    set in front matter or derived below. {% endcomment %} {% comment %}
+    `nav_themes` is set per language because a Russian page must not drop a
+    reader into the English themes page. {% endcomment %} {% if is_ru %}{%
+    assign nav_themes = '/themes-ru' %}{% else %}{% assign nav_themes =
+    '/themes' %}{% endif %}
+    <a class="skip-link" href="#main"
+      >{% if is_ru %}К содержимому{% else %}Skip to content{% endif %}</a
+    >
     <header class="site-header">
       <div class="wrap">
         <a
@@ -96,6 +103,10 @@
         </button>
         <nav class="site-nav" id="site-nav">
           <a
+            href="{% if is_ru %}{{ '/ru/' | relative_url }}{% else %}{{ '/' | relative_url }}{% endif %}"
+            >{{ site.ui.home | default: 'Home' }}</a
+          >
+          <a
             href="{% if is_ru %}{{ '/ru/#features' | relative_url }}{% else %}{{ '/#features' | relative_url }}{% endif %}"
             >{{ site.ui.features | default: 'Features' }}</a
           >
@@ -111,8 +122,7 @@
             href="{% if is_ru %}{{ '/ru/#why' | relative_url }}{% else %}{{ '/#why' | relative_url }}{% endif %}"
             >{{ site.ui.why | default: 'Why zames' }}</a
           >
-          <a
-            href="{% if is_ru %}{{ '/ru/#themes' | relative_url }}{% else %}{{ '/#themes' | relative_url }}{% endif %}"
+          <a href="{{ nav_themes | relative_url }}"
             >{{ site.ui.themes | default: 'Themes' }}</a
           >
           <a
@@ -144,7 +154,15 @@
       </div>
     </header>
 
-    <main>{% include theme-gallery.html %}{{ content }}</main>
+    {% comment %} The theme gallery is NOT on every page any more: it used to be
+    included above the content, which put 29 screenshots in front of the landing
+    hero and above the first heading of every doc page. It now lives on its own
+    page (docs/themes.md + docs/themes-ru.md), which are the only two pages that
+    opt in with `theme_gallery: true`. {% endcomment %}
+    <main id="main">
+      {% if page.theme_gallery %}{% include theme-gallery.html %}{% endif %}{{
+      content }}
+    </main>
 
     <dialog
       id="theme-lightbox"
@@ -226,6 +244,11 @@
                   href="{% if is_ru %}{{ '/configuration-ru' | relative_url }}{% else %}{{ '/configuration' | relative_url }}{% endif %}"
                   >{% if is_ru %}Конфигурация{% else %}Configuration{% endif
                   %}</a
+                >
+              </li>
+              <li>
+                <a href="{{ nav_themes | relative_url }}"
+                  >{% if is_ru %}Темы{% else %}Themes{% endif %}</a
                 >
               </li>
             </ul>

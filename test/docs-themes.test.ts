@@ -115,26 +115,57 @@ test('every tile declares the palette colors it paints itself with', () => {
   }
 })
 
-test('the layout renders the gallery and the lightbox hook', () => {
+test('the gallery lives on its own page, not above every page content', () => {
   const layout = fs.readFileSync(
     path.join(root, 'docs/_layouts/default.html'),
     'utf-8',
   )
+  // 29 screenshots above <main> hid the landing hero and pushed the first
+  // heading of every doc page below the fold, so the include is OPT-IN now.
   assert.ok(
-    layout.includes('{% include theme-gallery.html %}'),
-    'the default layout stopped including the theme gallery',
+    layout.includes('{% if page.theme_gallery %}'),
+    'the gallery is no longer gated by page.theme_gallery',
   )
   assert.ok(layout.includes('id="theme-lightbox"'), 'the lightbox disappeared')
   assert.ok(layout.includes('/assets/site.js'), 'site.js is not loaded')
+  for (const page of ['docs/themes.md', 'docs/themes-ru.md']) {
+    const text = fs.readFileSync(path.join(root, page), 'utf-8')
+    assert.match(text, /^theme_gallery: true$/m, `${page}: no gallery flag`)
+  }
+  for (const page of ['docs/index.md', 'docs/ru/index.md']) {
+    const text = fs.readFileSync(path.join(root, page), 'utf-8')
+    assert.ok(
+      !text.includes('theme_gallery: true'),
+      `${page}: the gallery must stay off the landing page`,
+    )
+  }
   const include = fs.readFileSync(
     path.join(root, 'docs/_includes/theme-gallery.html'),
     'utf-8',
   )
-  // A gallery that eagerly loads 29 screenshots makes the landing page slow on
-  // a phone; lazy loading is the whole point of the grid being cheap.
+  // A gallery that eagerly loads 29 screenshots makes a page slow on a phone;
+  // lazy loading is the whole point of the grid being cheap.
   assert.ok(include.includes('loading="lazy"'), 'the tiles lost lazy loading')
   assert.ok(
     include.includes('id="themes"'),
     'the gallery lost its #themes anchor (the header links to it)',
+  )
+  assert.ok(
+    include.includes('class="theme-toggle"') && include.includes('hidden'),
+    'the gallery toggle is missing or no longer starts hidden',
+  )
+  assert.ok(
+    include.includes('id="theme-gallery"'),
+    'the grid lost the id the toggle points its aria-controls at',
+  )
+  const js = fs.readFileSync(path.join(root, 'docs/assets/site.js'), 'utf-8')
+  assert.ok(
+    js.includes("'is-collapsed'"),
+    'site.js no longer collapses the gallery',
+  )
+  const css = fs.readFileSync(path.join(root, 'docs/assets/site.css'), 'utf-8')
+  assert.ok(
+    css.includes('.theme-gallery.is-collapsed'),
+    'the closed gallery state lost its CSS',
   )
 })

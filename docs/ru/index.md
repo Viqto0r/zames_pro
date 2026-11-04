@@ -15,9 +15,6 @@ ui:
   install: Установка
   menu: Меню
   themes: Темы
-  theme_gallery_lead: >-
-    Все палитры идут в комплекте с агентом. Нажмите на любую, чтобы открыть
-    скриншот в полном размере.
   disclaimer: >-
     Не связан с DeepSeek, Alibaba и Zhipu AI. Автоматизация сайта может
     нарушать его условия использования.
@@ -30,7 +27,7 @@ ui:
     аккаунте веб-чата DeepSeek, Qwen или GLM — без API-ключа и оплаты за токены.
 ---
 
-<section class="hero">
+<section class="hero" id="top">
   <div class="wrap">
     <span class="hero-badge"><strong>Без API-ключа</strong> · бесплатно · открытый код · MIT</span>
     <h1>Терминальный coding-агент<br /><em>на том веб-чате, которым вы уже пользуетесь</em></h1>
@@ -42,8 +39,8 @@ ui:
     </p>
     <div class="hero-actions">
       <a class="btn btn-primary" href="#install">Начать</a>
-      <a class="btn" href="https://github.com/Viqto0r/zames_pro">GitHub</a>
-      <a class="btn" href="https://www.npmjs.com/package/zames_pro">npm</a>
+      <a class="btn" href="https://github.com/Viqto0r/zames_pro" rel="noopener">GitHub</a>
+      <a class="btn" href="{{ '/themes-ru' | relative_url }}">Посмотреть темы</a>
     </div>
     <div class="install"><span class="prompt">$</span> npm install -g zames_pro</div>
     <div class="hero-shot">
@@ -310,9 +307,9 @@ zames</code></pre>
         <h3>Решение проблем</h3>
         <p>Вход и капча, headless 403, рейт-лимиты, отсутствующие библиотеки.</p>
       </a>
-      <a class="card" href="{{ '/ru/#themes' | relative_url }}">
+      <a class="card" href="{{ '/themes-ru' | relative_url }}">
         <h3>Темы</h3>
-        <p>29 цветовых тем с живым предпросмотром и скриншотами.</p>
+        <p>Все 29 цветовых тем со скриншотами настоящих сессий.</p>
       </a>
       <a class="card" href="{{ '/' | relative_url }}">
         <h3>English version</h3>
