@@ -53,7 +53,6 @@ editor.setProvider('DeepSeek')
 editor.setHeader({ title: 'zames', version, workdir, mouseScroll: true })
 editor.setContextLimit(1_000_000)
 editor.onContextQuery = () => 12_400
-editor.onTasksQuery = () => 'tasks: 2/4'
 editor.onQueueQuery = () => 0
 editor.onToggleQuery = () => ({ deepThinking: true, webSearch: false })
 
@@ -83,7 +82,7 @@ async function waitKey(label: string): Promise<void> {
 
 // The task is typed through the store so the REAL input line renders it
 // (wrapping, cursor, hints): a viewer expects to see it appear before the send.
-async function typePrompt(text: string, perChar = 26): Promise<void> {
+async function typePrompt(text: string, perChar = 45): Promise<void> {
   for (let i = 1; i <= text.length; i++) {
     editor.store.set({
       edit: { ...initialEditState(), buf: text.slice(0, i), cursor: i },
@@ -96,7 +95,7 @@ async function tool(
   name: string,
   args: Record<string, unknown>,
   result: string,
-  ms = 900,
+  ms = 1500,
 ): Promise<void> {
   editor.toolCall(name, args)
   await sleep(ms)
@@ -118,6 +117,7 @@ await sleep(300)
 // bar-marked rows). onSubmit is a no-op: no browser, no chat, just the UI.
 editor.onSubmit = () => {}
 editor.submitQuestion(question)
+editor.store.set({ edit: initialEditState() })
 editor.busy = true
 editor.thinking()
 await sleep(700)
@@ -167,7 +167,7 @@ editor.assistant(
   ].join(NL),
 )
 editor.busy = false
-
+await sleep(2000)
 await waitKey('done: the answer is on screen (Enter to exit)')
 editor.stop()
 process.exit(0)

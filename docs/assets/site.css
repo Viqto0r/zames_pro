@@ -377,6 +377,7 @@ a:hover {
 }
 
 .install .copy-btn {
+  position: absolute;
   top: 50%;
   right: 8px;
   transform: translateY(-50%);
@@ -893,10 +894,11 @@ pre code {
 /* ---------- copy button on a code block ---------- */
 
 /* site.js injects it; a page without JS keeps the plain <pre>. */
-pre .copy-btn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
+/* The button itself (shared by a <pre> block and the hero install line): the
+   LOOK lives here, the POSITION lives in the two context rules below. Without
+   this split the install button inherited only `position: absolute` and lost
+   its frame and padding — it rendered as a bare text link. */
+.copy-btn {
   padding: 4px 10px;
   border: 1px solid var(--border);
   border-radius: 7px;
@@ -911,9 +913,15 @@ pre .copy-btn {
     color 0.15s ease;
 }
 
-pre:hover .copy-btn,
-pre .copy-btn:focus-visible {
+.copy-btn:hover,
+.copy-btn:focus-visible {
   opacity: 1;
+}
+
+pre .copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
 }
 
 pre .copy-btn.copied {
