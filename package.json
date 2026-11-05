@@ -170,5 +170,10 @@
   "funding": {
     "type": "github",
     "url": "https://github.com/sponsors/Viqto0r"
+  },
+  "overrides": {
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.4"
+    }
   }
 }
