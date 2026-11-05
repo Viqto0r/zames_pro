@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **loop:** dev-only /loop improvement cycles with a release policy
 ### Fixed
 
+- **extraTools:** apply an insertion-only ApplyPatch hunk from its @@ header
 - **dev:** keep the unparsed-call dump directory bounded
 
 ## [2.95.6] - 2026-11-05

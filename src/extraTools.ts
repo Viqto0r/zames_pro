@@ -259,10 +259,27 @@ export function applyUpdateHunk(
     }
 
     if (!oldLines.length) {
-      return {
-        ok: false,
-        error: 'Hunk has no context or removed lines to anchor on.',
+      // An INSERTION-ONLY hunk (`@@ -N,0 +N,M @@` + `+line`s) has nothing to
+      // match, so it was rejected outright — yet appending a line is a normal
+      // unified-diff form and the model uses it. Position it from the header's
+      // old-side start (a `-N,0` hunk inserts AFTER line N, hence the index N);
+      // without a usable header there is no anchor and we still refuse.
+      const hinted = block.oldStart !== null ? block.oldStart : -1
+      if (hinted < 0) {
+        return {
+          ok: false,
+          error:
+            'Insertion-only hunk needs a @@ -N,0 +N,M @@ header to know where to insert.',
+        }
       }
+      const atInsert = Math.min(Math.max(hinted, searchFrom), fileLines.length)
+      fileLines = [
+        ...fileLines.slice(0, atInsert),
+        ...newLines,
+        ...fileLines.slice(atInsert),
+      ]
+      searchFrom = atInsert + newLines.length
+      continue
     }
 
     const at = locateBlock(fileLines, oldLines, block.oldStart, searchFrom)
