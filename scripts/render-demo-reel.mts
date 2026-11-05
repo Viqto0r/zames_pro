@@ -72,24 +72,44 @@ const at = (delay: number, input?: string): void => {
 
 const VERSION = '2.95.3'
 const WIDTH = 1080
-const HEIGHT = 520
+const HEIGHT = 820
 
+// Mirrors renderStartupBanner() in src/banner.ts: a rounded box with the
+// title, the version, the working directory and the active provider. The demo
+// used flat "Working directory:" lines, which no zames build prints.
 const header = (): void => {
+  const inner = 62
+  const pad = (visible: number): string =>
+    ' '.repeat(Math.max(0, inner - 1 - visible))
+  push(span(C.prompt, '\u256d' + '\u2500'.repeat(inner) + '\u256e'))
   push(
-    span(C.system, 'Working directory: ') + span(C.dir, '/home/dev/zames_pro'),
+    span(C.prompt, '\u2502 ') +
+      span(C.assistant, ' zames') +
+      span(C.dim, '  v' + VERSION) +
+      pad(15) +
+      span(C.prompt, '\u2502'),
   )
-  push(span(C.system, 'Version: ') + span(C.user, VERSION))
   push(
-    span(C.system, 'Transcript: ') +
-      span(C.dim, '~/.zames/logs/zames_pro-2026-11-04.log'),
+    span(C.prompt, '\u2502 ') +
+      span(C.system, ' cwd: ') +
+      span(C.dir, '/home/dev/zames_pro') +
+      pad(30) +
+      span(C.prompt, '\u2502'),
   )
-  blank()
   push(
-    span(
-      C.system,
-      'Interactive mode. Enter a task. Commands - /help. Exit - /exit.',
-    ),
+    span(C.prompt, '\u2502 ') +
+      span(C.system, ' provider: ') +
+      span(C.toggleOn, 'DeepSeek') +
+      pad(25) +
+      span(C.prompt, '\u2502'),
   )
+  push(
+    span(C.prompt, '\u2502 ') +
+      span(C.dim, ' /help for commands, /exit to quit') +
+      pad(32) +
+      span(C.prompt, '\u2502'),
+  )
+  push(span(C.prompt, '\u2570' + '\u2500'.repeat(inner) + '\u256f'))
   blank()
 }
 
@@ -100,25 +120,27 @@ const turn = (): void => {
   push(
     '<span style="color:' +
       C.userBar +
-      '">|</span><span style="color:' +
+      '">▌</span><span style="color:' +
       C.user +
       '"> what is zames_pro?</span>',
   )
   blank()
 }
 
+// Matches TuiEditor.toolCall/toolResult: the tool name with the wrench, then
+// the result line with a check mark - NOT a "[tool]"/"ok" invention.
 const tool = (name: string, detail: string, result: string): void => {
   push(
-    span(C.tool, '[tool] ' + name) +
-      (detail ? span(C.dim, ' (' + detail + ')') : ''),
+    span(C.tool, '\ud83d\udd27 ' + name) +
+      (detail ? span(C.dim, '(' + detail + ')') : ''),
   )
-  push(span(C.toolResult, '   ok ') + span(C.toolResult, result))
+  push(span(C.toolResult, '   \u2714 ') + span(C.toolResult, result))
 }
 
 const status =
-  span(C.toggleOn, 'deep ') +
-  span(C.dim, '/ ') +
-  span(C.system, 'ctx: 12.4k / 1.2%')
+  span(C.toggleOn, '\ud83e\udde0 ') +
+  span(C.dim, '\u00b7 ') +
+  span(C.system, 'ctx: 12.4k \u00b7 1.2%')
 
 // ---------- the script ----------
 //
@@ -177,7 +199,7 @@ push(span(C.dim, 'Writing the answer...'))
 at(460, '')
 
 blank()
-push(span(C.assistant, '[answer]'))
+push(span(C.assistant, '\u25cf Answer'))
 push(
   span(
     C.assistant,
@@ -220,8 +242,8 @@ at(4800, '')
 const css =
   'html,body{margin:0;padding:0;background:' +
   C.bg +
-  ';font-family:"DejaVu Sans Mono","Noto Color Emoji",monospace;font-size:15px;' +
-  'line-height:1.45;color:' +
+  ';font-family:"DejaVu Sans Mono","Noto Color Emoji",monospace;font-size:14px;' +
+  'line-height:1.4;color:' +
   C.system +
   ';-webkit-font-smoothing:antialiased}' +
   '.screen{box-sizing:border-box;width:' +

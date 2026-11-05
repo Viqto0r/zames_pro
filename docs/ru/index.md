@@ -48,7 +48,7 @@ ui:
           data-demo-reel="{{ '/demo-reel/reel.json' | relative_url }}"
           src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png"
           width="1080"
-          height="520"
+          height="820"
           alt="Сессия zames_pro в терминале: агент читает файлы, выполняет команды и печатает ответ"
           loading="lazy"
           decoding="async"

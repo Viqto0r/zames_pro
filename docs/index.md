@@ -30,7 +30,7 @@ alt_url: /ru/
           data-demo-reel="{{ '/demo-reel/reel.json' | relative_url }}"
           src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png"
           width="1080"
-          height="520"
+          height="820"
           alt="A zames_pro session in the terminal: the agent reads files, runs commands and prints its answer"
           loading="lazy"
           decoding="async"

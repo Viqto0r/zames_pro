@@ -202,8 +202,12 @@ test('the demo reel is complete and in sync', () => {
   // The hero <img> must declare the REAL reel size: the browser reserves the
   // space from these numbers, and a wrong pair makes the page jump when the
   // first frame swaps in.
-  assert.ok(
-    index.includes('width="' + meta.width + '"'),
-    'the hero image width does not match the reel',
-  )
+  for (const page of ['docs/index.md', 'docs/ru/index.md']) {
+    const text = fs.readFileSync(path.join(root, page), 'utf-8')
+    assert.ok(
+      text.includes('width="' + meta.width + '"') &&
+        text.includes('height="' + meta.height + '"'),
+      `${page}: the hero image size does not match the reel`,
+    )
+  }
 })
