@@ -172,6 +172,11 @@ export const commonMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Команда {v} доступна только в dev-режиме (--dev или hotReload).',
     en: 'The {v} command is only available in dev mode (--dev or hotReload).',
   },
+  'cycle.unknown': {
+    ru: 'Неизвестный цикл {v}: ожидается /bughunt, /textaudit, /coverage, /dumps, /backlog или /smoke.',
+    en: 'Unknown cycle {v}: expected /bughunt, /textaudit, /coverage, /dumps, /backlog or /smoke.',
+  },
+
   'msg.bye': { ru: 'Выход.', en: 'Bye.' },
   'shell.empty': {
     ru: 'После ! нужна команда, например !git status.',

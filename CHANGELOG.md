@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **loop:** dev-only /loop improvement cycles with a release policy
 ### Fixed
 
 - **dev:** keep the unparsed-call dump directory bounded

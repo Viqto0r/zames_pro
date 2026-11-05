@@ -1,99 +1,89 @@
-# `/loop` prompts — the copy-paste entry points
+# `/loop` improvement cycles — the dev-only commands
 
-Every improvement cycle of zames_pro is an UNATTENDED `/loop` run driven by a
-protocol file. This page is the index: the protocol, the `/loop` command, and
-the local shortcut the operator has in `.zames/commands/`.
+Every improvement cycle of zames_pro is an UNATTENDED `/loop` run. Since
+2.96 the cycles are real zames commands, so the operator types
+`/bughunt 5m` instead of pasting a long prompt.
 
-The shortcuts are REAL zames custom commands, so in this project the operator
-types `/<name>` instead of pasting a long line:
+All of them are **DEV-ONLY** (`/bughunt`, `/textaudit`, `/coverage`,
+`/dumps`, `/smoke` live in `DEV_ONLY_COMMANDS`, see `src/loop-prompts.ts`):
+a regular npm user never sees them in `/help` or the «/» hints and the dispatch
+rejects them with `msg.dev_only`. Reason: they edit `QUEUE.md`/`BACKLOG.md`,
+read the dev dumps and push to `master` — none of that exists in a user's
+project, and `/bughunt` there would hunt bugs in THEIR code with OUR protocol.
 
-| Shortcut           | What it starts                                | The prompt it sends                              |
-| ------------------ | --------------------------------------------- | ------------------------------------------------ |
-| `/bughunt [5m]`    | a bug hunt in the CODE (`docs/BUGHUNT.md`)    | `/loop <interval> Bug hunt, one step. …`         |
-| `/textaudit [5m]`  | a text audit (`docs/TEXT-AUDIT.md`)           | `/loop <interval> Text audit, one step. …`       |
-| `/coverage [5m]`   | filling test-coverage gaps (no protocol file) | `/loop <interval> Coverage step, one step: …`    |
-| `/dumps [5m]`      | triaging the dev dumps of unparsed calls      | `/loop <interval> Unparsed-dump step, one step:` |
-| `/backlog [5m]`    | implementing the next `BACKLOG.md` item       | `/loop <interval> Backlog step, one item: …`     |
-| `/smoke [5m] [id]` | a live provider smoke (`self`/`qwen`/`glm`)   | `/loop <interval> Live smoke step …`             |
+## The commands
 
-The command bodies live in `.zames/commands/*.md` (gitignored — they are the
-operator's local setup). The same text is below, so a fresh checkout can paste
-it by hand.
+| Command           | Cycle                                       | Protocol                 |
+| ----------------- | ------------------------------------------- | ------------------------ |
+| `/bughunt [5m]`   | a bug hunt in the CODE                      | `docs/BUGHUNT.md`        |
+| `/textaudit [5m]` | the text audit                              | `docs/TEXT-AUDIT.md`     |
+| `/coverage [5m]`  | filling test-coverage gaps                  | — (the gate is the spec) |
+| `/dumps [5m]`     | triaging the dev dumps of unparsed calls    | —                        |
+| `/smoke [5m]`     | a live provider smoke (`self`/`qwen`/`glm`) | —                        |
+
+`/backlog` stays what it always was (record a note); implementing a backlog
+item is `docs/BUGHUNT.md`'s job once the hunt reaches it.
+
+Each command expands into ONE `/loop <interval> <task>` line
+(`buildCycleLoopLine()` in `src/loop-prompts.ts`) and arms the scheduler
+through the SAME path `/loop` uses — so the interval handling, the
+"do not pile copies of the same job" rule and `/jobs` bookkeeping have one
+owner. The interval is the FIRST argument and defaults to `5m`; the floor is
+`MIN_LOOP_MS` (15s).
 
 ## The interval — 5m, not 20m
 
-`/loop` has a floor of 15 SECONDS (`MIN_LOOP_MS` in `src/index.ts`): a faster
-loop would only hammer the send throttle. The interval is NOT the length of a
-step — a step with a full `npm test` takes ~35s, so a fired tick usually lands
-while the previous step is still running. The scheduler handles that: a job
-whose task is already QUEUED is skipped for this tick (never two copies), and
-a fired job is queued and starts the moment the agent is idle.
+`/loop` only puts a job into the message queue; it never interrupts a running
+turn. A step with a full `npm test` takes ~35s, so most ticks fire while the
+previous step is still running — and such a tick is SKIPPED (a job whose task
+is already queued is not enqueued twice). A short interval therefore only
+removes the idle time between steps. `5m` is the recommended value; do not go
+below `5m` because a step that finishes early would then catch up on a burst
+of ticks.
 
-So a SHORT interval is safe and is the better default: it removes the dead
-time between the end of one step and the next tick. `5m` is the operator's
-choice; `20m` was too slow (the agent sat idle). Do not go below `5m` — a step
-that ends early would then catch up on a burst of ticks.
+## Commits and the release
 
-## The prompts (paste as-is)
+Every step ends the same way: run the gates (typecheck, test, lint,
+format:check, build), append its entry to `QUEUE.md`, commit with a
+conventional subject and push to `master`.
 
-### Bug hunt — `docs/BUGHUNT.md`
+**The version is bumped by the cycle too — but only when a real pile has
+accumulated.** The rule is PURE and unit-tested
+(`src/release-policy.ts`, `test/release-policy.test.ts`):
 
-```
-/loop 5m Bug hunt, one step. Read docs/BUGHUNT.md and follow it exactly: pick the next NOT-yet-covered module from its scope table (skip the ones under "Покрытые области" in QUEUE.md unless their code changed after the covering date), find ONE real reproducible defect, write the FAILING test first (RED), fix the root cause (GREEN), run the gates (typecheck, test, lint, format:check, build), append a `### Такт N` entry to QUEUE.md with the proof + test + gates + commit SHA, update "Покрытые области", commit (fix:/test: subject) and push to master (git push origin master). Do NOT bump the version. If the module is clean, add it to "Покрытые области", write a `чисто` entry with what you verified, and commit nothing. Stop the loop with /jobs clear when every module in the scope table is covered and no covered module has changed since its covering date.
-```
+- user-visible commits since the last tag = the ones `CHANGELOG.md` would show
+  (`feat`, `fix`, `perf`, `refactor`, `revert`, `remove`); `docs`, `chore`,
+  `test`, `ci`, `build` neither count nor block;
+- any `feat:` → **minor** on its own; anything else needs
+  `MIN_COMMITS = 5` visible commits → **patch**;
+- a `!`/BREAKING change → **major**, and the loop NEVER cuts it: it reports it
+  and leaves the decision to the operator.
 
-### Text audit — `docs/TEXT-AUDIT.md`
+When the policy says READY the cycle runs `npm run release <bump>` (which
+bumps `package.json` + `CITATION.cff`, writes the dated CHANGELOG section,
+commits `chore: release X.Y.Z` and tags), then pushes the branch AND the tag
+(`git push && git push origin vX.Y.Z`) — the tag is what triggers the npm
+publish workflow. Recording the new version in `QUEUE.md` closes the step.
 
-```
-/loop 5m Text audit, one step. Read docs/TEXT-AUDIT.md and follow it exactly: pick the next NOT-yet-covered file from its scope table (skip the ones listed under "Covered areas" in QUEUE.md), audit it against the code as the source of truth, fix ONE defect family in the source file(s) plus both languages, regenerate the generated files, run the gates (typecheck, test, lint, format:check, build), append a `### Text-audit step N` entry to QUEUE.md with the finding + gates + commit SHA, update the "Covered areas" list, commit (docs:/fix: subject) and push to master (git push origin master). Do NOT bump the version. If the file is clean, add it to "Covered areas", write a `чисто` entry with what you verified, and commit nothing. Stop the loop with /jobs clear when every file in the scope table is covered.
-```
-
-### Coverage — no protocol file, the gate is the spec
-
-```
-/loop 5m Coverage step, one step: run `npm run coverage:gate`, find the module or branch whose line coverage is lowest or has NO test file at all (list `src/*.ts` without a matching `test/*.test.ts`), pick ONE of them, and write pure unit tests that pin the CURRENT behaviour — do not change the source unless a test uncovers a real bug (then switch to a fix: commit and cite docs/BUGHUNT.md). Run the gates (typecheck, test, lint, format:check, build, coverage:gate), append a `### Coverage step N` entry to QUEUE.md with the module, the covered lines/branches and the commit SHA, commit (test(scope): subject) and push to master (git push origin master). Do NOT bump the version. Stop the loop with /jobs clear when every source module has a test file and no gate module is below its floor.
-```
-
-### Unparsed dumps — the model wrote a call the parser missed
-
-```
-/loop 5m Unparsed-dump step, one step: list `.zames/unparsed/*.txt` (dev dumps of answers that looked like a tool call but were NOT parsed) and `~/.zames/net-log` if ZAMES_NET_DEBUG was on; take the NEWEST dump not yet analysed in QUEUE.md, classify WHY parseToolCall (src/answer-parse.ts) and the XML/DSML path (src/xml-toolcall.ts) missed it, then either extend the parser with a failing test FIRST (test/answer-parse*.test.ts or test/xml-toolcall*.test.ts) or record in QUEUE.md that the answer is genuinely unparseable (a reasoning paragraph, not a call) and why. Run the gates (typecheck, test, lint, format:check, build), append a `### Dump step N` entry to QUEUE.md with the dump name + verdict + commit SHA, commit (fix(parse): subject) and push to master (git push origin master). Do NOT bump the version and do NOT delete a dump you have not classified. Stop the loop with /jobs clear when every dump in the directory is classified.
-```
-
-The dump directory keeps only the newest 20 files (`rotateUnparsedDumps`), so
-this queue cannot grow forever — a dump that disappears unclassified is
-already lost, which is why a NEW dump is worth a step before it is rotated
-out.
-
-### Backlog — implement what was written down, do not re-invent it
-
-```
-/loop 5m Backlog step, one item: read BACKLOG.md, take the highest-priority item that is NOT archived in a <details> block and is small enough for one step, implement it (a failing test first when the item is testable), run the gates (typecheck, test, lint, format:check, build), append a `### Backlog step N` entry to QUEUE.md with the item text + what was done + commit SHA, move the item under the archived <details> block via the /backlog helpers, commit (feat(scope): or fix(scope): subject from the item) and push to master (git push origin master). Do NOT bump the version. Skip an item that needs the operator's decision and note WHY in QUEUE.md. Stop the loop with /jobs clear when BACKLOG.md has no open item left.
-```
-
-### Live smoke — the only check that sees the real chat UI
-
-```
-/loop 5m Live smoke step (provider: deepseek), one step: run the matching smoke script (`npm run self-smoke` for deepseek, `npm run qwen-smoke`, `npm run glm-smoke -- --headed`); it launches an ISOLATED zames instance (throwaway HOME) and must NEVER touch the operator's ~/.zames/profile or another agent's browser. If a scenario FAILS, read its output, reproduce the failing unit-level behaviour with a focused test if possible, fix the root cause (src/browser*.ts / src/qwen-*.ts / src/glm-*.ts / src/*-net-capture.ts), rerun the smoke and the gates (typecheck, test, lint, format:check, build), append a `### Smoke step N` entry to QUEUE.md with the scenario + failure + fix + commit SHA, commit (fix(provider): subject) and push to master (git push origin master). Do NOT bump the version. If every scenario PASSES, write a `чисто` entry with the exit code and commit nothing. Stop the loop with /jobs clear after 3 consecutive PASS runs with no new failure.
-```
+Why not a release per fix: DEVELOPING.md — several fixes land as ONE patch
+release (a 142-patch 2.82.x branch made the CHANGELOG and npm unreadable).
+Why not "never": the Unreleased section grew for weeks and `/changelog:check`
+refused a push whose pile was actually ready.
 
 ## What NOT to run as a loop
 
 - **`/review`** — it reads the whole diff each tick; the diff is empty between
   commits, so every other tick is a no-op.
 - **`/improve`** — it edits `BACKLOG.md` from the model's own opinion; run it
-  ONCE in a while, not on a timer (the backlog step above executes what is
-  already there).
+  ONCE in a while, not on a timer.
 - **`/self-review`** — it snapshots `src/` for its own diff; a loop of it only
   grows `~/.zames`.
-- **`npm run release`** — releases are a deliberate operator action
-  (DEVELOPING.md); no loop may bump the version.
+- **`npm run release`** by hand on every fix — see the policy above.
 
 ## The shared journal
 
-All cycles write into ONE gitignored file, `QUEUE.md`: "Покрытые области" (what
-is already checked, so a step does not repeat it) plus the last few step
-entries. Each protocol appends its own heading (`### Такт N`, `### Text-audit
-step N`, `### Coverage step N`, `### Dump step N`, `### Backlog step N`,
-`### Smoke step N`). Keep it under ~2000 lines — the history is in git and
-`CHANGELOG.md`, not in the journal.
+All cycles write into ONE gitignored file, `QUEUE.md`: the covered-areas list
+(so a step does not repeat work) plus the last few step entries. Each protocol
+appends its own heading (`### Такт N`, `### Text-audit step N`,
+`### Coverage step N`, `### Dump step N`, `### Smoke step N`). Keep it under
+~2000 lines — the history is in git and `CHANGELOG.md`, not in the journal.

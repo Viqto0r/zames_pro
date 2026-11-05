@@ -320,6 +320,30 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
     ru: 'стартовать в режиме плана (только чтение)',
     en: 'start in plan mode (read-only)',
   },
+  'help.sec.cycles': {
+    ru: 'Циклы улучшения (/loop, только dev)',
+    en: 'Improvement cycles (/loop, dev only)',
+  },
+  'help.cmd.bughunt': {
+    ru: '/bughunt [интервал] dev-only: /loop с охотой за багами по docs/BUGHUNT.md',
+    en: '/bughunt [interval] dev-only: /loop the bug hunt from docs/BUGHUNT.md',
+  },
+  'help.cmd.textaudit': {
+    ru: '/textaudit [интервал] dev-only: /loop с аудитом текстов по docs/TEXT-AUDIT.md',
+    en: '/textaudit [interval] dev-only: /loop the text audit from docs/TEXT-AUDIT.md',
+  },
+  'help.cmd.coverage': {
+    ru: '/coverage [интервал] dev-only: /loop с заполнением пробелов покрытия тестами',
+    en: '/coverage [interval] dev-only: /loop filling test-coverage gaps',
+  },
+  'help.cmd.dumps': {
+    ru: '/dumps [интервал] dev-only: /loop с разбором дампов непойманных tool-вызовов',
+    en: '/dumps [interval] dev-only: /loop triaging the unparsed-call dumps',
+  },
+  'help.cmd.smoke': {
+    ru: '/smoke [интервал] dev-only: /loop с живым smoke-прогоном провайдера',
+    en: '/smoke [interval] dev-only: /loop a live provider smoke run',
+  },
   'help.cmd.loop': {
     ru: '/loop <интервал> <задача> повторять задачу (s/m/h; без единицы — секунды; первый запуск сразу; минимум 15с)',
     en: '/loop <interval> <task> repeat a task (s/m/h; no unit means seconds; the first run is immediate; minimum 15s)',

@@ -175,25 +175,15 @@ an archive. Rules:
 - Never let the journal be the reason a step is skipped: an unreadable queue is
   worse than no queue.
 
-## 8. The `/loop` command to start it
+## 8. How to start it
 
-Run this ONCE in the project directory. The interval is NOT the length of a
-step: a step with a full `npm test` takes ~35s, so most ticks fire while the
-previous step is still running and are skipped (a job already in the queue is
-never duplicated). `5m` is the recommended value; `15s` (`MIN_LOOP_MS`) is the
-floor. In this project the local shortcut `/textaudit [5m]`
-(`.zames/commands/textaudit.md`) sends the same line — see
+`/textaudit [интервал]` is a DEV-ONLY zames command (`src/loop-prompts.ts`):
+it expands into the ONE `/loop <interval> <task>` line for this protocol and
+arms the scheduler. The interval defaults to `5m`; a tick that lands while the
+previous step is still running is skipped, so a short interval only removes
+idle time between steps (`15s` is the floor). The cycle commits and pushes
+every step and checks the release policy (`src/release-policy.ts`) — see
 `docs/LOOP-PROMPTS.md`.
-
-```
-/loop 5m Text audit, one step. Read docs/TEXT-AUDIT.md and follow it exactly: pick the next NOT-yet-covered file from its scope table (skip the ones listed under "Covered areas" in QUEUE.md), audit it against the code as the source of truth, fix ONE defect family in the source file(s) plus both languages, regenerate the generated files, run the gates (typecheck, test, lint, format:check, build), append a `### Text-audit step N` entry to QUEUE.md with the finding + gates + commit SHA, update the "Covered areas" list, commit (docs:/fix: subject) and push to master (git push origin master). Do NOT bump the version. If the file is clean, add it to "Covered areas", write a `чисто` entry with what you verified, and commit nothing. Stop the loop with /jobs clear when every file in the scope table is covered.
-```
-
-One-liner variant if the task text must fit on one line:
-
-```
-/loop 5m Text audit step: read docs/TEXT-AUDIT.md and follow it exactly (pick the next uncovered file, audit vs code, fix one defect family in source+both languages, rebuild generated files, run gates, journal in QUEUE.md, update Covered areas, commit and push to master, no version bump).
-```
 
 ## 9. Suggested first passes (highest value)
 

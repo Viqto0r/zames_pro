@@ -307,7 +307,14 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
-<p class="ch-empty">—</p>
+<section class="ch-group"><h3>Добавлено</h3>
+<ul>
+<li><strong>loop:</strong> dev-only /loop improvement cycles with a release policy</li>
+</ul></section>
+<section class="ch-group"><h3>Исправлено</h3>
+<ul>
+<li><strong>dev:</strong> keep the unparsed-call dump directory bounded</li>
+</ul></section>
 </details>
 <details class="ch-release" id="v2.95.6" open>
 <summary><header><h2>v2.95.6</h2><time datetime="2026-11-05">2026-11-05</time></header></summary>

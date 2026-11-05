@@ -269,6 +269,7 @@ test('the dev group matches DEV_ONLY_COMMANDS and is gated by dev mode', async (
     selfList: noop,
     selfDiff: noop,
     selfApply: noop,
+    cycle: () => {},
   })
   assert.deepEqual(
     cmds.map((c) => '/' + c.name).sort(),

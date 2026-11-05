@@ -1448,6 +1448,13 @@ export function buildImprovePrompt(item: BacklogItem): string {
 export const DEV_ONLY_COMMANDS = [
   '/improve',
   '/backlog',
+  // The /loop improvement cycles (src/loop-prompts.ts): they edit QUEUE.md,
+  // read the dev dumps and push to master — a regular user has none of that.
+  '/bughunt',
+  '/textaudit',
+  '/coverage',
+  '/dumps',
+  '/smoke',
   '/self-review',
   '/self-fix',
   '/self-done',
@@ -1533,6 +1540,14 @@ export const SLASH_COMMANDS: SlashCommandEntry[] = [
   { name: '/review', key: 'help.cmd.review' },
   { name: '/improve', key: 'help.cmd.improve' },
   { name: '/backlog', key: 'help.cmd.backlog' },
+  // The DEV-ONLY improvement cycles (src/loop-prompts.ts). printHelp filters
+  // them out for a regular user (isDevOnlyCommand); the «/» list drops them
+  // in buildSlashCommands, so a release build never advertises them.
+  { name: '/bughunt', key: 'help.cmd.bughunt' },
+  { name: '/textaudit', key: 'help.cmd.textaudit' },
+  { name: '/coverage', key: 'help.cmd.coverage' },
+  { name: '/dumps', key: 'help.cmd.dumps' },
+  { name: '/smoke', key: 'help.cmd.smoke' },
   { name: '/goal', key: 'help.cmd.goal' },
   { name: '/loop', key: 'help.cmd.loop' },
   { name: '/cron', key: 'help.cmd.cron' },

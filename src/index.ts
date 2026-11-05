@@ -24,6 +24,7 @@ import { createSessionCommands } from './session-commands.js'
 import { createTreeCommands } from './tree-commands.js'
 import { createSchedulerCommands } from './scheduler-commands.js'
 import { createDevCommands } from './dev-commands.js'
+import { buildCycleLoopLine, type LoopCycleId } from './loop-prompts.js'
 import {
   shouldRunWizard,
   chooseLanguage,
@@ -676,6 +677,18 @@ function printHelp(): void {
       t('help.self.diff') +
       '\n  ' +
       t('help.self.apply') +
+      '\n\n' +
+      theme.bold(t('help.sec.cycles')) +
+      '\n  ' +
+      t('help.cmd.bughunt') +
+      '\n  ' +
+      t('help.cmd.textaudit') +
+      '\n  ' +
+      t('help.cmd.coverage') +
+      '\n  ' +
+      t('help.cmd.dumps') +
+      '\n  ' +
+      t('help.cmd.smoke') +
       '\n\n'
     : '  ' +
       t('help.cmd.debug_dom') +
@@ -3610,6 +3623,22 @@ async function main(): Promise<void> {
     }
   }
 
+  /**
+   * A dev-only /loop improvement cycle (`/bughunt 10m`, `/coverage`): build
+   * the ONE `/loop <interval> <task>` line and arm the scheduler through the
+   * SAME path `/loop` uses, so the interval/job bookkeeping has one owner.
+   */
+  const cycleCommand = (id: LoopCycleId, rest: string): void => {
+    const arg = rest.trim()
+    const interval = arg.split(/\s+/)[0] || ''
+    const line = buildCycleLoopLine(id, interval)
+    if (!line) {
+      console.error(theme.error(t('cycle.unknown', { v: '/' + id })))
+      return
+    }
+    loopCommand(line.slice('/loop '.length))
+  }
+
   /** /goal: set/show/clear the condition. Returns whether it was SET. */
   const goalCommand = async (line: string): Promise<boolean> => {
     const sub = await handleGoal(line)
@@ -4139,6 +4168,7 @@ async function main(): Promise<void> {
         selfList: () => selfListCommand(''),
         selfDiff: (name) => selfDiffCommand(name),
         selfApply: (name) => selfApplyCommand(name),
+        cycle: (id, rest) => cycleCommand(id, rest),
       })
       if (
         await dispatchCommand(devCommands, trimmed, {

@@ -128,25 +128,19 @@ only the "Покрытые области" list plus the last ~15 steps; delete 
 (the commits and `CHANGELOG.md` are the real history). When it passes ~2000
 lines, replace it with a fresh skeleton before continuing.
 
-## 8. The `/loop` command to start it
+## 8. How to start it
 
-Run this ONCE in the project directory. The interval is NOT the length of a
-step: a step with a full `npm test` takes ~35s, so most ticks fire while the
-previous step is still running and are skipped (a job already in the queue is
-never duplicated). A SHORT interval therefore only removes idle time between
-steps — `5m` is the recommended value, and `15s` (`MIN_LOOP_MS`) is the floor.
-In this project the local shortcuts `/<name>` in `.zames/commands/` send the
-same lines (see `docs/LOOP-PROMPTS.md`).
+`/bughunt [интервал]` is a DEV-ONLY zames command (`src/loop-prompts.ts`): it
+expands into the ONE `/loop <interval> <task>` line for this protocol and arms
+the scheduler. The interval defaults to `5m`; a step with a full `npm test`
+takes ~35s, so most ticks fire while the previous step is still running and
+are skipped (a job already queued is never duplicated) — a shorter interval
+only removes idle time between steps. `15s` (`MIN_LOOP_MS`) is the floor.
 
-```
-/loop 5m Bug hunt, one step. Read docs/BUGHUNT.md and follow it exactly: pick the next NOT-yet-covered module from its scope table (skip the ones under "Покрытые области" in QUEUE.md unless their code changed after the covering date), find ONE real reproducible defect, write the FAILING test first (RED), fix the root cause (GREEN), run the gates (typecheck, test, lint, format:check, build), append a `### Такт N` entry to QUEUE.md with the proof + test + gates + commit SHA, update "Покрытые области", commit (fix:/test: subject) and push to master (git push origin master). Do NOT bump the version. If the module is clean, add it to "Покрытые области", write a `чисто` entry with what you verified, and commit nothing. Stop the loop with /jobs clear when every module in the scope table is covered and no covered module has changed since its covering date.
-```
-
-One-liner variant if the task text must fit on one line:
-
-```
-/loop 5m Bug hunt step: read docs/BUGHUNT.md and follow it exactly (next uncovered module, one reproducible defect, failing test first, root-cause fix, run gates, journal in QUEUE.md, update Покрытые области, commit and push to master, no version bump).
-```
+The cycle also commits and pushes every step, and checks
+`src/release-policy.ts`: when enough user-visible commits have accumulated it
+runs `npm run release <bump>` and pushes the tag (a BREAKING change is never
+released by the loop, only reported). See `docs/LOOP-PROMPTS.md`.
 
 ## 9. Suggested first passes (highest value)
 
