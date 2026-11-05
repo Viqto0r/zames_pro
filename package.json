@@ -47,6 +47,7 @@
     "postinstall": "node scripts/postinstall.mjs",
     "prepare": "husky",
     "glm-smoke": "tsx scripts/glm-smoke.mts",
+    "glm-warmup": "tsx scripts/glm-warmup.mts",
     "seo:topics": "tsx scripts/seo-topics.mts",
     "ui-smoke": "tsx scripts/ui-smoke.mts"
   },

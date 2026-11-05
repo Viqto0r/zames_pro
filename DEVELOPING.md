@@ -366,6 +366,13 @@ profile. Scenarios: `login`, `newChat`, `ask:simple`, `ask:second-send`,
 `listModels`, `tokenUsage`, `toolCall`, `history`. Flags: `--headed`,
 `--no-reuse-profile`, `ZAMES_GLM_SMOKE_KEEP=1`.
 
+The captcha means a cold GLM profile can never be signed in headlessly. When
+the smoke fails on login, run `npm run glm-warmup` once: it opens
+`chat.z.ai` in a VISIBLE window on the live `~/.zames/glm-profile`, so a human
+can pass the Aliyun slider captcha by hand. The profile is persistent, so the
+smoke and the agent then run without it. The script sends nothing; close it
+(Ctrl+C) once a message went through.
+
 ### Passing flags through npm (`--` is mandatory)
 
 `npm run dev --provider glm` does NOT pass `--provider` to zames: npm swallows

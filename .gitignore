@@ -1,7 +1,6 @@
 node_modules
 dist
 .zames
-*.log
 tmp/
 .husky/_
 
@@ -14,7 +13,6 @@ undefined
 .zamesrc.json
 # Per-project session goal (/goal) — personal state, not part of the package.
 .zames-goal
-commit-msg.tmp
 
 # Agent-generated working notes. The agent rewrites this file constantly and
 # used to commit it on every task; keep it OUT of the repo so a self-update
@@ -25,8 +23,6 @@ BACKLOG.md
 # locally (useful to reproduce a rendering regression by hand) but not tracked:
 # their checks are already covered by unit tests and they only bloat the repo.
 scripts/dev-probes/
-
-# Local draft of the next TUI work plan — a scratchpad, not part of the repo.
 
 # The agent's own bug-hunting journal (like BACKLOG.md): rewritten during
 # development cycles, must never ship with a release.
