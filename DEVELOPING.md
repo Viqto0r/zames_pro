@@ -110,7 +110,7 @@ and never shipped, so a release cannot carry them:
 | File                  | What it is                                                     | Who updates it                                |
 | --------------------- | -------------------------------------------------------------- | --------------------------------------------- |
 | `BACKLOG.md`          | improvement ideas for the agent itself                         | `/backlog`, `/improve`, the model in dev mode |
-| `QUEUE.md`            | the text-audit queue + journal (`docs/TEXT-AUDIT.md` protocol) | a `/loop` audit run                           |
+| `QUEUE.md`            | the improvement queue + journal (both `/loop` protocols below) | a `/loop` audit or bug-hunt run               |
 | `scripts/dev-probes/` | one-off TUI pty probes, written by the AGENT per bug           | the agent (the file is gitignored)            |
 
 They exist so a long-running improvement cycle does not lose its place. If one
@@ -133,6 +133,9 @@ git and CHANGELOG.md.
 - `docs/SEO.md` — how the project is made findable (metadata surfaces).
 - `docs/TEXT-AUDIT.md` — the protocol for the text audit; `QUEUE.md` is its
   gitignored journal.
+- `docs/BUGHUNT.md` — the protocol for the unattended bug hunt (the CODE
+  counterpart of the text audit); it shares `QUEUE.md` ("Покрытые области" +
+  `Такт N` entries) with it.
 - `docs/DESIGN-NOTES.md` — deep root-cause write-ups (read on demand).
 - `docs/` is the Jekyll site (GitHub Pages). Its RU/EN pairs are hand-written
   Markdown, but everything a LAYOUT prints comes from `scripts/site-ui.mts`:

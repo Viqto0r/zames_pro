@@ -35,6 +35,7 @@ function frontMatter(text: string): Record<string, string> {
 // SEO checklist, the text audit) and the two README SOURCES are repository
 // documentation only. The published pages are everything else.
 const NOT_A_PAGE = new Set([
+  'docs/BUGHUNT.md',
   'docs/DESIGN-NOTES.md',
   'docs/SEO.md',
   'docs/TEXT-AUDIT.md',
