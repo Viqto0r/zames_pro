@@ -1751,9 +1751,44 @@ export function _setParserBindings(m: {
   responseLooksLikeToolCall = m.responseLooksLikeToolCall
 }
 
-let unparsedDumps = 0
-const UNPARSED_DUMP_MAX = 20
+// The dev dump is a POST-MORTEM aid, not an archive. `npm run dev` turns it
+// on, and a /loop run is ONE process: the old per-process counter (stop after
+// 20, never delete) left every earlier file in place, so the project
+// `.zames/unparsed` grew without bound (93 files against a cap of 20). The
+// net-log dump already rotates for the same reason, so this directory keeps
+// the newest UNPARSED_DUMP_KEEP dumps.
+const UNPARSED_DUMP_KEEP = 20
 const UNPARSED_DUMP_BYTES = 64 * 1024
+
+/** Our names start with an ISO stamp, so a plain sort is chronological. */
+const UNPARSED_DUMP_RE = /^\d{4}-\d{2}-\d{2}T[\d-]+Z-/
+
+/**
+ * Keeps only the newest `keep` dumps in `dir`. A foreign `.txt` is neither
+ * deleted nor allowed to eat a slot of the keep window. Exported for the test:
+ * this rotation is the only thing bounding the directory.
+ */
+export async function rotateUnparsedDumps(
+  dir: string,
+  keep = UNPARSED_DUMP_KEEP,
+): Promise<number> {
+  const fs = await import('node:fs/promises')
+  const p = await import('node:path')
+  const names = (await fs.readdir(dir).catch(() => [] as string[])).filter(
+    (n) => n.endsWith('.txt') && UNPARSED_DUMP_RE.test(n),
+  )
+  if (names.length <= keep) return 0
+  names.sort()
+  const stale = names.slice(0, names.length - keep)
+  let removed = 0
+  for (const n of stale) {
+    await fs
+      .rm(p.join(dir, n), { force: true })
+      .then(() => removed++)
+      .catch(() => {})
+  }
+  return removed
+}
 
 /** Dev mode: save an unrecognized (but call-looking) answer for analysis. */
 /**
@@ -1782,7 +1817,6 @@ export async function dumpUnparsedCall(
   raw: string,
   meta: { provider?: string; where: string; workdir?: string },
 ): Promise<string> {
-  if (unparsedDumps >= UNPARSED_DUMP_MAX) return ''
   const text = String(raw || '')
   if (!text.trim()) return ''
   const fs = await import('node:fs/promises')
@@ -1790,7 +1824,6 @@ export async function dumpUnparsedCall(
   const dir = p.join(meta.workdir || process.cwd(), '.zames', 'unparsed')
   try {
     await fs.mkdir(dir, { recursive: true })
-    unparsedDumps++
     const stamp = new Date().toISOString().replace(/[:.]/g, '-')
     const name =
       stamp + '-' + String(meta.where || 'x').replace(/[^a-z0-9_-]+/gi, '_')
@@ -1816,6 +1849,8 @@ export async function dumpUnparsedCall(
       NL +
       NL
     await fs.writeFile(file, head + text.slice(0, UNPARSED_DUMP_BYTES), 'utf-8')
+    // Rotate AFTER the write, so the dump just produced survives.
+    await rotateUnparsedDumps(dir)
     return file
   } catch {
     return ''
