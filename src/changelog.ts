@@ -119,12 +119,22 @@ export function syncUnreleased(changelog: string, body: string): string {
     // from the rendered changelog. The lookahead is what keeps a CONTINUATION
     // line of a multi-line bullet in place: gluing on `\n` as well joined the
     // indent line to the next bullet and truncated the note.
+    // The draft's groups are still `## ` at this point (they become `### `
+    // below), and the FIRST group is already preceded by the blank line of
+    // the draft — so a group always starts a line, and this rule only has to
+    // punch in the missing blank line after a bullet.
     .replace(/([^\n])(?=## )/g, '$1' + nl + nl)
     .trim()
     // The draft renders groups as `## Added` (top-level), but INSIDE the file
     // a version's groups are `### Added` (a subsection of the version heading).
-    // `## [` (the next version) is left alone.
+    // `## [` (the next version) is left alone. The FIRST group follows the
+    // version heading directly (no bullet before it), so the blank-line rule
+    // above never fired for it — `## [Unreleased]` came out as a bare `#`
+    // followed by `# Added`. The heading owns a blank line, always.
     .replace(/^## (?!\[)/gm, '### ')
+    // One blank line between the version heading and its first group, not
+    // the three the rules above can stack up.
+    .replace(/^\n+(?=### )/gm, '')
   const section = cleanBody ? nl + nl + cleanBody + nl : nl
   return changelog.slice(0, afterAnchor) + section + tail
 }
