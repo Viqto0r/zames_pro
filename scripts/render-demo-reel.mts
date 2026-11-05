@@ -74,43 +74,19 @@ const VERSION = '2.95.3'
 const WIDTH = 1080
 const HEIGHT = 820
 
-// Mirrors renderStartupBanner() in src/banner.ts: a rounded box with the
-// title, the version, the working directory and the active provider. The demo
-// used flat "Working directory:" lines, which no zames build prints.
+// Mirrors FullScreenApp's Header: ONE row `❯ zames vX` + the working
+// directory, the provider badge on the right, then a full-width divider. The
+// old box was the NON-TUI startup banner, which the full-screen UI never draws.
 const header = (): void => {
-  const inner = 62
-  const pad = (visible: number): string =>
-    ' '.repeat(Math.max(0, inner - 1 - visible))
-  push(span(C.prompt, '\u256d' + '\u2500'.repeat(inner) + '\u256e'))
   push(
-    span(C.prompt, '\u2502 ') +
-      span(C.assistant, ' zames') +
-      span(C.dim, '  v' + VERSION) +
-      pad(15) +
-      span(C.prompt, '\u2502'),
+    span(C.prompt, '❯ ', true) +
+      span(C.assistant, 'zames') +
+      span(C.dim, ' v' + VERSION) +
+      span(C.dir, '  /home/dev/zames_pro') +
+      ' '.repeat(30) +
+      span(C.system, '[DeepSeek]'),
   )
-  push(
-    span(C.prompt, '\u2502 ') +
-      span(C.system, ' cwd: ') +
-      span(C.dir, '/home/dev/zames_pro') +
-      pad(30) +
-      span(C.prompt, '\u2502'),
-  )
-  push(
-    span(C.prompt, '\u2502 ') +
-      span(C.system, ' provider: ') +
-      span(C.toggleOn, 'DeepSeek') +
-      pad(25) +
-      span(C.prompt, '\u2502'),
-  )
-  push(
-    span(C.prompt, '\u2502 ') +
-      span(C.dim, ' /help for commands, /exit to quit') +
-      pad(32) +
-      span(C.prompt, '\u2502'),
-  )
-  push(span(C.prompt, '\u2570' + '\u2500'.repeat(inner) + '\u256f'))
-  blank()
+  push(span(C.turnRule, '─'.repeat(96)))
 }
 
 const turn = (): void => {
@@ -137,10 +113,12 @@ const tool = (name: string, detail: string, result: string): void => {
   push(span(C.toolResult, '   \u2714 ') + span(C.toolResult, result))
 }
 
+// StatusBar badges, right aligned: provider, the thinking toggle and the
+// context counter (StatusBar.statusBadges).
 const status =
-  span(C.toggleOn, '\ud83e\udde0 ') +
-  span(C.dim, '\u00b7 ') +
-  span(C.system, 'ctx: 12.4k \u00b7 1.2%')
+  span(C.system, '[DeepSeek] ') +
+  span(C.toggleOn, '\ud83e\udde0\ufe0e ') +
+  span(C.success, 'ctx: 12.4k \u00b7 1.2%')
 
 // ---------- the script ----------
 //
@@ -148,7 +126,15 @@ const status =
 // long prompt scrolling the screen.
 
 header()
-at(700)
+// A fresh full-screen chat is not blank: it shows editor.empty_hint until the
+// first turn (FullScreenApp renders it in the log viewport).
+push(
+  span(
+    C.dim,
+    'Type a task and press Enter. /help for commands, \ + Enter for a new line.',
+  ),
+)
+at(900)
 
 const question = 'what is zames_pro?'
 // Typing, one char per frame, ~28 ms each: fast enough to keep a visitor, slow
@@ -260,13 +246,33 @@ const css =
 
 function page(f: Frame): string {
   const rows = f.lines.join('')
+  // The input BOX from InputLine.tsx (borderStyle 'round', one column of
+  // padding) with the prompt INSIDE it, and the one-line key hint UNDER it.
+  // The old "zames_pro /" label came from nowhere: buildPrompt() returns a
+  // bare '❯ ' (the directory lives in the header).
+  const inner = 94
+  const typed = esc(f.input || '')
   const input =
     '<div class="l">' +
-    span(C.prompt, '> ', true) +
-    span(C.dir, 'zames_pro') +
-    span(C.dim, ' / ') +
-    esc(f.input || '') +
-    '<span class="cursor"></span></div>'
+    span(C.border, '╭' + '─'.repeat(inner) + '╮') +
+    '</div>' +
+    '<div class="l">' +
+    span(C.border, '│ ') +
+    span(C.prompt, '❯ ', true) +
+    typed +
+    '<span class="cursor"></span>' +
+    ' '.repeat(Math.max(1, inner - 3 - (f.input || '').length)) +
+    span(C.border, '│') +
+    '</div>' +
+    '<div class="l">' +
+    span(C.border, '╰' + '─'.repeat(inner) + '╯') +
+    '</div>' +
+    '<div class="l">' +
+    span(
+      C.dim,
+      ' wheel - scroll · select - Shift+click · Esc - stop · PgUp/PgDn · Home/End',
+    ) +
+    '</div>'
   return (
     '<!doctype html><html><head><meta charset="utf-8"><style>' +
     css +
