@@ -682,7 +682,10 @@ export async function runTask(
                     answer,
                     tr,
                   )
-                  editor.printAbove(theme.system(logged.question))
+                  // The question block is painted in the TOOL color (the warm
+                  // one tool calls use) so it reads as a distinct event, not
+                  // as another grey service line next to the agent's answers.
+                  editor.printAbove(theme.tool(logged.question))
                   editor.printAbove(theme.user(logged.answer))
                 }
               }

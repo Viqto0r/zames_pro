@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **tui:** paint the AskUser question in the tool color
 - drop dead provider-unification modules and stale doc text
 - **site:** a deeper palette, bigger type and calmer cards
 
