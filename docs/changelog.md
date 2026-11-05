@@ -308,6 +308,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Added</h3>
 <ul>
+<li><strong>compact:</strong> carry the todo checklist and the /goal condition into the new chat</li>
 <li><strong>site:</strong> a generated changelog page and one source for RU/EN layout strings</li>
 <li><strong>site:</strong> a generated changelog page (<code>/changelog.html</code> + <code>/changelog-ru.html</code>)</li>
 <li><strong>site:</strong> one source (<code>scripts/site-ui.mts</code>) for every RU/EN string a layout</li>
