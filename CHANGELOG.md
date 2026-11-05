@@ -7,9 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.96.0] - 2026-11-05
+
 ### Added
 
 - **loop:** dev-only /loop improvement cycles with a release policy
+
 ### Fixed
 
 - **extraTools:** apply an insertion-only ApplyPatch hunk from its @@ header

@@ -7,9 +7,10 @@ alt_url: /changelog-ru.html
 changelog: true
 ---
 <div class="wrap" markdown="1">
-<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 295)</p>
+<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 296)</p>
 <nav class="changelog-jump" aria-label="Jump to a version">
 <a href="#vUnreleased"><span>Unreleased</span></a>
+<a href="#v2.96.0"><span>v2.96.0</span><time datetime="2026-11-05">2026-11-05</time></a>
 <a href="#v2.95.6"><span>v2.95.6</span><time datetime="2026-11-05">2026-11-05</time></a>
 <a href="#v2.95.5"><span>v2.95.5</span><time datetime="2026-11-05">2026-11-05</time></a>
 <a href="#v2.95.4"><span>v2.95.4</span><time datetime="2026-11-05">2026-11-05</time></a>
@@ -307,6 +308,10 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
+<p class="ch-empty">—</p>
+</details>
+<details class="ch-release" id="v2.96.0" open>
+<summary><header><h2>v2.96.0</h2><time datetime="2026-11-05">2026-11-05</time></header></summary>
 <section class="ch-group"><h3>Added</h3>
 <ul>
 <li><strong>loop:</strong> dev-only /loop improvement cycles with a release policy</li>
@@ -329,7 +334,7 @@ changelog: true
 <li><strong>changelog:</strong> keep a drafted group heading off the previous bullet</li>
 </ul></section>
 </details>
-<details class="ch-release" id="v2.95.5" open>
+<details class="ch-release" id="v2.95.5">
 <summary><header><h2>v2.95.5</h2><time datetime="2026-11-05">2026-11-05</time></header></summary>
 <section class="ch-group"><h3>Added</h3>
 <ul>
