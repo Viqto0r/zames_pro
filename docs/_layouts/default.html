@@ -25,7 +25,7 @@
     <meta property="og:site_name" content="zames_pro" />
     <meta
       property="og:title"
-      content="{% if page.title and page.title != site.title %}{{ page.title }} — {{ site.title }}{% else %}{{ site.title }}{% endif %}"
+      content="{% if page.url == '/' or page.url == '/ru/' %}{{ page.title | default: site.title }}{% else %}{{ page.title | default: site.title }} — {{ site.title }}{% endif %}"
     />
     <meta
       property="og:description"
