@@ -101,6 +101,40 @@ const manualUnreleased = (current: string, drafted: string): string => {
   return out.join('\n').trimEnd()
 }
 
+// A manual note that shares its group with DRAFTED lines (e.g. a hand-written
+// `- Fixed` bullet when the draft already has a `## Fixed`) must land INSIDE
+// that group: appending the whole manual block after the draft produced a
+// SECOND `### Fixed` heading, so one change looked like two. A group the draft
+// does not have still gets its own heading.
+const mergeManualIntoDraft = (drafted: string, manual: string): string => {
+  if (!manual) return drafted
+  const blocks = manual.split(/\n(?=## )/)
+  let out = drafted
+  const extra: string[] = []
+  for (const block of blocks) {
+    const lines = block.split('\n')
+    const name = /^## (.+)$/.exec(lines[0].trim())?.[1]
+    const bullets = lines.filter((l) => l.trim().startsWith('- '))
+    const draftedHeading = name ? '## ' + name : ''
+    if (name && out.includes(draftedHeading)) {
+      // Insert right after the last bullet of that drafted group (not at the
+      // group's trailing blank line), so the manual note joins the list
+      // instead of starting a paragraph of its own.
+      const start = out.indexOf(draftedHeading)
+      const rest = out.slice(start + draftedHeading.length)
+      const next = rest.search(/\n## /)
+      const groupText = (next < 0 ? rest : rest.slice(0, next)).trimEnd()
+      const insertAt = start + draftedHeading.length + groupText.length
+      out =
+        out.slice(0, insertAt) + '\n' + bullets.join('\n') + out.slice(insertAt)
+    } else {
+      extra.push(block)
+    }
+  }
+  const tail = extra.join('\n').trimEnd()
+  return tail ? out.trimEnd() + '\n\n' + tail : out.trimEnd()
+}
+
 const draftedBody = renderChangelogDraft(groupCommits(parsed))
 const onDiskForManual = fs.readFileSync(
   path.resolve(
@@ -111,7 +145,7 @@ const onDiskForManual = fs.readFileSync(
   'utf-8',
 )
 const manual = manualUnreleased(onDiskForManual, draftedBody)
-const body = manual ? draftedBody + '\n\n' + manual : draftedBody
+const body = mergeManualIntoDraft(draftedBody, manual)
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const changelogPath = path.join(root, 'CHANGELOG.md')
