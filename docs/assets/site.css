@@ -8,19 +8,19 @@
    Markdown page without the layout keeps GitHub's default look. */
 
 :root {
-  --bg: #0b1020;
-  --bg-soft: #111830;
-  --card: #141c36;
-  --card-hover: #1a2444;
-  --border: #24304f;
-  --text: #e6ebf5;
-  --muted: #9aa7c2;
+  --bg: #080b16;
+  --bg-soft: #0d1223;
+  --card: #101728;
+  --card-hover: #151d33;
+  --border: #1e2740;
+  --text: #e8edf8;
+  --muted: #93a0ba;
   --accent: #6ee7b7;
-  --accent-2: #60a5fa;
-  --accent-3: #c084fc;
-  --code-bg: #0a0f1e;
-  --radius: 14px;
-  --max: 1080px;
+  --accent-2: #6aa8ff;
+  --accent-3: #b78cff;
+  --code-bg: #070a13;
+  --radius: 16px;
+  --max: 1120px;
 }
 
 @media (prefers-color-scheme: light) {
@@ -65,9 +65,11 @@ body {
     'Helvetica Neue',
     Arial,
     sans-serif;
-  font-size: 16.5px;
-  line-height: 1.65;
+  font-size: 17px;
+  line-height: 1.7;
+  letter-spacing: 0.002em;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 a {
@@ -118,9 +120,9 @@ a:hover {
   position: sticky;
   top: 0;
   z-index: 20;
-  backdrop-filter: blur(12px);
-  background: color-mix(in srgb, var(--bg) 82%, transparent);
-  border-bottom: 1px solid var(--border);
+  backdrop-filter: saturate(140%) blur(14px);
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
 }
 
 .site-header .wrap {
@@ -199,28 +201,17 @@ a:hover {
   position: relative;
   /* The first screen is the whole pitch: a visitor has to see the headline,
      the install line and the start of the screenshot without scrolling. */
-  padding: 56px 0 36px;
+  padding: 84px 0 48px;
   text-align: center;
   overflow: hidden;
-}
-
-.hero::before {
-  content: '';
-  position: absolute;
-  inset: -40% -10% auto;
-  height: 620px;
+  /* A soft vignette instead of a hard edge: the hero fades into the page. */
   background:
     radial-gradient(
-      circle at 30% 20%,
-      color-mix(in srgb, var(--accent) 22%, transparent),
-      transparent 55%
+      ellipse 80% 60% at 50% -10%,
+      color-mix(in srgb, var(--accent-2) 12%, transparent),
+      transparent 70%
     ),
-    radial-gradient(
-      circle at 72% 10%,
-      color-mix(in srgb, var(--accent-2) 20%, transparent),
-      transparent 55%
-    );
-  pointer-events: none;
+    linear-gradient(180deg, transparent 70%, var(--bg) 100%);
 }
 
 .hero > * {
@@ -244,10 +235,12 @@ a:hover {
 }
 
 .hero h1 {
-  margin: 22px 0 0;
-  font-size: clamp(34px, 6vw, 58px);
-  line-height: 1.1;
-  letter-spacing: -0.03em;
+  margin: 26px 0 0;
+  font-size: clamp(36px, 6.4vw, 64px);
+  line-height: 1.06;
+  letter-spacing: -0.035em;
+  font-weight: 800;
+  text-wrap: balance;
 }
 
 .hero h1 em {
@@ -264,10 +257,12 @@ a:hover {
 }
 
 .hero p.lead {
-  max-width: 720px;
-  margin: 20px auto 0;
+  max-width: 700px;
+  margin: 22px auto 0;
   color: var(--muted);
-  font-size: 18px;
+  font-size: clamp(17px, 1.6vw, 19px);
+  line-height: 1.65;
+  text-wrap: pretty;
 }
 
 .hero-actions {
@@ -281,49 +276,62 @@ a:hover {
 .btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 11px 22px;
-  border-radius: 10px;
+  padding: 12px 24px;
+  border-radius: 12px;
   border: 1px solid var(--border);
   font-weight: 600;
   font-size: 15px;
   color: var(--text);
   background: var(--bg-soft);
   transition:
-    transform 0.12s ease,
-    background 0.12s ease;
+    transform 0.14s ease,
+    background 0.14s ease,
+    border-color 0.14s ease,
+    box-shadow 0.14s ease;
 }
 
 .btn:hover {
   text-decoration: none;
   transform: translateY(-1px);
   background: var(--card-hover);
+  border-color: color-mix(in srgb, var(--accent-2) 45%, var(--border));
+  box-shadow: 0 10px 24px -14px rgba(0, 0, 0, 0.6);
 }
 
 .btn-primary {
   background: linear-gradient(100deg, var(--accent), var(--accent-2));
   border-color: transparent;
-  color: #06121a;
+  color: #04140f;
+  font-weight: 700;
+  box-shadow: 0 12px 30px -16px
+    color-mix(in srgb, var(--accent) 80%, transparent);
 }
 
 .btn-primary:hover {
   background: linear-gradient(100deg, var(--accent), var(--accent-2));
-  filter: brightness(1.08);
+  filter: brightness(1.07);
+  box-shadow: 0 16px 36px -16px
+    color-mix(in srgb, var(--accent) 90%, transparent);
 }
 
 .install {
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  margin-top: 26px;
-  padding: 10px 14px 10px 18px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  margin-top: 28px;
+  padding: 12px 14px 12px 20px;
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border));
+  border-radius: 12px;
   background: var(--code-bg);
   font-family:
     ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 14.5px;
+  font-size: 15px;
   color: #d7e0f0;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.02) inset,
+    0 18px 40px -28px color-mix(in srgb, var(--accent) 60%, transparent);
 }
 
 .install .prompt {
@@ -332,12 +340,15 @@ a:hover {
 }
 
 .hero-shot {
-  margin: 44px auto 0;
-  max-width: 980px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  margin: 52px auto 0;
+  max-width: 1000px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, var(--accent-2));
+  border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.55);
+  background: var(--code-bg);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 40px 90px -40px rgba(0, 0, 0, 0.85);
 }
 
 .hero-shot img {
@@ -389,45 +400,58 @@ a:hover {
 /* ---------- sections ---------- */
 
 section {
-  padding: 56px 0;
+  padding: clamp(56px, 7vw, 88px) 0;
 }
 
 .section-head {
-  max-width: 680px;
-  margin: 0 auto 34px;
+  max-width: 700px;
+  margin: 0 auto 40px;
   text-align: center;
 }
 
 .section-head h2 {
   margin: 0;
-  font-size: clamp(24px, 3.4vw, 32px);
-  letter-spacing: -0.02em;
+  font-size: clamp(25px, 3.6vw, 34px);
+  line-height: 1.2;
+  letter-spacing: -0.022em;
+  font-weight: 750;
 }
 
 .section-head p {
-  margin: 10px 0 0;
+  margin: 12px 0 0;
   color: var(--muted);
+  font-size: 16.5px;
+  text-wrap: pretty;
 }
 
 .grid {
   display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
 .card {
-  padding: 22px;
+  position: relative;
+  padding: 26px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--card);
+  background: linear-gradient(
+    170deg,
+    color-mix(in srgb, var(--card) 92%, var(--bg-soft)),
+    var(--card)
+  );
   transition:
-    background 0.15s ease,
-    border-color 0.15s ease;
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .card:hover {
   background: var(--card-hover);
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  transform: translateY(-2px);
+  box-shadow: 0 22px 44px -30px rgba(0, 0, 0, 0.75);
 }
 
 /* The docs grid uses <a class="card">: keep the text colour and drop the
@@ -449,26 +473,29 @@ a.card p {
 
 .card h3 {
   margin: 0 0 8px;
-  font-size: 17px;
-  letter-spacing: -0.01em;
+  font-size: 17.5px;
+  line-height: 1.35;
+  letter-spacing: -0.012em;
 }
 
 .card p {
   margin: 0;
   color: var(--muted);
   font-size: 15px;
+  line-height: 1.6;
 }
 
 .card .icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
-  margin-bottom: 14px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
-  font-size: 19px;
+  width: 42px;
+  height: 42px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+  font-size: 20px;
 }
 
 /* ---------- steps ---------- */
@@ -482,10 +509,18 @@ a.card p {
 
 .step {
   position: relative;
-  padding: 22px 22px 22px 64px;
+  padding: 24px 24px 24px 68px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--card);
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.step:hover {
+  background: var(--card-hover);
+  border-color: color-mix(in srgb, var(--accent-2) 35%, var(--border));
 }
 
 .step::before {
@@ -529,7 +564,7 @@ a.card p {
 }
 
 .provider {
-  padding: 22px;
+  padding: 26px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: linear-gradient(
@@ -537,6 +572,16 @@ a.card p {
     var(--card),
     color-mix(in srgb, var(--card) 70%, var(--bg-soft))
   );
+  transition:
+    border-color 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.provider:hover {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  transform: translateY(-2px);
+  box-shadow: 0 22px 44px -30px rgba(0, 0, 0, 0.75);
 }
 
 .provider h3 {
@@ -776,9 +821,9 @@ pre code {
 /* ---------- footer ---------- */
 
 .site-footer {
-  margin-top: 40px;
-  padding: 40px 0;
-  border-top: 1px solid var(--border);
+  margin-top: 72px;
+  padding: 56px 0 44px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
   background: var(--bg-soft);
   font-size: 14.5px;
   color: var(--muted);
