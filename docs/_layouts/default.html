@@ -16,6 +16,21 @@
     />
     <meta name="author" content="Viktor Aleksandrov" />
     <link rel="canonical" href="{{ page.url | absolute_url }}" />
+    {% comment %} The site is bilingual: without hreflang Google treats the EN
+    and RU pages of one document as duplicates and may index the wrong one.
+    alt_url is set in every page's front matter. {% endcomment %} {% if
+    page.alt_url %}
+    <link
+      rel="alternate"
+      hreflang="{{ page.lang | default: 'en' }}"
+      href="{{ page.url | absolute_url }}"
+    />
+    <link
+      rel="alternate"
+      hreflang="{% if page.lang == 'ru' %}en{% else %}ru{% endif %}"
+      href="{{ page.alt_url | absolute_url }}"
+    />
+    {% endif %}
     <link
       rel="icon"
       href="{{ '/assets/favicon.svg' | relative_url }}"
@@ -69,8 +84,14 @@
       media="(prefers-color-scheme: light)"
     />
     <meta name="color-scheme" content="dark light" />
-    <link rel="stylesheet" href="{{ '/assets/site.css' | relative_url }}" />
-    <script src="{{ '/assets/site.js' | relative_url }}" defer></script>
+    <link
+      rel="stylesheet"
+      href="{{ '/assets/site.css' | relative_url }}?v={{ site.time | date: '%s' }}"
+    />
+    <script
+      src="{{ '/assets/site.js' | relative_url }}?v={{ site.time | date: '%s' }}"
+      defer
+    ></script>
   </head>
   <body>
     {% assign is_ru = false %}{% if page.lang == 'ru' %}{% assign is_ru = true

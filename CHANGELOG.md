@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **site:** stop the landing title repeating the site name in og:title
 - **site:** give the social preview its own static image
 
 ### Changed

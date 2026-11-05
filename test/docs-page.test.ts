@@ -286,3 +286,36 @@ test('the social preview image exists and is served from the site', () => {
     'docs/og-image.jpg is not a JPEG',
   )
 })
+
+// A GitHub Pages project site serves its own 404 from the published root, so
+// docs/404.html is the ONE page a visitor sees after a typo. It must exist,
+// carry a layout and point back home; nothing else in CI would notice.
+test('the site has its own 404 page', () => {
+  const file = path.join(root, 'docs/404.html')
+  assert.ok(fs.existsSync(file), 'docs/404.html is missing')
+  const text = fs.readFileSync(file, 'utf-8')
+  assert.match(text, /^---[\s\S]*?permalink: \/404\.html/m)
+  assert.match(text, /^layout: default$/m)
+  assert.ok(text.includes("{{ '/' | relative_url }}"), 'no link home')
+})
+
+// The site is bilingual: without hreflang Google treats the EN and RU pages
+// of one document as duplicates. Every page sets alt_url in front matter.
+test('the layout emits hreflang alternates', () => {
+  const layout = read('docs/_layouts/default.html')
+  assert.ok(layout.includes('rel="alternate"'), 'no rel=alternate')
+  assert.ok(layout.includes('hreflang='), 'no hreflang')
+  assert.ok(layout.includes('page.alt_url'), 'hreflang ignores alt_url')
+})
+
+// GitHub Pages caches assets for 10 minutes; a cache-busted URL makes a
+// deploy visible immediately instead of showing the previous stylesheet.
+test('the layout cache-busts its assets', () => {
+  const layout = read('docs/_layouts/default.html')
+  for (const asset of ['/assets/site.css', '/assets/site.js']) {
+    const idx = layout.indexOf(asset)
+    assert.ok(idx >= 0, `${asset} is not linked at all`)
+    const tail = layout.slice(idx, idx + 120)
+    assert.ok(tail.includes('?v='), `${asset} is not cache-busted`)
+  }
+})
