@@ -23,7 +23,12 @@ const FLOORS = {
   // below the current values.
   'extraTools.ts': 85,
   'fsutil.ts': 90,
-  'sessions.ts': 90,
+  // sessions.ts is deliberately NOT gated: three test files import it through
+  // a cache-busted `?fresh=` URL (each needs its own HOME), and Node merges
+  // those instances into ONE row whose line % depends on which lines the
+  // collision tests happen to touch — CI saw 34%. The real suite
+  // (test/sessions.test.ts) covers it at ~97%, and that file is pinned by its
+  // own assertions, so a lost test still fails there.
   'context.ts': 85,
   'markdown.ts': 90,
   'tools.ts': 90,
