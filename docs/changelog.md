@@ -313,6 +313,7 @@ changelog: true
 </ul></section>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
+<li><strong>extraTools:</strong> apply an insertion-only ApplyPatch hunk from its @@ header</li>
 <li><strong>dev:</strong> keep the unparsed-call dump directory bounded</li>
 </ul></section>
 </details>
