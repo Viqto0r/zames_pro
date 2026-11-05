@@ -7,9 +7,10 @@ alt_url: /changelog.html
 changelog: true
 ---
 <div class="wrap" markdown="1">
-<p class="changelog-lead">Каждый релиз zames_pro: самый свежий сверху, старые версии можно развернуть, а список версий в начале страницы ведёт сразу к нужной. (версий: 294)</p>
+<p class="changelog-lead">Каждый релиз zames_pro: самый свежий сверху, старые версии можно развернуть, а список версий в начале страницы ведёт сразу к нужной. (версий: 295)</p>
 <nav class="changelog-jump" aria-label="К версии">
 <a href="#vUnreleased"><span>Unreleased</span></a>
+<a href="#v2.95.6"><span>v2.95.6</span><time datetime="2026-11-05">2026-11-05</time></a>
 <a href="#v2.95.5"><span>v2.95.5</span><time datetime="2026-11-05">2026-11-05</time></a>
 <a href="#v2.95.4"><span>v2.95.4</span><time datetime="2026-11-05">2026-11-05</time></a>
 <a href="#v2.95.3"><span>v2.95.3</span><time datetime="2026-11-04">2026-11-04</time></a>
@@ -306,20 +307,18 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
+<p class="ch-empty">—</p>
+</details>
+<details class="ch-release" id="v2.95.6" open>
+<summary><header><h2>v2.95.6</h2><time datetime="2026-11-05">2026-11-05</time></header></summary>
 <section class="ch-group"><h3>Добавлено</h3>
 <ul>
 <li><strong>compact:</strong> carry the todo checklist and the /goal condition into the new chat</li>
 <li><strong>site:</strong> a generated changelog page and one source for RU/EN layout strings</li>
-<li><strong>site:</strong> a generated changelog page (<code>/changelog.html</code> + <code>/changelog-ru.html</code>)</li>
-<li><strong>site:</strong> one source (<code>scripts/site-ui.mts</code>) for every RU/EN string a layout</li>
 </ul></section>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
-<li><strong>changelog:</strong> <code>syncUnreleased</code> joined a multi-line bullet to the next one</li>
-</ul></section>
-<section class="ch-group"><h3>Изменено</h3>
-<ul>
-<li><strong>site:</strong> the doc nav and the footer link the changelog page in the reader's</li>
+<li><strong>changelog:</strong> keep a drafted group heading off the previous bullet</li>
 </ul></section>
 </details>
 <details class="ch-release" id="v2.95.5" open>
@@ -342,7 +341,7 @@ changelog: true
 <li><strong>site:</strong> a deeper palette, bigger type and calmer cards</li>
 </ul></section>
 </details>
-<details class="ch-release" id="v2.95.4" open>
+<details class="ch-release" id="v2.95.4">
 <summary><header><h2>v2.95.4</h2><time datetime="2026-11-05">2026-11-05</time></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>

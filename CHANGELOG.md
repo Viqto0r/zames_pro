@@ -7,18 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.95.6] - 2026-11-05
+
 ### Added
 
 - **compact:** carry the todo checklist and the /goal condition into the new chat
 - **site:** a generated changelog page and one source for RU/EN layout strings
-- **site:** a generated changelog page (`/changelog.html` + `/changelog-ru.html`)
-- **site:** one source (`scripts/site-ui.mts`) for every RU/EN string a layout
+
 ### Fixed
 
-- **changelog:** `syncUnreleased` joined a multi-line bullet to the next one
-### Changed
-
-- **site:** the doc nav and the footer link the changelog page in the reader's
+- **changelog:** keep a drafted group heading off the previous bullet
 
 ## [2.95.5] - 2026-11-05
 
