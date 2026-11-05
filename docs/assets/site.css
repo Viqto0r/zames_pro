@@ -370,17 +370,19 @@ a:hover {
 }
 
 /* The install one-liner is the most useful thing to copy on the whole site,
-   so it gets a copy button like a <pre> block (site.js does the work). */
+   so it gets a copy button like a <pre> block (site.js does the work). The
+   button is a FLEX SIBLING, not an overlay: on a narrow screen an absolutely
+   positioned button sat on top of the command text. */
 .install {
-  position: relative;
-  padding-right: 46px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
 }
 
 .install .copy-btn {
-  position: absolute;
-  top: 50%;
-  right: 8px;
-  transform: translateY(-50%);
+  position: static;
+  flex: none;
   opacity: 1;
 }
 
@@ -589,6 +591,15 @@ pre {
   overflow-x: auto;
   font-size: 14px;
   line-height: 1.6;
+}
+
+/* The scroll container is a child, so the copy button can sit OUTSIDE it:
+   an absolute button inside an overflow-x <pre> scrolled away with the text. */
+pre > .pre-scroll {
+  overflow-x: auto;
+  /* The button floats over the top-right corner of the scroll box. */
+  margin: -6px -8px -6px 0;
+  padding-right: 74px;
 }
 
 pre code {

@@ -83,7 +83,17 @@
   Array.prototype.forEach.call(
     document.querySelectorAll('pre > code'),
     function (code) {
-      wireCopy(code.parentNode, function () {
+      var pre = code.parentNode
+      // The <pre> is the horizontal scroll container. An absolute button
+      // INSIDE it scrolls away with the text, so the code moves into a
+      // .pre-scroll child and the button stays a direct child of <pre>.
+      if (!pre.querySelector('.pre-scroll')) {
+        var scroll = document.createElement('div')
+        scroll.className = 'pre-scroll'
+        pre.insertBefore(scroll, code)
+        scroll.appendChild(code)
+      }
+      wireCopy(pre, function () {
         return code.innerText
       })
     },
