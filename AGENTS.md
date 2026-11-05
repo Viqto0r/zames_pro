@@ -111,10 +111,6 @@ The deep mechanics are NOT repeated here. Read the matching section of
 
 When a change touches one concern, start in the module that owns it:
 
-### Module map (who owns what)
-
-When a change touches one concern, start in the module that owns it:
-
 - `src/index.ts` — CLI, main loop, slash-command dispatch, the message queue,
   the `/goal` and `/loop`|`/cron`|`/jobs` commands, the scheduler ticker, and the
   hot-reload `mod` bag (`reloadModules`/`autoReload`). Command _logic_ that can

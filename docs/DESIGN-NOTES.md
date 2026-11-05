@@ -652,12 +652,12 @@ the editor exists and re-wires them on `/provider` BEFORE `waitForLogin()`.
 ### Copying
 
 A terminal has no pointer, so Ctrl+Y / `/copy-code` USED to copy a fenced code
-block from the last answer (`extractCodeBlocks()`, src/code-blocks.ts). The
-operator said the whole code-copy feature is not needed, so the hotkey, the
-`/copy-code` command and the `⌘ n/m` status badge are gone. `/copy` (the whole
-last answer to the clipboard) stays. `src/code-blocks.ts` went with the
-feature: once the hotkey was removed its extractor was reached only from its
-own unit tests, so it was deleted rather than kept as a helper nobody calls.
+block from the last answer. The operator said the whole code-copy feature is
+not needed, so the hotkey, the `/copy-code` command and the `⌘ n/m` status
+badge are gone. `/copy` (the whole last answer to the clipboard) stays. The
+`extractCodeBlocks()` helper went with the feature: once the hotkey was
+removed it was reached only from its own unit tests, so it was deleted rather
+than kept as a helper nobody calls.
 
 ### Skills get a DISCIPLINE paragraph (the superpowers idea, without the hook)
 

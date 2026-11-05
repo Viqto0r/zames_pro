@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **site:** a deeper palette, bigger type and calmer cards
 
+### Removed
+
+- **refactor:** drop six dead modules left over from the unfinished provider-unification refactor (`browser-base.ts`, `send-slot.ts`, `provider-errors.ts`, `ask-retry.ts`, `ask-state.ts`, `retry-policy.ts`). Nothing imported them — the providers still use their own helpers — so they only shipped dead code in `dist/`.
+
 ## [2.95.4] - 2026-11-05
 
 ### Fixed
