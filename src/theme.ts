@@ -30,9 +30,8 @@ if (process.env.NO_COLOR) {
 //   - brown       — spinner/status base (a calm, non-alarming tone)
 //   - toggleOn    — a live toggle is ON
 //
-// `bg` is the terminal background each palette was designed for; it is NOT used
-// for rendering (the terminal owns the background) but the README screenshot
-// generator (scripts/render-demo.mts) uses it, and it documents the intent.
+// `bg` is the terminal background each palette was designed for; the terminal
+// owns the actual background, so this value documents the intent only.
 //
 // The FIRST palette ('zames') is the historical built-in one and the default;
 // the rest are ports of well-known editor schemes so the operator can pick a

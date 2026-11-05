@@ -21,7 +21,7 @@ Qwen или GLM) в агента для командной строки в ду�
 `npm install -g zames_pro`, запуск — `zames` в любой папке проекта; задачу
 можно описать обычным языком.
 
-<img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png" alt="сессия zames в терминале — терминальный coding-агент и AI-ассистент программиста без API-ключа" width="860">
+<img src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.gif" alt="сессия zames в терминале — терминальный coding-агент и AI-ассистент программиста без API-ключа" width="860">
 
 ## Быстрый старт
 
