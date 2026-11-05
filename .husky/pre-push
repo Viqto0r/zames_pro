@@ -1,1 +1,18 @@
 npm run lint && npm run format:check && npm run typecheck && npm run build
+
+# CI runs `npm run changelog:check` on the pushed tip. A hook CANNOT fold the
+# sync into the commit that introduces a fix/feat (pre-commit/commit-msg never
+# see the subject, and a `git add` there lands in the NEXT commit), so the safe
+# guard is here: sync into the worktree, then compare the STAGED/COMMITTED
+# CHANGELOG against the regenerated one. A stale tip is refused with the one
+# command that fixes it — no silent history rewrite.
+if ! npx tsx scripts/changelog-draft.mts --check >/dev/null 2>&1; then
+  echo ''
+  echo 'pre-push: the Unreleased CHANGELOG section is stale on this tip.'
+  npx tsx scripts/changelog-draft.mts --write >/dev/null 2>&1 || true
+  echo 'CHANGELOG.md was regenerated in the worktree; commit it:'
+  echo ''
+  echo '  git add CHANGELOG.md && git commit --amend --no-edit'
+  echo ''
+  exit 1
+fi

@@ -138,8 +138,19 @@ git and CHANGELOG.md.
 from the conventional commits since the last tag, and `npm run changelog:check`
 fails when the committed section is stale. CI ENFORCES it:
 `.github/workflows/test.yml` runs `npm run changelog:check` after the typecheck,
-so a `fix:`/`feat:` commit that lands without a sync fails the pipeline. The
-same job checks the generated docs: `npm run build:readme -- --check` and
+so a `fix:`/`feat:` commit that lands without a sync fails the pipeline.
+
+A git hook CANNOT fold that sync into the commit that introduces the change:
+`pre-commit`/`commit-msg` never see the subject, and a `git add` there lands in
+the NEXT commit. The safe guard is `.husky/pre-push`: it regenerates the
+section, and when the pushed tip is stale it REFUSES the push and prints the
+one command that fixes it (`git add CHANGELOG.md && git commit --amend
+--no-edit`) — no silent history rewrite. A fix/feat commit therefore needs its
+own `npm run changelog:sync` in the same commit; `changelog:draft
+--extra-subject <subject>` folds a not-yet-committed subject into the draft
+(used by the hook only), so the synced file matches what the commit adds.
+
+The same job checks the generated docs: `npm run build:readme -- --check` and
 `npm run build:llms -- --check` fail when `README.md`/`llms.txt`/
 `llms-full.txt` drifted from `docs/`.
 `npm run changelog:draft [ref]` PRINTS a draft without touching the file — use

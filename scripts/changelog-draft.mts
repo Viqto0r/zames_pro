@@ -29,7 +29,16 @@ function git(args: string[]): string {
 const argv = process.argv.slice(2)
 const write = argv.includes('--write')
 const check = argv.includes('--check')
-const argRef = argv.find((a) => !a.startsWith('-'))
+// A pre-commit hook runs BEFORE the commit exists, so its subject is not in
+// `git log` yet. `--extra-subject <subject>` folds the message being committed
+// into the draft, which keeps the synced section green on the new commit
+// instead of one commit late.
+const extraIdx = argv.indexOf('--extra-subject')
+const extraSubjects =
+  extraIdx >= 0 && argv[extraIdx + 1] ? [argv[extraIdx + 1]] : []
+const argRef = argv.find(
+  (a, i) => !a.startsWith('-') && argv[i - 1] !== '--extra-subject',
+)
 
 // Resolve the start ref: an explicit arg, otherwise the latest tag,
 // otherwise the root commit.
@@ -49,6 +58,7 @@ const subjects = git([
   .split('\n')
   .map((s) => s.trim())
   .filter(Boolean)
+  .concat(extraSubjects)
 
 const parsed = subjects
   .map(parseConventionalCommit)
