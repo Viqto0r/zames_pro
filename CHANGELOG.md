@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.95.4] - 2026-11-05
+
 ### Fixed
 
 - **site:** stop the copy buttons from covering or scrolling away
