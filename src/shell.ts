@@ -96,14 +96,21 @@ export function assertCommandInsideRoot(root: string, command: string): void {
       if (w.startsWith('-')) continue
       const raw = w.replace(/["']/g, '')
       if (!raw) continue
+      // A shell NORMALIZES a trailing separator before running the command:
+      // `rm -rf ./` and `rm -rf ../` delete the project root and its parent,
+      // but the raw word is neither `.` nor `..`, so the checks below let it
+      // through. Compare without the trailing slashes (a bare `//` is the
+      // root on POSIX and must stay one).
+      const norm = raw.replace(/\/+$/, '')
+      const bare = norm === '' ? raw.charAt(0) : norm
       if (
-        raw === '/' ||
-        raw === '.' ||
-        raw === '..' ||
-        raw === '~' ||
-        raw.startsWith('~/') ||
-        raw.startsWith('/') ||
-        raw.startsWith('..')
+        bare === '/' ||
+        bare === '.' ||
+        bare === '..' ||
+        bare === '~' ||
+        bare.startsWith('~/') ||
+        bare.startsWith('/') ||
+        bare.startsWith('..')
       ) {
         throw new Error(
           'Sandbox: recursive rm of an absolute/outside path is forbidden (' +
