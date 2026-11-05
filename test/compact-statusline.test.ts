@@ -12,6 +12,7 @@ import {
 import {
   buildCompactPrompt,
   buildCompactCarryover,
+  buildCompactToolResult,
   isUsableCompactSummary,
 } from '../src/commands.ts'
 
@@ -177,6 +178,37 @@ test('buildCompactCarryover: no goal, empty summary is safe', () => {
   const out = buildCompactCarryover('', '')
   assert.ok(out.length > 0)
   assert.ok(!out.includes('Original task:'))
+})
+
+// The TODO checklist and the /goal condition are SESSION state (a todo store
+// and <project>/.zames-goal), not chat state: compaction keeps the objects but
+// the model-written summary may not mention them, so the carryover must spell
+// them out or the new chat silently loses its task list and its goal.
+test('buildCompactCarryover: carries the todo checklist', () => {
+  const out = buildCompactCarryover('did X', undefined, [
+    { content: 'read the parser', status: 'completed' },
+    { content: 'fix the guard', status: 'in_progress' },
+    { content: 'run tests', status: 'pending' },
+  ])
+  assert.ok(out.includes('Task checklist'))
+  assert.ok(out.includes('[x] read the parser'))
+  assert.ok(out.includes('[~] fix the guard'))
+  assert.ok(out.includes('[ ] run tests'))
+  assert.ok(out.includes('1/3 done'))
+})
+
+test('buildCompactCarryover: carries the goal condition', () => {
+  const out = buildCompactCarryover('did X', undefined, [], {
+    goal: 'all tests pass',
+    isCondition: true,
+  })
+  assert.ok(out.includes('Completion goal'))
+  assert.ok(out.includes('all tests pass'))
+})
+
+test('buildCompactToolResult: empty when there is no session state', () => {
+  assert.equal(buildCompactToolResult([], null), '')
+  assert.equal(buildCompactToolResult(), '')
 })
 
 // ---------- /compact summary guard ----------

@@ -3,6 +3,7 @@ import path from 'path'
 import type { ToolArgs, ToolDef } from './types.js'
 import { safePath } from './sandbox.js'
 import type { UndoStore } from './undo.js'
+import type { TodoItem } from './commands.js'
 
 // Extra tools borrowed from Claude Code / Codex CLI:
 //   * LS         - list a directory (Claude Code has LS; Codex has list_dir)
@@ -34,10 +35,10 @@ function decodeContent(content: unknown, contentBase64: unknown): string {
 
 // ---------- TodoWrite ----------
 
-export interface TodoItem {
-  content: string
-  status: 'pending' | 'in_progress' | 'completed'
-}
+// The item shape is shared with the compaction carryover (src/commands.ts),
+// which renders the checklist into the new chat: one definition, so the two
+// can never drift apart.
+export type { TodoItem } from './commands.js'
 
 // The todo list is session state. It lives in a TodoStore so the caller can
 // inject ONE shared instance (index.ts does): the logic modules are

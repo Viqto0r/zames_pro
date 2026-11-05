@@ -78,7 +78,10 @@ commands (/new or /clear, /sessions, /chats, /resume-id, /last, /chat, /cd,
   Start in it with `--plan`.
 - /compact — ask the active backend to compress the current chat into a handover
   summary, then open a NEW chat, resend the system prompt and post the summary
-  as the carried-over context. Use it when the context gets long.
+  as the carried-over context. The agent's task checklist (`TodoWrite`) and the
+  active `/goal` condition travel with the summary — they are session state,
+  not chat state, so a compaction never loses them. Use it when the context
+  gets long.
 - /goal <condition> — set a **completion condition** (Claude Code parity). The
   agent starts working toward it at once and keeps starting new turns until a
   separate evaluator model judges the condition met. The goal clears itself

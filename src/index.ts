@@ -1608,6 +1608,8 @@ async function main(): Promise<void> {
       skipUiLock: true,
       selfImprovement: devMode,
       contextExhausted: true,
+      todos: getTodos(todoStore),
+      goal: sessionGoal ? { goal: sessionGoal, isCondition: true } : null,
     })
     if (!res.ok) return false
     currentChatId = res.chatId
@@ -3596,6 +3598,8 @@ async function main(): Promise<void> {
       answerTimeoutMs: providerAnswerTimeoutMs(),
       fallbackLimit: COMPACT_FALLBACK_LIMIT,
       selfImprovement: devMode,
+      todos: getTodos(todoStore),
+      goal: sessionGoal ? { goal: sessionGoal, isCondition: true } : null,
     })
     if (res.ok) {
       currentChatId = res.chatId
@@ -5381,6 +5385,10 @@ async function main(): Promise<void> {
                   quiet: true,
                   skipUiLock: true,
                   selfImprovement: devMode,
+                  todos: getTodos(todoStore),
+                  goal: sessionGoal
+                    ? { goal: sessionGoal, isCondition: true }
+                    : null,
                 })
                 if (res.ok) {
                   currentChatId = res.chatId

@@ -5,6 +5,7 @@ import {
   buildCompactCarryover,
   isUsableCompactSummary,
 } from './commands.js'
+import type { GoalInfo, TodoItem } from './commands.js'
 import {
   trimRestoredMessages,
   formatRestoredHistory,
@@ -72,6 +73,17 @@ export interface PerformCompactOptions {
    * so the 3 attempts only burn rate-limit budget.
    */
   contextExhausted?: boolean
+  /**
+   * The agent's TodoWrite checklist. It is SESSION state that lives in this
+   * process, not in the chat, so the new chat would never learn about it
+   * unless the carryover spells it out (the summary may skip it).
+   */
+  todos?: TodoItem[]
+  /**
+   * The long-lived /goal condition, if any. The summary is written by the model
+   * and may silently drop it; the block makes the goal survive verbatim.
+   */
+  goal?: GoalInfo | null
 }
 
 export interface PerformCompactResult {
@@ -112,6 +124,8 @@ export async function performCompact(
     quiet = false,
     selfImprovement = false,
     contextExhausted = false,
+    todos = [],
+    goal = null,
   } = opts
   const t = translate(locale)
   // The active provider's LABEL for operator-facing text: performCompact is
@@ -304,7 +318,14 @@ export async function performCompact(
           agent: false,
         },
       )
-      await browser.ask(buildCompactCarryover(summary, task), {
+      // The checklist and the goal are SESSION state (todoStore /
+      // .zames-goal), not chat state: they survive a compaction by themselves,
+      // but the model must be told they are still in force, otherwise it
+      // re-creates the tasks or treats the goal as gone because the summary
+      // does not mention it. They ride INSIDE the carryover, not as a separate
+      // turn: an extra send is another rate-limit pause AND every extra
+      // message of the new chat is another turn the model may answer.
+      await browser.ask(buildCompactCarryover(summary, task, todos, goal), {
         timeout: 60_000,
         agent: false,
       })

@@ -711,21 +711,110 @@ export function isUsableCompactSummary(text: string): boolean {
   return true
 }
 
+/** One entry of the agent's TodoWrite checklist (session state). */
+export interface TodoItem {
+  content: string
+  status: 'pending' | 'in_progress' | 'completed'
+}
+
+/** The long-lived session goal as the carryover renders it. */
+export interface GoalInfo {
+  goal: string
+  /** True for a completion CONDITION (judged every turn), false for a note. */
+  isCondition?: boolean
+}
+
+function todoMark(s: string): string {
+  return s === 'completed' ? '[x]' : s === 'in_progress' ? '[~]' : '[ ]'
+}
+
+/** The TODO block carried into the new chat. Empty when there are no tasks. */
+export function renderCompactTodos(todos: TodoItem[] = []): string {
+  const items = Array.isArray(todos) ? todos : []
+  if (!items.length) return ''
+  const lines = items.map(
+    (x, i) =>
+      String(i + 1) +
+      '. ' +
+      todoMark(String(x.status)) +
+      ' ' +
+      String(x.content),
+  )
+  const done = items.filter((x) => x.status === 'completed').length
+  return (
+    '## Task checklist (carried over by the agent, still in force)' +
+    NL +
+    'This list is SESSION state: it survived the compaction unchanged. ' +
+    'Do NOT recreate it from the summary — keep it up to date with ' +
+    'TodoWrite instead.' +
+    NL +
+    'Todo list (' +
+    String(done) +
+    '/' +
+    String(items.length) +
+    ' done):' +
+    NL +
+    lines.join(NL)
+  )
+}
+
+/** The goal block carried into the new chat. Empty when no goal is set. */
+export function renderCompactGoal(goal: GoalInfo | null | undefined): string {
+  const g = String(goal?.goal ?? '').trim()
+  if (!g) return ''
+  const head = goal?.isCondition
+    ? '## Completion goal (carried over, still in force)'
+    : '## Session goal (carried over, still in force)'
+  return (
+    head +
+    NL +
+    'This goal is still active in this session; the compaction did not ' +
+    'cancel it. Keep working toward it.' +
+    NL +
+    NL +
+    g
+  )
+}
+
+/**
+ * Re-pin the SESSION state after a compaction. The chat is new, but the todo
+ * store and the /goal file live in the process and on disk, so they survive —
+ * only the model's KNOWLEDGE of them does not. Sent as its own message right
+ * after the carryover, so it reads as current state, not as history.
+ */
+export function buildCompactToolResult(
+  todos: TodoItem[] = [],
+  goal: GoalInfo | null = null,
+): string {
+  return [renderCompactTodos(todos), renderCompactGoal(goal)]
+    .filter(Boolean)
+    .join(NL + NL)
+}
+
 /**
  * Wrap the model's summary into the text posted as the first message of the
  * NEW chat. The system prompt is sent separately (sendSystemPrompt), so here
  * we only mark the block as a carried-over context and add the operator's
- * original goal so the model does not lose it.
+ * original task. The todo checklist and the /goal condition are appended too:
+ * they are session state the model-written summary is not guaranteed to keep.
  */
-export function buildCompactCarryover(summary: string, task?: string): string {
+export function buildCompactCarryover(
+  summary: string,
+  task?: string,
+  todos: TodoItem[] = [],
+  goal: GoalInfo | null = null,
+): string {
   const body = String(summary ?? '').trim()
-  const goal = String(task ?? '').trim()
+  const goalText = String(task ?? '').trim()
   let out =
     'Context carried over from a previous chat (compacted). ' +
     'Treat it as the history of our work so far and continue from the current state.'
   out += NL + NL + body
-  if (goal) {
-    out += NL + NL + 'Original task: ' + goal
+  if (goalText) {
+    out += NL + NL + 'Original task: ' + goalText
+  }
+  for (const extra of [renderCompactTodos(todos), renderCompactGoal(goal)]) {
+    if (extra) out += NL + NL + extra
   }
   return out
 }
