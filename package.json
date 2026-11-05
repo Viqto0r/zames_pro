@@ -42,7 +42,6 @@
     "sched-smoke": "tsx scripts/sched-smoke.mts",
     "demo:replay": "tsx scripts/demo-replay.mts",
     "render-demo": "tsx scripts/render-demo.mts",
-    "render:demo-reel": "tsx scripts/render-demo-reel.mts",
     "render-how": "tsx scripts/render-how-it-works.mts",
     "build:readme": "tsx scripts/build-readme.mts",
     "build:llms": "tsx scripts/build-llms.mts",

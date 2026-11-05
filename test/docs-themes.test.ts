@@ -170,44 +170,28 @@ test('the gallery lives on its own page, not above every page content', () => {
   )
 })
 
-// The landing page plays a rendered demo reel (scripts/render-demo-reel.mts):
-// a missing frame or a reel.json that disagrees with the files would leave a
-// blank hero, which no other test would notice.
-test('the demo reel is complete and in sync', () => {
-  const dir = path.join(root, 'docs/demo-reel')
-  const meta = JSON.parse(
-    fs.readFileSync(path.join(dir, 'reel.json'), 'utf-8'),
-  ) as {
-    width: number
-    height: number
-    frames: Array<{ src: string; delay: number }>
-  }
-  assert.ok(meta.frames.length > 10, 'the reel lost its frames')
-  for (const f of meta.frames) {
-    assert.ok(f.delay > 0, `${f.src}: a frame needs a positive delay`)
-    assert.ok(
-      fs.existsSync(path.join(dir, f.src)),
-      `${f.src} is listed in reel.json but missing on disk`,
-    )
-  }
-  const index = fs.readFileSync(path.join(root, 'docs/index.md'), 'utf-8')
+// The landing page shows the recorded demo as a GIF. A missing file or markup
+// pointing elsewhere would leave the hero empty on Pages, which no other test
+// would notice.
+test('the landing page hero shows the recorded demo gif', () => {
+  const gif = path.join(root, 'docs/demo.gif')
+  assert.ok(fs.existsSync(gif), 'docs/demo.gif is missing')
+  const head = fs.readFileSync(gif).subarray(0, 6).toString('ascii')
   assert.ok(
-    index.includes('data-demo-reel'),
-    'the landing page stopped loading the demo reel',
+    head === 'GIF87a' || head === 'GIF89a',
+    'docs/demo.gif is not a GIF',
   )
-  assert.ok(
-    fs.existsSync(path.join(root, 'docs/demo.png')),
-    'the still fallback frame is gone',
-  )
-  // The hero <img> must declare the REAL reel size: the browser reserves the
-  // space from these numbers, and a wrong pair makes the page jump when the
-  // first frame swaps in.
   for (const page of ['docs/index.md', 'docs/ru/index.md']) {
     const text = fs.readFileSync(path.join(root, page), 'utf-8')
+    assert.ok(text.includes('/demo.gif'), `${page}: the hero lost the demo gif`)
     assert.ok(
-      text.includes('width="' + meta.width + '"') &&
-        text.includes('height="' + meta.height + '"'),
-      `${page}: the hero image size does not match the reel`,
+      !text.includes('data-demo-reel'),
+      `${page}: still points at the removed demo reel`,
     )
   }
+  const js = fs.readFileSync(path.join(root, 'docs/assets/site.js'), 'utf-8')
+  assert.ok(
+    !js.includes('demo reel'),
+    'site.js still carries the removed demo-reel player',
+  )
 })

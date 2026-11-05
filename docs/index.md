@@ -25,13 +25,12 @@ alt_url: /ru/
     </div>
     <div class="install"><span class="prompt">$</span> npm install -g zames_pro</div>
     <div class="hero-shot">
-      <a class="hero-shot-link" href="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png" target="_blank" rel="noopener">
+      <a class="hero-shot-link" href="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.gif" target="_blank" rel="noopener">
         <img
-          data-demo-reel="{{ '/demo-reel/reel.json' | relative_url }}"
-          src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png"
-          width="1080"
-          height="820"
+          src="{{ '/demo.gif' | relative_url }}"
           alt="A zames_pro session in the terminal: the agent reads files, runs commands and prints its answer"
+          width="1680"
+          height="896"
           loading="lazy"
           decoding="async"
         />
