@@ -279,41 +279,4 @@ zames</code></pre>
   </div>
 </section>
 
-<section id="docs">
-  <div class="wrap">
-    <div class="section-head">
-      <h2>Документация</h2>
-      <p>Полный справочник — в репозитории и на этом сайте.</p>
-    </div>
-    <div class="grid">
-      <a class="card" href="{{ '/readme/ru' | relative_url }}">
-        <h3>README</h3>
-        <p>Полный обзор: вход в аккаунт, провайдеры, использование, опции и FAQ.</p>
-      </a>
-      <a class="card" href="{{ '/commands-ru' | relative_url }}">
-        <h3>Команды и инструменты</h3>
-        <p>Все инструменты и слэш-команды, которые понимает агент.</p>
-      </a>
-      <a class="card" href="{{ '/configuration-ru' | relative_url }}">
-        <h3>Конфигурация и темы</h3>
-        <p>Все настройки, меню /config и 29 встроенных палитр.</p>
-      </a>
-      <a class="card" href="{{ '/mcp-ru' | relative_url }}">
-        <h3>MCP</h3>
-        <p>Подключение внешних серверов инструментов с безопасным примером Playwright MCP.</p>
-      </a>
-      <a class="card" href="{{ '/troubleshooting-ru' | relative_url }}">
-        <h3>Решение проблем</h3>
-        <p>Вход и капча, headless 403, рейт-лимиты, отсутствующие библиотеки.</p>
-      </a>
-      <a class="card" href="{{ '/themes-ru' | relative_url }}">
-        <h3>Темы</h3>
-        <p>Все 29 цветовых тем со скриншотами настоящих сессий.</p>
-      </a>
-      <a class="card" href="{{ '/' | relative_url }}">
-        <h3>English version</h3>
-        <p>Overview, commands, configuration and troubleshooting in English.</p>
-      </a>
-    </div>
-  </div>
-</section>
+{% include landing-cards.html %}

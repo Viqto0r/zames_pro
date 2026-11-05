@@ -70,7 +70,7 @@ and runs right after it, in the same chat. `Esc` aborts the current generation,
 - [Why zames?](#why-zames) · [Requirements](#requirements) · [Signing in](#signing-in)
 - [Switching providers (DeepSeek / Qwen / GLM)](#switching-providers-deepseek--qwen--glm)
 - [Installation](#installation) · [Usage](#usage) · [FAQ](#faq)
-- Reference: [Commands and tools](docs/commands.md) · [MCP](docs/mcp.md) · [Configuration and themes](docs/configuration.md) · [Troubleshooting](docs/troubleshooting.md)
+- Reference: [Commands and tools](docs/commands.md) · [MCP](docs/mcp.md) · [Configuration and themes](docs/configuration.md) · [Troubleshooting](docs/troubleshooting.md) · [Changelog](https://viqto0r.github.io/zames_pro/changelog.html)
 - [Keywords and alternatives](#keywords-and-alternatives) · [Links](#links) · [License](#license)
 
 ## How it works

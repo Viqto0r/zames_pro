@@ -44,6 +44,11 @@ jobs:
         run: |
           npm run build:readme -- --check
           npm run build:llms -- --check
+          # The changelog page and the site data are copied from CHANGELOG.md
+          # and scripts/site-ui.mts by hand-run scripts; a release rewrites the
+          # former, so a forgotten rebuild would publish last release's history.
+          npm run build:changelog -- --check
+          npm run build:site-data -- --check
 
       # The Unreleased CHANGELOG section is derived from the conventional
       # commits; a fix/feat without a sync is caught before it lands.

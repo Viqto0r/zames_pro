@@ -14,7 +14,7 @@ import. Pick one with `/theme` — it opens a picker with a live preview — or 
 the `/config` menu. The choice is saved in your zames config and applies to
 the next render.
 
-A screenshot above is a REAL session: the same task in the same terminal with
+Every screenshot below is a REAL session: the same task in the same terminal with
 only the palette switched. Click a tile to open it full size.
 
 </div>

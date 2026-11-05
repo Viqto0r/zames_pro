@@ -241,8 +241,8 @@
               <li><a href="https://www.npmjs.com/package/zames_pro">npm</a></li>
               <li>
                 <a
-                  href="https://github.com/Viqto0r/zames_pro/blob/master/CHANGELOG.md"
-                  >Changelog</a
+                  href="{% if is_ru %}{{ '/changelog-ru' | relative_url }}{% else %}{{ '/changelog' | relative_url }}{% endif %}"
+                  >{{ site.data.site_ui[page.lang].docsNav.changelog }}</a
                 >
               </li>
               <li>
@@ -279,6 +279,12 @@
               <li>
                 <a href="{{ nav_themes | relative_url }}"
                   >{% if is_ru %}Темы{% else %}Themes{% endif %}</a
+                >
+              </li>
+              <li>
+                <a
+                  href="{% if is_ru %}{{ '/changelog-ru' | relative_url }}{% else %}{{ '/changelog' | relative_url }}{% endif %}"
+                  >{{ site.data.site_ui[page.lang].docsNav.changelog }}</a
                 >
               </li>
             </ul>

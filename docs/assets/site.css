@@ -1235,3 +1235,133 @@ pre .copy-btn.copied {
     color: #000;
   }
 }
+
+/* ---------- changelog ---------- */
+
+/* The changelog is 294 releases. It is NOT a normal doc page: the jump list
+   and the per-release fold exist so a reader can reach one version instead of
+   scrolling through 2800 lines. The grid keeps the version column narrow so a
+   long release note still has a readable measure. */
+.changelog-lead {
+  margin: 0 0 18px;
+  color: var(--muted);
+}
+
+.changelog-jump {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 190px;
+  overflow-y: auto;
+  margin: 0 0 28px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-soft);
+  font-size: 13px;
+}
+
+.changelog-jump a {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 9px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--muted);
+  /* A version is a value, not prose: the mono face makes v2.95.5 and v2.95.4
+     distinguishable at a glance. */
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+.changelog-jump a:hover {
+  border-color: var(--border);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.changelog-jump time {
+  color: color-mix(in srgb, var(--muted) 65%, transparent);
+  font-size: 11.5px;
+}
+
+.ch-release {
+  margin: 0 0 10px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+}
+
+/* A folded release still shows its version: <summary> is the header, so the
+   closed state is a scannable list of versions, not 294 empty bars. */
+.ch-release > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.ch-release > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ch-release > summary::before {
+  content: '▸';
+  color: var(--muted);
+  font-size: 12px;
+  transition: transform 0.15s ease;
+}
+
+.ch-release[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.ch-release > summary h2 {
+  margin: 0;
+  font-size: 17px;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-weight: 650;
+}
+
+.ch-release > summary time {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.ch-release .ch-group {
+  padding: 0 18px 6px;
+}
+
+.ch-release .ch-group h3 {
+  margin: 12px 0 6px;
+  color: var(--muted);
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.ch-release .ch-group ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.ch-release .ch-group li {
+  margin: 5px 0;
+  color: color-mix(in srgb, var(--text) 88%, var(--muted));
+  font-size: 15.5px;
+}
+
+/* The anchor target must not hide under the sticky header after a jump. */
+.ch-release:target {
+  border-color: color-mix(in srgb, var(--accent-2) 55%, var(--border));
+}
+
+.ch-empty {
+  margin: 0;
+  padding: 0 18px 14px;
+  color: var(--muted);
+}

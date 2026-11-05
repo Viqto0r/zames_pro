@@ -1,0 +1,27 @@
+{% comment %} The landing documentation grid. It lives in an include because the
+SAME cards have to exist in both languages: the Russian landing page used to
+carry its own hardcoded copy, and adding a page (the changelog) meant editing
+two files and two link prefixes by hand. site-ui.mts is the single source — EN
+and RU are two entries of one table, so a card can never exist in one language
+only. {% endcomment %} {% assign ui = site.data.site_ui[page.lang] %} {% if ui
+%}
+<section id="docs">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>{{ ui.landing.docsHeading }}</h2>
+      <p>{{ ui.landing.docsLead }}</p>
+    </div>
+    <div class="grid">
+      {% for card in ui.landing.cards %}
+      <a
+        class="card"
+        href="{% if card[0] == '/' %}{{ '/' | relative_url }}{% else %}{{ card[0] | relative_url }}{% endif %}"
+      >
+        <h3>{{ card[1] }}</h3>
+        <p>{{ card[2] }}</p>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}

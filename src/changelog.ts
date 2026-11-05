@@ -116,8 +116,10 @@ export function syncUnreleased(changelog: string, body: string): string {
     // carries several groups (`## Added` … `## Fixed`) without a blank line
     // between them, the next group used to stay glued to the last bullet
     // (`- a### Fixed`) — it was not a heading at all, so the item vanished
-    // from the rendered changelog.
-    .replace(/([^\n])\n?(?=## )/g, '$1' + nl + nl)
+    // from the rendered changelog. The lookahead is what keeps a CONTINUATION
+    // line of a multi-line bullet in place: gluing on `\n` as well joined the
+    // indent line to the next bullet and truncated the note.
+    .replace(/([^\n])(?=## )/g, '$1' + nl + nl)
     .trim()
     // The draft renders groups as `## Added` (top-level), but INSIDE the file
     // a version's groups are `### Added` (a subsection of the version heading).

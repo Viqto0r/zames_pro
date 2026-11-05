@@ -72,7 +72,7 @@ and runs right after it, in the same chat. `Esc` aborts the current generation,
 - [Why zames?](#why-zames) · [Requirements](#requirements) · [Signing in](#signing-in)
 - [Switching providers (DeepSeek / Qwen / GLM)](#switching-providers-deepseek--qwen--glm)
 - [Installation](#installation) · [Usage](#usage) · [FAQ](#faq)
-- Reference: [Commands and tools](docs/commands.md) · [MCP](docs/mcp.md) · [Configuration and themes](docs/configuration.md) · [Troubleshooting](docs/troubleshooting.md)
+- Reference: [Commands and tools](docs/commands.md) · [MCP](docs/mcp.md) · [Configuration and themes](docs/configuration.md) · [Troubleshooting](docs/troubleshooting.md) · [Changelog](https://viqto0r.github.io/zames_pro/changelog.html)
 - [Keywords and alternatives](#keywords-and-alternatives) · [Links](#links) · [License](#license)
 
 ## How it works
@@ -534,7 +534,7 @@ zames                      # один раз войти, дальше прост
 - [Почему zames?](#почему-zames) · [Требования](#требования) · [Вход в аккаунт](#вход-в-аккаунт)
 - [Переключение провайдера (DeepSeek / Qwen / GLM)](#переключение-провайдера-deepseek--qwen--glm)
 - [Установка](#установка) · [Использование](#использование) · [FAQ](#faq)
-- Справочник: [Команды и инструменты](docs/commands-ru.md) · [MCP](docs/mcp-ru.md) · [Конфигурация и темы](docs/configuration-ru.md) · [Troubleshooting](docs/troubleshooting-ru.md)
+- Справочник: [Команды и инструменты](docs/commands-ru.md) · [MCP](docs/mcp-ru.md) · [Конфигурация и темы](docs/configuration-ru.md) · [Troubleshooting](docs/troubleshooting-ru.md) · [История изменений](https://viqto0r.github.io/zames_pro/changelog-ru.html)
 - [Ключевые слова и аналоги](#ключевые-слова-и-аналоги) · [Ссылки](#ссылки) · [Лицензия](#лицензия)
 
 ## Как это работает

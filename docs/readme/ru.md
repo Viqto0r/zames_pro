@@ -54,7 +54,7 @@ zames                      # один раз войти, дальше прост
 - [Почему zames?](#почему-zames) · [Требования](#требования) · [Вход в аккаунт](#вход-в-аккаунт)
 - [Переключение провайдера (DeepSeek / Qwen / GLM)](#переключение-провайдера-deepseek--qwen--glm)
 - [Установка](#установка) · [Использование](#использование) · [FAQ](#faq)
-- Справочник: [Команды и инструменты](/zames_pro/commands-ru.html) · [MCP](/zames_pro/mcp-ru.html) · [Конфигурация и темы](/zames_pro/configuration-ru.html) · [Troubleshooting](/zames_pro/troubleshooting-ru.html)
+- Справочник: [Команды и инструменты](/zames_pro/commands-ru.html) · [MCP](/zames_pro/mcp-ru.html) · [Конфигурация и темы](/zames_pro/configuration-ru.html) · [Troubleshooting](/zames_pro/troubleshooting-ru.html) · [История изменений](https://viqto0r.github.io/zames_pro/changelog-ru.html)
 - [Ключевые слова и аналоги](#ключевые-слова-и-аналоги) · [Ссылки](#ссылки) · [Лицензия](#лицензия)
 
 ## Как это работает

@@ -44,6 +44,8 @@
     "render-how": "tsx scripts/render-how-it-works.mts",
     "build:readme": "tsx scripts/build-readme.mts",
     "build:llms": "tsx scripts/build-llms.mts",
+    "build:changelog": "tsx scripts/build-changelog.mts",
+    "build:site-data": "tsx scripts/build-site-data.mts",
     "postinstall": "node scripts/postinstall.mjs",
     "prepare": "husky",
     "glm-smoke": "tsx scripts/glm-smoke.mts",

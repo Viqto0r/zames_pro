@@ -5,15 +5,15 @@ layout: default
 {% if page.lang == 'ru' %} {% assign nav_commands = '/commands-ru' %} {% assign
 nav_mcp = '/mcp-ru' %} {% assign nav_config = '/configuration-ru' %} {% assign
 nav_trouble = '/troubleshooting-ru' %} {% assign nav_readme = '/readme/ru' %} {%
-assign label_home = 'На главную' %} {% assign label_commands = 'Команды' %} {%
-assign label_config = 'Конфигурация' %} {% assign label_trouble = 'Решение
-проблем' %} {% assign label_readme = 'README (RU)' %} {% else %} {% assign
-nav_commands = '/commands' %} {% assign nav_mcp = '/mcp' %} {% assign nav_config
-= '/configuration' %} {% assign nav_trouble = '/troubleshooting' %} {% assign
-nav_readme = '/readme/en' %} {% assign label_home = 'Home' %} {% assign
-label_commands = 'Commands' %} {% assign label_config = 'Configuration' %} {%
-assign label_trouble = 'Troubleshooting' %} {% assign label_readme = 'README
-(EN)' %} {% endif %}
+assign nav_changelog = '/changelog-ru' %} {% assign label_home = 'На главную' %}
+{% assign label_commands = 'Команды' %} {% assign label_config = 'Конфигурация'
+%} {% assign label_trouble = 'Решение проблем' %} {% assign label_readme =
+'README (RU)' %} {% else %} {% assign nav_commands = '/commands' %} {% assign
+nav_mcp = '/mcp' %} {% assign nav_config = '/configuration' %} {% assign
+nav_trouble = '/troubleshooting' %} {% assign nav_readme = '/readme/en' %} {%
+assign label_home = 'Home' %} {% assign label_commands = 'Commands' %} {% assign
+label_config = 'Configuration' %} {% assign label_trouble = 'Troubleshooting' %}
+{% assign label_readme = 'README (EN)' %} {% endif %}
 <article class="doc">
   <div class="wrap">
     {% comment %} A breadcrumb is what tells a reader arriving from a search
@@ -40,6 +40,9 @@ assign label_trouble = 'Troubleshooting' %} {% assign label_readme = 'README
       <a href="{{ nav_config | relative_url }}">{{ label_config }}</a>
       <a href="{{ nav_trouble | relative_url }}">{{ label_trouble }}</a>
       <a href="{{ nav_readme | relative_url }}">{{ label_readme }}</a>
+      <a href="{{ nav_changelog | relative_url }}"
+        >{{ site.data.site_ui[page.lang].docsNav.changelog }}</a
+      >
     </nav>
     {{ content }}
     <nav class="doc-nav">
@@ -52,6 +55,9 @@ assign label_trouble = 'Troubleshooting' %} {% assign label_readme = 'README
       <a href="{{ nav_config | relative_url }}">{{ label_config }}</a>
       <a href="{{ nav_trouble | relative_url }}">{{ label_trouble }}</a>
       <a href="{{ nav_readme | relative_url }}">{{ label_readme }}</a>
+      <a href="{{ nav_changelog | relative_url }}"
+        >{{ site.data.site_ui[page.lang].docsNav.changelog }}</a
+      >
     </nav>
   </div>
 </article>

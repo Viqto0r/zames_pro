@@ -13,11 +13,8 @@ then the five light palettes arrive as white holes. {% endcomment %}
 <aside class="theme-showcase" id="themes">
   <div class="wrap">
     <div class="section-head">
-      <h2>{{ site.ui.themes | default: 'Themes' }}</h2>
-      <p>
-        {{ site.ui.theme_gallery_lead | default: 'Every palette ships with the
-        agent.' }}
-      </p>
+      <h2>{{ page.title }}</h2>
+      <p>{{ site.data.site_ui[page.lang].themes.legend }}</p>
     </div>
     {% comment %} The toggle starts hidden and is revealed by site.js, which is
     also what collapses the grid: with JS off the gallery stays open and a dead
