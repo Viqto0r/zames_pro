@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **site:** give the social preview its own static image
+
+### Changed
+
+- **site:** a deeper palette, bigger type and calmer cards
+
 ## [2.95.4] - 2026-11-05
 
 ### Fixed
