@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **site:** stop the copy buttons from covering or scrolling away
+- **site:** give the hero copy button its shared look and drop demo artifacts
+
 ## [2.95.3] - 2026-11-04
 
 ### Fixed
