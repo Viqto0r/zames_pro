@@ -169,3 +169,41 @@ test('the gallery lives on its own page, not above every page content', () => {
     'the closed gallery state lost its CSS',
   )
 })
+
+// The landing page plays a rendered demo reel (scripts/render-demo-reel.mts):
+// a missing frame or a reel.json that disagrees with the files would leave a
+// blank hero, which no other test would notice.
+test('the demo reel is complete and in sync', () => {
+  const dir = path.join(root, 'docs/demo-reel')
+  const meta = JSON.parse(
+    fs.readFileSync(path.join(dir, 'reel.json'), 'utf-8'),
+  ) as {
+    width: number
+    height: number
+    frames: Array<{ src: string; delay: number }>
+  }
+  assert.ok(meta.frames.length > 10, 'the reel lost its frames')
+  for (const f of meta.frames) {
+    assert.ok(f.delay > 0, `${f.src}: a frame needs a positive delay`)
+    assert.ok(
+      fs.existsSync(path.join(dir, f.src)),
+      `${f.src} is listed in reel.json but missing on disk`,
+    )
+  }
+  const index = fs.readFileSync(path.join(root, 'docs/index.md'), 'utf-8')
+  assert.ok(
+    index.includes('data-demo-reel'),
+    'the landing page stopped loading the demo reel',
+  )
+  assert.ok(
+    fs.existsSync(path.join(root, 'docs/demo.png')),
+    'the still fallback frame is gone',
+  )
+  // The hero <img> must declare the REAL reel size: the browser reserves the
+  // space from these numbers, and a wrong pair makes the page jump when the
+  // first frame swaps in.
+  assert.ok(
+    index.includes('width="' + meta.width + '"'),
+    'the hero image width does not match the reel',
+  )
+})

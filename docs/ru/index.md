@@ -45,10 +45,11 @@ ui:
     <div class="hero-shot">
       <a class="hero-shot-link" href="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png" target="_blank" rel="noopener">
         <img
+          data-demo-reel="{{ '/demo-reel/reel.json' | relative_url }}"
           src="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png"
+          width="1080"
+          height="520"
           alt="Сессия zames_pro в терминале: агент читает файлы, выполняет команды и печатает ответ"
-          width="1385"
-          height="671"
           loading="lazy"
           decoding="async"
         />

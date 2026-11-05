@@ -176,6 +176,40 @@
     }
   })
 
+  // ---------- the hero demo reel ----------
+  // scripts/render-demo-reel.mts renders a scripted session into numbered
+  // frames; this swaps <img src> on a timer so the hero LOOKS like a live run
+  // without a video file in the repo. The still image the markup ships is the
+  // last frame, so a visitor with JS off, or a slow connection, still sees the
+  // finished answer rather than an empty screen.
+  var reel = document.querySelector('img[data-demo-reel]')
+  if (reel && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    fetch(reel.getAttribute('data-demo-reel'))
+      .then(function (r) {
+        return r.ok ? r.json() : null
+      })
+      .then(function (data) {
+        if (!data || !data.frames || !data.frames.length) return
+        var base = reel.getAttribute('data-demo-reel').replace(/[^/]*$/, '')
+        var i = 0
+        // Preload, otherwise the first loop shows blank frames on a slow link.
+        data.frames.forEach(function (f) {
+          var pre = new Image()
+          pre.src = base + f.src
+        })
+        function tick() {
+          var f = data.frames[i]
+          reel.src = base + f.src
+          i = (i + 1) % data.frames.length
+          setTimeout(tick, f.delay)
+        }
+        tick()
+      })
+      .catch(function () {
+        // The still frame in the markup is the fallback.
+      })
+  }
+
   // ---------- hero screenshot: same lightbox ----------
   // The landing page's demo image is a link to the raw PNG; opening it in the
   // same dialog keeps a visitor on the page instead of throwing them at a
@@ -186,7 +220,9 @@
       if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
       e.preventDefault()
       var heroImg = heroLink.querySelector('img')
-      img.src = heroLink.getAttribute('href')
+      img.src = heroImg
+        ? heroImg.currentSrc || heroImg.src
+        : heroLink.getAttribute('href')
       img.alt = heroImg ? heroImg.alt : ''
       caption.textContent =
         document.documentElement.getAttribute('data-lang') === 'ru'
