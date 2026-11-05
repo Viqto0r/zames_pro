@@ -30,9 +30,9 @@ Source of truth first, generated files last (a generated one is NEVER edited):
 | Bundled skills     | `skills/*/SKILL.md`                                                                                                                                                      | yes (user-visible text)                                         |
 | UI localization    | `src/i18n/*.ts` (`ru` + `en` for EVERY key)                                                                                                                              | yes                                                             |
 | Config labels      | `src/i18n/config.ts` vs `CONFIG_SCHEMA` in `src/config.ts`                                                                                                               | yes                                                             |
-| CLI/help text      | `src/i18n/help.ts` vs the keys used in `src/index.ts` and `src/commands.ts` (`SLASH_COMMANDS`)                                                                            | yes                                                             |
+| CLI/help text      | `src/i18n/help.ts` vs the keys used in `src/index.ts` and `src/commands.ts` (`SLASH_COMMANDS`)                                                                           | yes                                                             |
 | Terminal chrome    | `src/tui/*.tsx`, `src/tui/*.ts` (non-tsx halves), `src/spinner.ts`, `src/banner.ts` — only strings that go through `t()`                                                 | yes                                                             |
-| Terminal layout    | `src/markdown.ts`, `src/width.ts` — the docstrings that promise a user-visible width behaviour                                                                            | yes (only if the text is WRONG, not to restyle)                 |
+| Terminal layout    | `src/markdown.ts`, `src/width.ts` — the docstrings that promise a user-visible width behaviour                                                                           | yes (only if the text is WRONG, not to restyle)                 |
 | REPL prompt        | `src/prompt.ts` — the non-TUI line-editing path; only strings that go through `t()`                                                                                      | yes (only if the text is WRONG, not to restyle)                 |
 
 OUT of scope: code and code comments (already audited), `CHANGELOG.md` history
@@ -177,17 +177,22 @@ an archive. Rules:
 
 ## 8. The `/loop` command to start it
 
-Run this ONCE in the project directory (the interval is a suggestion — a step
-with a full `npm test` takes minutes, so do not go below `15m`):
+Run this ONCE in the project directory. The interval is NOT the length of a
+step: a step with a full `npm test` takes ~35s, so most ticks fire while the
+previous step is still running and are skipped (a job already in the queue is
+never duplicated). `5m` is the recommended value; `15s` (`MIN_LOOP_MS`) is the
+floor. In this project the local shortcut `/textaudit [5m]`
+(`.zames/commands/textaudit.md`) sends the same line — see
+`docs/LOOP-PROMPTS.md`.
 
 ```
-/loop 20m Text audit, one step. Read docs/TEXT-AUDIT.md and follow it exactly: pick the next NOT-yet-covered file from its scope table (skip the ones listed under "Covered areas" in QUEUE.md), audit it against the code as the source of truth, fix ONE defect family in the source file(s) plus both languages, regenerate the generated files, run the gates (typecheck, test, lint, format:check, build), append a `### Text-audit step N` entry to QUEUE.md with the finding + gates + commit SHA, update the "Covered areas" list, commit (docs:/fix: subject) and push to master (git push origin master). Do NOT bump the version. If the file is clean, add it to "Covered areas", write a `чисто` entry with what you verified, and commit nothing. Stop the loop with /jobs clear when every file in the scope table is covered.
+/loop 5m Text audit, one step. Read docs/TEXT-AUDIT.md and follow it exactly: pick the next NOT-yet-covered file from its scope table (skip the ones listed under "Covered areas" in QUEUE.md), audit it against the code as the source of truth, fix ONE defect family in the source file(s) plus both languages, regenerate the generated files, run the gates (typecheck, test, lint, format:check, build), append a `### Text-audit step N` entry to QUEUE.md with the finding + gates + commit SHA, update the "Covered areas" list, commit (docs:/fix: subject) and push to master (git push origin master). Do NOT bump the version. If the file is clean, add it to "Covered areas", write a `чисто` entry with what you verified, and commit nothing. Stop the loop with /jobs clear when every file in the scope table is covered.
 ```
 
 One-liner variant if the task text must fit on one line:
 
 ```
-/loop 20m Text audit step: read docs/TEXT-AUDIT.md and follow it exactly (pick the next uncovered file, audit vs code, fix one defect family in source+both languages, rebuild generated files, run gates, journal in QUEUE.md, update Covered areas, commit and push to master, no version bump).
+/loop 5m Text audit step: read docs/TEXT-AUDIT.md and follow it exactly (pick the next uncovered file, audit vs code, fix one defect family in source+both languages, rebuild generated files, run gates, journal in QUEUE.md, update Covered areas, commit and push to master, no version bump).
 ```
 
 ## 9. Suggested first passes (highest value)

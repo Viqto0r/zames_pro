@@ -37,6 +37,7 @@ function frontMatter(text: string): Record<string, string> {
 const NOT_A_PAGE = new Set([
   'docs/BUGHUNT.md',
   'docs/DESIGN-NOTES.md',
+  'docs/LOOP-PROMPTS.md',
   'docs/SEO.md',
   'docs/TEXT-AUDIT.md',
   'docs/readme.en.md',
