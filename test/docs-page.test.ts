@@ -262,3 +262,27 @@ test('the layout assets exist', () => {
     )
   }
 })
+
+// The social preview is a user-visible surface: a missing og:image file or a
+// URL on another host (raw.githubusercontent) shows a broken card in Telegram
+// and Slack, and nothing else in CI would notice.
+test('the social preview image exists and is served from the site', () => {
+  const layout = read('docs/_layouts/default.html')
+  assert.ok(
+    layout.includes("{{ '/og-image.jpg' | absolute_url }}"),
+    'og:image must go through absolute_url on the site origin',
+  )
+  assert.ok(
+    !layout.includes(
+      'raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png',
+    ),
+    'og:image still points at the removed demo.png',
+  )
+  const file = path.join(root, 'docs/og-image.jpg')
+  assert.ok(fs.existsSync(file), 'docs/og-image.jpg is missing')
+  const head = fs.readFileSync(file).subarray(0, 3)
+  assert.ok(
+    head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff,
+    'docs/og-image.jpg is not a JPEG',
+  )
+})

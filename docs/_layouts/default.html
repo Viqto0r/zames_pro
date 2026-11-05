@@ -32,9 +32,17 @@
       content="{{ page.description | default: site.description | strip_newlines | escape }}"
     />
     <meta property="og:url" content="{{ page.url | absolute_url }}" />
+    {% comment %} og:image must be a STATIC image on the site's own origin:
+    Telegram/Slack/Twitter ignore a GIF in og:image, and a raw.githubusercontent
+    URL is a second host that some crawlers refuse. docs/og-image.jpg is the
+    logo on the zames background, 1200x630 (the summary_large_image ratio). {%
+    endcomment %}
+    <meta property="og:image" content="{{ '/og-image.jpg' | absolute_url }}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta
-      property="og:image"
-      content="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png"
+      property="og:image:alt"
+      content="zames_pro — a terminal coding agent without an API key"
     />
     <meta name="twitter:card" content="summary_large_image" />
     <meta
@@ -45,9 +53,10 @@
       name="twitter:description"
       content="Drive a DeepSeek, Qwen or GLM web chat through a real browser from your terminal. Reads and edits files, runs commands, commits to git — no API key, no per-token bill."
     />
+    <meta name="twitter:image" content="{{ '/og-image.jpg' | absolute_url }}" />
     <meta
-      name="twitter:image"
-      content="https://raw.githubusercontent.com/Viqto0r/zames_pro/master/docs/demo.png"
+      name="twitter:image:alt"
+      content="zames_pro — a terminal coding agent without an API key"
     />
     <meta
       name="theme-color"
