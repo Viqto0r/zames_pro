@@ -23,7 +23,7 @@ import type {
   SubagentResult,
 } from './agent-loop.js'
 import type { createSpinner } from './spinner.js'
-import { DEFAULT_LOCALE } from './i18n.js'
+import { DEFAULT_LOCALE, translate } from './i18n.js'
 import type { TranslateFn, Locale } from './i18n.js'
 import type { ZamesConfig } from './types.js'
 import { providerAskDeadlineMs } from './config.js'
@@ -124,6 +124,41 @@ export interface RunTaskDeps {
   createSpinner: typeof createSpinner
   /** Records the last assistant answer for /copy (index.ts module state). */
   onAssistantMessage: (msg: string) => void
+}
+
+// The two log lines an `AskUser` turn leaves behind: the question with its
+// options (the recommended one starred) and the operator's answer. PURE, so the
+// wording is unit-tested without a live modal; `runTask` prints them through
+// the editor after the modal closes (the modal's own frame is erased on
+// unmount, and without these lines the question would leave no trace in the
+// terminal or the chat history).
+const ASK_NL = String.fromCharCode(10)
+export function formatAskUserLog(
+  question: string,
+  options: string[],
+  recommended: number | null,
+  answer: string | null,
+  t: TranslateFn,
+): { question: string; answer: string } {
+  const qLines = question
+    .split(ASK_NL)
+    .map((l) => '  ' + l.trim())
+    .join(ASK_NL)
+  const optLines = options
+    .map((o, i) => {
+      const mark = i === recommended ? '* ' : '- '
+      const tag = i === recommended ? ' (' + t('askuser.recommended') + ')' : ''
+      return '  ' + mark + o + tag
+    })
+    .join(ASK_NL)
+  return {
+    question: '◆ ' + t('askuser.title') + ASK_NL + qLines + ASK_NL + optLines,
+    answer:
+      '❯ ' +
+      t('askuser.your_answer') +
+      ' ' +
+      (answer === null || answer === '' ? t('askuser.hint_dismiss') : answer),
+  }
 }
 
 // Ask the operator to approve a tool call flagged by an `ask` permission rule
@@ -619,17 +654,36 @@ export async function runTask(
           onAskUser === undefined
             ? async (req: AskUserRequest) => {
                 if (!editor) return null
+                // The modal is a SEPARATE Ink app: its frame is erased when it
+                // unmounts, so without this the question and the operator's
+                // answer leave no trace — neither in the terminal nor in the
+                // chat history. Print them as a normal log turn instead.
+                const tr = translate(locale)
                 editor.pause()
+                let answer: string | null = null
                 try {
                   const { askQuestionInk } = await import('./tui/run-ask.js')
-                  return await askQuestionInk({
+                  answer = await askQuestionInk({
                     question: req.question,
                     options: req.options,
                     recommended: req.recommended,
                     allowText: req.allowText,
                   })
+                  return answer
                 } finally {
+                  // Print AFTER resume, never before pause: on the alternate
+                  // screen the modal unmount wipes everything painted into the
+                  // old app, so the question and the answer would vanish.
                   editor.resume()
+                  const logged = formatAskUserLog(
+                    req.question,
+                    req.options,
+                    req.recommended,
+                    answer,
+                    tr,
+                  )
+                  editor.printAbove(theme.system(logged.question))
+                  editor.printAbove(theme.user(logged.answer))
                 }
               }
             : onAskUser,
