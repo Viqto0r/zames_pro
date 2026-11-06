@@ -74,7 +74,10 @@ export function entryRows(
   cols: number,
   mode: 'exact' | 'floor' = 'exact',
 ): number {
-  const width = Math.max(1, cols)
+  // A non-finite width (a layout that could not be measured yet) made
+  // `Math.max(1, cols)` NaN, every row count NaN and the budget check
+  // meaningless: the log then rendered unbounded. Fall back to a sane width.
+  const width = Number.isFinite(cols) && cols >= 1 ? Math.floor(cols) : 80
   const lines = String(entry.text ?? '').split(String.fromCharCode(10))
   let rows = 0
   for (const line of lines) {
@@ -98,10 +101,19 @@ export function windowByRows(
   scroll: number,
   cols: number,
 ): LogEntry[] {
-  const cap = Math.max(1, Math.floor(height))
+  // Same rule for the viewport height: NaN would make the row budget
+  // comparison false forever and the WHOLE log was returned (the fixed-height
+  // pane then clipped it, losing the scroll position).
+  // A NEGATIVE/zero height is clamped to one row, a NON-FINITE one (the
+  // layout could not be measured yet) falls back to a terminal-ish default.
+  // A degenerate pane (0 or negative rows, e.g. a pty that has not been
+  // sized yet) must keep ONE row, not the whole log: the budget check
+  // `used + visibleRows > cap` never fired at cap 0 and every entry was
+  // returned. A NON-FINITE height falls back to a terminal-ish default.
+  const cap = Number.isFinite(height) ? Math.max(1, Math.floor(height)) : 24
   // Walk from the newest entry backwards, accumulating rows, skipping `scroll`
   // rows from the bottom first.
-  let skip = Math.max(0, Math.floor(scroll))
+  let skip = Number.isFinite(scroll) ? Math.max(0, Math.floor(scroll)) : 0
   const picked: LogEntry[] = []
   let used = 0
   // The pane above the panel is flexGrow:1 and overflow="hidden" with
