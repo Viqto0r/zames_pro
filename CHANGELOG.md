@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.96.7] - 2026-11-06
+
 ### Fixed
 
 - **tui:** a raw DEL byte is not inserted into the input line

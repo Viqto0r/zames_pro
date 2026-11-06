@@ -7,9 +7,10 @@ alt_url: /changelog-ru.html
 changelog: true
 ---
 <div class="wrap" markdown="1">
-<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 302)</p>
+<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 303)</p>
 <nav class="changelog-jump" aria-label="Jump to a version">
 <a href="#vUnreleased"><span>Unreleased</span></a>
+<a href="#v2.96.7"><span>v2.96.7</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.6"><span>v2.96.6</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.5"><span>v2.96.5</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.4"><span>v2.96.4</span><time datetime="2026-11-06">2026-11-06</time></a>
@@ -314,8 +315,13 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
+<p class="ch-empty">—</p>
+</details>
+<details class="ch-release" id="v2.96.7" open>
+<summary><header><h2>v2.96.7</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
+<li><strong>tui:</strong> a raw DEL byte is not inserted into the input line</li>
 <li><strong>tui:</strong> Down after editing a recalled entry moves to the next entry</li>
 <li><strong>tui:</strong> Up/Down keep the visual column on wide-glyph wrapped lines</li>
 <li><strong>goal:</strong> a quoted verdict example no longer wins over the real verdict</li>
@@ -333,7 +339,7 @@ changelog: true
 <li><strong>web:</strong> decode an escaped HTML entity only once</li>
 </ul></section>
 </details>
-<details class="ch-release" id="v2.96.5" open>
+<details class="ch-release" id="v2.96.5">
 <summary><header><h2>v2.96.5</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
