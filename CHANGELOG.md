@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **resume:** a junk session record is skipped instead of crashing /sessions
 - **model:** a model id with a newline is flattened to one line
 - **context-limit:** a non-finite retry budget gives up instead of retrying forever
 - **spinner:** a dots-only phrase keeps a label instead of going empty

@@ -318,6 +318,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
+<li><strong>model:</strong> a model id with a newline is flattened to one line</li>
 <li><strong>context-limit:</strong> a non-finite retry budget gives up instead of retrying forever</li>
 <li><strong>spinner:</strong> a dots-only phrase keeps a label instead of going empty</li>
 </ul></section>

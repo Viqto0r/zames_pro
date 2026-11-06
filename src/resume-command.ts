@@ -17,10 +17,15 @@ export function filterSessions(sessions: Session[], filter: string): Session[] {
     .trim()
     .toLowerCase()
   if (!q) return sessions.slice()
+  // Session files are hand-editable and are written by OLDER builds: an array
+  // element can be `null`, and a field can be a number. Reading them blindly
+  // threw a raw TypeError out of `/sessions`.
+  const text = (v: unknown): string => (typeof v === 'string' ? v : '')
   return sessions.filter(
     (s) =>
-      (s.title || '').toLowerCase().includes(q) ||
-      (s.workdir || '').toLowerCase().includes(q),
+      !!s &&
+      (text(s.title).toLowerCase().includes(q) ||
+        text(s.workdir).toLowerCase().includes(q)),
   )
 }
 
