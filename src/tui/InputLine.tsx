@@ -484,7 +484,10 @@ export function InputLine(props: InputLineProps): React.ReactElement {
     // full-screen/inline root) + the column inside the box. The gutter was
     // forgotten: at 170 columns the root pads 2, so the caret sat exactly 2
     // cells LEFT of the text the operator typed.
-    screenGutter(columns || 80) + 2 + lay.cursorCol
+    // The offset is the LEFT BORDER (1 when the box is framed) plus the
+    // box's inner padding (always 1). A hardcoded 2 put the caret one cell
+    // right of the text when `ui.inputBorder=none` (no border is drawn).
+    screenGutter(columns || 80) + (borderStyle ? 2 : 1) + lay.cursorCol
   // The suggestion popup is drawn ABOVE the box in THIS component, so it pushes
   // the input rows DOWN by its own height. `cursorTop` (from the app) counts
   // the rows above the INPUT BOX, not above the popup, so the popup rows are

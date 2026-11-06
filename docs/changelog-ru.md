@@ -323,7 +323,10 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
-<p class="ch-empty">—</p>
+<section class="ch-group"><h3>Исправлено</h3>
+<ul>
+<li><strong>tui:</strong> carry a partial CSI from its ESC, not only mid-parameter</li>
+</ul></section>
 </details>
 <details class="ch-release" id="v2.96.15" open>
 <summary><header><h2>v2.96.15</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
