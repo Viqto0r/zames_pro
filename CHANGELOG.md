@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **info:** flatten the transcript path printed by /transcript
+
 ## [2.96.17] - 2026-11-06
 
 ### Fixed
