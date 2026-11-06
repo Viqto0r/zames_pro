@@ -103,6 +103,18 @@ export function AskQuestion({
     const out: string[] = []
     let line = ''
     for (const w of words) {
+      // A WORD longer than the box (a path, a URL) must be split: leaving it
+      // whole produced a row wider than the modal, Ink wrapped it on its own
+      // and the border/option rows shifted by the uncounted row.
+      if (w.length > innerCols) {
+        if (line) {
+          out.push(line)
+          line = ''
+        }
+        for (let i = 0; i < w.length; i += innerCols)
+          out.push(w.slice(i, i + innerCols))
+        continue
+      }
       const cand = line ? line + ' ' + w : w
       if (cand.length > innerCols && line) {
         out.push(line)

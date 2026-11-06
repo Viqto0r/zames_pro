@@ -323,6 +323,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
+<li><strong>tui:</strong> strip terminal control sequences from a select-list title</li>
 <li><strong>config-menu:</strong> shrink the list budget while the theme preview is open</li>
 <li><strong>tui:</strong> clamp the full-screen panel so a short terminal is never overflowed</li>
 <li><strong>layout:</strong> a non-positive truncation budget yields nothing, not one column over</li>
