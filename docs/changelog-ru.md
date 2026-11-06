@@ -315,6 +315,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
+<li><strong>input:</strong> count a ZWJ emoji sequence as one glyph in the layout</li>
 <li><strong>tui:</strong> ZAMES_NO_BG=0 no longer disables the themed background</li>
 <li><strong>markdown:</strong> an unknown code-fence language falls back to plain text</li>
 <li><strong>web:</strong> decode an escaped HTML entity only once</li>

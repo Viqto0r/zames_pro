@@ -423,6 +423,11 @@ export function truncateToWidth(s: string, maxCols: number): string {
     used += w
     i += ch.length
   }
+  // A cut inside a ZWJ emoji sequence leaves a DANGLING joiner: the terminal
+  // glues the following `…` to the emoji, so the marker becomes invisible and
+  // the visible line is wider than requested. Drop the dangling tail (the
+  // whole incomplete grapheme) before closing the style.
+  out = out.replace(/\u200d+$/, '')
   // The visible text was cut BEFORE any trailing RESET, so the ellipsis and
   // everything printed after it on the row would inherit the last colour.
   // Close any style the kept prefix opened (the text may still be plain, in
