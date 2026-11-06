@@ -7,9 +7,10 @@ alt_url: /changelog.html
 changelog: true
 ---
 <div class="wrap" markdown="1">
-<p class="changelog-lead">Каждый релиз zames_pro: самый свежий сверху, старые версии можно развернуть, а список версий в начале страницы ведёт сразу к нужной. (версий: 314)</p>
+<p class="changelog-lead">Каждый релиз zames_pro: самый свежий сверху, старые версии можно развернуть, а список версий в начале страницы ведёт сразу к нужной. (версий: 315)</p>
 <nav class="changelog-jump" aria-label="К версии">
 <a href="#vUnreleased"><span>Unreleased</span></a>
+<a href="#v2.96.19"><span>v2.96.19</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.18"><span>v2.96.18</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.17"><span>v2.96.17</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.16"><span>v2.96.16</span><time datetime="2026-11-06">2026-11-06</time></a>
@@ -326,8 +327,13 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
+<p class="ch-empty">—</p>
+</details>
+<details class="ch-release" id="v2.96.19" open>
+<summary><header><h2>v2.96.19</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
+<li><strong>provider:</strong> flatten an unknown provider label in the /model refusal</li>
 <li><strong>loop:</strong> split the interval from the task on any whitespace</li>
 <li><strong>scheduler:</strong> reject a cron day-of-month the month never has</li>
 <li><strong>jobs:</strong> accept any whitespace after the remove verb</li>
@@ -345,7 +351,7 @@ changelog: true
 <li><strong>info:</strong> flatten the transcript path printed by /transcript</li>
 </ul></section>
 </details>
-<details class="ch-release" id="v2.96.17" open>
+<details class="ch-release" id="v2.96.17">
 <summary><header><h2>v2.96.17</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>

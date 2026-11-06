@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.96.19] - 2026-11-06
+
 ### Fixed
 
 - **provider:** flatten an unknown provider label in the /model refusal
