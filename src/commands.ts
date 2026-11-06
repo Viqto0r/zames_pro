@@ -1274,7 +1274,9 @@ export function parseQueueCommand(
 // the EXACT same output instead of duplicating the formatting.
 export function formatQueueList(msgs: QueuedMessage[]): string[] {
   return (msgs || []).map((m, i) => {
-    const one = String(m.text || '')
+    // A queue entry can be null (a hand-built queue, a restored session):
+    // `m.text` on null threw out of the whole `/queue` command.
+    const one = String(m?.text || '')
       .replace(/\s+/g, ' ')
       .trim()
     // The cut is in UTF-16 units: a surrogate PAIR (an emoji / astral CJK
@@ -1286,7 +1288,7 @@ export function formatQueueList(msgs: QueuedMessage[]): string[] {
     const last = one.charCodeAt(cut - 1)
     if (last >= 0xd800 && last <= 0xdbff) cut--
     const shown = one.length > 80 ? one.slice(0, cut) + ' …' : one
-    const att = m.attachments?.length ? ' [+' + m.attachments.length + ']' : ''
+    const att = m?.attachments?.length ? ' [+' + m.attachments.length + ']' : ''
     return '  ' + (i + 1) + '. ' + shown + att
   })
 }
