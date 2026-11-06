@@ -33,7 +33,10 @@ export function randomThinkingPhrase(locale: Locale = DEFAULT_LOCALE): string {
 
 // Strip the trailing ellipsis from the phrase — dots are animated separately.
 export function stripEllipsis(phrase: string): string {
-  return phrase.replace(/[.…]+\s*$/, '')
+  const out = phrase.replace(/[.…]+\s*$/, '')
+  // A phrase that is ONLY dots (an odd translation) must not become an EMPTY
+  // label: the spinner would then animate bare dots with no text at all.
+  return out === '' ? phrase.trim() : out
 }
 
 // Dot animation shared by BOTH UIs (the ora spinner and the LineEditor): start

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **spinner:** a dots-only phrase keeps a label instead of going empty
+
 ## [2.96.8] - 2026-11-06
 
 ### Fixed
