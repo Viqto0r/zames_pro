@@ -39,20 +39,35 @@ export function formatStatus(
   const none = t('common.none')
   const onoff = (b: boolean): string => (b ? t('common.on') : t('common.off'))
   const lines: string[] = []
-  lines.push(t('status.workdir', { v: s.workdir }))
-  lines.push(t('status.review_mode', { v: s.reviewMode || no }))
+  // Every value printed here comes from the ENVIRONMENT (a working directory,
+  // a chat id) or from the config: a newline in one of them starts a status
+  // row of its own, so each value is flattened to one line — the same rule
+  // renderDoctor already applies to its cells.
+  const oneLine = (v: string): string => String(v ?? '').replace(/\s+/g, ' ')
+  // A count must be a real number: `String(NaN)` used to print `NaN` in a row
+  // that reads like a measurement.
+  const count = (n: number): string =>
+    typeof n === 'number' && Number.isFinite(n) && n >= 0 ? String(n) : '0'
+  const val = (v: string | null | undefined, fallback: string): string =>
+    v ? oneLine(v) : fallback
+  lines.push(t('status.workdir', { v: oneLine(s.workdir) }))
+  lines.push(
+    t('status.review_mode', {
+      v: s.reviewMode ? oneLine(s.reviewMode) : no,
+    }),
+  )
   if (s.reviewMode && s.origDir) {
-    lines.push(t('status.orig_dir', { v: s.origDir }))
+    lines.push(t('status.orig_dir', { v: oneLine(s.origDir) }))
   }
-  lines.push(t('status.chat', { v: s.chatId || none }))
+  lines.push(t('status.chat', { v: val(s.chatId, none) }))
   lines.push(t('status.fresh_next', { v: s.freshNext ? yes : no }))
   lines.push(t('status.prompt_next', { v: s.promptNext ? yes : no }))
-  lines.push(t('status.last_chat', { v: s.lastChat || none }))
-  lines.push(t('status.sessions', { v: s.sessionsDir }))
+  lines.push(t('status.last_chat', { v: val(s.lastChat, none) }))
+  lines.push(t('status.sessions', { v: oneLine(s.sessionsDir) }))
   lines.push(
     t('status.dev', { v: s.devMode ? t('common.on') : t('common.off') }),
   )
-  lines.push(t('status.max_iter', { v: s.maxIterations }))
+  lines.push(t('status.max_iter', { v: count(s.maxIterations) }))
   lines.push(t('status.headless', { v: s.headless ? yes : no }))
   lines.push(t('status.debug', { v: s.debug ? yes : no }))
   lines.push(
@@ -63,29 +78,33 @@ export function formatStatus(
   )
   lines.push(t('status.undo', { v: onoff(s.undo) }))
   lines.push(t('status.checkpoint', { v: onoff(s.checkpoint) }))
-  lines.push(t('status.transcript', { v: s.transcriptFile || t('common.off') }))
-  // The GOAL is operator text (`/goal <free text>`) and a newline in it would
-  // start a new terminal line, faking another status row (`FAKE: hacked`) —
-  // one status entry must stay on one line.
-  const oneLine = (v: string): string => String(v ?? '').replace(/\s+/g, ' ')
+  lines.push(
+    t('status.transcript', {
+      v: s.transcriptFile ? oneLine(s.transcriptFile) : t('common.off'),
+    }),
+  )
+  // The GOAL is operator text (`/goal <free text>`): one status entry must
+  // stay on one line.
   lines.push(t('status.goal', { v: s.goal ? oneLine(s.goal) : none }))
-  lines.push(t('status.locale', { v: s.localeName }))
+  lines.push(t('status.locale', { v: oneLine(s.localeName) }))
   // A NEGATIVE tool count is nonsense (a broken MCP server status, a
-  // hand-edited value): "MCP tools: -2" reads like a real measurement, the
-  // same rule the token counter below already follows.
-  // `none` ("(none)") would claim that the tools themselves are absent;
-  // with no MCP pool configured the COUNT is simply unknown.
+  // hand-edited value): "MCP tools: -2" reads like a real measurement.
   const mcpCount =
-    s.mcpToolCount === null || s.mcpToolCount < 0
+    s.mcpToolCount === null ||
+    !Number.isFinite(s.mcpToolCount) ||
+    s.mcpToolCount < 0
       ? t('common.unknown')
-      : s.mcpToolCount
+      : String(s.mcpToolCount)
   lines.push(t('status.mcp', { v: mcpCount }))
   // A NEGATIVE count is nonsense (a broken provider counter): show "unknown"
   // rather than a number that reads like a real measurement.
-  const tokens = s.tokenUsage === null || s.tokenUsage < 0 ? null : s.tokenUsage
+  const tokens =
+    s.tokenUsage === null || !Number.isFinite(s.tokenUsage) || s.tokenUsage < 0
+      ? null
+      : s.tokenUsage
   lines.push(
     t('status.tokens', {
-      v: tokens === null ? t('common.unknown') : tokens,
+      v: tokens === null ? t('common.unknown') : String(tokens),
     }),
   )
   return lines
@@ -106,27 +125,32 @@ export function doctorProbeSummary(p: {
   uiMissingCritical?: string[]
 }): { status: 'ok' | 'warn'; label: string }[] {
   const rows: { status: 'ok' | 'warn'; label: string }[] = []
+  // A branch name, a missing capability id and a server/tool COUNT come from
+  // the repository and from a broken MCP probe: a newline started a row of its
+  // own and `NaN`/`-3` read like real measurements.
+  const oneLine = (v: string): string => String(v ?? '').replace(/\s+/g, ' ')
+  const count = (n: number): number =>
+    typeof n === 'number' && Number.isFinite(n) && n >= 0 ? n : 0
   rows.push({
     status: p.gitOk ? 'ok' : 'warn',
-    label: p.gitOk ? 'git: ' + (p.gitBranch || 'detached') : 'git: absent',
+    label: p.gitOk
+      ? 'git: ' + oneLine(p.gitBranch || 'detached')
+      : 'git: absent',
   })
   rows.push({
     status: p.authSaved ? 'ok' : 'warn',
     label: p.authSaved ? 'auth: saved' : 'auth: not saved',
   })
+  const servers = count(p.mcpServers)
+  const tools = count(p.mcpTools)
   rows.push({
-    status: p.mcpTools > 0 ? 'ok' : 'warn',
-    label:
-      'mcp: ' +
-      String(p.mcpServers) +
-      ' servers / ' +
-      String(p.mcpTools) +
-      ' tools',
+    status: tools > 0 ? 'ok' : 'warn',
+    label: 'mcp: ' + String(servers) + ' servers / ' + String(tools) + ' tools',
   })
   if (p.uiMissingCritical && p.uiMissingCritical.length) {
     rows.push({
       status: 'warn',
-      label: 'ui: missing ' + p.uiMissingCritical.join(', '),
+      label: 'ui: missing ' + oneLine(p.uiMissingCritical.join(', ')),
     })
   }
   return rows

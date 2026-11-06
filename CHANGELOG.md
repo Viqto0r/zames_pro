@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **status:** flatten a status/doctor value and drop a broken count
 - **limits:** never render a negative or NaN counter in /limits
 - **restore-history:** keep a plain answer that opens with 'thinking for'
 - **commands:** keep a project file/skill/command name on one /context row
