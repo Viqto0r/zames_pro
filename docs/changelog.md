@@ -312,6 +312,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
+<li><strong>release:</strong> sync the changelog and rebuild its pages inside a release</li>
 <li><strong>info:</strong> keep a /chat and /pwd value on one line</li>
 <li><strong>status:</strong> flatten a status/doctor value and drop a broken count</li>
 <li><strong>limits:</strong> never render a negative or NaN counter in /limits</li>

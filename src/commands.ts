@@ -812,8 +812,20 @@ export function buildCompactCarryover(
   todos: TodoItem[] = [],
   goal: GoalInfo | null = null,
 ): string {
-  const body = String(summary ?? '').trim()
-  const goalText = String(task ?? '').trim()
+  const NL2 = NL + NL
+  // The carried text becomes the FIRST USER TURN of the new chat. The task is
+  // OPERATOR text and the summary is MODEL text: a line starting with `## `
+  // would fake one of the SESSION blocks this function appends itself (a todo
+  // checklist / a goal the agent never had), so such lines are indented out of
+  // the heading namespace.
+  const noHeadings = (v: string | undefined | null): string =>
+    String(v ?? '')
+      .split(NL)
+      .map((l) => (/^## /.test(l) ? ' ' + l : l))
+      .join(NL)
+      .trim()
+  const body = noHeadings(summary)
+  const goalText = noHeadings(task)
   let out =
     'Context carried over from a previous chat (compacted). ' +
     'Treat it as the history of our work so far and continue from the current state.'

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **compact:** keep operator and summary text out of the carryover headings
 - **release:** sync the changelog and rebuild its pages inside a release
 - **info:** keep a /chat and /pwd value on one line
 - **status:** flatten a status/doctor value and drop a broken count
