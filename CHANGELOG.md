@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **diagnostics:** honour a cap smaller than the truncation marker
 - **path-token:** an all-digit extension is a version, not an @file reference
 - **attach:** sniff the content when the stored mime is generic
 
