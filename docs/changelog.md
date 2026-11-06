@@ -7,9 +7,10 @@ alt_url: /changelog-ru.html
 changelog: true
 ---
 <div class="wrap" markdown="1">
-<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 296)</p>
+<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 297)</p>
 <nav class="changelog-jump" aria-label="Jump to a version">
 <a href="#vUnreleased"><span>Unreleased</span></a>
+<a href="#v2.96.1"><span>v2.96.1</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.0"><span>v2.96.0</span><time datetime="2026-11-05">2026-11-05</time></a>
 <a href="#v2.95.6"><span>v2.95.6</span><time datetime="2026-11-05">2026-11-05</time></a>
 <a href="#v2.95.5"><span>v2.95.5</span><time datetime="2026-11-05">2026-11-05</time></a>
@@ -317,6 +318,17 @@ changelog: true
 <li><strong>shell:</strong> block a recursive rm of ./ and ../ (trailing slash)</li>
 </ul></section>
 </details>
+<details class="ch-release" id="v2.96.1" open>
+<summary><header><h2>v2.96.1</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
+<section class="ch-group"><h3>Fixed</h3>
+<ul>
+<li><strong>release-policy:</strong> one pair of parens in the BREAKING note</li>
+<li><strong>changelog:</strong> a group heading must start a line, not sit inside a bullet</li>
+<li><strong>backlog:</strong> ignore a fenced section header when appending</li>
+<li><strong>dev-watch:</strong> follow index.ts's hot-reloadable list (restore-history, input/layout)</li>
+<li><strong>shell:</strong> block a recursive rm of ./ and ../ (trailing slash)</li>
+</ul></section>
+</details>
 <details class="ch-release" id="v2.96.0" open>
 <summary><header><h2>v2.96.0</h2><time datetime="2026-11-05">2026-11-05</time></header></summary>
 <section class="ch-group"><h3>Added</h3>
@@ -329,7 +341,7 @@ changelog: true
 <li><strong>dev:</strong> keep the unparsed-call dump directory bounded</li>
 </ul></section>
 </details>
-<details class="ch-release" id="v2.95.6" open>
+<details class="ch-release" id="v2.95.6">
 <summary><header><h2>v2.95.6</h2><time datetime="2026-11-05">2026-11-05</time></header></summary>
 <section class="ch-group"><h3>Added</h3>
 <ul>

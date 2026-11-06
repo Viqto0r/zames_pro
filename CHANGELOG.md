@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **dev-watch:** follow index.ts's hot-reloadable list (restore-history, input/layout)
 - **shell:** block a recursive rm of ./ and ../ (trailing slash)
 
+## [2.96.1] - 2026-11-06
+
+### Fixed
+
+- **release-policy:** one pair of parens in the BREAKING note
+- **changelog:** a group heading must start a line, not sit inside a bullet
+- **backlog:** ignore a fenced section header when appending
+- **dev-watch:** follow index.ts's hot-reloadable list (restore-history, input/layout)
+- **shell:** block a recursive rm of ./ and ../ (trailing slash)
+
 ## [2.96.0] - 2026-11-05
 
 ### Added
