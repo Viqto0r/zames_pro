@@ -10,16 +10,17 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { truncateToWidth, visLen } from '../src/input/layout.ts'
 
-test('a NEGATIVE budget keeps the head, not a lone ellipsis', () => {
-  const out = truncateToWidth('mcp__github__create_issue', -5)
-  assert.ok(out !== '…', 'the detail must not collapse to a bare ellipsis')
-  assert.ok(out.endsWith('…'), out)
-  assert.ok(visLen(out) >= 2, 'at least one visible char plus the ellipsis')
+// A non-positive budget must yield NOTHING: the callers (the full-screen
+// header, a pane edge) reserve an exact column count, and returning `a…`
+// overflowed it by one column — the row wrapped and the layout clipped the
+// input panel. The caller decides what to show when the budget is exhausted.
+test('a non-positive budget yields an empty string', () => {
+  assert.equal(truncateToWidth('mcp__github__create_issue', -5), '')
+  assert.equal(truncateToWidth('abcdef', 0), '')
 })
 
-test('a zero budget keeps one character', () => {
-  const out = truncateToWidth('abcdef', 0)
-  assert.equal(out, 'a…')
+test('a one-column budget is the ellipsis alone', () => {
+  assert.equal(truncateToWidth('mcp__github__create_issue', 1), '…')
 })
 
 test('a budget of 1 is still just the ellipsis (no room for text)', () => {

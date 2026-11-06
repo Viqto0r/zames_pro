@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
+import os from 'node:os'
 import { UndoStore } from '../src/undo.ts'
 import { makeTmpDir } from './tmp-dir.ts'
 
@@ -15,6 +16,14 @@ test('list(0) returns no rows', async (t) => {
   const dir = await makeTmpDir(t, 'zames-undo-list-')
   const file = path.join(dir, 'a.txt')
   const store = new UndoStore()
+  // The index is SHARED via ~/.zames/undo and appended to by every test run:
+  // with maxBackups the default 200 the list is full, and the FIRST backup of
+  // this path is already shifted out — so `list(1)` saw only the second one.
+  // The history is cleared so the assertions describe THIS test's records.
+  store.maxBackups = 200
+  fs.rmSync(path.join(os.homedir(), '.zames', 'undo', 'index.json'), {
+    force: true,
+  })
   fs.writeFileSync(file, 'v1')
   await store.backup(file)
   // The index is APPEND-ONLY per path and capped by maxBackups: a fresh store
