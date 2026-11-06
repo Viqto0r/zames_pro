@@ -34,11 +34,18 @@ export function ThemePicker({
   onDone,
 }: ThemePickerOptions): React.ReactElement {
   const { exit } = useApp()
-  const { columns } = useWindowSize()
+  const { columns, rows } = useWindowSize()
   const t = translate(locale)
   const start = Math.max(0, themes.indexOf(initial))
   const [cursor, setCursor] = useState(start)
   const innerCols = Math.max(1, (columns || 80) - 6)
+  // The bundled palette list is LONGER than a terminal: rendering every id
+  // pushed the title and the first palettes off the screen (Ink clips the
+  // overflow) and the cursor could sit on an invisible row. Window the list
+  // around the cursor; the preview and the hint bar keep their rows.
+  const maxRows = Math.max(3, (rows || 24) - 14)
+  const top = Math.max(0, Math.min(cursor, themes.length - maxRows))
+  const shown = themes.slice(top, top + maxRows)
 
   const finish = (value: string | null): void => {
     onDone(value)
@@ -82,7 +89,8 @@ export function ThemePicker({
         <Text color={UI.dim}>{themes.length}</Text>
       </Box>
       <Text color={UI.border}>{'─'.repeat(innerCols)}</Text>
-      {themes.map((name, idx) => {
+      {shown.map((name, i) => {
+        const idx = top + i
         const sel = idx === cursor
         return (
           <Text key={name}>
