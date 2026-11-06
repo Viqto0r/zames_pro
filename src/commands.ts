@@ -542,7 +542,10 @@ export function renderDoctor(
     // broke and was hidden - exactly what this row exists to surface.
     row(false, 'swallowed', txt)
   }
-  if (typeof d.systemPromptBytes === 'number') {
+  if (
+    typeof d.systemPromptBytes === 'number' &&
+    Number.isFinite(d.systemPromptBytes)
+  ) {
     const budget = d.systemPromptBudget ?? SYSTEM_PROMPT_BUDGET_BYTES
     const size = kb(d.systemPromptBytes)
     const ctx =
