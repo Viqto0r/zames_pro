@@ -103,8 +103,13 @@ export function renderChangelogDraft(groups: ChangelogGroups): string {
 export function syncUnreleased(changelog: string, body: string): string {
   const nl = '\n'
   const anchor = '## [Unreleased]'
-  const idx = changelog.indexOf(anchor)
-  if (idx < 0) return changelog
+  // The anchor must be a REAL heading: `indexOf` matched a mention INSIDE a
+  // bullet or a fence that documents the format, and the rewrite then cut that
+  // bullet in half. Match at the start of a line only.
+  const anchorRe = /^## \[Unreleased\][ \t]*$/m
+  const m = anchorRe.exec(changelog)
+  if (!m) return changelog
+  const idx = m.index
   const afterAnchor = idx + anchor.length
   // The section ends at the next top-level `## [` (the next version).
   const rest = changelog.slice(afterAnchor)
