@@ -72,16 +72,32 @@ export function applyStoreLiveConfig(
     checkpoints?: Record<string, unknown> | null
   },
 ): boolean {
+  // The browser map VALIDATES its values; these stores were written blindly,
+  // so a negative `maxBackups` (rejected by the schema) or a string could
+  // reach a live store and change retention silently.
+  const isCount = (v: unknown): v is number =>
+    typeof v === 'number' && Number.isFinite(v) && v >= 0
+  const isBool = (v: unknown): v is boolean => typeof v === 'boolean'
   if (path === 'undo.enabled' || path === 'undo.maxBackups') {
     if (!stores.undo) return false
-    stores.undo[path === 'undo.enabled' ? 'enabled' : 'maxBackups'] = value
+    if (path === 'undo.enabled') {
+      if (!isBool(value)) return false
+      stores.undo.enabled = value
+      return true
+    }
+    if (!isCount(value)) return false
+    stores.undo.maxBackups = value
     return true
   }
   if (path === 'checkpoint.enabled' || path === 'checkpoint.maxBackups') {
     if (!stores.checkpoints) return false
-    stores.checkpoints[
-      path === 'checkpoint.enabled' ? 'enabled' : 'maxBackups'
-    ] = value
+    if (path === 'checkpoint.enabled') {
+      if (!isBool(value)) return false
+      stores.checkpoints.enabled = value
+      return true
+    }
+    if (!isCount(value)) return false
+    stores.checkpoints.maxBackups = value
     return true
   }
   return false

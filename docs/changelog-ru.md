@@ -319,6 +319,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
+<li><strong>config:</strong> an unknown language is rejected instead of silently defaulted</li>
 <li><strong>config:</strong> a password keeps its spaces when set from the command line</li>
 <li><strong>transcript:</strong> cap the session label so the file name fits the filesystem</li>
 </ul></section>

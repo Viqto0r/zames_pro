@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **config:** validate a live store value before writing it
 - **config:** an unknown language is rejected instead of silently defaulted
 - **config:** a password keeps its spaces when set from the command line
 - **transcript:** cap the session label so the file name fits the filesystem
