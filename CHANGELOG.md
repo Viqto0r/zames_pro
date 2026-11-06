@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **backlog:** an id inside a fenced block does not advance the counter
+
 ## [2.96.19] - 2026-11-06
 
 ### Fixed
