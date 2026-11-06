@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **attach:** sniff the content when the stored mime is generic
+
 ## [2.96.16] - 2026-11-06
 
 ### Fixed
