@@ -369,11 +369,18 @@ export function formatExport(
           JSON.stringify((e as { args?: unknown }).args ?? {}),
       )
     } else if (type === 'tool_result') {
+      // A tool result is TEXT: a newline in it started a bare report line and
+      // broke the one-line list. Flatten it, and MARK a clipped result so the
+      // export does not look like the whole output.
+      const raw = String((e as { result?: unknown }).result ?? '')
+      const flat = raw.split(/\s*\r?\n\s*/).join(' ↵ ')
+      const clipped = clipExportText(flat, 500)
       out.push(
         ' -> ' +
           String(e.tool ?? '?') +
           ': ' +
-          clipExportText(String((e as { result?: unknown }).result ?? ''), 500),
+          clipped +
+          (clipped.length < flat.length ? ' …' : ''),
       )
     } else if (type === 'assistant_final') {
       out.push('## Answer')

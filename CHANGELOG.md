@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **export:** keep a tool result on one line and mark a clipped one
 - **config:** validate a live store value before writing it
 - **config:** an unknown language is rejected instead of silently defaulted
 - **config:** a password keeps its spaces when set from the command line
