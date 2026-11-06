@@ -43,7 +43,14 @@ function Header({ store }: { store: TuiStore }): React.ReactElement {
   const right = [state.provider && '[' + state.provider + ']']
     .filter(Boolean)
     .join(' ')
-  const left = '❯ ' + state.title + (state.version ? ' v' + state.version : '')
+  // The title row reserves ONE line: a long title (a resumed chat's name, a
+  // custom header) must be clipped, or Ink wraps the row and the extra line
+  // shifts the input panel. The title keeps at least a few columns for the
+  // provider badge on the right.
+  const leftRaw =
+    '❯ ' + state.title + (state.version ? ' v' + state.version : '')
+  const leftBudget = Math.max(8, cols - visLen(right) - 2)
+  const left = truncateToWidth(leftRaw, leftBudget)
   // Referencing the nonce keeps the React dependency honest: the header colors
   // come from the shared UI map, which is mutated in place on a theme switch.
   void state.themeNonce

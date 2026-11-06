@@ -324,6 +324,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
+<li><strong>tui:</strong> window the theme picker list to the terminal height</li>
 <li><strong>tui:</strong> keep the hint bar to one row by clipping it to the width</li>
 <li><strong>login:</strong> reject a password made only of whitespace</li>
 <li><strong>tui:</strong> submit a secret prompt verbatim instead of trimming it</li>
