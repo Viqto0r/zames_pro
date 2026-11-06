@@ -30,7 +30,13 @@ export function parseModelIntent(
       message: t('model.unsupported', { provider }),
     }
   }
-  const model = String(arg ?? '').trim()
+  // A model id is a SINGLE token: the operator's text can carry a newline
+  // (a paste, a wrapped line), and it was stored and echoed verbatim — the
+  // newline broke the status line and the `/model set` report into fake
+  // rows. Collapse whitespace; an id is never allowed to contain a break.
+  const model = String(arg ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
   return model ? { kind: 'set', model } : { kind: 'list' }
 }
 
