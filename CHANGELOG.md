@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **transcript:** cap the session label so the file name fits the filesystem
+
 ## [2.96.9] - 2026-11-06
 
 ### Fixed

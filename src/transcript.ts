@@ -153,10 +153,15 @@ export class Transcript {
         String(sessionName)
           .replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_')
           .trim() || 'session'
+      // The stamp and the `-`/`.jsonl` suffix take ~40 bytes of the 255-byte
+      // NAME limit: a deeply nested project path produced an over-long file
+      // name, the stream failed with ENAMETOOLONG and the WHOLE run had no
+      // transcript. Cap the label, keeping its head.
+      const cappedName = safeName.slice(0, 120)
       // Rotation BEFORE the create: the new file then has the newest stamp,
       // so the current run's transcript is never a deletion candidate.
       rotateTranscripts(dir)
-      this.file = path.join(dir, `${safeName}-${stamp}.jsonl`)
+      this.file = path.join(dir, `${cappedName}-${stamp}.jsonl`)
       this.stream = fs.createWriteStream(this.file, { flags: 'a' })
       // Write errors (disk full, file deleted, etc.) arrive as an 'error'
       // event; without a listener this is an uncaught exception.
