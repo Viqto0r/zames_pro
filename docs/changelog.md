@@ -7,9 +7,10 @@ alt_url: /changelog-ru.html
 changelog: true
 ---
 <div class="wrap" markdown="1">
-<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 312)</p>
+<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 313)</p>
 <nav class="changelog-jump" aria-label="Jump to a version">
 <a href="#vUnreleased"><span>Unreleased</span></a>
+<a href="#v2.96.17"><span>v2.96.17</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.16"><span>v2.96.16</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.15"><span>v2.96.15</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.14"><span>v2.96.14</span><time datetime="2026-11-06">2026-11-06</time></a>
@@ -324,8 +325,13 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
+<p class="ch-empty">—</p>
+</details>
+<details class="ch-release" id="v2.96.17" open>
+<summary><header><h2>v2.96.17</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
+<li><strong>tool-summary:</strong> a timeout or a later Error line marks the call failed</li>
 <li><strong>diff:</strong> normalize line endings so CRLF is not a whole-file change</li>
 <li><strong>diagnostics:</strong> honour a cap smaller than the truncation marker</li>
 <li><strong>path-token:</strong> an all-digit extension is a version, not an @file reference</li>
@@ -343,7 +349,7 @@ changelog: true
 <li><strong>tui:</strong> carry a partial CSI from its ESC, not only mid-parameter</li>
 </ul></section>
 </details>
-<details class="ch-release" id="v2.96.15" open>
+<details class="ch-release" id="v2.96.15">
 <summary><header><h2>v2.96.15</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.96.17] - 2026-11-06
+
 ### Fixed
 
 - **tool-summary:** a timeout or a later Error line marks the call failed
