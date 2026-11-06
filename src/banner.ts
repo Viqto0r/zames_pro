@@ -101,11 +101,17 @@ export function renderStartupBanner(
   info: BannerInfo,
   contentWidth: number,
 ): string {
+  // Every field is printed INSIDE the box: a newline in the working directory
+  // or in the provider label (both come from the config/environment) broke the
+  // borders apart, so each value is flattened to one line first.
+  const oneLine = (v: string): string => String(v ?? '').replace(/\s+/g, ' ')
   const title =
-    theme.assistant('  ' + info.title) + theme.dim('  v' + info.version)
-  const dir = theme.system('  cwd: ') + theme.dir(info.workdir)
-  const prov = theme.system('  provider: ') + theme.toggleOn(info.provider)
+    theme.assistant('  ' + oneLine(info.title)) +
+    theme.dim('  v' + oneLine(info.version))
+  const dir = theme.system('  cwd: ') + theme.dir(oneLine(info.workdir))
+  const prov =
+    theme.system('  provider: ') + theme.toggleOn(oneLine(info.provider))
   const lines = [title, dir, prov]
-  if (info.hint) lines.push(theme.dim('  ' + info.hint))
+  if (info.hint) lines.push(theme.dim('  ' + oneLine(info.hint)))
   return box(lines, contentWidth)
 }
