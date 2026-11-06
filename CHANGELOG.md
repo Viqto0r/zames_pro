@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **web:** tolerate whitespace around = in a DuckDuckGo result attribute
 - **web:** recognise x-zip and x-msdownload as binary content
 - **web:** drop the page head and keep <pre> code intact when converting HTML
 - **web:** share one in-flight headless context between concurrent fetches

@@ -776,9 +776,12 @@ export function parseDuckDuckGoResults(
   // through a proxy does), so each quote style is accepted rather than only
   // `class="…"`. Rejecting them made a valid page parse to zero results and
   // WebSearch answer "the output format may have changed".
-  const anchorRe = /<a[^>]*class=(?:"([^"]*)"|'([^']*)')[^>]*>([\s\S]*?)<\/a>/gi
+  // HTML allows whitespace around the `=` of an attribute (`class = "x"`);
+  // requiring it to touch both sides made such a page parse to ZERO results.
+  const anchorRe =
+    /<a[^>]*class\s*=\s*(?:"([^"]*)"|'([^']*)')[^>]*>([\s\S]*?)<\/a>/gi
   const hrefOf = (tag: string): string => {
-    const m = tag.match(/href=(?:"([^"]*)"|'([^']*)')/i)
+    const m = tag.match(/href\s*=\s*(?:"([^"]*)"|'([^']*)')/i)
     return m ? (m[1] ?? m[2] ?? '') : ''
   }
   let cur: { title: string; url: string; snippet: string } | null = null
