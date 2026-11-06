@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **permissions:** match a path rule against the arguments of a shell command
 - **config-menu:** decode the terminal stream with one StringDecoder
 
 ## [2.96.11] - 2026-11-06
