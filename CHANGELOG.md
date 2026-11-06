@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **backlog:** a fenced heading inside an archive does not block the collapse
 - **backlog:** an id inside a fenced block does not advance the counter
 
 ## [2.96.19] - 2026-11-06
