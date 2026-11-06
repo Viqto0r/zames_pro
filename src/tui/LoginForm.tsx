@@ -94,7 +94,7 @@ export function LoginForm({
       setField((f) => (f === 'user' ? 'pass' : 'user'))
       return
     }
-    if (key.backspace || key.delete) {
+    if (key.backspace) {
       backspace()
       return
     }

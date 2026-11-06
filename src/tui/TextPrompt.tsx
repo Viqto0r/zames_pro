@@ -46,7 +46,7 @@ export function TextPrompt({
       finish(value.trim())
       return
     }
-    if (key.backspace || key.delete) {
+    if (key.backspace) {
       setValue((v) => Array.from(v).slice(0, -1).join(''))
       return
     }

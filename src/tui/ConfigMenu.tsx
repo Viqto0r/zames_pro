@@ -259,7 +259,7 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
         quit()
         return
       }
-      if (key.backspace || key.delete) {
+      if (key.backspace) {
         setEditBuf((b) => b.slice(0, -1))
         return
       }
@@ -276,7 +276,7 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
         quit()
         return
       }
-      if (key.backspace || key.delete) {
+      if (key.backspace) {
         setFilterQuery((q) => q.slice(0, -1))
         setCursor(0)
         return

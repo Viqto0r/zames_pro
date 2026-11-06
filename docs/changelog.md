@@ -322,6 +322,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
+<li><strong>tui:</strong> a prompt never inserts the raw DEL byte as text</li>
 <li><strong>doctor:</strong> omit an unmeasurable system-prompt size instead of reporting NaN</li>
 </ul></section>
 </details>

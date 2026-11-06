@@ -66,7 +66,7 @@ export function AskQuestion({
         finish(v || null)
         return
       }
-      if (key.backspace || key.delete) {
+      if (key.backspace) {
         setText((s) => Array.from(s).slice(0, -1).join(''))
         return
       }
