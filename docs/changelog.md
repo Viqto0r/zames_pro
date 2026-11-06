@@ -7,9 +7,10 @@ alt_url: /changelog-ru.html
 changelog: true
 ---
 <div class="wrap" markdown="1">
-<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 313)</p>
+<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 314)</p>
 <nav class="changelog-jump" aria-label="Jump to a version">
 <a href="#vUnreleased"><span>Unreleased</span></a>
+<a href="#v2.96.18"><span>v2.96.18</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.17"><span>v2.96.17</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.16"><span>v2.96.16</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.15"><span>v2.96.15</span><time datetime="2026-11-06">2026-11-06</time></a>
@@ -325,8 +326,13 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
+<p class="ch-empty">—</p>
+</details>
+<details class="ch-release" id="v2.96.18" open>
+<summary><header><h2>v2.96.18</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
+<li><strong>resume:</strong> flatten the provider names in the refusal message</li>
 <li><strong>queue:</strong> a null queue entry no longer crashes the listing</li>
 <li><strong>context:</strong> a context file with no content no longer crashes the report</li>
 <li><strong>limits:</strong> flatten the telemetry path in the empty-state message</li>
@@ -344,7 +350,7 @@ changelog: true
 <li><strong>attach:</strong> sniff the content when the stored mime is generic</li>
 </ul></section>
 </details>
-<details class="ch-release" id="v2.96.16" open>
+<details class="ch-release" id="v2.96.16">
 <summary><header><h2>v2.96.16</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
