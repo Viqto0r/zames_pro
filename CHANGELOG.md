@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.96.11] - 2026-11-06
+
 ### Fixed
 
 - **prompt:** delete a whole code point in the forward-Delete branch

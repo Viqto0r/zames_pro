@@ -7,9 +7,10 @@ alt_url: /changelog.html
 changelog: true
 ---
 <div class="wrap" markdown="1">
-<p class="changelog-lead">Каждый релиз zames_pro: самый свежий сверху, старые версии можно развернуть, а список версий в начале страницы ведёт сразу к нужной. (версий: 306)</p>
+<p class="changelog-lead">Каждый релиз zames_pro: самый свежий сверху, старые версии можно развернуть, а список версий в начале страницы ведёт сразу к нужной. (версий: 307)</p>
 <nav class="changelog-jump" aria-label="К версии">
 <a href="#vUnreleased"><span>Unreleased</span></a>
+<a href="#v2.96.11"><span>v2.96.11</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.10"><span>v2.96.10</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.9"><span>v2.96.9</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.8"><span>v2.96.8</span><time datetime="2026-11-06">2026-11-06</time></a>
@@ -318,8 +319,13 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
+<p class="ch-empty">—</p>
+</details>
+<details class="ch-release" id="v2.96.11" open>
+<summary><header><h2>v2.96.11</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
+<li><strong>prompt:</strong> delete a whole code point in the forward-Delete branch</li>
 <li><strong>completion-check:</strong> treat extension-less build files as runnable artifacts</li>
 <li><strong>login:</strong> classify a guest page with a captcha as a challenge</li>
 <li><strong>compact:</strong> keep the message count in an empty-fallback reason</li>
@@ -337,7 +343,7 @@ changelog: true
 <li><strong>transcript:</strong> cap the session label so the file name fits the filesystem</li>
 </ul></section>
 </details>
-<details class="ch-release" id="v2.96.9" open>
+<details class="ch-release" id="v2.96.9">
 <summary><header><h2>v2.96.9</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
