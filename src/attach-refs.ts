@@ -156,7 +156,16 @@ export async function inlineAtRefs(
     }
     total += body.length
     inlined.push(path.relative(workdir, file) || file)
-    blocks.push('### ' + ref + NL + '```' + NL + body + NL + '```' + note)
+    // The fence must be LONGER than any backtick run inside the file: a
+    // markdown file with its own ``` closed the block early and the rest of
+    // the file became PROSE in the prompt (the model could take it for
+    // instructions). Same rule as formatGitContext's status preview.
+    const longest = (body.match(/`+/g) || []).reduce(
+      (a, b) => Math.max(a, b.length),
+      0,
+    )
+    const fence = '`'.repeat(Math.max(3, longest + 1))
+    blocks.push('### ' + ref + NL + fence + NL + body + NL + fence + note)
   }
   if (!blocks.length) return { text, inlined: [] }
   const section =
