@@ -350,8 +350,17 @@ export function renderCost(
     }
   }
   lines.push(t('cost.duration', { dur: formatDuration(stats.durationMs) }))
-  if (stats.startedAt) lines.push(t('cost.started', { v: stats.startedAt }))
-  lines.push(t('cost.transcript', { v: transcriptFile || t('cost.off') }))
+  // Both values come from FILES the operator can hand-edit (a JSONL
+  // transcript, a session file): a newline in either started a row of its own
+  // in the report. Flatten them like every other value in this module.
+  const oneLine = (v: string): string => String(v ?? '').replace(/\s+/g, ' ')
+  if (stats.startedAt)
+    lines.push(t('cost.started', { v: oneLine(stats.startedAt) }))
+  lines.push(
+    t('cost.transcript', {
+      v: transcriptFile ? oneLine(transcriptFile) : t('cost.off'),
+    }),
+  )
   return lines.join(NL)
 }
 
