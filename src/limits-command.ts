@@ -22,9 +22,18 @@ export function formatLimits(
   t: TranslateFn = translate('en'),
 ): LimitsLine[] {
   const out: LimitsLine[] = []
+  // A counter is a count and a pause is a duration: a negative/NaN/Infinity
+  // value (a hand-edited telemetry line, a broken provider counter) must not
+  // render as `-3s` / `NaNs`, which reads like a real measurement.
+  const num = (v: number): string =>
+    typeof v === 'number' && Number.isFinite(v) ? String(Math.max(0, v)) : '0'
   out.push({
     kind: 'title',
-    text: t('limits.title', { provider: opts.providerLabel }),
+    // The provider label comes from the config: a newline in it would start a
+    // row of its own.
+    text: t('limits.title', {
+      provider: String(opts.providerLabel ?? '').replace(/\s+/g, ' '),
+    }),
   })
   const windows: Array<[string, number]> = [
     ['10m', stats.last10m],
@@ -34,20 +43,20 @@ export function formatLimits(
   for (const [label, n] of windows) {
     out.push({
       kind: 'window',
-      text: t('limits.window', { label, n: String(n) }),
+      text: t('limits.window', { label, n: num(n) }),
     })
   }
   out.push({
     kind: 'rate',
     text: t('limits.rate', {
-      n: String(stats.rateLimits),
-      sec: String(Math.round(stats.avgBlockMs / 1000)),
+      n: num(stats.rateLimits),
+      sec: String(Math.round(Number(num(stats.avgBlockMs)) / 1000)),
     }),
   })
   out.push({
     kind: 'interval',
     text: t('limits.interval', {
-      sec: String(Math.round(opts.intervalMs / 1000)),
+      sec: String(Math.round(Number(num(opts.intervalMs)) / 1000)),
       adaptive: opts.adaptive ? t('limits.adaptive_on') : '',
     }),
   })
