@@ -321,6 +321,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
+<li><strong>permissions:</strong> match a path rule against the arguments of a shell command</li>
 <li><strong>config-menu:</strong> decode the terminal stream with one StringDecoder</li>
 </ul></section>
 </details>

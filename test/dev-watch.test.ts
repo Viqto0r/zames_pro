@@ -20,12 +20,21 @@ const srcDir = path.resolve(
 
 test('every hot-reloadable name is a real module', () => {
   const files = nonReloadableSources(srcDir)
-  const bases = new Set(
-    files.map((f) => path.basename(f).replace(/\.tsx?$/, '')),
+  // Compare by PATH relative to src/ (like the watcher itself): a bare
+  // basename cannot tell `input/layout.ts` (hot) from `tui/layout.ts` (not),
+  // nor `mcp.ts` from `i18n/mcp.ts` (which is NOT hot).
+  const rels = new Set(
+    files.map((f) =>
+      path
+        .relative(srcDir, f)
+        .split(path.sep)
+        .join('/')
+        .replace(/\.tsx?$/, ''),
+    ),
   )
   for (const name of HOT_RELOADABLE) {
     assert.equal(
-      bases.has(name),
+      rels.has(name),
       false,
       'a hot-reloadable module must not be watched: ' + name,
     )

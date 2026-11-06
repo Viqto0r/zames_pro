@@ -18,7 +18,15 @@ function indexReloadable(): string[] {
   const start = src.indexOf('const RELOADABLE = [')
   assert.ok(start >= 0, 'RELOADABLE not found in index.ts')
   const end = src.indexOf(']', start)
-  return [...src.slice(start, end).matchAll(/'([^']+)'/g)].map((m) => m[1])
+  // Comments inside the block are NOT entries: a comment quoting a module
+  // (`// 'input/layout' is NOT listed`) used to be read as a real entry, so
+  // the drift check demanded a hot entry the code deliberately omits.
+  const block = src
+    .slice(start, end)
+    .split(String.fromCharCode(10))
+    .map((l) => l.replace(/\/\/.*$/, ''))
+    .join(String.fromCharCode(10))
+  return [...block.matchAll(/'([^']+)'/g)].map((m) => m[1])
 }
 
 test('every hot-reloadable module of index.ts is in HOT_RELOADABLE', () => {
