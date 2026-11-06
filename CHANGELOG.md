@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **cost:** flatten the transcript path and start time of the report
 - **diff:** clamp the preview bound and never print a leading blank line
 - **changelog:** anchor the Unreleased rewrite on a real heading
 - **backlog:** a fenced heading inside an archive does not block the collapse
