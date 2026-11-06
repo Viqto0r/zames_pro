@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **commands:** pick a placeholder separator the command body does not contain
+
 ## [2.96.20] - 2026-11-06
 
 ### Fixed
