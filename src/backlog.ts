@@ -182,10 +182,23 @@ export function backlogNeedsPruning(stats: BacklogStats): boolean {
 /** The next free N<n> id not yet used in the file. */
 export function nextBacklogId(text: string): string {
   let max = 0
-  const re = /^###[ ]+([A-Z])([0-9]+)[.]/gm
-  let m: RegExpExecArray | null
-  while ((m = re.exec(String(text ?? '')))) {
-    if (m[1] === NEW_ITEM_PREFIX) max = Math.max(max, Number(m[2]))
+  const re = /^###[ ]+([A-Z])([0-9]+)[.]/
+  // A FENCED block is markdown, not structure: a note that documents the file
+  // format carries `### N99. example` inside ``` and inflated the next id (the
+  // operator saw N100 right after N1, as if 98 items were lost). The APPEND
+  // path already skips fenced headings — the counter must agree with it.
+  let fence = ''
+  for (const line of String(text ?? '').split(NL)) {
+    const fm = /^\s*(`{3,}|~{3,})/.exec(line)
+    if (fm) {
+      const mark = fm[1][0]
+      if (!fence) fence = mark
+      else if (mark === fence) fence = ''
+      continue
+    }
+    if (fence) continue
+    const m = re.exec(line)
+    if (m && m[1] === NEW_ITEM_PREFIX) max = Math.max(max, Number(m[2]))
   }
   return NEW_ITEM_PREFIX + (max + 1)
 }
