@@ -11,6 +11,7 @@ import { theme } from './theme.js'
 import type { TranslateFn } from './i18n.js'
 import type { ConfigField } from './config.js'
 import { CONFIG_TOP_GROUPS } from './config.js'
+import { StringDecoder } from 'node:string_decoder'
 import { visLen } from './input.js'
 
 export interface ConfigMenuOptions {
@@ -405,8 +406,15 @@ export function runConfigMenu(opts: ConfigMenuOptions): Promise<void> {
     editBuf = get(f.path) === undefined ? '' : String(get(f.path))
   }
 
+  // A `data` chunk is a stream of UTF-8 BYTES, and a terminal hands them
+  // over in whatever sizes the pty chose: an emoji or a Cyrillic letter can
+  // be SPLIT between two reads. Decoding each chunk on its own turned both
+  // halves into U+FFFD, so an edited path/command was saved corrupted. One
+  // decoder for the whole menu holds an incomplete trailing sequence back
+  // until the bytes that finish it arrive (same rule as promptOnce).
+  const decoder = new StringDecoder('utf8')
   const onData = (buf: Buffer): void => {
-    const s = buf.toString('utf-8')
+    const s = decoder.write(buf)
     if (editing) {
       // Process input character by character: the terminal may send several
       // bytes at once (paste, auto-repeat), Enter is 0x0d/0x0a, backspace is 0x7f.
