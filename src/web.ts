@@ -40,6 +40,7 @@ export function htmlToText(html: string): string {
   // document to the next.
   pendingHighSurrogate = null
   // Remove blocks we don't need
+  const parkedPre: string[] = []
   let s = html
     // A tag that never CLOSES (a truncated body, or HTML the regex cannot
     // pair) used to leak its raw JS/CSS into the text: also drop everything
@@ -50,6 +51,10 @@ export function htmlToText(html: string): string {
     .replace(/<style\b[\s\S]*$/i, '')
     .replace(/<noscript[\s\S]*?<\/noscript>/gi, '')
     .replace(/<noscript\b[\s\S]*$/i, '')
+    // The <head> (title, meta) is page CHROME, not content: left in place the
+    // title glued itself to the first paragraph (`My pageBody`).
+    .replace(/<head[\s\S]*?<\/head>/gi, '')
+    .replace(/<title[\s\S]*?<\/title>/gi, '')
     .replace(/<svg[\s\S]*?<\/svg>/gi, '')
     .replace(/<svg\b[\s\S]*$/i, '')
     .replace(/<!--[\s\S]*?-->/g, '')
@@ -68,11 +73,25 @@ export function htmlToText(html: string): string {
   // `<td>42</td>` became `Name42` — two independent values fused into one, and
   // the model reported a number that never appeared on the page.
   s = s
+    // A `<pre>` block is CODE: a bare `<` inside it (`if (a < b)`) is text, not
+    // the start of a tag, so the generic strip below would eat the rest of the
+    // line. Park the block, then restore it after the tag removal.
+    .replace(
+      /<pre\b[^>]*>([\s\S]*?)<\/pre>/gi,
+      (_m, code: string) =>
+        '\u0000PRE' + (parkedPre.push(code) - 1) + 'PRE\u0000',
+    )
     .replace(/<\/(h[1-6]|p|div|li|tr|section|article)>/gi, '\n')
     .replace(/<\/(td|th)>/gi, ' ')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<li[^>]*>/gi, '- ')
     .replace(/<[^>]+>/g, '')
+
+  // A parked `<pre>` block comes back AFTER the tag strip, with only its own
+  // tags removed and its text kept verbatim.
+  s = s.replace(/\u0000PRE(\d+)PRE\u0000/g, (_m, i: string) =>
+    (parkedPre[Number(i)] ?? '').replace(/<[^>]+>/g, ''),
+  )
 
   // HTML entities — the basic ones
   s = s

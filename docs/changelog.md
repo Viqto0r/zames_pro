@@ -314,6 +314,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
+<li><strong>web:</strong> share one in-flight headless context between concurrent fetches</li>
 <li><strong>scheduler:</strong> never scan cron forever on a non-finite fromMs</li>
 </ul></section>
 </details>
