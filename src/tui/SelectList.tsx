@@ -7,6 +7,19 @@ import { Box, Text, useInput, useApp, useWindowSize } from 'ink'
 import { UI, HintBar } from './widgets.js'
 import { translate, type Locale } from '../i18n.js'
 
+/**
+ * Strip terminal CONTROL sequences from a provider-supplied string (a chat or
+ * session title). Ink writes them through to the terminal, so an OSC-8
+ * hyperlink in a title made the whole row clickable and `ESC[2J` cleared the
+ * screen. Labels and details are OPERATOR DATA, never markup.
+ */
+export function stripControl(s: string): string {
+  return String(s ?? '')
+    .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
+    .replace(/\x1b\][\s\S]*?(?:\x07|\x1b\\|$)/g, '')
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '')
+}
+
 export interface SelectItem {
   value: string
   label: string
@@ -88,7 +101,7 @@ export function SelectList({
     >
       <Box justifyContent="space-between">
         <Text color={UI.title} bold>
-          {'◆ ' + title}
+          {'◆ ' + stripControl(title)}
         </Text>
         <Text color={UI.dim}>{items.length}</Text>
       </Box>
@@ -100,9 +113,11 @@ export function SelectList({
           <Text key={it.value}>
             <Text color={UI.accent}>{sel ? '❯ ' : '  '}</Text>
             <Text color={sel ? UI.accent : undefined} bold={sel}>
-              {it.label}
+              {stripControl(it.label)}
             </Text>
-            {it.detail ? <Text color={UI.dim}>{'  ' + it.detail}</Text> : null}
+            {it.detail ? (
+              <Text color={UI.dim}>{'  ' + stripControl(it.detail)}</Text>
+            ) : null}
           </Text>
         )
       })}
