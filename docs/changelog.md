@@ -327,7 +327,10 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
-<p class="ch-empty">—</p>
+<section class="ch-group"><h3>Fixed</h3>
+<ul>
+<li><strong>backlog:</strong> an id inside a fenced block does not advance the counter</li>
+</ul></section>
 </details>
 <details class="ch-release" id="v2.96.19" open>
 <summary><header><h2>v2.96.19</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>

@@ -88,7 +88,20 @@ function isDetailsOpen(line: string): boolean {
 // `Use <details> in README:` must not be treated as an archive: collapsing it
 // deleted the note's own body (everything up to the next heading).
 function isArchiveBlock(lines: string[], from: number): boolean {
+  // A FENCED block is markdown, not structure: a `### N9.` line inside a ```
+  // example (a note documenting the file format) is NOT a real boundary, and
+  // treating it as one made this check report "not an archive" — the archive
+  // was never collapsed and the size nudge never went away.
+  let fence = ''
   for (let j = from; j < lines.length; j++) {
+    const fm = /^\s*(`{3,}|~{3,})/.exec(lines[j])
+    if (fm) {
+      const mark = fm[1][0]
+      if (!fence) fence = mark
+      else if (mark === fence) fence = ''
+      continue
+    }
+    if (fence) continue
     const t = lines[j].trim()
     if (isArchivedHeading(t)) return true
     if (t.startsWith('</details>') || isRealBoundary(t)) return false
