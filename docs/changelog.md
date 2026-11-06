@@ -312,6 +312,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
+<li><strong>goal:</strong> keep a condition from injecting its own verdict block</li>
 <li><strong>compact:</strong> keep operator and summary text out of the carryover headings</li>
 <li><strong>release:</strong> sync the changelog and rebuild its pages inside a release</li>
 <li><strong>info:</strong> keep a /chat and /pwd value on one line</li>

@@ -283,6 +283,21 @@ export class Scheduler {
   due(now: number): ScheduleJob[] {
     const fired: ScheduleJob[] = []
     for (const job of this.jobs) {
+      // A NON-FINITE `nextAt` (a restored/hand-edited job, a NaN from a broken
+      // date) passed every comparison below: `NaN > now` is false, so the job
+      // was reported due on EVERY tick and the reschedule arithmetic kept it
+      // NaN forever — the busy loop the zero-interval guard exists to stop.
+      if (!Number.isFinite(job.nextAt)) {
+        if (job.kind === 'loop' && job.intervalMs && job.intervalMs > 0) {
+          job.nextAt = now + job.intervalMs
+        } else if (job.kind === 'cron' && job.cron) {
+          const nxt = nextCronTime(job.cron, now)
+          job.nextAt = nxt === null ? Number.POSITIVE_INFINITY : nxt
+        } else {
+          job.nextAt = Number.POSITIVE_INFINITY
+        }
+        continue
+      }
       if (job.nextAt > now) continue
       fired.push({ ...job })
       if (job.kind === 'loop' && job.intervalMs && job.intervalMs > 0) {

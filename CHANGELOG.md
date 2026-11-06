@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **scheduler:** reschedule a job whose nextAt is not finite
 - **goal:** keep a condition from injecting its own verdict block
 - **compact:** keep operator and summary text out of the carryover headings
 - **release:** sync the changelog and rebuild its pages inside a release
