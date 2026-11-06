@@ -51,5 +51,8 @@ export function providerWithoutPickerMessage(
   t: TranslateFn = translate('en'),
 ): string | null {
   if (providerHasModelPicker(provider)) return null
-  return t('model.unsupported', { provider: providerLabel(provider) })
+  // An UNKNOWN id is echoed back verbatim (`providerLabel` → `String(id)`):
+  // a newline in a hand-edited config value started a row of its own.
+  const label = String(providerLabel(provider) ?? '').replace(/\s+/g, ' ')
+  return t('model.unsupported', { provider: label })
 }

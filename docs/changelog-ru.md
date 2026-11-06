@@ -328,6 +328,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
+<li><strong>loop:</strong> split the interval from the task on any whitespace</li>
 <li><strong>scheduler:</strong> reject a cron day-of-month the month never has</li>
 <li><strong>jobs:</strong> accept any whitespace after the remove verb</li>
 <li><strong>context-limit:</strong> flatten the provider and error text of the live notices</li>
