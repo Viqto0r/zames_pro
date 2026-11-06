@@ -30,6 +30,12 @@ export const HOT_RELOADABLE = new Set([
   'config',
   'fsutil',
   'backlog',
+  // index.ts reloads these too; leaving them out of THIS list made the dev
+  // watcher report a false "restart zames" warning on every edit to them.
+  'restore-history',
+  // A NESTED module: only its basename is known here, which is what the
+  // watcher compares (src/input/layout.ts).
+  'layout',
   'commands',
   'run-task',
   'attach-refs',

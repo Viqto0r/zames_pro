@@ -308,7 +308,10 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
-<p class="ch-empty">—</p>
+<section class="ch-group"><h3>Fixed</h3>
+<ul>
+<li><strong>shell:</strong> block a recursive rm of ./ and ../ (trailing slash)</li>
+</ul></section>
 </details>
 <details class="ch-release" id="v2.96.0" open>
 <summary><header><h2>v2.96.0</h2><time datetime="2026-11-05">2026-11-05</time></header></summary>
