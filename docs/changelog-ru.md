@@ -318,6 +318,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
+<li><strong>resume:</strong> a junk session record is skipped instead of crashing /sessions</li>
 <li><strong>model:</strong> a model id with a newline is flattened to one line</li>
 <li><strong>context-limit:</strong> a non-finite retry budget gives up instead of retrying forever</li>
 <li><strong>spinner:</strong> a dots-only phrase keeps a label instead of going empty</li>

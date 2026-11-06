@@ -106,6 +106,15 @@ export function runStatusLineCommand(
       clearTimeout(timer)
       finish()
     })
+    // A NEWLINE already ends the FIRST line, and that is all the badge shows.
+    // A backgrounded grandchild keeps the pipe OPEN (`my-status &`), so `end`
+    // never fired and the badge waited out the whole timeout on every tick.
+    child.stdout?.on('data', (c: Buffer) => {
+      if (String(c).includes(String.fromCharCode(10))) {
+        clearTimeout(timer)
+        finish()
+      }
+    })
     child.on('close', () => {
       clearTimeout(timer)
       finish()
