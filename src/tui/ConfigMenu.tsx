@@ -20,6 +20,7 @@ import type { ConfigField } from '../config.js'
 import { CONFIG_TOP_GROUPS } from '../config.js'
 import { Checkbox, Select, UI, HintBar } from './widgets.js'
 import { isPrintableInput } from './keys.js'
+import { charWidth } from '../input/layout.js'
 import { ThemePreview } from './theme-preview.js'
 
 /** Strip ANSI to measure a line's visible width. */
@@ -27,14 +28,14 @@ function stripAnsi(s: string): string {
   return s.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
 }
 
-/** Visible width in columns (wide chars count 2). */
+/** Visible width in columns — the SAME rule as the rest of the TUI. A local
+ *  `cp >= 0x1100 ? 2 : 1` counted box arrows, `⧗` and `─` as two columns and a
+ *  combining mark/VS16 as one, so the menu reserved phantom rows on a narrow
+ *  terminal and showed fewer entries than fit. */
 function visCols(s: string): number {
   const str = stripAnsi(s)
   let w = 0
-  for (const ch of str) {
-    const cp = ch.codePointAt(0) as number
-    w += cp >= 0x1100 ? 2 : 1
-  }
+  for (const ch of str) w += charWidth(ch.codePointAt(0) as number)
   return w
 }
 
@@ -422,7 +423,9 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
       if (!openGroup) return 1
       const f = visible[i]
       const label = f.labelKey ? t(f.labelKey) : f.path
-      return Math.max(1, Math.ceil((label.length + 12) / innerCols))
+      // The LABEL is measured with the shared width rule: a `.length` count
+      // over-counted emoji and box glyphs and reserved phantom rows.
+      return Math.max(1, Math.ceil((visCols(label) + 12) / innerCols))
     }
     const rowsIn = (a: number, b: number): number => {
       let r = 0
@@ -444,7 +447,6 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
   }, [cursor, groupCursor, openGroup, visible, groups, maxRows, innerCols, t])
 
   const usable = Math.max(1, (columns || 80) - 1)
-  void visCols
   void usable
   // Referenced so the value-cell recompute below depends on the mutation
   // counter (a pure `get()` call has no reactive dependency of its own).
