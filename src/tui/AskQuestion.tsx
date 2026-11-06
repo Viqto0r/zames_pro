@@ -13,6 +13,7 @@
 import React, { useState } from 'react'
 import { Box, Text, useInput, useApp, useWindowSize } from 'ink'
 import { UI, HintBar } from './widgets.js'
+import { isPrintableInput } from './keys.js'
 import { translate, type Locale } from '../i18n.js'
 
 export interface AskQuestionOptions {
@@ -69,7 +70,7 @@ export function AskQuestion({
         setText((s) => Array.from(s).slice(0, -1).join(''))
         return
       }
-      if (input && input >= ' ') setText((s) => s + input)
+      if (isPrintableInput(input)) setText((s) => s + input)
       return
     }
     if (key.upArrow || input === 'k') {
@@ -89,7 +90,7 @@ export function AskQuestion({
       return
     }
     // A printable char on the "other" row opens the editor immediately.
-    if (allowText && cursor === options.length && input && input >= ' ') {
+    if (allowText && cursor === options.length && isPrintableInput(input)) {
       setTyping(true)
       setText(input)
     }

@@ -46,6 +46,18 @@ export function parseCsiU(raw: string): EditorAction | null {
   return null
 }
 
+/**
+ * True for text a prompt may INSERT: printable, and never the raw DEL byte
+ * (0x7f). Some terminals (and the kitty keyboard protocol) hand DEL over as
+ * ordinary `input` without `key.backspace`, and `input >= ' '` is TRUE for
+ * 127 — so a bare check appended an invisible control character to the value
+ * (the login e-mail, an MFA code, a config value). Shared by the editor and
+ * every Ink prompt.
+ */
+export function isPrintableInput(input: string | undefined): boolean {
+  return !!input && input !== String.fromCharCode(127) && input >= ' '
+}
+
 /** The semantic action a keypress maps to. `null` = ignore. */
 export type EditorAction =
   | { type: 'submit' }
@@ -233,7 +245,7 @@ export function dispatchKey(
   // A raw DEL byte (0x7f) is NOT printable: some terminals hand it over as
   // plain `input` without `key.backspace`, and `input >= ' '` (DEL is 127)
   // inserted it as an invisible control character into the buffer.
-  const printable = input && input !== String.fromCharCode(127) && input >= ' '
+  const printable = isPrintableInput(input)
   if (printable) {
     return { type: 'insert', text: input }
   }

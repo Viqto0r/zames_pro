@@ -19,6 +19,7 @@ import type { TranslateFn } from '../i18n.js'
 import type { ConfigField } from '../config.js'
 import { CONFIG_TOP_GROUPS } from '../config.js'
 import { Checkbox, Select, UI, HintBar } from './widgets.js'
+import { isPrintableInput } from './keys.js'
 import { ThemePreview } from './theme-preview.js'
 
 /** Strip ANSI to measure a line's visible width. */
@@ -262,7 +263,7 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
         setEditBuf((b) => b.slice(0, -1))
         return
       }
-      if (input && input >= ' ') setEditBuf((b) => b + input)
+      if (isPrintableInput(input)) setEditBuf((b) => b + input)
       return
     }
 
@@ -280,7 +281,7 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
         setCursor(0)
         return
       }
-      if (input && input >= ' ') {
+      if (isPrintableInput(input)) {
         setFilterQuery((q) => q + input)
         setCursor(0)
       }

@@ -11,6 +11,7 @@
 import React, { useState } from 'react'
 import { Box, Text, useInput, useApp } from 'ink'
 import { UI, HintBar } from './widgets.js'
+import { isPrintableInput } from './keys.js'
 import type { TranslateFn } from '../i18n.js'
 import { maskSecret, validateLogin } from './login-pure.js'
 
@@ -97,7 +98,7 @@ export function LoginForm({
       backspace()
       return
     }
-    if (input && input >= ' ') append(input)
+    if (isPrintableInput(input)) append(input)
   })
 
   return (

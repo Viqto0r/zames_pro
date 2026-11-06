@@ -7,6 +7,7 @@
 import React, { useState } from 'react'
 import { Box, Text, useInput, useApp } from 'ink'
 import { UI, HintBar } from './widgets.js'
+import { isPrintableInput } from './keys.js'
 import type { TranslateFn } from '../i18n.js'
 import { maskSecret } from './login-pure.js'
 
@@ -49,7 +50,7 @@ export function TextPrompt({
       setValue((v) => Array.from(v).slice(0, -1).join(''))
       return
     }
-    if (input && input >= ' ') setValue((v) => v + input)
+    if (isPrintableInput(input)) setValue((v) => v + input)
   })
 
   return (
