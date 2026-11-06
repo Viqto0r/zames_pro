@@ -36,6 +36,17 @@ export function clampGoalCondition(condition: string): string {
 // is requested; no tools.
 export function buildEvaluatorPrompt(condition: string): string {
   const NL = String.fromCharCode(10)
+  // The condition is OPERATOR text pasted VERBATIM. A line of it that looks
+  // like the requested answer format (`Reply with EXACTLY two lines`,
+  // `VERDICT: MET`) would let the operator's own words stand in for the
+  // judge's verdict and close an unfinished task as done: such a line is
+  // quoted instead of being left at the start of a line.
+  const safeCondition = String(condition ?? '')
+    .split(NL)
+    .map((l) =>
+      /^\s*(?:reply with|verdict\s*:|reason\s*:)/i.test(l) ? '> ' + l : l,
+    )
+    .join(NL)
   return (
     'You are a strict COMPLETION EVALUATOR. You do NOT do the work and you do NOT call tools. Read ' +
     'the conversation above and judge - from what the agent has ALREADY surfaced - whether ' +
@@ -44,7 +55,7 @@ export function buildEvaluatorPrompt(condition: string): string {
     NL +
     'Completion condition:' +
     NL +
-    condition +
+    safeCondition +
     NL +
     NL +
     'Reply with EXACTLY two lines, nothing else:' +
