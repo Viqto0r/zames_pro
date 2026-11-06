@@ -5,8 +5,16 @@ export function unifiedDiff(
   b: string,
   { label = '' }: { label?: string } = {},
 ): string {
-  const la = a.split(String.fromCharCode(10))
-  const lb = b.split(String.fromCharCode(10))
+  // Normalize the LINE ENDINGS first: a CRLF file compared with the same text
+  // saved with LF kept a `\r` at the end of every line, so every line looked
+  // changed (the undo preview showed a whole-file rewrite). A lone CR is a
+  // line break too (a classic-Mac paste).
+  const splitLines = (s: string): string[] =>
+    String(s ?? '')
+      .replace(/\r\n?/g, String.fromCharCode(10))
+      .split(String.fromCharCode(10))
+  const la = splitLines(a)
+  const lb = splitLines(b)
   const out: string[] = []
   if (label) out.push('... ' + label)
   // A LINE diff, not a positional compare: an insertion at the top shifts

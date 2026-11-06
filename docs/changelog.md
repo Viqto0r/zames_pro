@@ -326,6 +326,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
+<li><strong>diagnostics:</strong> honour a cap smaller than the truncation marker</li>
 <li><strong>path-token:</strong> an all-digit extension is a version, not an @file reference</li>
 <li><strong>attach:</strong> sniff the content when the stored mime is generic</li>
 </ul></section>
