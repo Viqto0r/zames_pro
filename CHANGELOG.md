@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **tui:** a prompt never inserts the raw DEL byte as text
 - **doctor:** omit an unmeasurable system-prompt size instead of reporting NaN
 
 ## [2.96.12] - 2026-11-06
