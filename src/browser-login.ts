@@ -245,8 +245,11 @@ export type LoginProbeInput = {
 export function classifyLoginProbe(input: LoginProbeInput): ProbeResult {
   const role = String(input.role || '').toLowerCase()
   if (role === 'user' || role === 'admin') return 'in'
-  if (role === 'guest') return input.signInVisible ? 'out' : 'in'
+  // A captcha is the site asking for a HUMAN: a guest page that renders one is
+  // NOT a usable session (the visible-window flow exists for exactly this), so
+  // it must be classified before the guest shortcut below.
   if (input.captcha) return 'challenge'
+  if (role === 'guest') return input.signInVisible ? 'out' : 'in'
   if (input.hasToken === true) return 'in'
   if (input.hasToken === false) return 'out'
   if (input.signInVisible) return 'out'
