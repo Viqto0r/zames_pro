@@ -1768,9 +1768,14 @@ export class LineEditor {
     // to _pasteBuf (it is not parsed by this loop), so a held tail would be
     // re-attached to `s` and inserted as text BEFORE the body — the tail
     // (`1~`) leaked into the input line and was not part of the pasted text.
-    const held = this._inPaste
-      ? { head: s, tail: null as string | null }
-      : splitPasteTail(s)
+    // The bare-ESC disambiguation below must still see a chunk that IS just an
+    // ESC: holding it as a partial paste marker would swallow the Escape key
+    // (and a following arrow tail would then be read as literal text). Only a
+    // PARTIAL marker of 2+ chars is held here; the lone ESC keeps its own path.
+    const held =
+      this._inPaste || s === ESC
+        ? { head: s, tail: null as string | null }
+        : splitPasteTail(s)
     if (held.tail) {
       this._ctrlTail = held.tail
       s = held.head

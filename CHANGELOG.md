@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **input:** hold only a partial paste marker, not a lone ESC
+
 ## [2.96.6] - 2026-11-06
 
 ### Fixed

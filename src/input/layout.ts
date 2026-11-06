@@ -731,7 +731,10 @@ export function splitPasteTail(s: string): {
   // The longest marker prefix to consider is one char short of the marker.
   const markers = [PASTE_START, PASTE_END]
   const maxHold = Math.max(...markers.map((m) => m.length)) - 1
-  const upto = Math.min(maxHold, str.length - 1)
+  // Hold a PARTIAL marker up to the full marker length: for a 1-char chunk
+  // (`str.length - 1` = 0) nothing was held, so a read ending on a lone ESC
+  // leaked it into the buffer instead of waiting for the rest of `ESC[200~`.
+  const upto = Math.min(maxHold, str.length)
   for (let len = upto; len >= 1; len--) {
     const tail = str.slice(str.length - len)
     if (!tail.startsWith(ESC)) continue
