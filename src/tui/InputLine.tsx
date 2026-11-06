@@ -441,9 +441,15 @@ export function InputLine(props: InputLineProps): React.ReactElement {
     const onRaw = (data: Buffer | string): void => {
       const s = typeof data === 'string' ? data : data.toString('utf-8')
       const buf = carry + s
-      // Hold a trailing INCOMPLETE CSI-u sequence for the next read.
-      const m = /\u001b\[[0-9;:]*$/.exec(buf)
-      carry = m ? m[0] : ''
+      // Hold a trailing INCOMPLETE CSI sequence for the next read:
+      // everything from the last ESC that has no FINAL byte (`@`..`~`)
+      // yet. The old matcher only held a tail ending inside the NUMERIC
+      // parameters, so a read that ended right after `ESC[` (or inside a
+      // form it did not cover) left the carry EMPTY — the partial bytes
+      // were scanned as garbage and the keystroke was lost.
+      const start = buf.lastIndexOf(String.fromCharCode(27))
+      const rest = start === -1 ? '' : buf.slice(start)
+      carry = rest && !/^\u001b\[[0-9;:]*[\u0040-\u007e]/.test(rest) ? rest : ''
       const scan = carry ? buf.slice(0, buf.length - carry.length) : buf
       // Find every complete CSI-u sequence and dispatch it.
       const re = /\u001b\[[0-9;:]*u/g
