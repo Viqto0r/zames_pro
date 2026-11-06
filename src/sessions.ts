@@ -142,6 +142,17 @@ function writeIndex({ id, workdir }: { id: string; workdir: string }): void {
     if (!index.byWorkdir || typeof index.byWorkdir !== 'object') {
       index.byWorkdir = {}
     }
+    // A workdir may legally be named `__proto__` (or `constructor`): on a plain
+    // object that key assigns the PROTOTYPE, the entry silently vanishes from
+    // the JSON and the next launch restores another project's chat. Rebuild the
+    // map as a NULL-PROTOTYPE object so every key is an own key.
+    {
+      const safe: Record<string, string> = Object.create(null)
+      for (const [k, v] of Object.entries(index.byWorkdir)) {
+        if (typeof v === 'string') safe[k] = v
+      }
+      index.byWorkdir = safe
+    }
     // An EMPTY workdir must not become a byWorkdir key: it would make every
     // project fall back to `index.last` and restore a chat from ANOTHER
     // project on the next launch. Only track a real directory.
