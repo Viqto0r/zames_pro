@@ -1,4 +1,5 @@
 import fs from 'fs/promises'
+import { sniffMime } from './attachments.js'
 
 // Shared attachment plumbing for the THREE providers (DeepSeek, Qwen, GLM).
 // The per-provider SELECTORS stay in `<provider>-ui.ts`; only the
@@ -37,7 +38,16 @@ export async function readAttachBuffers(
   for (const f of files) {
     try {
       const buffer = await fs.readFile(f.path)
-      payload.push({ name: f.name, mimeType: f.mime, buffer })
+      // The stored MIME can be the GENERIC `application/octet-stream` (an
+      // extension the map does not know, an extension-less paste). Many
+      // upload widgets reject that, so the CONTENT is sniffed and wins when
+      // it recognizes the file.
+      const mimeType =
+        String(f.mime || '') === '' ||
+        String(f.mime) === 'application/octet-stream'
+          ? sniffMime(buffer) || f.mime
+          : f.mime
+      payload.push({ name: f.name, mimeType, buffer })
     } catch (e) {
       failed.push({ path: f.path, name: f.name })
       onReadError(f.name, (e as Error).message)
