@@ -111,8 +111,14 @@ export function formatContextSources(
       t('context.system_prompt', { n: String(opts.systemPromptChars) }),
     )
   }
-  const fileLine = (p: string, content: string): string =>
-    '  ' + oneLine(p) + '  (' + content.length + ' chars)'
+  // `content` comes from a DISK read and can be missing (an empty/failed read,
+  // a broken parse): `content.length` on undefined THREW out of the whole
+  // `/context` command, and an object printed `undefined chars`. Count the
+  // real text only.
+  const fileLine = (p: string, content: unknown): string => {
+    const text = typeof content === 'string' ? content : ''
+    return '  ' + oneLine(p) + '  (' + text.length + ' chars)'
+  }
   lines.push(t('context.agents'))
   if (agents.length)
     for (const a of agents) lines.push(fileLine(a.path, a.content))
