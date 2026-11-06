@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **shell:** a cd inside a nested shell is checked by the sandbox
 - **sandbox:** a dangling symlink cannot let a write escape the root
 
 ## [2.96.7] - 2026-11-06

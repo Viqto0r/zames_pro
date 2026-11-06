@@ -34,7 +34,13 @@ export function assertCommandInsideRoot(root: string, command: string): void {
   // `cd$HOME`, `cd../..` — and runs it as a real directory change. Requiring
   // whitespace skipped those forms, so a glued `cd../..` walked out of the
   // root with the guard never firing.
-  const cdRe = /(?:^|[;&|(\s`])(?:cd|pushd)\s*([^;&|)]+)/gi
+  // A `cd` inside a nested shell (`sh -c "cd / && ls"`) is executed
+  // exactly like a top-level one, but the static scan saw no separator
+  // before it: the `cd` sits after `-c "`. Treat `-c <quote>` as a
+  // separator too, so the target is checked (and rejected when it leaves
+  // the root). `$(cd …)` / backticks were already covered by `(` and
+  // the backtick.
+  const cdRe = /(?:^|[;&|(\s`]|-[a-z]*c\s*['"])(?:cd|pushd)\s*([^;&|)]+)/gi
   let m
   while ((m = cdRe.exec(cmd))) {
     // The shell removes EVERY quote in the word, wherever it sits —
