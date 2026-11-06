@@ -75,8 +75,13 @@ export function createInfoCommands(deps: InfoCommandDeps): SlashCommand[] {
     },
     {
       name: 'transcript',
-      handler: (ctx) =>
-        ctx.print(theme.system(deps.transcriptFile() || t('common.off'))),
+      // The path is built from the SESSION NAME (a working-directory label),
+      // and a POSIX directory name can contain a newline: without the shared
+      // flattening it started a line of its own in the terminal.
+      handler: (ctx) => {
+        const file = deps.transcriptFile()
+        ctx.print(theme.system(file ? oneLine(file) : t('common.off')))
+      },
     },
     {
       name: 'cost',
