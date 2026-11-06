@@ -25,6 +25,9 @@ export function parseInterval(text: string): number | null {
   if (!m) return null
   const n = Number(m[1])
   if (!Number.isFinite(n) || n <= 0) return null
+  // `n * mult` can overflow to Infinity for a huge digit string; the range
+  // check below then compares Infinity > MAX_TIMER_MS and rejects it, but only
+  // AFTER the multiplication — keep the guard explicit for both.
   const unit = (m[2] || 's').toLowerCase()
   const mult = unit.startsWith('h')
     ? 3_600_000
@@ -180,9 +183,13 @@ export function nextCronTime(expr: string, fromMs: number): number | null {
   // 02:45 job created after the first 02:45 fired the NEXT DAY. A fixed
   // 60-second step visits every real minute exactly once; the field checks
   // still use the LOCAL getters, so the wall-clock match is unchanged.
+  // A non-finite/huge `fromMs` (a clock past 8.64e15, a hand-edited job) made
+  // `limit` Infinity and the scan walked one minute at a time FOREVER.
+  if (!Number.isFinite(fromMs) || Math.abs(fromMs) > 8.64e15) return null
   const step = 60_000
   let t = Math.floor(fromMs / step) * step + step
   const limit = fromMs + 4 * 366 * 24 * 60 * 60 * 1000
+  if (!Number.isFinite(limit)) return null
   while (t <= limit) {
     const d = new Date(t)
     if (
