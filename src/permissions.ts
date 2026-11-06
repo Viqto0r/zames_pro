@@ -235,6 +235,16 @@ export function decidePermission(
   }
   walkCommands(a, 0)
   const paths = collectPathCandidates(tool, args)
+  // A PATH may also be an argument of a SHELL command: an operator writes
+  // `{tool: '^Bash$', path: '^/etc/'}` and the same path arrives inside
+  // `command` (`cat /etc/passwd`), not in a `path` key. Scanning the command
+  // line's WORDS for a path rule is what makes that guard actually guard —
+  // before, the rule matched nothing and the call was allowed.
+  for (const c of commands) {
+    for (const word of String(c).split(/\s+/)) {
+      if (word && looksLikePath(word)) paths.push(word)
+    }
+  }
   for (const r of policy.rules) {
     // An UNPARSABLE regex in any field of the rule makes the rule fail
     // CLOSED: skipping it silently (the old behavior) turned a deny rule with
