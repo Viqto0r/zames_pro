@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.96.2] - 2026-11-06
+
 ### Fixed
 
 - **info:** keep a /chat and /pwd value on one line
@@ -14,11 +16,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **limits:** never render a negative or NaN counter in /limits
 - **restore-history:** keep a plain answer that opens with 'thinking for'
 - **commands:** keep a project file/skill/command name on one /context row
-- **release-policy:** one pair of parens in the BREAKING note
-- **changelog:** a group heading must start a line, not sit inside a bullet
-- **backlog:** ignore a fenced section header when appending
-- **dev-watch:** follow index.ts's hot-reloadable list (restore-history, input/layout)
-- **shell:** block a recursive rm of ./ and ../ (trailing slash)
 
 ## [2.96.1] - 2026-11-06
 

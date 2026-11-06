@@ -7,9 +7,10 @@ alt_url: /changelog.html
 changelog: true
 ---
 <div class="wrap" markdown="1">
-<p class="changelog-lead">Каждый релиз zames_pro: самый свежий сверху, старые версии можно развернуть, а список версий в начале страницы ведёт сразу к нужной. (версий: 297)</p>
+<p class="changelog-lead">Каждый релиз zames_pro: самый свежий сверху, старые версии можно развернуть, а список версий в начале страницы ведёт сразу к нужной. (версий: 298)</p>
 <nav class="changelog-jump" aria-label="К версии">
 <a href="#vUnreleased"><span>Unreleased</span></a>
+<a href="#v2.96.2"><span>v2.96.2</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.1"><span>v2.96.1</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.0"><span>v2.96.0</span><time datetime="2026-11-05">2026-11-05</time></a>
 <a href="#v2.95.6"><span>v2.95.6</span><time datetime="2026-11-05">2026-11-05</time></a>
@@ -309,6 +310,10 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
+<p class="ch-empty">—</p>
+</details>
+<details class="ch-release" id="v2.96.2" open>
+<summary><header><h2>v2.96.2</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
 <li><strong>info:</strong> keep a /chat and /pwd value on one line</li>
@@ -316,11 +321,6 @@ changelog: true
 <li><strong>limits:</strong> never render a negative or NaN counter in /limits</li>
 <li><strong>restore-history:</strong> keep a plain answer that opens with 'thinking for'</li>
 <li><strong>commands:</strong> keep a project file/skill/command name on one /context row</li>
-<li><strong>release-policy:</strong> one pair of parens in the BREAKING note</li>
-<li><strong>changelog:</strong> a group heading must start a line, not sit inside a bullet</li>
-<li><strong>backlog:</strong> ignore a fenced section header when appending</li>
-<li><strong>dev-watch:</strong> follow index.ts's hot-reloadable list (restore-history, input/layout)</li>
-<li><strong>shell:</strong> block a recursive rm of ./ and ../ (trailing slash)</li>
 </ul></section>
 </details>
 <details class="ch-release" id="v2.96.1" open>
@@ -334,7 +334,7 @@ changelog: true
 <li><strong>shell:</strong> block a recursive rm of ./ and ../ (trailing slash)</li>
 </ul></section>
 </details>
-<details class="ch-release" id="v2.96.0" open>
+<details class="ch-release" id="v2.96.0">
 <summary><header><h2>v2.96.0</h2><time datetime="2026-11-05">2026-11-05</time></header></summary>
 <section class="ch-group"><h3>Добавлено</h3>
 <ul>
