@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **tui:** split a long word in the ask-question box instead of overflowing it
 - **tui:** strip terminal control sequences from a select-list title
 - **config-menu:** shrink the list budget while the theme preview is open
 - **tui:** clamp the full-screen panel so a short terminal is never overflowed
