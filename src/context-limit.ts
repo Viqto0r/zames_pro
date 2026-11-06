@@ -45,7 +45,13 @@ export async function recoverFromContextLimit(
   deps: ContextLimitRecoveryDeps,
   original: Error,
 ): Promise<ContextLimitRecoveryResult> {
-  const { recover, maxRetries, attempt, notice, t, keys, provider } = deps
+  const { recover, maxRetries, attempt, notice, t, keys } = deps
+  // The notices are LIVE UI rows: the provider label comes from the config and
+  // the compaction error is a provider/JS message (a stack, a multi-line
+  // server answer) — a newline in either spread the notice over several rows
+  // and pushed the input panel down. Flatten every value first.
+  const oneLine = (v: string): string => String(v ?? '').replace(/\s+/g, ' ')
+  const provider = oneLine(deps.provider)
   const giveUp = (): ContextLimitRecoveryResult => {
     notice(t(keys.giveUp, { provider }))
     return { resend: false, error: original }
@@ -60,7 +66,7 @@ export async function recoverFromContextLimit(
   try {
     recovered = await recover()
   } catch (e) {
-    notice(t(keys.compactFailed, { error: (e as Error).message }))
+    notice(t(keys.compactFailed, { error: oneLine((e as Error).message) }))
   }
   if (!recovered) return giveUp()
   return { resend: true }
