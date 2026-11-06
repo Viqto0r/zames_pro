@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **tui:** a throwing store subscriber no longer starves the others
 - **undo:** list(0) returns no rows instead of the whole history
 - **shell:** a cd inside a nested shell is checked by the sandbox
 - **sandbox:** a dangling symlink cannot let a write escape the root

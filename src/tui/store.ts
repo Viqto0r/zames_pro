@@ -224,6 +224,19 @@ export class TuiStore {
   }
 
   private emit(): void {
-    for (const cb of this.listeners) cb()
+    // A subscriber that throws (a React render error, a bug in the status bar)
+    // must not abort the loop: the subscribers AFTER it kept a STALE snapshot,
+    // and the exception escaped into the agent code that only printed a line.
+    // Notify every subscriber, then re-throw the FIRST error so a genuine bug
+    // is still visible where the caller can see it.
+    for (const cb of this.listeners) {
+      try {
+        cb()
+      } catch {
+        // Swallowed ON PURPOSE: a notification sink is a render concern, and
+        // the imperative agent path that printed the line must not crash (and
+        // must not skip the remaining subscribers).
+      }
+    }
   }
 }
