@@ -44,6 +44,14 @@ export function createCliArgs(argv: string[]): CliArgs {
     flag: string,
     fallback: string | null = null,
   ): string | null => {
+    // `--task=fix it` is the common shell spelling: the SEPARATE form below
+    // never matched it, so the value was dropped from the task text and the
+    // operator's prompt vanished. Check the `=` form first.
+    const eq = flag + '='
+    const joined = args.find((a) => a.startsWith(eq))
+    if (joined !== undefined && joined.length > eq.length) {
+      return joined.slice(eq.length)
+    }
     const i = args.indexOf(flag)
     // Truthiness, not `!== undefined`: an EMPTY value (`--task ''`) must
     // fall back too - an empty task is not a task. A following FLAG is not

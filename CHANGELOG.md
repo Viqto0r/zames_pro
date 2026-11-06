@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **cli:** accept the --flag=value spelling of a value flag
+
 ## [2.96.3] - 2026-11-06
 
 ### Fixed
