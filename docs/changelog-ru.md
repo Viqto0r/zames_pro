@@ -329,6 +329,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
+<li><strong>changelog:</strong> anchor the Unreleased rewrite on a real heading</li>
 <li><strong>backlog:</strong> a fenced heading inside an archive does not block the collapse</li>
 <li><strong>backlog:</strong> an id inside a fenced block does not advance the counter</li>
 </ul></section>

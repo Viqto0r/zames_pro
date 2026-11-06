@@ -25,7 +25,13 @@ export function formatDiff(
   opts: { maxLines?: number } = {},
   t: TranslateFn = translate('en'),
 ): string {
-  const maxLines = opts.maxLines ?? 200
+  // A NEGATIVE bound made `lines.slice(0, -3)` DROP the tail and then
+  // report a nonsensical «more lines» count; zero printed a leading blank
+  // line. Clamp to a real non-negative integer.
+  const maxLines =
+    typeof opts.maxLines === 'number' && Number.isFinite(opts.maxLines)
+      ? Math.max(0, Math.floor(opts.maxLines))
+      : 200
   const trimmed = String(diffText ?? '')
     .split(CR + NL)
     .join(NL)
@@ -37,9 +43,12 @@ export function formatDiff(
   }
   const lines = trimmed.split(NL)
   if (lines.length <= maxLines) return trimmed
+  // A ZERO bound has nothing to show: a head of '' plus a newline printed
+  // a leading BLANK line before the «more lines» note.
   const head = lines.slice(0, maxLines).join(NL)
   const rest = lines.length - maxLines
-  return head + NL + t('diff.more_lines', { n: String(rest) })
+  const note = t('diff.more_lines', { n: String(rest) })
+  return head ? head + NL + note : note
 }
 
 // Git arguments for the `/diff` command. An ARRAY, not a shell string: the
@@ -63,7 +72,10 @@ export function formatDiffStat(
   opts: { maxLines?: number } = {},
   t: TranslateFn = translate('en'),
 ): string {
-  const maxLines = opts.maxLines ?? 60
+  const maxLines =
+    typeof opts.maxLines === 'number' && Number.isFinite(opts.maxLines)
+      ? Math.max(0, Math.floor(opts.maxLines))
+      : 60
   const trimmed = String(statText ?? '')
     .split(CR + NL)
     .join(NL)
@@ -77,9 +89,8 @@ export function formatDiffStat(
   const lines = trimmed.split(NL)
   if (lines.length <= maxLines) return trimmed
   const head = lines.slice(0, maxLines).join(NL)
-  return (
-    head + NL + t('diff.more_lines', { n: String(lines.length - maxLines) })
-  )
+  const note = t('diff.more_lines', { n: String(lines.length - maxLines) })
+  return head ? head + NL + note : note
 }
 
 // ---------- /context ----------
