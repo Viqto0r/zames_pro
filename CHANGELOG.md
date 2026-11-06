@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **prompt:** delete a whole code point in the forward-Delete branch
 - **completion-check:** treat extension-less build files as runnable artifacts
 - **login:** classify a guest page with a captcha as a challenge
 - **compact:** keep the message count in an empty-fallback reason
