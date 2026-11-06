@@ -330,6 +330,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
+<li><strong>sessions:</strong> keep a __proto__ workdir as an own index key</li>
 <li><strong>commands:</strong> pick a placeholder separator the command body does not contain</li>
 </ul></section>
 </details>

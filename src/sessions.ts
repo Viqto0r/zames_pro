@@ -188,8 +188,16 @@ export function loadLastSession(
     // then fall back to the newest saved session of this workdir so a stale
     // index cannot make a saved chat unresumable.
     const internal = readInternal()
-    const candidates = [byWorkdir[workdir], index.last].filter(
-      (x): x is string => Boolean(x) && !internal.has(String(x)),
+    // `byWorkdir` is a PLAIN parsed object: a workdir named `toString` or
+    // `constructor` reads an INHERITED function, which is truthy and would be
+    // probed as a chat id (its "name" is the function SOURCE). Only an OWN
+    // STRING value is a chat id.
+    const ownWorkdir = Object.prototype.hasOwnProperty.call(byWorkdir, workdir)
+      ? byWorkdir[workdir]
+      : undefined
+    const candidates = [ownWorkdir, index.last].filter(
+      (x): x is string =>
+        typeof x === 'string' && Boolean(x) && !internal.has(x),
     )
     for (const id of candidates) {
       // The session file may have been deleted — the index is then stale and
