@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **restore-history:** decode every JSON escape in one pass so a doubled backslash keeps the next escape
+
 ## [2.96.10] - 2026-11-06
 
 ### Fixed
