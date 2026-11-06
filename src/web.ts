@@ -93,10 +93,13 @@ export function htmlToText(html: string): string {
     (parkedPre[Number(i)] ?? '').replace(/<[^>]+>/g, ''),
   )
 
-  // HTML entities — the basic ones
+  // HTML entities — the basic ones. `&amp;` is decoded LAST, otherwise an
+  // escaped entity (`&amp;#38;` — the literal text `&#38;`) is decoded TWICE
+  // and the page's text is changed.
+  const AMP = String.fromCharCode(0) + 'amp' + String.fromCharCode(0)
+  s = s.replace(/&amp;/g, AMP)
   s = s
     .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
@@ -106,6 +109,8 @@ export function htmlToText(html: string): string {
     .replace(/&hellip;/g, '…')
     .replace(/&#(\d+);/g, (_, n) => decodeEntityCode(Number(n)))
     .replace(/&#x([0-9a-f]+);/gi, (_, n) => decodeEntityCode(parseInt(n, 16)))
+    .split(AMP)
+    .join('&')
 
   // Collapse blank lines
   s = s
