@@ -335,7 +335,19 @@ export function historyDown(s: EditState): EditState {
   // The CURRENT line is the operator's, not a history entry: leaving the
   // history must bring it back. Without this, editing a recalled line and then
   // pressing Down restored the OLD draft and dropped the edit.
-  const draft = browsingHistory(s) ? s.histDraft : s.buf
+  //
+  // An EDIT of a recalled entry is a scratch copy of THAT slot, not the
+  // operator's draft: `typingRun` marks it. Treating it as "not browsing"
+  // jumped OUT of the history and dropped the entry the operator was fixing —
+  // Down must still move to the NEXT entry.
+  // A REAL edit means the buffer no longer matches the recalled entry: the
+  // `typingRun` flag is set by the KEY layer, not by `insertText` itself, so
+  // the comparison is what is reliable here.
+  const recalled = s.history[s.histIndex]
+  const editingRecalled =
+    s.histIndex < s.history.length &&
+    (s.typingRun || (recalled !== undefined && s.buf !== recalled))
+  const draft = browsingHistory(s) && !editingRecalled ? s.histDraft : s.buf
   let buf: string
   if (histIndex < s.history.length - 1) {
     histIndex++

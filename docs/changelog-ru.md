@@ -316,6 +316,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
+<li><strong>tui:</strong> Up/Down keep the visual column on wide-glyph wrapped lines</li>
 <li><strong>goal:</strong> a quoted verdict example no longer wins over the real verdict</li>
 <li><strong>input:</strong> hold only a partial paste marker, not a lone ESC</li>
 </ul></section>
