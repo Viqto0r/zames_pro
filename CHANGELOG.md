@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **context:** a context file with no content no longer crashes the report
 - **limits:** flatten the telemetry path in the empty-state message
 - **info:** flatten the transcript path printed by /transcript
 
