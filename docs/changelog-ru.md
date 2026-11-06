@@ -323,6 +323,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
+<li><strong>tui:</strong> clamp the full-screen panel so a short terminal is never overflowed</li>
 <li><strong>layout:</strong> a non-positive truncation budget yields nothing, not one column over</li>
 </ul></section>
 </details>

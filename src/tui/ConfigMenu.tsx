@@ -411,7 +411,12 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
   // let the block grow taller than the terminal and the top border/title
   // scrolled off ("cut off at the top") on a narrow terminal.
   const termRows = rows || 24
-  const maxRows = Math.max(3, termRows - 8)
+  // The theme PREVIEW ('p' on the ui.theme row) adds its own title and the
+  // compact sample lines BELOW the list; the window budget must shrink by
+  // that many rows or the block grows past the terminal and its top border
+  // and title scroll off.
+  const previewOpen = previewTheme && visible[cursor]?.path === 'ui.theme'
+  const maxRows = Math.max(3, termRows - 8 - (previewOpen ? 7 : 0))
   const innerCols = Math.max(1, (columns || 80) - 4)
   const shown = useMemo(() => {
     const list = openGroup ? visible : groups
