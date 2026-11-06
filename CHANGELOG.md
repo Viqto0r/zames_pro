@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **tui:** count suggestion rows at the popup box width
 - **tui:** place the caret by the actual border style, not a constant
 - **tui:** carry a partial CSI from its ESC, not only mid-parameter
 
