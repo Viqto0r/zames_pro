@@ -317,7 +317,10 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
-<p class="ch-empty">—</p>
+<section class="ch-group"><h3>Fixed</h3>
+<ul>
+<li><strong>transcript:</strong> cap the session label so the file name fits the filesystem</li>
+</ul></section>
 </details>
 <details class="ch-release" id="v2.96.9" open>
 <summary><header><h2>v2.96.9</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>

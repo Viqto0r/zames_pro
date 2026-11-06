@@ -168,7 +168,16 @@ export async function handleConfigCommand(
 
   if (sub === 'set') {
     const key = parts[2]
-    const raw = parts.slice(3).join(' ')
+    // A password/username is a SECRET: it may legally contain repeated,
+    // leading or trailing spaces, and joining the tokens with ONE space
+    // silently changed it (auto-login then failed with "wrong password").
+    // Take the text after the key VERBATIM for those fields.
+    const isSecret = /(password|username)\/?$/i.test(key || '')
+    const raw = isSecret
+      ? String(input)
+          .replace(/^\s*\/config\s+set\s+\S+\s?/i, '')
+          .replace(/\s+$/, '')
+      : parts.slice(3).join(' ')
     const field = schema.find((f) => f.path === key)
     if (!field) {
       printErr(theme.error(t('cfg.unknown_key', { v: key || '' })))
