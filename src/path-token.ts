@@ -171,12 +171,16 @@ function looksLikeToken(tok: string): boolean {
   if (dot <= 0 || dot >= t.length - 1) return false
   const ext = t.slice(dot + 1)
   if (ext.length > 8) return false
+  let allDigits = true
   for (const ch of ext) {
-    const ok =
-      (ch >= 'a' && ch <= 'z') ||
-      (ch >= 'A' && ch <= 'Z') ||
-      (ch >= '0' && ch <= '9')
+    if (ch >= '0' && ch <= '9') continue
+    allDigits = false
+    const ok = (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
     if (!ok) return false
   }
-  return true
+  // An ALL-DIGIT extension is a VERSION, not an extension: `@2.96.15`,
+  // `@v1.2.3` and `@1.0` are pasted constantly and used to be treated as
+  // file references (the inliner then probed the project for a file by that
+  // name). Same rule as `attachments.looksLikeFileName`.
+  return !allDigits
 }

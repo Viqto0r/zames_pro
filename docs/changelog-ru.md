@@ -324,7 +324,10 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
-<p class="ch-empty">—</p>
+<section class="ch-group"><h3>Исправлено</h3>
+<ul>
+<li><strong>attach:</strong> sniff the content when the stored mime is generic</li>
+</ul></section>
 </details>
 <details class="ch-release" id="v2.96.16" open>
 <summary><header><h2>v2.96.16</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
