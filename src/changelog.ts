@@ -110,31 +110,27 @@ export function syncUnreleased(changelog: string, body: string): string {
   const rest = changelog.slice(afterAnchor)
   const next = rest.search(/\n## \[/)
   const tail = next < 0 ? '' : rest.slice(next)
-  const cleanBody = String(body || '')
+  // A `## ` that does not START a line is FREE TEXT inside a bullet (a commit
+  // description that documents a markdown heading, `ignore a ## P<n> header`).
+  // Matching it ANYWHERE treated that text as a group heading: the bullet was
+  // split and a FAKE `### P<n>` section appeared in the file. Every group
+  // heading is therefore recognized on WHOLE LINES only.
+  const lines = String(body || '')
     .replace(/^## \[Unreleased\]\s*/m, '')
-    // A drafted group heading must START a line of its own. When the draft
-    // carries several groups (`## Added` … `## Fixed`) without a blank line
-    // between them, the next group used to stay glued to the last bullet
-    // (`- a### Fixed`) — it was not a heading at all, so the item vanished
-    // from the rendered changelog. The lookahead is what keeps a CONTINUATION
-    // line of a multi-line bullet in place: gluing on `\n` as well joined the
-    // indent line to the next bullet and truncated the note.
-    // The draft's groups are still `## ` at this point (they become `### `
-    // below), and the FIRST group is already preceded by the blank line of
-    // the draft — so a group always starts a line, and this rule only has to
-    // punch in the missing blank line after a bullet.
-    .replace(/([^\n])(?=## )/g, '$1' + nl + nl)
-    .trim()
-    // The draft renders groups as `## Added` (top-level), but INSIDE the file
-    // a version's groups are `### Added` (a subsection of the version heading).
-    // `## [` (the next version) is left alone. The FIRST group follows the
-    // version heading directly (no bullet before it), so the blank-line rule
-    // above never fired for it — `## [Unreleased]` came out as a bare `#`
-    // followed by `# Added`. The heading owns a blank line, always.
+    .split(nl)
+  const out: string[] = []
+  for (const line of lines) {
+    // A heading glued to the previous bullet (`- one## Added`) does not render
+    // as a heading at all: break it onto its own line, keeping the bullet.
+    const glued = /^(?!#)(\S.*[^\s`])(## .*)$/.exec(line)
+    if (glued) out.push(glued[1], '', glued[2])
+    else out.push(line)
+  }
+  const cleanBody = out
+    .join(nl)
     .replace(/^## (?!\[)/gm, '### ')
-    // One blank line between the version heading and its first group, not
-    // the three the rules above can stack up.
-    .replace(/^\n+(?=### )/gm, '')
+    .replace(/^\n+(?=### )/, '')
+    .trim()
   const section = cleanBody ? nl + nl + cleanBody + nl : nl
   return changelog.slice(0, afterAnchor) + section + tail
 }
