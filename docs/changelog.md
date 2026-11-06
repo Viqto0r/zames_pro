@@ -7,9 +7,10 @@ alt_url: /changelog-ru.html
 changelog: true
 ---
 <div class="wrap" markdown="1">
-<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 304)</p>
+<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 305)</p>
 <nav class="changelog-jump" aria-label="Jump to a version">
 <a href="#vUnreleased"><span>Unreleased</span></a>
+<a href="#v2.96.9"><span>v2.96.9</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.8"><span>v2.96.8</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.7"><span>v2.96.7</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.6"><span>v2.96.6</span><time datetime="2026-11-06">2026-11-06</time></a>
@@ -316,8 +317,13 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
+<p class="ch-empty">—</p>
+</details>
+<details class="ch-release" id="v2.96.9" open>
+<summary><header><h2>v2.96.9</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
+<li><strong>statusline:</strong> a backgrounded child no longer holds the badge until the timeout</li>
 <li><strong>resume:</strong> a junk session record is skipped instead of crashing /sessions</li>
 <li><strong>model:</strong> a model id with a newline is flattened to one line</li>
 <li><strong>context-limit:</strong> a non-finite retry budget gives up instead of retrying forever</li>
@@ -335,7 +341,7 @@ changelog: true
 <li><strong>sandbox:</strong> a dangling symlink cannot let a write escape the root</li>
 </ul></section>
 </details>
-<details class="ch-release" id="v2.96.7" open>
+<details class="ch-release" id="v2.96.7">
 <summary><header><h2>v2.96.7</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
