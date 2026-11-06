@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **config-menu:** measure a row with the shared charWidth rule
 - **tui:** a zero-height log pane windows to one row, not the whole log
 - **tui:** forward Delete does not shorten a value in an end-anchored prompt
 - **tui:** a prompt never inserts the raw DEL byte as text
