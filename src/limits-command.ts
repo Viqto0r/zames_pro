@@ -68,5 +68,9 @@ export function limitsEmptyMessage(
   path: string,
   t: TranslateFn = translate('en'),
 ): string {
-  return t('limits.none', { path })
+  // The path comes from the HOME directory: a newline in it would start a row
+  // of its own in the terminal (every other report row flattens its values).
+  return t('limits.none', {
+    path: String(path ?? '').replace(/\s+/g, ' '),
+  })
 }
