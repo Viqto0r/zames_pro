@@ -7,9 +7,10 @@ alt_url: /changelog.html
 changelog: true
 ---
 <div class="wrap" markdown="1">
-<p class="changelog-lead">Каждый релиз zames_pro: самый свежий сверху, старые версии можно развернуть, а список версий в начале страницы ведёт сразу к нужной. (версий: 307)</p>
+<p class="changelog-lead">Каждый релиз zames_pro: самый свежий сверху, старые версии можно развернуть, а список версий в начале страницы ведёт сразу к нужной. (версий: 308)</p>
 <nav class="changelog-jump" aria-label="К версии">
 <a href="#vUnreleased"><span>Unreleased</span></a>
+<a href="#v2.96.12"><span>v2.96.12</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.11"><span>v2.96.11</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.10"><span>v2.96.10</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.9"><span>v2.96.9</span><time datetime="2026-11-06">2026-11-06</time></a>
@@ -319,8 +320,13 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
+<p class="ch-empty">—</p>
+</details>
+<details class="ch-release" id="v2.96.12" open>
+<summary><header><h2>v2.96.12</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
+<li><strong>context:</strong> omit a non-finite system-prompt size from the report</li>
 <li><strong>i18n:</strong> pass the snapshot path under the param the template names</li>
 <li><strong>dev-watch:</strong> match the hot list by path so a namesake module is not silenced</li>
 <li><strong>permissions:</strong> match a path rule against the arguments of a shell command</li>
@@ -338,7 +344,7 @@ changelog: true
 <li><strong>restore-history:</strong> decode every JSON escape in one pass so a doubled backslash keeps the next escape</li>
 </ul></section>
 </details>
-<details class="ch-release" id="v2.96.10" open>
+<details class="ch-release" id="v2.96.10">
 <summary><header><h2>v2.96.10</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
