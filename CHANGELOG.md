@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **web:** share one in-flight headless context between concurrent fetches
 - **scheduler:** never scan cron forever on a non-finite fromMs
 
 ## [2.96.4] - 2026-11-06

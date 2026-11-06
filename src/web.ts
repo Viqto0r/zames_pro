@@ -520,12 +520,34 @@ export function createReusable<T>(
   dispose: (value: T) => Promise<void>,
 ): { get: () => Promise<T>; reset: () => Promise<void> } {
   let cached: T | null = null
+  // The FACTORY is async: checking `cached === null` and then awaiting it let
+  // two concurrent get() calls BOTH run the factory (two Chromium contexts,
+  // the first leaked). The in-flight promise is cached, so every caller waits
+  // for the SAME value.
+  let inflight: Promise<T> | null = null
   return {
     async get() {
-      if (cached === null) cached = await factory()
-      return cached
+      if (cached !== null) return cached
+      if (!inflight) {
+        inflight = factory().then(
+          (v) => {
+            cached = v
+            inflight = null
+            return v
+          },
+          (e) => {
+            inflight = null
+            throw e
+          },
+        )
+      }
+      return inflight
     },
     async reset() {
+      if (inflight) {
+        // A failed factory must not leave a poisoned promise behind.
+        await inflight.catch(() => {})
+      }
       if (cached === null) return
       const v = cached
       cached = null
