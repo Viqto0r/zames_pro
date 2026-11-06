@@ -7,9 +7,10 @@ alt_url: /changelog-ru.html
 changelog: true
 ---
 <div class="wrap" markdown="1">
-<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 298)</p>
+<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 299)</p>
 <nav class="changelog-jump" aria-label="Jump to a version">
 <a href="#vUnreleased"><span>Unreleased</span></a>
+<a href="#v2.96.3"><span>v2.96.3</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.2"><span>v2.96.2</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.1"><span>v2.96.1</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.0"><span>v2.96.0</span><time datetime="2026-11-05">2026-11-05</time></a>
@@ -310,17 +311,17 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
+<p class="ch-empty">—</p>
+</details>
+<details class="ch-release" id="v2.96.3" open>
+<summary><header><h2>v2.96.3</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
+<li><strong>banner:</strong> keep a banner field on one line inside the box</li>
 <li><strong>scheduler:</strong> reschedule a job whose nextAt is not finite</li>
 <li><strong>goal:</strong> keep a condition from injecting its own verdict block</li>
 <li><strong>compact:</strong> keep operator and summary text out of the carryover headings</li>
 <li><strong>release:</strong> sync the changelog and rebuild its pages inside a release</li>
-<li><strong>info:</strong> keep a /chat and /pwd value on one line</li>
-<li><strong>status:</strong> flatten a status/doctor value and drop a broken count</li>
-<li><strong>limits:</strong> never render a negative or NaN counter in /limits</li>
-<li><strong>restore-history:</strong> keep a plain answer that opens with 'thinking for'</li>
-<li><strong>commands:</strong> keep a project file/skill/command name on one /context row</li>
 </ul></section>
 </details>
 <details class="ch-release" id="v2.96.2" open>
@@ -334,7 +335,7 @@ changelog: true
 <li><strong>commands:</strong> keep a project file/skill/command name on one /context row</li>
 </ul></section>
 </details>
-<details class="ch-release" id="v2.96.1" open>
+<details class="ch-release" id="v2.96.1">
 <summary><header><h2>v2.96.1</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>

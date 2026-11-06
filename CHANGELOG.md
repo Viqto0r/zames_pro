@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.96.3] - 2026-11-06
+
 ### Fixed
 
 - **banner:** keep a banner field on one line inside the box
@@ -14,11 +16,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **goal:** keep a condition from injecting its own verdict block
 - **compact:** keep operator and summary text out of the carryover headings
 - **release:** sync the changelog and rebuild its pages inside a release
-- **info:** keep a /chat and /pwd value on one line
-- **status:** flatten a status/doctor value and drop a broken count
-- **limits:** never render a negative or NaN counter in /limits
-- **restore-history:** keep a plain answer that opens with 'thinking for'
-- **commands:** keep a project file/skill/command name on one /context row
 
 ## [2.96.2] - 2026-11-06
 
