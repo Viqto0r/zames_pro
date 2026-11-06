@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **info:** keep a /chat and /pwd value on one line
+- **status:** flatten a status/doctor value and drop a broken count
+- **limits:** never render a negative or NaN counter in /limits
+- **restore-history:** keep a plain answer that opens with 'thinking for'
+- **commands:** keep a project file/skill/command name on one /context row
+
 ## [2.96.2] - 2026-11-06
 
 ### Fixed

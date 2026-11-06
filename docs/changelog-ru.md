@@ -310,7 +310,14 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
-<p class="ch-empty">—</p>
+<section class="ch-group"><h3>Исправлено</h3>
+<ul>
+<li><strong>info:</strong> keep a /chat and /pwd value on one line</li>
+<li><strong>status:</strong> flatten a status/doctor value and drop a broken count</li>
+<li><strong>limits:</strong> never render a negative or NaN counter in /limits</li>
+<li><strong>restore-history:</strong> keep a plain answer that opens with 'thinking for'</li>
+<li><strong>commands:</strong> keep a project file/skill/command name on one /context row</li>
+</ul></section>
 </details>
 <details class="ch-release" id="v2.96.2" open>
 <summary><header><h2>v2.96.2</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
