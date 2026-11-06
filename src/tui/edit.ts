@@ -247,9 +247,14 @@ export function moveVisualRows(
   // caret past the target row's text and onto the NEXT row entirely.
   const curRow = lay.rows[lay.cursorRow]
   const curChars = Array.from(curRow.text)
+  // Walk the characters of the current row until their VISUAL width reaches
+  // the caret's column. The old loop ran `cursorCol` TIMES over characters:
+  // with a wide (CJK) glyph two columns come from ONE character, so it read
+  // past the row (undefined counted as 1) and Up/Down landed too far right.
   let want = 0
-  for (let k = 0; k < lay.cursorCol - visLen(curRow.prefix); k++) {
-    want += charWidth(curChars[k]?.codePointAt(0) ?? 32)
+  const targetCol = lay.cursorCol - visLen(curRow.prefix)
+  for (let k = 0; k < curChars.length && want < targetCol; k++) {
+    want += charWidth(curChars[k].codePointAt(0) as number)
   }
   let idx = row.start
   let w = 0
@@ -267,7 +272,15 @@ export function moveVisualRows(
   // on the row end onto the next row, which is exactly the "Up jumps two
   // rows" bug.
   if (idx > row.start + rowChars.length) idx = row.start + rowChars.length
-  if (idx === row.start + rowChars.length && rowChars.length > 0) idx--
+  // Keep the caret INSIDE the target row — but a caret at the row's END is
+  // the natural position for a WIDE last glyph: stepping back one CODE UNIT
+  // put it in the MIDDLE of a surrogate pair or before a CJK glyph, so Up
+  // from the end of a wrapped CJK line landed a glyph too far left. Only step
+  // back when the end is followed by MORE text on the same visual line.
+  if (idx === row.start + rowChars.length && rowChars.length > 0) {
+    const atWide = idx > 0 && charWidth(s.buf.codePointAt(idx - 1) ?? 32) === 2
+    if (!atWide) idx--
+  }
   return { ...s, cursor: idx }
 }
 
