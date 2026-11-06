@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **context-limit:** a non-finite retry budget gives up instead of retrying forever
 - **spinner:** a dots-only phrase keeps a label instead of going empty
 
 ## [2.96.8] - 2026-11-06

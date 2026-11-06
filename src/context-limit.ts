@@ -50,7 +50,11 @@ export async function recoverFromContextLimit(
     notice(t(keys.giveUp, { provider }))
     return { resend: false, error: original }
   }
-  if (!recover || attempt > maxRetries) return giveUp()
+  // A NON-FINITE budget makes `attempt > maxRetries` false forever (`x > NaN`
+  // is false), so a chat that can never accept another message was
+  // re-compacted on every send with no budget at all. Require a real number.
+  const budget = Number.isFinite(maxRetries) && maxRetries >= 0 ? maxRetries : 0
+  if (!recover || attempt > budget) return giveUp()
   notice(t(keys.compact, { provider }))
   let recovered = false
   try {
