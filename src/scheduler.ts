@@ -174,20 +174,26 @@ export function cronMatches(expr: string, date: Date): boolean {
 export function nextCronTime(expr: string, fromMs: number): number | null {
   const c = parseCron(expr)
   if (!c) return null
-  const d = new Date(fromMs)
-  d.setSeconds(0, 0)
-  d.setMinutes(d.getMinutes() + 1)
+  // The scan steps in UTC MILLISECONDS, not local minutes: on the autumn DST
+  // FALL-BACK an hour repeats, and `setMinutes(getMinutes()+1)` visits every
+  // wall-clock minute TWICE (then jumps over the second occurrence), so a
+  // 02:45 job created after the first 02:45 fired the NEXT DAY. A fixed
+  // 60-second step visits every real minute exactly once; the field checks
+  // still use the LOCAL getters, so the wall-clock match is unchanged.
+  const step = 60_000
+  let t = Math.floor(fromMs / step) * step + step
   const limit = fromMs + 4 * 366 * 24 * 60 * 60 * 1000
-  while (d.getTime() <= limit) {
+  while (t <= limit) {
+    const d = new Date(t)
     if (
       c.minute.has(d.getMinutes()) &&
       c.hour.has(d.getHours()) &&
       c.month.has(d.getMonth() + 1) &&
       dayMatches(c, d)
     ) {
-      return d.getTime()
+      return t
     }
-    d.setMinutes(d.getMinutes() + 1)
+    t += step
   }
   return null
 }
