@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **provider:** flatten an unknown provider label in the /model refusal
 - **loop:** split the interval from the task on any whitespace
 - **scheduler:** reject a cron day-of-month the month never has
 - **jobs:** accept any whitespace after the remove verb
