@@ -3565,8 +3565,13 @@ async function main(): Promise<void> {
       console.log(theme.system(t('sched.cleared', { n: String(n) })))
       return
     }
-    if (sub.startsWith('rm ') || sub.startsWith('remove ')) {
-      const id = Number(sub.replace(/^(rm|remove)\s+/, ''))
+    // ANY whitespace run after the verb is accepted: `rm\t3` (a shell-style
+    // completion or a paste) matched neither `'rm '` nor `'remove '`, so the
+    // command fell through to the plain LIST and the job was silently NOT
+    // removed. The regex already used `\s+`; the guard must agree with it.
+    const rmMatch = /^(?:rm|remove)\s+(\d+)$/.exec(sub)
+    if (rmMatch) {
+      const id = Number(rmMatch[1])
       if (!Number.isInteger(id) || !scheduler.remove(id)) {
         console.error(theme.error(t('sched.rm_usage')))
         return
