@@ -264,17 +264,22 @@ export async function performCompact(
         // The reason must be ACTIONABLE: a model error, a BLOCKED history
         // fetch (auth/HTTP) and a TOO-SHORT history end here, and a bare
         // "unknown" hides which one it was.
-        const err = summaryErr
-          ? summaryErr
-          : histErr
-            ? t('compact.summary_failed', { v: histErr })
-            : historyLen <= 0
-              ? t('compact.summary_failed', { v: 'history empty' }) +
-                ' (' +
-                historyLen +
-                ')'
-              : t('compact.summary_failed', { v: 'history too short' })
-        ' (' + historyLen + ')'
+        // A model error is reported verbatim: it already names the cause.
+        const unusableReply = !!summaryErr && /^\s*[\[\{]/.test(summaryErr)
+        const err =
+          summaryErr && !unusableReply
+            ? summaryErr
+            : histErr
+              ? t('compact.summary_failed', { v: histErr })
+              : historyLen <= 0
+                ? t('compact.summary_failed', { v: 'history empty' }) +
+                  ' (' +
+                  historyLen +
+                  ')'
+                : t('compact.summary_failed', { v: 'history too short' }) +
+                  ' (' +
+                  historyLen +
+                  ')'
         log(t('compact.summary_failed', { v: err }))
         return {
           ok: false,
