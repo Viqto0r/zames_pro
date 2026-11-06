@@ -97,10 +97,14 @@ function kindsOf(list: ConventionalCommit[]): string[] {
 
 function breakingNote(list: ConventionalCommit[]): string {
   const first = list[0]
+  // One pair of parentheses around the WHOLE label: the scope used to close
+  // its own paren (`(cli): x)`) and leave a stray `)` in the operator report.
+  const label = first.scope
+    ? first.scope + ': ' + first.description
+    : first.description
   return (
     'a BREAKING change (' +
-    (first.scope ? first.scope + '): ' : '') +
-    first.description +
+    label +
     ') must be released by the operator, not by an unattended /loop'
   )
 }
