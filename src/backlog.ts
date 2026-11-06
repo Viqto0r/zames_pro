@@ -228,8 +228,22 @@ export function appendBacklogItem(
 
   const lines = src.split(NL)
   const headerRe = new RegExp('^##[ ]+' + prio + '(?![0-9])')
+  // A fenced code block is MARKDOWN, not structure: a note that documents the
+  // file format contains `## P1` inside ```…```, and treating it as a section
+  // header inserted the new item INTO that fence (parseBacklogItems skips
+  // fenced headings, so the item then became invisible to /improve). Track the
+  // fence exactly like the parser does.
+  let fence = ''
   let at = -1
   for (let i = 0; i < lines.length; i++) {
+    const fm = /^\s*(`{3,}|~{3,})/.exec(lines[i])
+    if (fm) {
+      const mark = fm[1][0]
+      if (!fence) fence = mark
+      else if (mark === fence) fence = ''
+      continue
+    }
+    if (fence) continue
     if (headerRe.test(lines[i])) {
       // Insert right after the header and any blank lines that follow it, so
       // the newest note sits at the top of its priority block.

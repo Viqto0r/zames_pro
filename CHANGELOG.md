@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **backlog:** ignore a fenced section header when appending
 - **dev-watch:** follow index.ts's hot-reloadable list (restore-history, input/layout)
 - **shell:** block a recursive rm of ./ and ../ (trailing slash)
 

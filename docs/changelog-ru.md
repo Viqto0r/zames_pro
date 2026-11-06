@@ -310,6 +310,8 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
+<li><strong>backlog:</strong> ignore a fenced section header when appending</li>
+<li><strong>dev-watch:</strong> follow index.ts's hot-reloadable list (restore-history, input/layout)</li>
 <li><strong>shell:</strong> block a recursive rm of ./ and ../ (trailing slash)</li>
 </ul></section>
 </details>
