@@ -1209,21 +1209,26 @@ export function expandCommandArgs(
   // positional pass.
   const parked: string[] = []
   let out = String(body ?? '')
+  // The key must not ALREADY exist in the body: a body that contains
+  // `a0` (a binary or control-char snippet) used to be taken for a
+  // generated placeholder, and the restore replaced the body's own text with
+  // the operator's arguments. Pick a separator the body does not contain.
+  const SEP = [0x1f, 0x1e, 0x1d, 0x00]
+    .map((c) => String.fromCharCode(c))
+    .find((c) => !out.includes(c))
   const park = (): string => {
-    const key =
-      String.fromCharCode(0x1f) +
-      'a' +
-      parked.length +
-      String.fromCharCode(0x1f)
+    const key = SEP ? SEP + 'a' + parked.length + SEP : ''
     parked.push(rest)
     return key
   }
   out = out.split('{{args}}').join(park())
   out = out.split('$ARGUMENTS').join(park())
   out = replaceDollarTokens(out, parts, names)
-  for (let i = 0; i < parked.length; i++) {
-    const key = String.fromCharCode(0x1f) + 'a' + i + String.fromCharCode(0x1f)
-    out = out.split(key).join(parked[i])
+  if (SEP) {
+    for (let i = 0; i < parked.length; i++) {
+      const key = SEP + 'a' + i + SEP
+      out = out.split(key).join(parked[i])
+    }
   }
   // The placeholder uses a control character that cannot appear in a normal
   // body; a body that DOES contain it (a binary snippet) is left untouched
