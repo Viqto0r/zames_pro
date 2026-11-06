@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **compact:** keep the message count in an empty-fallback reason
 - **restore-history:** decode every JSON escape in one pass so a doubled backslash keeps the next escape
 
 ## [2.96.10] - 2026-11-06
