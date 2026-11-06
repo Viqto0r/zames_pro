@@ -313,6 +313,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
+<li><strong>scheduler:</strong> scan cron in UTC so a DST fall-back hour is not skipped</li>
 <li><strong>context:</strong> parse a YAML block list of command arguments</li>
 <li><strong>provider-fallback:</strong> probe a guest-capable provider without the guest flag</li>
 <li><strong>cli:</strong> accept the --flag=value spelling of a value flag</li>

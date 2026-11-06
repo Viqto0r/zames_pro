@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **tui:** keep a tall suggestion popup from overflowing the layout
 - **scheduler:** scan cron in UTC so a DST fall-back hour is not skipped
 - **context:** parse a YAML block list of command arguments
 - **provider-fallback:** probe a guest-capable provider without the guest flag

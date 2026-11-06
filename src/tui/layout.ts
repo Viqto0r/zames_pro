@@ -59,8 +59,15 @@ export function fullScreenLayout(
     cols,
     input.borderCols ?? 2,
   )
-  const suggestRows = Math.max(0, Math.floor(input.suggestRows) || 0)
-  const panelRows = HEADER_ROWS + STATUS_ROWS + box + suggestRows + HINT_ROWS
+  const wanted = Math.max(0, Math.floor(input.suggestRows) || 0)
+  // The layout must FIT the terminal: with a tall popup (a project with many
+  // custom commands) the reserved rows exceeded `termRows`, `logHeight` was
+  // clamped to 1 and the panel still overflowed — the input rows were pushed
+  // below the screen. The popup gives way first (it is a hint list), the log
+  // keeps at least one row.
+  const fixed = HEADER_ROWS + STATUS_ROWS + box + HINT_ROWS
+  const suggestRows = Math.max(0, Math.min(wanted, termRows - fixed - 1))
+  const panelRows = fixed + suggestRows
   const logHeight = Math.max(1, termRows - panelRows)
   // The caret counts the SAME viewport the reservation uses.
   // The suggestion popup is drawn ABOVE the box and the box does NOT move, so
