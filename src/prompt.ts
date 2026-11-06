@@ -207,9 +207,24 @@ export async function promptOnce(question: string): Promise<string> {
             continue
           }
           if (rest.startsWith('[3~')) {
-            // Delete.
+            // Delete removes a CODE POINT, not one UTF-16 unit: in front of an
+            // emoji a unit-sized cut left the LOW surrogate in the line — a
+            // broken code point the caller received as its answer (same rule
+            // as the Backspace branch above). A unit cut is only safe OFF a
+            // surrogate: inside a PAIR it must move to the pair's start first.
             if (cursor < line.length) {
-              line = line.slice(0, cursor) + line.slice(cursor + 1)
+              const at = line.charCodeAt(cursor)
+              if (at >= 0xdc00 && at <= 0xdfff) cursor--
+              const next = line.charCodeAt(cursor)
+              const follow =
+                cursor + 1 < line.length ? line.charCodeAt(cursor + 1) : 0
+              const pair =
+                next >= 0xd800 &&
+                next <= 0xdbff &&
+                follow >= 0xdc00 &&
+                follow <= 0xdfff
+              const cut = cursor + (pair ? 2 : 1)
+              line = line.slice(0, cursor) + line.slice(cut)
               redraw()
             }
             s = s.slice(3)

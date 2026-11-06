@@ -320,6 +320,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
+<li><strong>completion-check:</strong> treat extension-less build files as runnable artifacts</li>
 <li><strong>login:</strong> classify a guest page with a captcha as a challenge</li>
 <li><strong>compact:</strong> keep the message count in an empty-fallback reason</li>
 <li><strong>restore-history:</strong> decode every JSON escape in one pass so a doubled backslash keeps the next escape</li>
