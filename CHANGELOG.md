@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **tui:** clamp the full-screen panel so a short terminal is never overflowed
 - **layout:** a non-positive truncation budget yields nothing, not one column over
 
 ## [2.96.13] - 2026-11-06
