@@ -100,7 +100,13 @@ export function formatContextSources(
   // one line first — the same rule as renderDoctor/formatJobLine.
   const oneLine = (v: string): string => String(v ?? '').replace(/\s+/g, ' ')
   lines.push(t('context.title'))
-  if (typeof opts.systemPromptChars === 'number') {
+  // A non-finite size is a MEASUREMENT failure, not a size: printing
+  // `system prompt: NaN chars` tells the operator nothing and looks like a
+  // bug in the report itself, so the line is omitted entirely.
+  if (
+    typeof opts.systemPromptChars === 'number' &&
+    Number.isFinite(opts.systemPromptChars)
+  ) {
     lines.push(
       t('context.system_prompt', { n: String(opts.systemPromptChars) }),
     )
