@@ -43,7 +43,10 @@ export function TextPrompt({
       return
     }
     if (key.return) {
-      finish(value.trim())
+      // A SECRET (MFA code, login code) is submitted VERBATIM: trimming it
+      // silently changed what the operator typed, the same bug fixed in
+      // `/config set <password>`. The consumer strips whitespace itself.
+      finish(secret ? value : value.trim())
       return
     }
     if (key.backspace) {
