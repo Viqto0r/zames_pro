@@ -321,6 +321,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
+<li><strong>i18n:</strong> pass the snapshot path under the param the template names</li>
 <li><strong>dev-watch:</strong> match the hot list by path so a namesake module is not silenced</li>
 <li><strong>permissions:</strong> match a path rule against the arguments of a shell command</li>
 <li><strong>config-menu:</strong> decode the terminal stream with one StringDecoder</li>
