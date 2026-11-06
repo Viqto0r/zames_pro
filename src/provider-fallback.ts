@@ -55,7 +55,10 @@ export async function pickFallbackProvider(
     if (c.id === active) continue
     // A live GUEST session is not a fallback (it dies in a few turns), but the
     // provider is still authorizable — signing in makes it a candidate.
-    if (c.guestAllowed && c.guestSession !== false) {
+    // `guestSession` is OPTIONAL: an older caller that predates the field
+    // leaves it undefined, and reading that as "a guest" silently refused to
+    // fall back to a signed-in provider with a live session.
+    if (c.guestAllowed && c.guestSession === true) {
       authorizable.push(c.id)
       continue
     }
