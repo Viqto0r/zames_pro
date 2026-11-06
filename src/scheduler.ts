@@ -145,6 +145,31 @@ export function parseCron(expr: string): CronFields | null {
   if (!minute || !hour || !dom || !month || !dowRaw) return null
   const dow = new Set<number>()
   for (const d of dowRaw) dow.add(d === 7 ? 0 : d)
+  // A day-of-month the month NEVER has (Feb 31, Apr 31) can never fire: the
+  // field ranges are valid, so every check above passed and the job was
+  // created — `nextCronTime` then walked four years of minutes before giving
+  // up. Reject the impossible COMBINATION here, unless the day-of-week rule
+  // takes over (dom/dow are ORed when both are restricted).
+  if (parts[2].trim() !== '*' && parts[4].trim() === '*') {
+    const perMonth: Record<number, number> = {
+      1: 31,
+      2: 29,
+      3: 31,
+      4: 30,
+      5: 31,
+      6: 30,
+      7: 31,
+      8: 31,
+      9: 30,
+      10: 31,
+      11: 30,
+      12: 31,
+    }
+    for (const m of month) {
+      const max = perMonth[m] ?? 31
+      if (![...dom].some((d) => d <= max)) return null
+    }
+  }
   return {
     minute,
     hour,
