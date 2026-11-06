@@ -94,6 +94,11 @@ export function formatContextSources(
   t: TranslateFn = translate('en'),
 ): string {
   const lines: string[] = []
+  // Paths, skill and command names come from the operator's PROJECT: a
+  // newline in one of them started a NEW row of the report (a crafted
+  // `/cmd\nFAKE` printed a bare `FAKE` line), so every value is flattened to
+  // one line first — the same rule as renderDoctor/formatJobLine.
+  const oneLine = (v: string): string => String(v ?? '').replace(/\s+/g, ' ')
   lines.push(t('context.title'))
   if (typeof opts.systemPromptChars === 'number') {
     lines.push(
@@ -101,7 +106,7 @@ export function formatContextSources(
     )
   }
   const fileLine = (p: string, content: string): string =>
-    '  ' + p + '  (' + content.length + ' chars)'
+    '  ' + oneLine(p) + '  (' + content.length + ' chars)'
   lines.push(t('context.agents'))
   if (agents.length)
     for (const a of agents) lines.push(fileLine(a.path, a.content))
@@ -113,10 +118,13 @@ export function formatContextSources(
   lines.push(t('context.skills'))
   if (skills.length)
     for (const s of skills)
-      lines.push('  ' + s.name + (s.path ? '  ' + s.path : ''))
+      lines.push(
+        '  ' + oneLine(s.name) + (s.path ? '  ' + oneLine(s.path) : ''),
+      )
   else lines.push('  ' + t('context.none'))
   lines.push(t('context.commands'))
-  if (commands.length) for (const c of commands) lines.push('  /' + c.name)
+  if (commands.length)
+    for (const c of commands) lines.push('  /' + oneLine(c.name))
   else lines.push('  ' + t('context.none'))
   return lines.join(NL)
 }
