@@ -179,6 +179,17 @@ export function visRows(s: string, cols: number): number {
 // zero-width joiner/space/variation selectors count as 0.
 export function visLen(s: string): number {
   s = String(s)
+  // An emoji SEQUENCE renders as ONE glyph but occupies several code
+  // points: ZWJ-joined, a skin-tone modifier, a keycap. Counting each
+  // point separately measured a family as 6 columns instead of 2, so the
+  // layout reserved extra rows and the cursor column drifted. The sequence
+  // is replaced by ONE placeholder cell before measuring.
+  s = s.replace(
+    /(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\u200d|\ufe0f)+/gu,
+    // The placeholder is a WIDE glyph (2 columns), the width an emoji renders
+    // at: a single `X` would under-count it.
+    '😀',
+  )
   let n = 0
   let i = 0
   while (i < s.length) {

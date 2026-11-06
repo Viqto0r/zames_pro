@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **input:** count a ZWJ emoji sequence as one glyph in the layout
 - **tui:** ZAMES_NO_BG=0 no longer disables the themed background
 - **markdown:** an unknown code-fence language falls back to plain text
 - **web:** decode an escaped HTML entity only once
