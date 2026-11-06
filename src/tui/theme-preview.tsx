@@ -32,6 +32,12 @@ export function previewLines(): PreviewLine[] {
   return [
     { role: 'dir', text: '~/project' },
     { role: 'prompt', text: '❯ объясни этот код', bold: true },
+    // The operator's own turn and the input frame are the most visible
+    // surfaces in the TUI: a theme that paints them unreadable must be
+    // visible in the picker, not only after switching.
+    { role: 'userBar', text: '▌ оператор' },
+    { role: 'user', text: '▌ моё сообщение' },
+    { role: 'turnRule', text: '────────────────' },
     { role: 'assistant', text: '● Ответ: функция читает файл и парсит JSON.' },
     { role: 'tool', text: '🔧 Read {"path":"package.json"}' },
     { role: 'toolResult', text: '→ ✔ 42 строки' },

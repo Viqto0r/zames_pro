@@ -22,6 +22,11 @@ test('a non-array undo index is treated as an empty history', async (t) => {
   fs.mkdirSync(UNDO_DIR, { recursive: true })
   const store = new UndoStore()
   for (const bad of ['{"a":1}', 'null', '"x"', '42', 'true']) {
+    // The undo dir is SHARED by every test in the suite: a store that ran
+    // earlier (a test without its own HOME) can APPEND its record over the
+    // corrupt index we just wrote, so the file is wiped first — the case under
+    // test is the corrupt CONTENT, not a leftover entry.
+    fs.rmSync(INDEX, { force: true })
     fs.writeFileSync(INDEX, bad)
     const res = await store.undoLast()
     assert.deepEqual(res, { ok: false, reason: 'empty' }, bad)
