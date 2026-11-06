@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **attach-refs:** widen the @file fence past the file's own backticks
 - **attachments:** an all-digit extension is a version, not a file name
 - **tui:** count suggestion rows at the popup box width
 - **tui:** place the caret by the actual border style, not a constant
