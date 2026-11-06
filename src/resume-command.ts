@@ -45,8 +45,11 @@ export function resumeProviderRefusal(
   if (!session) return null
   const owner = session.provider || 'deepseek'
   if (owner === activeProvider) return null
+  // The owner comes from a session FILE (hand-editable) and the active id from
+  // the config: a newline in either started a line of its own in the terminal.
+  const oneLine = (v: string): string => String(v ?? '').replace(/\s+/g, ' ')
   return t('sessions.provider_mismatch', {
-    owner,
-    active: activeProvider,
+    owner: oneLine(owner),
+    active: oneLine(activeProvider),
   })
 }
