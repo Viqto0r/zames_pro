@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **scheduler:** reject a cron day-of-month the month never has
 - **jobs:** accept any whitespace after the remove verb
 - **context-limit:** flatten the provider and error text of the live notices
 
