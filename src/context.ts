@@ -433,12 +433,16 @@ function parseFrontmatter(raw: string): FrontMatter {
     typeof out['user-invokable'] === 'string'
       ? out['user-invokable'].toLowerCase() !== 'false'
       : undefined
+  // A YAML BLOCK LIST (`arguments:` + `  - env`) folds into one string with
+  // the list markers, so splitting on whitespace produced `['-', 'env']`: every
+  // declared name was 'missing' and the command was refused. Strip the markers
+  // first; the inline form (`arguments: env mode`) still works.
   const argumentsList =
     typeof out['arguments'] === 'string'
       ? out['arguments']
           .split(/[,\s]+/)
           .map((s) => s.trim())
-          .filter(Boolean)
+          .filter((s) => s && s !== '-')
       : undefined
   return {
     name: out.name,

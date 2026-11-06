@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **context:** parse a YAML block list of command arguments
 - **provider-fallback:** probe a guest-capable provider without the guest flag
 - **cli:** accept the --flag=value spelling of a value flag
 
