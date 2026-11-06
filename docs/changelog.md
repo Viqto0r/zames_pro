@@ -7,9 +7,10 @@ alt_url: /changelog-ru.html
 changelog: true
 ---
 <div class="wrap" markdown="1">
-<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 300)</p>
+<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 301)</p>
 <nav class="changelog-jump" aria-label="Jump to a version">
 <a href="#vUnreleased"><span>Unreleased</span></a>
+<a href="#v2.96.5"><span>v2.96.5</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.4"><span>v2.96.4</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.3"><span>v2.96.3</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.2"><span>v2.96.2</span><time datetime="2026-11-06">2026-11-06</time></a>
@@ -312,8 +313,13 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
+<p class="ch-empty">—</p>
+</details>
+<details class="ch-release" id="v2.96.5" open>
+<summary><header><h2>v2.96.5</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
+<li><strong>web:</strong> tolerate whitespace around = in a DuckDuckGo result attribute</li>
 <li><strong>web:</strong> recognise x-zip and x-msdownload as binary content</li>
 <li><strong>web:</strong> drop the page head and keep &lt;pre&gt; code intact when converting HTML</li>
 <li><strong>web:</strong> share one in-flight headless context between concurrent fetches</li>
@@ -331,7 +337,7 @@ changelog: true
 <li><strong>cli:</strong> accept the --flag=value spelling of a value flag</li>
 </ul></section>
 </details>
-<details class="ch-release" id="v2.96.3" open>
+<details class="ch-release" id="v2.96.3">
 <summary><header><h2>v2.96.3</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
