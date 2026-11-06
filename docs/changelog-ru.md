@@ -7,9 +7,10 @@ alt_url: /changelog.html
 changelog: true
 ---
 <div class="wrap" markdown="1">
-<p class="changelog-lead">Каждый релиз zames_pro: самый свежий сверху, старые версии можно развернуть, а список версий в начале страницы ведёт сразу к нужной. (версий: 310)</p>
+<p class="changelog-lead">Каждый релиз zames_pro: самый свежий сверху, старые версии можно развернуть, а список версий в начале страницы ведёт сразу к нужной. (версий: 311)</p>
 <nav class="changelog-jump" aria-label="К версии">
 <a href="#vUnreleased"><span>Unreleased</span></a>
+<a href="#v2.96.15"><span>v2.96.15</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.14"><span>v2.96.14</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.13"><span>v2.96.13</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.12"><span>v2.96.12</span><time datetime="2026-11-06">2026-11-06</time></a>
@@ -322,8 +323,13 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
+<p class="ch-empty">—</p>
+</details>
+<details class="ch-release" id="v2.96.15" open>
+<summary><header><h2>v2.96.15</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
+<li><strong>tui:</strong> clip the full-screen header title so it stays one row</li>
 <li><strong>tui:</strong> window the theme picker list to the terminal height</li>
 <li><strong>tui:</strong> keep the hint bar to one row by clipping it to the width</li>
 <li><strong>login:</strong> reject a password made only of whitespace</li>
@@ -341,7 +347,7 @@ changelog: true
 <li><strong>layout:</strong> a non-positive truncation budget yields nothing, not one column over</li>
 </ul></section>
 </details>
-<details class="ch-release" id="v2.96.13" open>
+<details class="ch-release" id="v2.96.13">
 <summary><header><h2>v2.96.13</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>

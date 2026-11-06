@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.96.15] - 2026-11-06
+
 ### Fixed
 
 - **tui:** clip the full-screen header title so it stays one row
