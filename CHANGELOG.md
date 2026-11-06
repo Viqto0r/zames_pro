@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **login:** reject a password made only of whitespace
 - **tui:** submit a secret prompt verbatim instead of trimming it
 
 ## [2.96.14] - 2026-11-06
