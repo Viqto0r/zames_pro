@@ -26,7 +26,12 @@ function hexToOsc(hex: string): string {
  * testable without a terminal.
  */
 export function backgroundOsc(name: unknown): string {
-  if (process.env.NO_COLOR || process.env.ZAMES_NO_BG) return ''
+  // NO_COLOR is "present means off" (no-color.org). ZAMES_NO_BG is our OWN
+  // switch: a shell profile writing `ZAMES_NO_BG=0` clearly means KEEP it, so
+  // only a truthy value opts out.
+  const noBg = String(process.env.ZAMES_NO_BG ?? '').toLowerCase()
+  if (process.env.NO_COLOR) return ''
+  if (noBg && noBg !== '0' && noBg !== 'false' && noBg !== 'no') return ''
   const id = isThemeName(name) ? name : DEFAULT_THEME
   return '\x1b]11;rgb:' + hexToOsc(ALL_PALETTES[id].bg) + '\x07'
 }

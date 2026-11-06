@@ -315,6 +315,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
+<li><strong>markdown:</strong> an unknown code-fence language falls back to plain text</li>
 <li><strong>web:</strong> decode an escaped HTML entity only once</li>
 </ul></section>
 </details>
