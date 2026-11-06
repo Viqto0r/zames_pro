@@ -72,6 +72,16 @@ if (dirty) {
 
 // 2. Gates. The git hooks run these on commit/push too, but a release should
 // fail EARLY, before package.json/CHANGELOG are touched.
+//
+// The Unreleased section must be UP TO DATE first: step 5 REPLACES its body,
+// and test/docs-changelog (inside `npm test`) compares the committed CHANGELOG
+// with its generated pages. A stale body therefore failed the very gate this
+// script runs, and the rewritten section could list "Internal improvements."
+// while the real fixes were never written. Sync it, then rebuild the pages.
+if (!dryRun) {
+  run('npm', ['run', 'changelog:sync'])
+  run('npm', ['run', 'build:changelog'])
+}
 if (!skipTests) {
   run('npm', ['run', 'typecheck'])
   run('npm', ['test'])
@@ -215,12 +225,19 @@ if (fs.existsSync(citePath)) {
 }
 
 // 8. Commit + tag. The push is intentionally NOT done here.
+// The generated changelog pages are part of the release: test/docs-changelog
+// compares them with CHANGELOG.md, so they are rebuilt AFTER the new section
+// was written and committed WITH it (a separate docs: commit made the very
+// next `npm test` see a stale Unreleased section and broke the release).
+run('npm', ['run', 'build:changelog'])
 git([
   'add',
   'package.json',
   'package-lock.json',
   'CHANGELOG.md',
   'CITATION.cff',
+  'docs/changelog.md',
+  'docs/changelog-ru.md',
 ])
 git(['commit', '-m', 'chore: release ' + next])
 git(['tag', tag])
