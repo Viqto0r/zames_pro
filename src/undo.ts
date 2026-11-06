@@ -177,6 +177,9 @@ export class UndoStore {
 
   async list(count = 10): Promise<UndoRecord[]> {
     const history = await this._readIndex()
+    // `slice(-0)` is `slice(0)` — the WHOLE history, so asking for ZERO rows
+    // returned everything. A count below 1 means "no rows".
+    if (!(count > 0)) return []
     return history.slice(-count).reverse()
   }
 }

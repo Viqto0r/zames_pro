@@ -317,6 +317,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
+<li><strong>shell:</strong> a cd inside a nested shell is checked by the sandbox</li>
 <li><strong>sandbox:</strong> a dangling symlink cannot let a write escape the root</li>
 </ul></section>
 </details>
