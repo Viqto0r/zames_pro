@@ -261,6 +261,11 @@ export function looksLikeFileName(name: string): boolean {
   if (dot <= 0 || dot >= n.length - 1) return false
   const ext = n.slice(dot + 1)
   if (!/^[A-Za-z0-9]{1,8}$/.test(ext)) return false
+  // An ALL-DIGIT extension is a VERSION, not an extension: `2.96.15`,
+  // `v1.2.3` and `1.0` are pasted constantly ("which version?") and used to be
+  // classified as file names, so the paste went down the attach path and a
+  // release artifact named exactly that turned into an attachment.
+  if (/^[0-9]+$/.test(ext)) return false
   const stem = n.slice(0, dot)
   if (!stem.trim()) return false
   if (/[\\/]/.test(n) || /[\u0000-\u001f\u007f]/.test(n)) return false

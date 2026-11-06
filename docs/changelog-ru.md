@@ -325,6 +325,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
+<li><strong>tui:</strong> count suggestion rows at the popup box width</li>
 <li><strong>tui:</strong> place the caret by the actual border style, not a constant</li>
 <li><strong>tui:</strong> carry a partial CSI from its ESC, not only mid-parameter</li>
 </ul></section>
