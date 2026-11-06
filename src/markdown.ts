@@ -133,12 +133,29 @@ export function renderMarkdown(text: string): string {
         { theme?: infer T } | undefined
         ? T
         : never,
-      highlighter: (code, lang) =>
-        highlight(code, {
-          language: lang || 'plaintext',
-          ignoreIllegals: true,
-          theme: hlTheme(p),
-        }),
+      // An UNKNOWN language tag throws inside cli-highlight, and the throw
+      // escaped the whole render: ONE ```` ```kotlin-ish ```` fence turned the
+      // entire answer into raw markdown (no wrap, no theme, no code box). Fall
+      // back to plaintext for this block only.
+      highlighter: (code, lang) => {
+        try {
+          return highlight(code, {
+            language: lang || 'plaintext',
+            ignoreIllegals: true,
+            theme: hlTheme(p),
+          })
+        } catch {
+          try {
+            return highlight(code, {
+              language: 'plaintext',
+              ignoreIllegals: true,
+              theme: hlTheme(p),
+            })
+          } catch {
+            return String(code)
+          }
+        }
+      },
       codeBox: true,
       tableBorder: 'unicode',
       listIndent: 2,
