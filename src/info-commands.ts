@@ -36,6 +36,11 @@ export interface InfoCommandDeps {
  */
 export function createInfoCommands(deps: InfoCommandDeps): SlashCommand[] {
   const { t } = deps
+  // A chat id comes from the page URL and the working directory from the
+  // process cwd: a newline in either would start a LINE of its own in the
+  // terminal, so a value is flattened before it is printed (the same rule
+  // `/status` and `/doctor` already follow).
+  const oneLine = (v: string): string => String(v ?? '').replace(/\s+/g, ' ')
   const printLines = (lines: string[], print: (l: string) => void): void => {
     for (const line of lines) print(theme.system(line))
   }
@@ -50,21 +55,23 @@ export function createInfoCommands(deps: InfoCommandDeps): SlashCommand[] {
       handler: async (ctx) => {
         const id = deps.currentChatId()
         if (id) {
-          ctx.print(theme.system(t('chats.current_id', { v: id })))
-          ctx.print(theme.system(`URL: ${deps.chatUrl(id)}`))
+          ctx.print(theme.system(t('chats.current_id', { v: oneLine(id) })))
+          ctx.print(theme.system(`URL: ${oneLine(deps.chatUrl(id))}`))
           return
         }
         const live = await deps.resolveChatId()
         ctx.print(
           theme.system(
-            live ? t('chats.current_id', { v: live }) : t('chats.not_created'),
+            live
+              ? t('chats.current_id', { v: oneLine(live) })
+              : t('chats.not_created'),
           ),
         )
       },
     },
     {
       name: 'pwd',
-      handler: (ctx) => ctx.print(theme.system(deps.workdir())),
+      handler: (ctx) => ctx.print(theme.system(oneLine(deps.workdir()))),
     },
     {
       name: 'transcript',
