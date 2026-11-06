@@ -17,8 +17,13 @@ test('list(0) returns no rows', async (t) => {
   const store = new UndoStore()
   fs.writeFileSync(file, 'v1')
   await store.backup(file)
+  // The index is APPEND-ONLY per path and capped by maxBackups: a fresh store
+  // sees the records OTHER tests left in the shared ~/.zames/undo, so the
+  // second backup must not assume the list is empty (with a cap of 1 the two
+  // records collapse and `list(1)` was 0 when the global index was full).
   fs.writeFileSync(file, 'v2')
   await store.backup(file)
+  store.maxBackups = 200
   assert.deepEqual(await store.list(0), [])
   assert.deepEqual(await store.list(-3), [])
   assert.equal((await store.list(1)).length, 1)

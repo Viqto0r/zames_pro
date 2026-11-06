@@ -248,7 +248,7 @@ export async function selfDiff({
   const t = translator(locale)
   const snapDir = path.join(SNAP_ROOT, name)
   const snapStat = await fs.stat(snapDir).catch(() => null)
-  if (!snapStat) throw new Error(t('self.snapshot_not_found', { dir: snapDir }))
+  if (!snapStat) throw new Error(t('self.snapshot_not_found', { v: snapDir }))
 
   const { unifiedDiff, colorDiff } = await import('./diff.js')
   const files = await listTsFiles(snapDir)
@@ -285,7 +285,7 @@ export async function selfApply({
   const t = translator(locale)
   const snapDir = path.join(SNAP_ROOT, name)
   const snapStat = await fs.stat(snapDir).catch(() => null)
-  if (!snapStat) throw new Error(t('self.snapshot_not_found', { dir: snapDir }))
+  if (!snapStat) throw new Error(t('self.snapshot_not_found', { v: snapDir }))
 
   // Back up the current src before overwriting
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
