@@ -494,7 +494,13 @@ export function InputLine(props: InputLineProps): React.ReactElement {
   // added HERE — exactly where they are rendered. (A caller that folded them
   // in as well double-counted them and the caret landed inside the popup.)
   const popupRows =
-    suggestions.length > 0 ? suggestRowCount(st.buf, props.commands, cols) : 0
+    suggestions.length > 0
+      ? // The popup is drawn INSIDE the input Box: 4 columns of chrome
+        // (border + padding on each side) are not available to its text.
+        // Counting rows at the PANE width undercounted a wrapped row and the
+        // popup grew past the reserved rows (the caret drifted down).
+        suggestRowCount(st.buf, props.commands, Math.max(1, cols - 4))
+      : 0
   setCursorPosition({
     x: cursorX,
     y: (props.cursorTop ?? 3) + popupRows + cursorRow,
