@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **restore-history:** keep a plain answer that opens with 'thinking for'
 - **commands:** keep a project file/skill/command name on one /context row
 - **release-policy:** one pair of parens in the BREAKING note
 - **changelog:** a group heading must start a line, not sit inside a bullet

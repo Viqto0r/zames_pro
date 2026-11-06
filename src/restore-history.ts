@@ -257,7 +257,22 @@ export function stripThinkBlocks(text: string): string {
   // "OK2"); the reasoning BODY was already removed with its subtree.
   // A single newline: with the blank-line form the `[\s\S]*?` below ate
   // the whole answer and the restored turn vanished.
-  t = t.replace(/^\s*(?:thought|thinking|think)\s+for\s+[^\n]*\n?/i, '')
+  // The header is `Thought for <duration>`: the FIRST word is the past tense
+  // (`Thought`) or the bare `Think`, and the duration must look like a TIME
+  // (`1 second`, `12s`, `2 minutes`). Matching any `think for <anything>`
+  // dropped a plain answer that OPENS with the same words.
+  t = t.replace(
+    /^\s*(?:thought|thinking|think)\s+for\s+\d+(?:\.\d+)?\s*(?:seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h)(?![a-z])\b[^\n]*\n?/i,
+    '',
+  )
+  // The DOM may hand the header WITHOUT its newline (`Thought for 1
+  // secondOK2`), so a header followed directly by the answer text is dropped
+  // too. The duration must be a real TIME word, never just `for <word>`: a
+  // plain answer opening with the same words keeps its line.
+  t = t.replace(
+    /^\s*(?:thought|thinking|think)\s+for\s+\d+(?:\.\d+)?\s*(?:seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h)(?=[A-Z\u0410-\u042f])/i,
+    '',
+  )
   // The DOM may hand the header WITHOUT its newline ("Thought for 1
   // secondOK2"): drop the header up to the first non-space run only when a
   // line break or the end of the text follows it.

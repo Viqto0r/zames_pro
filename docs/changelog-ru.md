@@ -311,6 +311,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
+<li><strong>commands:</strong> keep a project file/skill/command name on one /context row</li>
 <li><strong>release-policy:</strong> one pair of parens in the BREAKING note</li>
 <li><strong>changelog:</strong> a group heading must start a line, not sit inside a bullet</li>
 <li><strong>backlog:</strong> ignore a fenced section header when appending</li>
