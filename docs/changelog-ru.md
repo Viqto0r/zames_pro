@@ -7,9 +7,10 @@ alt_url: /changelog.html
 changelog: true
 ---
 <div class="wrap" markdown="1">
-<p class="changelog-lead">Каждый релиз zames_pro: самый свежий сверху, старые версии можно развернуть, а список версий в начале страницы ведёт сразу к нужной. (версий: 303)</p>
+<p class="changelog-lead">Каждый релиз zames_pro: самый свежий сверху, старые версии можно развернуть, а список версий в начале страницы ведёт сразу к нужной. (версий: 304)</p>
 <nav class="changelog-jump" aria-label="К версии">
 <a href="#vUnreleased"><span>Unreleased</span></a>
+<a href="#v2.96.8"><span>v2.96.8</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.7"><span>v2.96.7</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.6"><span>v2.96.6</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.5"><span>v2.96.5</span><time datetime="2026-11-06">2026-11-06</time></a>
@@ -315,8 +316,13 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
+<p class="ch-empty">—</p>
+</details>
+<details class="ch-release" id="v2.96.8" open>
+<summary><header><h2>v2.96.8</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
+<li><strong>ui-health:</strong> report a capability listed twice only once</li>
 <li><strong>tui:</strong> a throwing store subscriber no longer starves the others</li>
 <li><strong>undo:</strong> list(0) returns no rows instead of the whole history</li>
 <li><strong>shell:</strong> a cd inside a nested shell is checked by the sandbox</li>
@@ -334,7 +340,7 @@ changelog: true
 <li><strong>input:</strong> hold only a partial paste marker, not a lone ESC</li>
 </ul></section>
 </details>
-<details class="ch-release" id="v2.96.6" open>
+<details class="ch-release" id="v2.96.6">
 <summary><header><h2>v2.96.6</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>

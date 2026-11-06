@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.96.8] - 2026-11-06
+
 ### Fixed
 
 - **ui-health:** report a capability listed twice only once
