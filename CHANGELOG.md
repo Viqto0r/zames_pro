@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **tui:** keep the hint bar to one row by clipping it to the width
 - **login:** reject a password made only of whitespace
 - **tui:** submit a secret prompt verbatim instead of trimming it
 
