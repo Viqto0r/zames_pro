@@ -9,7 +9,7 @@
 // because it pauses the editor and reads keys itself.
 
 import { theme } from './theme.js'
-import type { Locale, TranslateFn } from './i18n.js'
+import { isLocale, type Locale, type TranslateFn } from './i18n.js'
 import type { ConfigField } from './config.js'
 import { configGetValue, configValueHint } from './config-commands.js'
 
@@ -134,6 +134,24 @@ export async function handleConfigCommand(
     }
     const field = schema.find((f) => f.path === 'ui.locale')
     if (!field) return
+    // `normalizeLocale` FALLS BACK to the default for anything it does not
+    // understand, so `/config lang xx` silently SAVED English and reported it
+    // as set — the operator's typo was accepted. Reject an unknown value.
+    const normalized = String(val).trim().toLowerCase()
+    if (
+      !isLocale(normalized) &&
+      !['russian', 'русский', 'english', 'английский'].includes(normalized)
+    ) {
+      printErr(
+        theme.error(
+          t('cfg.bad_value', {
+            v: 'ui.locale',
+            type: configValueHint(field, t),
+          }),
+        ),
+      )
+      return
+    }
     const loc = normalizeLocale(val)
     try {
       setValue(field, loc)
