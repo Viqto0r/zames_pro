@@ -66,12 +66,30 @@ export function parseAssistantToolCall(
 export function unescapeJsonString(s: string): string {
   // A `\uD800`-style escape that is NOT followed by a low surrogate (a
   // truncated or hand-written payload) would become a LONE surrogate - a
-  // broken code point the restored dialogue prints as `?`. Decode a valid PAIR
-  // as one code point and drop an unpaired half.
+  // broken code point the restored dialogue prints as `?`. Decode a valid
+  // PAIR as one code point and drop an unpaired half.
+  //
+  // ONE pass for EVERY escape family: `\\` is consumed before the simple
+  // escapes (`\n`, `\t`, ...) look at the second half of a DOUBLED
+  // backslash. JSON stores a literal backslash before `n` (`C:\\notes`,
+  // a printed `\n`) as `\\\\n`; decoding `\n` first turned that pair
+  // into a real LINE BREAK and lost the backslash, reflowing the restored
+  // answer.
   let pendingHigh = ''
-  return String(s || '')
-    .replace(/\\u([0-9a-fA-F]{4})/g, (_x, h: string) => {
-      const cp = parseInt(h, 16)
+  return String(s || '').replace(
+    /\\(?:u([0-9a-fA-F]{4})|([nrt"\\]))/g,
+    (_m, hex: string | undefined, ch: string | undefined): string => {
+      if (!hex) {
+        if (ch === 'n') return NL
+        if (ch === 'r') return String.fromCharCode(13)
+        if (ch === 't') return String.fromCharCode(9)
+        if (ch === '"') return '"'
+        pendingHigh = ''
+        return '\\'
+      }
+      const cp = parseInt(hex, 16)
+      // A valid PAIR is one code point; an UNPAIRED half is dropped (it
+      // would print as `?`).
       if (cp >= 0xd800 && cp <= 0xdbff) {
         pendingHigh = String.fromCharCode(cp)
         return ''
@@ -83,12 +101,8 @@ export function unescapeJsonString(s: string): string {
       }
       pendingHigh = ''
       return String.fromCharCode(cp)
-    })
-    .replace(/\\n/g, NL)
-    .replace(/\\r/g, String.fromCharCode(13))
-    .replace(/\\t/g, String.fromCharCode(9))
-    .replace(/\\"/g, '"')
-    .replace(/\\\\/g, '\\')
+    },
+  )
 }
 
 /**
