@@ -25,7 +25,9 @@ test('runnable extensions are recognised, docs are not', () => {
   assert.equal(isRunnablePath('script.PY'), true)
   assert.equal(isRunnablePath('README.md'), false)
   assert.equal(isRunnablePath('package.json'), false)
-  assert.equal(isRunnablePath('Makefile'), false)
+  // A build file HAS no extension and is still a runnable target (see
+  // test/completion-check-makefile.test.ts).
+  assert.equal(isRunnablePath('Makefile'), true)
   assert.equal(isRunnablePath(undefined), false)
 })
 

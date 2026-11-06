@@ -44,11 +44,26 @@ const RUNNABLE_EXT = new Set([
   '.css',
 ])
 
+// Extension-LESS build artifacts: they are executable "does it run" targets
+// just like a script, and they were the one family the guard silently skipped
+// (a written Makefile/Dockerfile and an answer DONE with no Bash call in
+// between is exactly the live failure this module exists for).
+const RUNNABLE_NAMES = new Set([
+  'makefile',
+  'gnumakefile',
+  'dockerfile',
+  'containerfile',
+  'build.ninja',
+  'justfile',
+])
+
 export function isRunnablePath(p: string | undefined): boolean {
   if (!p) return false
   const lower = p.toLowerCase()
+  const base = lower.slice(lower.lastIndexOf('/') + 1)
+  if (RUNNABLE_NAMES.has(base)) return true
   const dot = lower.lastIndexOf('.')
-  if (dot < 0) return false
+  if (dot < 0 || dot < lower.lastIndexOf('/')) return false
   return RUNNABLE_EXT.has(lower.slice(dot))
 }
 
