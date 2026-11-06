@@ -7,9 +7,10 @@ alt_url: /changelog-ru.html
 changelog: true
 ---
 <div class="wrap" markdown="1">
-<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 311)</p>
+<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 312)</p>
 <nav class="changelog-jump" aria-label="Jump to a version">
 <a href="#vUnreleased"><span>Unreleased</span></a>
+<a href="#v2.96.16"><span>v2.96.16</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.15"><span>v2.96.15</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.14"><span>v2.96.14</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.13"><span>v2.96.13</span><time datetime="2026-11-06">2026-11-06</time></a>
@@ -323,8 +324,13 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
+<p class="ch-empty">—</p>
+</details>
+<details class="ch-release" id="v2.96.16" open>
+<summary><header><h2>v2.96.16</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
+<li><strong>attach-refs:</strong> widen the @file fence past the file's own backticks</li>
 <li><strong>attachments:</strong> an all-digit extension is a version, not a file name</li>
 <li><strong>tui:</strong> count suggestion rows at the popup box width</li>
 <li><strong>tui:</strong> place the caret by the actual border style, not a constant</li>
@@ -342,7 +348,7 @@ changelog: true
 <li><strong>tui:</strong> submit a secret prompt verbatim instead of trimming it</li>
 </ul></section>
 </details>
-<details class="ch-release" id="v2.96.14" open>
+<details class="ch-release" id="v2.96.14">
 <summary><header><h2>v2.96.14</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
