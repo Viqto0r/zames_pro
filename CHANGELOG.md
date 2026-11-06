@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **goal:** a quoted verdict example no longer wins over the real verdict
 - **input:** hold only a partial paste marker, not a lone ESC
 
 ## [2.96.6] - 2026-11-06

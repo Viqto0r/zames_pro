@@ -174,12 +174,38 @@ export function parseGoalVerdict(text: string): GoalVerdict | null {
     /VERDICT\s*[*_`]*\s*:\s*[*_`]*\s*(IMPOSSIBLE|NOT[_ -]?MET|MET)(?![\w-])/gi
   let m: RegExpExecArray | null
   let status: GoalVerdict['status'] | null = null
+  // True when the backtick run ending right BEFORE `at` is the CLOSING fence
+  // of a block that started at the beginning of a line.
+  const isFenceClose = (src: string, at: number): boolean => {
+    let i = at - 1
+    while (i >= 0 && src.charAt(i) === '`') i--
+    const fenceEnd = at
+    const fenceStart = i + 1
+    if (fenceEnd - fenceStart < 1) return false
+    // The opening run must be at the START of a line (or of the text).
+    const lineStart =
+      src.lastIndexOf(String.fromCharCode(10), fenceStart - 1) + 1
+    return src.slice(lineStart, fenceStart).trim() === ''
+  }
   while ((m = label.exec(t)) !== null) {
+    // A QUOTED or BACKTICKED label is an EXAMPLE the evaluator is explaining,
+    // not its verdict: `A verdict such as "VERDICT: MET" would be wrong here`
+    // followed by the real `VERDICT: NOT_MET` used to clear the goal as DONE.
+    // A quote/backtick directly BEFORE the label marks an example — unless it
+    // is the CLOSING fence of a fenced verdict (```` ```Verdict: MET``` ````),
+    // which is the accepted format and must parse.
+    const before = t.charAt(m.index - 1)
+    if (before === '"' || (before === '`' && !isFenceClose(t, m.index))) {
+      continue
+    }
     // Skip whitespace/backticks between the value and whatever follows.
     let k = m.index + m[0].length
     while (k < t.length && /[\s*_`]/.test(t.charAt(k))) k++
     const after = t.charAt(k)
     if (after === '|' || after === '/') continue
+    // A CLOSING quote/backtick right after the value is the other end of an
+    // example (`VERDICT: MET` in prose).
+    if (after === '"' || after === '`') continue
     const raw = m[1].toUpperCase()
     status =
       raw === 'MET' ? 'met' : raw === 'IMPOSSIBLE' ? 'impossible' : 'not_met'
