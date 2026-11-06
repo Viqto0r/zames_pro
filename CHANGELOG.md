@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **dev-watch:** match the hot list by path so a namesake module is not silenced
 - **permissions:** match a path rule against the arguments of a shell command
 - **config-menu:** decode the terminal stream with one StringDecoder
 
