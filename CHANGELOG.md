@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **login:** classify a guest page with a captcha as a challenge
 - **compact:** keep the message count in an empty-fallback reason
 - **restore-history:** decode every JSON escape in one pass so a doubled backslash keeps the next escape
 
