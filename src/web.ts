@@ -423,7 +423,7 @@ export function isBinaryContentType(contentType: string): boolean {
   if (/\+(json|xml)$/.test(ct)) return false
   if (
     /^(image|audio|video|font|model)\//.test(ct) ||
-    /^application\/(pdf|zip|gzip|x-gzip|x-tar|octet-stream|msword|vnd\.|x-7z|x-rar|x-bzip|x-protobuf|wasm)/.test(
+    /^application\/(pdf|zip|gzip|x-gzip|x-tar|octet-stream|msword|vnd\.|x-7z|x-rar|x-bzip|x-zip|x-msdownload|x-protobuf|wasm|epub\+zip)/.test(
       ct,
     )
   ) {
