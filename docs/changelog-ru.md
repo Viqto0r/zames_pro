@@ -7,9 +7,10 @@ alt_url: /changelog.html
 changelog: true
 ---
 <div class="wrap" markdown="1">
-<p class="changelog-lead">Каждый релиз zames_pro: самый свежий сверху, старые версии можно развернуть, а список версий в начале страницы ведёт сразу к нужной. (версий: 309)</p>
+<p class="changelog-lead">Каждый релиз zames_pro: самый свежий сверху, старые версии можно развернуть, а список версий в начале страницы ведёт сразу к нужной. (версий: 310)</p>
 <nav class="changelog-jump" aria-label="К версии">
 <a href="#vUnreleased"><span>Unreleased</span></a>
+<a href="#v2.96.14"><span>v2.96.14</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.13"><span>v2.96.13</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.12"><span>v2.96.12</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.11"><span>v2.96.11</span><time datetime="2026-11-06">2026-11-06</time></a>
@@ -321,8 +322,13 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
+<p class="ch-empty">—</p>
+</details>
+<details class="ch-release" id="v2.96.14" open>
+<summary><header><h2>v2.96.14</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
+<li><strong>tui:</strong> split a long word in the ask-question box instead of overflowing it</li>
 <li><strong>tui:</strong> strip terminal control sequences from a select-list title</li>
 <li><strong>config-menu:</strong> shrink the list budget while the theme preview is open</li>
 <li><strong>tui:</strong> clamp the full-screen panel so a short terminal is never overflowed</li>
@@ -340,7 +346,7 @@ changelog: true
 <li><strong>doctor:</strong> omit an unmeasurable system-prompt size instead of reporting NaN</li>
 </ul></section>
 </details>
-<details class="ch-release" id="v2.96.12" open>
+<details class="ch-release" id="v2.96.12">
 <summary><header><h2>v2.96.12</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
