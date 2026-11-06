@@ -324,6 +324,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
+<li><strong>login:</strong> reject a password made only of whitespace</li>
 <li><strong>tui:</strong> submit a secret prompt verbatim instead of trimming it</li>
 </ul></section>
 </details>

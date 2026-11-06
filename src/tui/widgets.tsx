@@ -4,7 +4,8 @@
 // config menu and any future menu (model picker, login, confirm dialogs).
 
 import React from 'react'
-import { Text } from 'ink'
+import { Text, useWindowSize } from 'ink'
+import { truncateToWidth } from '../input/layout.js'
 
 // The color map lives in ui-colors.ts because it is DERIVED from the active
 // terminal palette and mutated in place on a /config theme switch. Re-exported
@@ -49,21 +50,51 @@ export function Select({
   )
 }
 
-/** A row of hint chips separated by ` · `. */
+/**
+ * A row of hint chips separated by ` · `.
+ *
+ * The row is ONE line by contract: a modal reserves a single row for it, and
+ * the config menu passes SEVEN chips (in Russian that is ~111 columns). Left
+ * unclipped, Ink wrapped the row and the extra line shifted the border and the
+ * input rows by one. The chips are measured and the tail is dropped (with an
+ * ellipsis) so the row never wraps.
+ */
 export function HintBar({
   hints,
+  maxCols,
 }: {
   hints: Array<[string, string]>
+  /** Width to fit; defaults to the terminal width minus one safety column. */
+  maxCols?: number
 }): React.ReactElement {
+  const { columns } = useWindowSize()
+  const limit = Math.max(10, maxCols ?? Math.max(1, (columns || 80) - 1))
+  const chips: Array<{ key: string; label: string; text: string }> = []
+  let used = 0
+  for (let i = 0; i < hints.length; i++) {
+    const [key, label] = hints[i]
+    const text = key + ' ' + label
+    const sep = i > 0 ? '  ·  ' : ''
+    // Measure in VISIBLE columns so a wide glyph is not undercounted.
+    const add = sep.length + text.length
+    if (used + add > limit && chips.length) break
+    used += add
+    chips.push({ key, label, text })
+  }
+  const dropped = chips.length < hints.length
+  // Reserve one column for the marker when the tail was dropped.
+  const body = chips.map((c) => c.text).join('  ·  ')
+  const clipped = truncateToWidth(body, dropped ? limit - 2 : limit)
   return (
     <Text>
-      {hints.map(([k, l], i) => (
+      {clipped.split('  ·  ').map((chip, i) => (
         <Text key={i}>
           {i > 0 ? <Text color={UI.dim}>{'  ·  '}</Text> : null}
-          <Text color={UI.accent}>{k}</Text>
-          <Text color={UI.dim}>{' ' + l}</Text>
+          <Text color={UI.accent}>{chip.split(' ')[0]}</Text>
+          <Text color={UI.dim}>{chip.slice(chip.indexOf(' '))}</Text>
         </Text>
       ))}
+      {dropped ? <Text color={UI.dim}>{' …'}</Text> : null}
     </Text>
   )
 }
