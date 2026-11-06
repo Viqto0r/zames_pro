@@ -13,6 +13,17 @@ function realPathNearest(target: string): string {
   const tail: string[] = []
   while (true) {
     try {
+      // `lstat` does NOT follow the final link: a DANGLING symlink makes
+      // `realpathSync` throw, so the broken link used to fall back to the
+      // LEXICAL path and a write THROUGH it landed at its target OUTSIDE the
+      // sandbox. Read the link itself and resolve its target too.
+      const st = fs.lstatSync(cur)
+      if (st.isSymbolicLink()) {
+        const raw = fs.readlinkSync(cur)
+        const resolvedLink = path.resolve(path.dirname(cur), raw)
+        const realTarget = realPathNearest(resolvedLink)
+        return path.join(realTarget, ...tail.slice().reverse())
+      }
       return path.join(fs.realpathSync(cur), ...tail.slice().reverse())
     } catch {
       // not found (or a broken link) -> climb to the parent
