@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **tui:** a raw DEL byte is not inserted into the input line
 - **tui:** Down after editing a recalled entry moves to the next entry
 - **tui:** Up/Down keep the visual column on wide-glyph wrapped lines
 - **goal:** a quoted verdict example no longer wins over the real verdict

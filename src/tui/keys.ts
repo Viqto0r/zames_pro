@@ -230,7 +230,11 @@ export function dispatchKey(
   if (key.escape) return { type: 'escape' }
 
   // ---- printable text ----
-  if (input && input >= ' ') {
+  // A raw DEL byte (0x7f) is NOT printable: some terminals hand it over as
+  // plain `input` without `key.backspace`, and `input >= ' '` (DEL is 127)
+  // inserted it as an invisible control character into the buffer.
+  const printable = input && input !== String.fromCharCode(127) && input >= ' '
+  if (printable) {
     return { type: 'insert', text: input }
   }
   return null
