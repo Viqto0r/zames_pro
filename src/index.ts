@@ -3472,9 +3472,12 @@ async function main(): Promise<void> {
 
   /** /loop <interval> <task>. */
   const loopCommand = (rest: string): void => {
-    const sp = rest.indexOf(' ')
-    const intervalStr = sp === -1 ? rest : rest.slice(0, sp)
-    const taskStr = sp === -1 ? '' : rest.slice(sp + 1).trim()
+    // Split on ANY whitespace run: `rest.indexOf(' ')` looked only for a
+    // literal space, so `5m\trun the tests` made the WHOLE rest the "interval",
+    // the typo message quoted the entire task and nothing was scheduled.
+    const m = /^(\S+)(?:\s+([\s\S]*))?$/.exec(rest.trim())
+    const intervalStr = m?.[1] ?? ''
+    const taskStr = (m?.[2] ?? '').trim()
     const ms = parseInterval(intervalStr)
     if (!ms && intervalStr) {
       // Say WHY the job was not added. A bare `10` is not a typo the agent
@@ -3701,9 +3704,11 @@ async function main(): Promise<void> {
       console.error(theme.error(t('self.fix_usage')))
       return
     }
-    const sp = rest.indexOf(' ')
-    const name = sp === -1 ? rest : rest.slice(0, sp)
-    const focus = sp === -1 ? '' : rest.slice(sp + 1).trim()
+    // Split on ANY whitespace run (a TAB between the snapshot name and the
+    // focus text must not become part of the name).
+    const sm = /^(\S+)(?:\s+([\s\S]*))?$/.exec(rest)
+    const name = sm?.[1] ?? ''
+    const focus = (sm?.[2] ?? '').trim()
 
     const snapRoot = path.join(ZAMES_HOME, 'snapshots', name)
     const stat = await fs.stat(snapRoot).catch(() => null)
