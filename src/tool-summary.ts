@@ -107,6 +107,13 @@ export function looksLikeToolError(result: string): boolean {
     // green ✔ on a refused one.
     /^exit code\b/m.test(whole) ||
     /^command failed\b/m.test(whole) ||
+    // The shell's OWN timeout line is written FIRST when a command is killed
+    // (`⏱ Timeout 15000ms`): neither the head prefixes nor the anchored
+    // phrases matched it, so a TIMED-OUT call wore a green check.
+    /timeout\s+\d+\s*ms/i.test(head) ||
+    // An `Error:` line ANYWHERE in a short result is a failure too: a heading
+    // line before it pushed the real reason out of the 60-char head.
+    /^error\s*[:!]/im.test(whole.slice(0, 400)) ||
     // NOT every failure is a THROWN error: a PreToolUse hook, the permission
     // policy and the operator's denial BLOCK the call and return their message
     // as the result; an unknown tool and an aborted/timed-out run are reported
