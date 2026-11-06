@@ -7,9 +7,10 @@ alt_url: /changelog.html
 changelog: true
 ---
 <div class="wrap" markdown="1">
-<p class="changelog-lead">Каждый релиз zames_pro: самый свежий сверху, старые версии можно развернуть, а список версий в начале страницы ведёт сразу к нужной. (версий: 301)</p>
+<p class="changelog-lead">Каждый релиз zames_pro: самый свежий сверху, старые версии можно развернуть, а список версий в начале страницы ведёт сразу к нужной. (версий: 302)</p>
 <nav class="changelog-jump" aria-label="К версии">
 <a href="#vUnreleased"><span>Unreleased</span></a>
+<a href="#v2.96.6"><span>v2.96.6</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.5"><span>v2.96.5</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.4"><span>v2.96.4</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.3"><span>v2.96.3</span><time datetime="2026-11-06">2026-11-06</time></a>
@@ -313,8 +314,13 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
+<p class="ch-empty">—</p>
+</details>
+<details class="ch-release" id="v2.96.6" open>
+<summary><header><h2>v2.96.6</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
+<li><strong>input:</strong> drop a dangling ZWJ when a truncation cuts an emoji sequence</li>
 <li><strong>input:</strong> count a ZWJ emoji sequence as one glyph in the layout</li>
 <li><strong>tui:</strong> ZAMES_NO_BG=0 no longer disables the themed background</li>
 <li><strong>markdown:</strong> an unknown code-fence language falls back to plain text</li>
@@ -332,7 +338,7 @@ changelog: true
 <li><strong>scheduler:</strong> never scan cron forever on a non-finite fromMs</li>
 </ul></section>
 </details>
-<details class="ch-release" id="v2.96.4" open>
+<details class="ch-release" id="v2.96.4">
 <summary><header><h2>v2.96.4</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
