@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.96.20] - 2026-11-06
+
 ### Fixed
 
 - **cost:** flatten the transcript path and start time of the report
