@@ -67,7 +67,11 @@ export function fullScreenLayout(
   // keeps at least one row.
   const fixed = HEADER_ROWS + STATUS_ROWS + box + HINT_ROWS
   const suggestRows = Math.max(0, Math.min(wanted, termRows - fixed - 1))
-  const panelRows = fixed + suggestRows
+  // The FIXED part is clamped too: on a terminal shorter than header +
+  // status + input box + hint the panel used to stay at `fixed` rows and
+  // `logHeight` was forced to 1, so the total EXCEEDED the screen and the
+  // input rows were pushed below it (the caret then drifted away).
+  const panelRows = Math.min(fixed + suggestRows, Math.max(1, termRows))
   const logHeight = Math.max(1, termRows - panelRows)
   // The caret counts the SAME viewport the reservation uses.
   // The suggestion popup is drawn ABOVE the box and the box does NOT move, so
