@@ -7,9 +7,10 @@ alt_url: /changelog.html
 changelog: true
 ---
 <div class="wrap" markdown="1">
-<p class="changelog-lead">Каждый релиз zames_pro: самый свежий сверху, старые версии можно развернуть, а список версий в начале страницы ведёт сразу к нужной. (версий: 299)</p>
+<p class="changelog-lead">Каждый релиз zames_pro: самый свежий сверху, старые версии можно развернуть, а список версий в начале страницы ведёт сразу к нужной. (версий: 300)</p>
 <nav class="changelog-jump" aria-label="К версии">
 <a href="#vUnreleased"><span>Unreleased</span></a>
+<a href="#v2.96.4"><span>v2.96.4</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.3"><span>v2.96.3</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.2"><span>v2.96.2</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.1"><span>v2.96.1</span><time datetime="2026-11-06">2026-11-06</time></a>
@@ -311,8 +312,13 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
+<p class="ch-empty">—</p>
+</details>
+<details class="ch-release" id="v2.96.4" open>
+<summary><header><h2>v2.96.4</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
+<li><strong>tui:</strong> keep a tall suggestion popup from overflowing the layout</li>
 <li><strong>scheduler:</strong> scan cron in UTC so a DST fall-back hour is not skipped</li>
 <li><strong>context:</strong> parse a YAML block list of command arguments</li>
 <li><strong>provider-fallback:</strong> probe a guest-capable provider without the guest flag</li>
@@ -330,7 +336,7 @@ changelog: true
 <li><strong>release:</strong> sync the changelog and rebuild its pages inside a release</li>
 </ul></section>
 </details>
-<details class="ch-release" id="v2.96.2" open>
+<details class="ch-release" id="v2.96.2">
 <summary><header><h2>v2.96.2</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
