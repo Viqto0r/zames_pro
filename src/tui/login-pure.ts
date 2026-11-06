@@ -26,7 +26,13 @@ export function validateLogin(
   if (!String(username ?? '').trim()) {
     return { ok: false, field: 'user', reason: 'user' }
   }
-  if (!password) {
+  // `!password` only catches the zero-length string: a password of SPACES (a
+  // paste carrying a trailing line, a stray space press) passed validation,
+  // the form submitted and the browser answered "wrong password" — the real
+  // problem was that nothing was typed. Spaces NEXT TO real characters are
+  // legal (the password is never trimmed), so only an all-blank value is
+  // treated as missing.
+  if (!password || !String(password).trim()) {
     return { ok: false, field: 'pass', reason: 'pass' }
   }
   return { ok: true, field: 'pass', reason: '' }
