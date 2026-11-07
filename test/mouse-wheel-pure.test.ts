@@ -69,13 +69,21 @@ test('SCROLL mode enables reporting FIRST, then disables alt-scroll', () => {
   assert.ok(off.includes(ESC + '[?1007h'))
 })
 
-test('SELECT mode keeps reporting OFF in the steady state', () => {
+test('SELECT mode PRIMES 1007l with reporting on, then turns reporting off', () => {
   const { on, off } = mouseModeSequences(false)
-  // The `on` write only primes 1007l; it must NOT enable reporting.
-  assert.equal(on.includes('1000h'), false)
-  assert.equal(on.includes('1006h'), false)
-  assert.ok(on.includes(ESC + '[?1007l'))
-  // Unmount guarantees the reporting bits are clear.
+  // Some terminals ignore 1007l while reporting is off, so the mount write is a
+  // prime: reporting on, 1007l, reporting off again — in THAT order.
+  const on1000 = on.indexOf(ESC + '[?1000h')
+  const on1007 = on.indexOf(ESC + '[?1007l')
+  const off1000 = on.lastIndexOf(ESC + '[?1000l')
+  assert.ok(on1000 >= 0 && on1007 > on1000, 'reporting on, then 1007l')
+  assert.ok(off1000 > on1007, 'reporting off AFTER the prime')
+  // The STEADY state ends with reporting off: the last reporting bit is `l`.
+  assert.ok(
+    on.lastIndexOf('1000l') > on.lastIndexOf('1000h'),
+    'reporting ends OFF',
+  )
+  // Unmount guarantees the reporting bits are clear too.
   assert.ok(off.includes(ESC + '[?1000l'))
   assert.ok(off.includes(ESC + '[?1006l'))
 })
