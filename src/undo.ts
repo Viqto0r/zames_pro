@@ -4,8 +4,14 @@ import os from 'os'
 import { randomBytes, createHash } from 'crypto'
 import { writeJsonAtomic } from './fsutil.js'
 
-const UNDO_DIR = path.join(os.homedir(), '.zames', 'undo')
-const INDEX = path.join(UNDO_DIR, 'index.json')
+// The default dir is resolved at the FIRST USE, not at import time: a
+// module-level `path.join(os.homedir(), ...)` freezes the HOME of whichever
+// module imported undo.ts first, so two test files in one run shared the first
+// one's directory and collided on its index (the `undo-list-zero` flake).
+// Production keeps the same default; tests pass their own `dir`.
+function defaultUndoDir(): string {
+  return path.join(os.homedir(), '.zames', 'undo')
+}
 
 interface UndoRecord {
   originalPath: string
@@ -20,25 +26,41 @@ export interface UndoResult {
   record?: UndoRecord
 }
 
+export interface UndoStoreOptions {
+  enabled?: boolean
+  maxBackups?: number
+  /** Override the history dir (tests, a custom store); default ~/.zames/undo. */
+  dir?: string
+}
+
 export class UndoStore {
   enabled: boolean
   maxBackups: number
+  dir: string
 
   constructor({
     enabled = true,
     maxBackups = 200,
-  }: { enabled?: boolean; maxBackups?: number } = {}) {
+    dir,
+  }: UndoStoreOptions = {}) {
     this.enabled = enabled
     this.maxBackups = maxBackups
+    this.dir = dir || defaultUndoDir()
+  }
+
+  private get indexFile(): string {
+    return path.join(this.dir, 'index.json')
   }
 
   async _ensure(): Promise<void> {
-    await fs.mkdir(UNDO_DIR, { recursive: true })
+    await fs.mkdir(this.dir, { recursive: true })
   }
 
   async _readIndex(): Promise<UndoRecord[]> {
     try {
-      const data: unknown = JSON.parse(await fs.readFile(INDEX, 'utf-8'))
+      const data: unknown = JSON.parse(
+        await fs.readFile(this.indexFile, 'utf-8'),
+      )
       // The index is a JSON FILE: a crash, a hand edit or an old format can
       // leave VALID JSON that is not an array (`{}`, `null`, `"x"`, `42`),
       // or an array with junk entries. Returning it as-is made /undo throw
@@ -58,7 +80,7 @@ export class UndoStore {
 
   async _writeIndex(history: UndoRecord[]): Promise<void> {
     // Atomic write: a crash mid-write must not corrupt the undo history.
-    writeJsonAtomic(INDEX, history)
+    writeJsonAtomic(this.indexFile, history)
   }
 
   async backup(
@@ -100,7 +122,7 @@ export class UndoStore {
       // clobber the first (losing the backup). Add a random suffix so a
       // backup name is unique.
       const uniq = randomBytes(4).toString('hex')
-      backupFile = path.join(UNDO_DIR, `${stamp}-${hash}-${uniq}.bak`)
+      backupFile = path.join(this.dir, `${stamp}-${hash}-${uniq}.bak`)
       await fs.writeFile(backupFile, content as Buffer)
     }
 

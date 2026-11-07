@@ -14,7 +14,7 @@ import { makeTmpDir } from './tmp-dir.ts'
 // for the same reason `CheckpointStore.create()` never throws.
 test('backup on a directory returns null instead of throwing', async (t) => {
   const dir = await makeTmpDir(t, 'zames-undo-dir-')
-  const store = new UndoStore()
+  const store = new UndoStore({ dir: path.join(dir, 'undo') })
   const res = await store.backup(dir)
   assert.equal(res, null)
 })

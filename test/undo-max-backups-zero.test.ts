@@ -14,7 +14,10 @@ test('backup with maxBackups=0 does not claim a backup it throws away', async (t
   const dir = await makeTmpDir(t, 'zames-undo0-')
   const file = path.join(dir, 'a.txt')
   await fs.writeFile(file, 'v1')
-  const store = new UndoStore({ maxBackups: 0 })
+  const store = new UndoStore({
+    maxBackups: 0,
+    dir: path.join(dir, 'undo'),
+  })
   const rec = await store.backup(file)
   await fs.writeFile(file, 'v2')
   const res = await store.undoLast()
