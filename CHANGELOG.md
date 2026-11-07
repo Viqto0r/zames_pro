@@ -9,8 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **undo:** give the store its own history dir so tests stop racing the shared index
 - **sessions:** keep a __proto__ workdir as an own index key
 - **commands:** pick a placeholder separator the command body does not contain
+
+### Changed
+
+- drop the child-process undo test (it re-broke the suite)
 
 ## [2.96.20] - 2026-11-06
 

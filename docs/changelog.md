@@ -330,8 +330,13 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
+<li><strong>undo:</strong> give the store its own history dir so tests stop racing the shared index</li>
 <li><strong>sessions:</strong> keep a __proto__ workdir as an own index key</li>
 <li><strong>commands:</strong> pick a placeholder separator the command body does not contain</li>
+</ul></section>
+<section class="ch-group"><h3>Changed</h3>
+<ul>
+<li>drop the child-process undo test (it re-broke the suite)</li>
 </ul></section>
 </details>
 <details class="ch-release" id="v2.96.20" open>
