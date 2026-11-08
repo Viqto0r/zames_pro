@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.96.21] - 2026-11-08
+
 ### Fixed
 
 - **undo:** give the store its own history dir so tests stop racing the shared index

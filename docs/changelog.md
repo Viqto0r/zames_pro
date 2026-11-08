@@ -7,9 +7,10 @@ alt_url: /changelog-ru.html
 changelog: true
 ---
 <div class="wrap" markdown="1">
-<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 316)</p>
+<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 317)</p>
 <nav class="changelog-jump" aria-label="Jump to a version">
 <a href="#vUnreleased"><span>Unreleased</span></a>
+<a href="#v2.96.21"><span>v2.96.21</span><time datetime="2026-11-08">2026-11-08</time></a>
 <a href="#v2.96.20"><span>v2.96.20</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.19"><span>v2.96.19</span><time datetime="2026-11-06">2026-11-06</time></a>
 <a href="#v2.96.18"><span>v2.96.18</span><time datetime="2026-11-06">2026-11-06</time></a>
@@ -328,6 +329,10 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
+<p class="ch-empty">—</p>
+</details>
+<details class="ch-release" id="v2.96.21" open>
+<summary><header><h2>v2.96.21</h2><time datetime="2026-11-08">2026-11-08</time></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
 <li><strong>undo:</strong> give the store its own history dir so tests stop racing the shared index</li>
@@ -350,7 +355,7 @@ changelog: true
 <li><strong>backlog:</strong> an id inside a fenced block does not advance the counter</li>
 </ul></section>
 </details>
-<details class="ch-release" id="v2.96.19" open>
+<details class="ch-release" id="v2.96.19">
 <summary><header><h2>v2.96.19</h2><time datetime="2026-11-06">2026-11-06</time></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
