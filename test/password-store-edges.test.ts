@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   resolvePasswordStore,
+  keychainAccount,
   planPasswordMigration,
 } from '../src/password-store.ts'
 
@@ -81,4 +82,22 @@ test('an empty password never clears the config field', () => {
     clearConfig: false,
     warn: false,
   })
+})
+
+test('a probe without any platform tool never reaches the keychain', () => {
+  // The three platform branches are OR-ed: a missing tool of the OWN
+  // platform must degrade even when another platform has one.
+  assert.equal(resolvePasswordStore('keychain', probe()).store, 'config')
+  assert.equal(
+    resolvePasswordStore(
+      'keychain',
+      probe({ platform: 'other', secretTool: true }),
+    ).store,
+    'config',
+  )
+})
+
+test('the keychain account is namespaced for any provider id', () => {
+  assert.equal(keychainAccount('glm'), 'zames:glm')
+  assert.equal(keychainAccount(''), 'zames:')
 })
