@@ -102,3 +102,49 @@ test('the wrappers resolve instead of rejecting on a non-TTY run', async () => {
   )
   assert.deepEqual(results, [false, null, null])
 })
+
+// run-theme-picker is the SAME promise-over-a-modal seam as the three above,
+// but it had no non-TTY test at all: /theme on a pipe or a redirect must
+// resolve null (the caller then keeps the current palette) instead of leaving
+// the command pending forever.
+test('pickThemeInk resolves null when there is no TTY', async () => {
+  const { pickThemeInk } = await import('../src/tui/run-theme-picker.tsx')
+  assert.equal(
+    await withNonTty(() =>
+      pickThemeInk({
+        themes: ['zames', 'nord'],
+        initial: 'zames',
+        onPreview: () => {},
+      }),
+    ),
+    null,
+  )
+})
+
+test('pickThemeInk needs BOTH streams to be a TTY', async () => {
+  const { pickThemeInk } = await import('../src/tui/run-theme-picker.tsx')
+  const inDesc = Object.getOwnPropertyDescriptor(process, 'stdin')
+  const outDesc = Object.getOwnPropertyDescriptor(process, 'stdout')
+  const fake = (isTTY: boolean) => Object.assign(Object.create(null), { isTTY })
+  Object.defineProperty(process, 'stdin', {
+    value: fake(true),
+    configurable: true,
+  })
+  Object.defineProperty(process, 'stdout', {
+    value: fake(false),
+    configurable: true,
+  })
+  try {
+    assert.equal(
+      await pickThemeInk({
+        themes: ['zames'],
+        initial: 'zames',
+        onPreview: () => {},
+      }),
+      null,
+    )
+  } finally {
+    if (inDesc) Object.defineProperty(process, 'stdin', inDesc)
+    if (outDesc) Object.defineProperty(process, 'stdout', outDesc)
+  }
+})
