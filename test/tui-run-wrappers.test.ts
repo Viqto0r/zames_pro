@@ -148,3 +148,22 @@ test('pickThemeInk needs BOTH streams to be a TTY', async () => {
     if (outDesc) Object.defineProperty(process, 'stdout', outDesc)
   }
 })
+
+// run-login is the SAME seam again (promise over an Ink form), and it is the
+// one with the worst failure mode: it sits inside waitForLogin, so a wrapper
+// that never resolves on a pipe turns a cold sign-in into a HANG. Both
+// exported entries must answer `null` (the caller then falls back to readline).
+test('runLoginForm and runTextPrompt resolve null when there is no TTY', async () => {
+  const { runLoginForm, runTextPrompt } =
+    await import('../src/tui/run-login.tsx')
+  const { translate } = await import('../src/i18n.ts')
+  const t = translate('en')
+  const [form, text] = await withNonTty(() =>
+    Promise.all([
+      runLoginForm({ t, initialUsername: 'me' }),
+      runTextPrompt({ t, label: 'code', secret: true }),
+    ]),
+  )
+  assert.equal(form, null)
+  assert.equal(text, null)
+})
