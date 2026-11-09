@@ -167,3 +167,28 @@ test('runLoginForm and runTextPrompt resolve null when there is no TTY', async (
   assert.equal(form, null)
   assert.equal(text, null)
 })
+
+// run-config-menu is the ONE wrapper in this family that must NOT resolve
+// quietly: `/config` on a non-TTY run THROWS the localized 'no TTY' message so
+// the caller can fall back to the text list (`/config list`). A silent resolve
+// would look like "the menu was shown and closed" and the operator would get
+// no output at all.
+test('runConfigMenuInk throws the localized no-TTY message', async () => {
+  const { runConfigMenuInk } = await import('../src/tui/run-config-menu.tsx')
+  const { translate } = await import('../src/i18n.ts')
+  const t = translate('en')
+  const opts = {
+    fields: [],
+    t,
+    get: () => undefined,
+    set: () => {},
+    reset: () => {},
+  }
+  await assert.rejects(
+    withNonTty(() => runConfigMenuInk(opts)),
+    (e: Error) => e.message === t('cfg.menu.notty'),
+  )
+  // The message is localized, not a hardcoded English string.
+  assert.match(translate('ru')('cfg.menu.notty'), /[\u0400-\u04FF]/)
+  assert.notEqual(translate('ru')('cfg.menu.notty'), t('cfg.menu.notty'))
+})
