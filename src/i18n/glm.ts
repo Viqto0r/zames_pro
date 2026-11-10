@@ -77,12 +77,12 @@ export const glmMessages: Record<string, { ru: string; en: string }> = {
     en: '✖ No new answer received — the page still shows the previous text. Check the {provider} chat manually.',
   },
   'glm.page_busy': {
-    ru: '✖ GLM всё ещё генерирует ответ (страница занята) — отправка невозможна. Это не сломанная кнопка: дождитесь конца хода или нажмите Stop в окне.',
-    en: '✖ GLM is still generating (the page is busy) — the message cannot be sent. This is not a broken button: wait for the turn to finish or press Stop in the window.',
+    ru: '✖ {provider} всё ещё генерирует ответ (страница занята) — отправка невозможна. Это не сломанная кнопка: дождитесь конца хода или нажмите Stop в окне.',
+    en: '✖ {provider} is still generating (the page is busy) — the message cannot be sent. This is not a broken button: wait for the turn to finish or press Stop in the window.',
   },
   'glm.send_button_missing': {
-    ru: '✖ Кнопка отправки GLM не найдена или недоступна — сообщение не отправлено. Проверь чат вручную.',
-    en: '✖ The GLM send button was not found or is disabled — the message was not sent. Check the chat manually.',
+    ru: '✖ Кнопка отправки {provider} не найдена или недоступна — сообщение не отправлено. Проверь чат вручную.',
+    en: '✖ The {provider} send button was not found or is disabled — the message was not sent. Check the chat manually.',
   },
   'glm.quota_exhausted': {
     ru: '✖ У аккаунта z.ai исчерпана квота (insufficient_quota). Это лимит аккаунта, а не пауза: пополните квоту или дождитесь сброса, повторы не помогут.',
