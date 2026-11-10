@@ -54,8 +54,10 @@ function mdTheme(p: Palette): MdTheme {
  * Syntax highlighting for a code block, mapped onto the palette. Without this
  * the highlighter used cli-highlight's DEFAULT_THEME (chalk's blue/red/green),
  * which ignores the selected theme entirely and looked off in every non-zames
- * palette. Tokens we do not map fall back to `plain` — NOT to the default
- * theme — so nothing outside the palette can leak in.
+ * palette. Tokens we do not map fall back to cli-highlight's own DEFAULT_THEME
+ * (the unmentioned keys), which is why the import below is marked `void` —
+ * it is NOT passed in on purpose, and a token without a palette color keeps
+ * the highlighter's default rather than vanishing.
  */
 function hlTheme(p: Palette): HlTheme {
   return {
@@ -170,7 +172,9 @@ export function renderMarkdown(text: string): string {
 }
 
 // Keep the import meaningful for tree-shakers/readers: the default theme is
-// deliberately NOT used (see hlTheme), `plain` is the fallback contract.
+// deliberately NOT used (see hlTheme — unmentioned tokens keep the
+// highlighter's own default), `plain` is the fallback contract for a token
+// that must stay unstyled.
 void HL_DEFAULT_THEME
 void plain
 
