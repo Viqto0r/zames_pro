@@ -42,8 +42,8 @@ zames --task "summarize the diff" --output-format jsonl
 
 ## Core capabilities
 
-- File tools: `Read`, `Write`, `Edit`, `Bash`, `Glob`, `Grep`, `MultiEdit`,
-  `ApplyPatch`, `LS`, `TodoWrite`.
+- File tools: `Read`, `Write`, `Edit`, `Bash`, `BashOutput`, `Glob`, `Grep`,
+  `MultiEdit`, `ApplyPatch`, `LS`, `TodoWrite`.
 - Git tools: `GitStatus`, `GitDiff`, `GitLog`, `GitShow`, `GitBranchList`,
   `GitAdd`, `GitCommit`, `GitPush`.
 - Web tools: `WebFetch`, `WebSearch`.
