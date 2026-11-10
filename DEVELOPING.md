@@ -100,7 +100,8 @@ MUST NOT be committed.
   a startup warning fires past 500 lines / 60 KB.
 
 The pure helpers live in `src/backlog.ts` (unit-tested in
-`test/backlog-file.test.ts`); `index.ts` only reads/writes the file.
+`test/backlog-core.test.ts`, plus the edge cases in the other
+`test/backlog-*.test.ts` files); `index.ts` only reads/writes the file.
 
 ### The other working notes (gitignored)
 
