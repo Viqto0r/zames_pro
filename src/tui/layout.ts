@@ -37,7 +37,11 @@ export interface FullScreenLayout {
   panelRows: number
   /** Rows the log viewport may use (at least 1). */
   logHeight: number
-  /** Terminal rows ABOVE the first input row (the caret origin). */
+  /**
+   * Terminal rows ABOVE the first input row (the caret origin) — the row of
+   * the input BOX top border, i.e. the 1-based row number itself
+   * (`InputLine` positions the caret as `cursorTop + popupRows + cursorRow`).
+   */
   cursorTop: number
 }
 
