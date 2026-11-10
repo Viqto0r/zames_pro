@@ -1,6 +1,6 @@
 // A reusable Ink SELECT LIST — a scrollable, keyboard-navigable list of items
-// with a title and an optional detail/description per row. Used by the model
-// picker and any future list menu (chats, sessions, ...).
+// with a title and an optional right-aligned detail per row. Used by the
+// model picker and the chats/sessions pickers.
 
 import React, { useMemo, useState } from 'react'
 import { Box, Text, useInput, useApp, useWindowSize } from 'ink'
@@ -25,8 +25,6 @@ export interface SelectItem {
   label: string
   /** Optional right-aligned detail (e.g. "current", a model id). */
   detail?: string
-  /** Optional dim description shown under the selected label. */
-  description?: string
 }
 
 export interface SelectListOptions {
