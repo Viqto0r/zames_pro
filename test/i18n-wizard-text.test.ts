@@ -77,13 +77,16 @@ test('the hint points at /help and /config', () => {
   }
 })
 
-test('the welcome line promises exactly the three steps it asks', () => {
+test('the welcome line names the steps the wizard actually asks', () => {
+  // The wizard reads the language and the provider and nothing else; the
+  // sign-in is not a step (it happens on the first task), so a "three choices"
+  // promise was one modal short.
   const en = translate('en')('wizard.welcome')
   const ru = translate('ru')('wizard.welcome')
   assert.match(en, /language/i)
   assert.match(en, /provider/i)
-  assert.match(en, /sign-in/i)
   assert.match(ru, /язык/i)
   assert.match(ru, /провайдер/i)
-  assert.match(ru, /вход/i)
+  assert.doesNotMatch(en, /three choices/i)
+  assert.doesNotMatch(ru, /три вещи/i)
 })

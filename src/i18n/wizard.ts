@@ -3,8 +3,8 @@
 // (language, backend, sign-in) without assuming any prior knowledge.
 export const wizardMessages: Record<string, { ru: string; en: string }> = {
   'wizard.welcome': {
-    ru: 'Первый запуск. Настроим три вещи: язык, провайдер и вход. Enter — значение по умолчанию.',
-    en: 'First run. Three quick choices: language, provider and sign-in. Enter accepts the default.',
+    ru: 'Первый запуск. Настроим две вещи: язык интерфейса и провайдера; вход выполнится при первой задаче. Enter — значение по умолчанию.',
+    en: 'First run. Two quick choices: interface language and provider; the sign-in happens on the first task. Enter accepts the default.',
   },
   'wizard.language': {
     ru: 'Язык интерфейса [en/ru] (en):',
