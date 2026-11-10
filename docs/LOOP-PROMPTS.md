@@ -21,8 +21,11 @@ project, and `/bughunt` there would hunt bugs in THEIR code with OUR protocol.
 | `/dumps [5m]`     | triaging the dev dumps of unparsed calls    | —                        |
 | `/smoke [5m]`     | a live provider smoke (`self`/`qwen`/`glm`) | —                        |
 
-`/backlog` stays what it always was (record a note); implementing a backlog
-item is `docs/BUGHUNT.md`'s job once the hunt reaches it.
+`/backlog` stays what it always was (record a note) — the `backlog` CYCLE
+(implementing one item from `BACKLOG.md`) has no command of its own: it lives
+in `LOOP_CYCLES` (`src/loop-prompts.ts`) and is skipped by
+`createDevCommands`'s registry because the plain `/backlog` command owns the
+name.
 
 Each command expands into ONE `/loop <interval> <task>` line
 (`buildCycleLoopLine()` in `src/loop-prompts.ts`) and arms the scheduler
@@ -75,7 +78,9 @@ refused a push whose pile was actually ready.
 - **`/review`** — it reads the whole diff each tick; the diff is empty between
   commits, so every other tick is a no-op.
 - **`/improve`** — it edits `BACKLOG.md` from the model's own opinion; run it
-  ONCE in a while, not on a timer.
+  ONCE in a while, not on a timer. To implement ONE item on a schedule, use the
+  `backlog` CYCLE from `src/loop-prompts.ts` instead (`/backlog` itself only
+  records a note).
 - **`/self-review`** — it snapshots `src/` for its own diff; a loop of it only
   grows `~/.zames`.
 - **`npm run release`** by hand on every fix — see the policy above.
