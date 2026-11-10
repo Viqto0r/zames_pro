@@ -217,11 +217,17 @@ if (fs.existsSync(lockPath)) {
 
 // 7b. Bump CITATION.cff too: GitHub reads the citation from the DEFAULT
 // branch, so a stale version there advertises the wrong release. Only the
-// version line is touched.
+// version and date-released lines are touched: a release that bumped the
+// version but left date-released behind advertised a citation date months in
+// the past, which is exactly what a citing author looks at.
 const citePath = path.join(root, 'CITATION.cff')
 if (fs.existsSync(citePath)) {
-  const cite = fs.readFileSync(citePath, 'utf-8')
-  fs.writeFileSync(citePath, cite.replace(/^version: .*$/m, 'version: ' + next))
+  const releaseDate = new Date().toISOString().slice(0, 10)
+  const cite = fs
+    .readFileSync(citePath, 'utf-8')
+    .replace(/^version: .*$/m, 'version: ' + next)
+    .replace(/^date-released: .*$/m, 'date-released: "' + releaseDate + '"')
+  fs.writeFileSync(citePath, cite)
 }
 
 // 8. Commit + tag. The push is intentionally NOT done here.
