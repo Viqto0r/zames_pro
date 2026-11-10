@@ -8,7 +8,8 @@
 // The old default capped the content at 100 columns, which on a wide terminal
 // left a wide empty band on the right of every answer; the operator asked for
 // the text to use the whole width. A cap is still available per-run via
-// `ui.answerWidth` when a narrower column is easier to read.
+// `ui.answerWidth` (0..1000 in the schema) when a narrower column is easier to
+// read.
 // > 0 = an explicit cap (still never wider than the terminal).
 const DEFAULT_CONTENT_WIDTH = 0
 
@@ -16,7 +17,13 @@ let configured = 0
 
 /** Set the configured content width (0 or a non-positive value = auto). */
 export function setContentWidth(width: number): void {
-  configured = typeof width === 'number' && width > 0 ? width : 0
+  // Upper bound = the schema's `ui.answerWidth` max, so a value set elsewhere
+  // (a legacy config, a hand-edited file) cannot collapse the content column
+  // to a sliver — the TERMINAL still caps it in `contentWidth()`.
+  configured =
+    typeof width === 'number' && Number.isFinite(width) && width > 0
+      ? Math.min(Math.floor(width), 1000)
+      : 0
 }
 
 /**
