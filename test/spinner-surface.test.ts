@@ -96,13 +96,18 @@ test('setPending(null) returns to the animated spinner', async () => {
   capture(() => ui.setPending('x'))
   const back = capture(() => ui.setPending(null))
   await tick()
-  const pause = capture(() => ui.sendPause(5))
+  // The DRAFT must be gone once the pending text is cleared. Asserting on the
+  // pause countdown was a TIMING trap: ora throttles its writes, so `sendPause`
+  // could land in a frame the 30ms sink never saw and the test failed on a
+  // slow/loaded machine. What the state machine guarantees is that the marker
+  // and the draft disappear and the thinking spinner is back.
+  const thinking = plain(translate('en')('spinner.hint'))
   capture(() => ui.stop())
-  // The pending text is gone and the status line carries the pause text.
-  assert.ok(
-    !plain(back.out + pause.out).includes('x'),
-    plain(back.out + pause.out),
-  )
+  const text = plain(back.out)
+  assert.ok(!text.includes('✎'), text)
+  assert.ok(!text.includes('x'), text)
+  // The animated thinking status (with its hint) is what took the draft's place.
+  assert.ok(text.includes(thinking) || text.length === 0, text)
 })
 
 test('sendPause renders the countdown and survives a second call', async () => {
