@@ -83,5 +83,5 @@ It never touches the operator's `~/.zames/profile`.
 
 - Never kill or clean up a browser you did not start, and never point a test
   at `~/.zames/profile`.
-- Agent-facing strings are English; user-facing strings go through
-  `src/i18n.ts`.
+- Agent-facing strings are English; user-facing strings go through the
+  `src/i18n/` catalog (`CATALOG`, assembled by `src/i18n.ts`).
