@@ -241,10 +241,11 @@ the first line. Current logic:
   fast operation like `/new`);
 - large pastes (3+ lines) are collapsed in the input line into a compact
   marker `[Pasted lines#N]` (`pasteReplacement`/`formatPasteMarker` in
-  src/input.ts) so a pasted log/code block doesn't flood the line. The
-  original text is kept in `LineEditor.pastes` and expanded back on submit
-  (`expandPastes`). Pastes of 1–2 lines are inserted as-is. The same logic is
-  mirrored in `watchInput()` (src/run-task.ts, the non-TTY fallback).
+  src/input/layout.ts, re-exported from src/input.ts) so a pasted log/code
+  block doesn't flood the line. The original text is kept in
+  `LineEditor.pastes` and expanded back on submit (`expandPastes`). Pastes of
+  1–2 lines are inserted as-is. The same logic is mirrored in `watchInput()`
+  (src/run-task.ts, the non-TTY fallback).
 
   In the INK TUI the marker must exist ONLY in the rendered line:
   `TuiEditor.handleSubmit` expands it via
