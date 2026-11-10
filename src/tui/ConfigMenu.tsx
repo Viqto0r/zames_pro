@@ -98,6 +98,10 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
   const [editBuf, setEditBuf] = useState('')
   const [pendingReset, setPendingReset] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  /** Whether the status line above the hints is a success or an ERROR.
+   *  A rejected value used to be painted with the `ok` colour, so a red
+   *  validation failure looked like «✔ saved». */
+  const [messageKind, setMessageKind] = useState<'ok' | 'error'>('ok')
   // Inline palette preview of the theme row ('p').
   const [previewTheme, setPreviewTheme] = useState(false)
   // `get`/`set` mutate the LIVE config object in place, so React has no state
@@ -165,8 +169,13 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
           value: displayValue(f, get(f.path), t),
         }),
       )
+      setMessageKind('ok')
     } catch (e) {
+      // A rejected value is NOT a success: painting it with the `ok` colour
+      // made an error look like «✔ saved» in the one place the operator reads
+      // it (the menu has no separate error channel).
       setMessage(String((e as Error).message || e))
+      setMessageKind('error')
     }
   }
 
@@ -396,6 +405,7 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
         bump()
         onAfterChange?.(f)
         setMessage(t('cfg.reset', { v: f.path }))
+        setMessageKind('ok')
         setPendingReset(null)
       } else {
         setPendingReset(f.path)
@@ -582,7 +592,7 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
           <Text color={UI.accent}>{'❯ ' + filterQuery}</Text>
         </Box>
       ) : message ? (
-        <Text color={UI.ok}>{message}</Text>
+        <Text color={messageKind === 'error' ? UI.err : UI.ok}>{message}</Text>
       ) : filterQuery ? (
         <Text color={UI.dim}>
           {t('cfg.menu.filter_active', { q: filterQuery })}
