@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **tui:** remove the key-debug stdin listener on dispose
 - **tui:** measure hint chips in visible columns
 
 ## [2.96.23] - 2026-11-10

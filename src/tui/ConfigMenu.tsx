@@ -592,7 +592,9 @@ export function ConfigMenuApp(opts: ConfigMenuInkOptions): React.ReactElement {
         <HintBar
           hints={[
             ['↑/↓', hint('tui.hint.select')],
-            ['Enter', hint('tui.hint.ok')],
+            // On the group list Enter (and →) OPENS a group; inside a group
+            // Enter edits the value — one shared "ok" label described neither.
+            ['Enter', hint('tui.hint.open')],
             ['q', hint('tui.hint.quit')],
           ]}
         />

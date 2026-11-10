@@ -135,6 +135,8 @@ export const deepseekMessages: Record<string, { ru: string; en: string }> = {
   'tui.hint.ok': { ru: 'ок', en: 'ok' },
   // Enter CONFIRMS the focused button in a y/N dialog (not "ok" of a value).
   'tui.hint.confirm': { ru: 'подтвердить', en: 'confirm' },
+  // Enter on the /config GROUP list opens the group (→ does the same).
+  'tui.hint.open': { ru: 'открыть', en: 'open' },
   'tui.hint.cancel': { ru: 'отмена', en: 'cancel' },
   'tui.hint.search': { ru: 'поиск', en: 'search' },
   'tui.hint.reset': { ru: 'сброс', en: 'reset' },
