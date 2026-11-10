@@ -180,7 +180,7 @@ export const qwenMessages: Record<string, { ru: string; en: string }> = {
     en: '✖ No new answer received — the page still shows the previous text. The message may not have been sent (the send button was not pressed). Check the {provider} chat manually.',
   },
   'qwen.send_button_missing': {
-    ru: '✖ Кнопка отправки Qwen не найдена или недоступна — сообщение не отправлено. Проверь чат вручную.',
-    en: '✖ The Qwen send button was not found or is disabled — the message was not sent. Check the chat manually.',
+    ru: '✖ Кнопка отправки {provider} не найдена или недоступна — сообщение не отправлено. Проверь чат вручную.',
+    en: '✖ The {provider} send button was not found or is disabled — the message was not sent. Check the chat manually.',
   },
 }
