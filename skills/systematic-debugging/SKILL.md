@@ -31,8 +31,9 @@ Shrink the failure to the smallest unit that still fails.
   `~/.zames/logs/*.jsonl` (`/transcript` prints the exact path of THIS run),
   the raw answer bodies under `~/.zames/net-log` when started with
   `ZAMES_NET_DEBUG=1` (`npm run dev` sets it), and the per-send telemetry at
-  `~/.zames/logs/sends-<provider>.jsonl` (written in dev mode and when
-  `browser.sendTelemetry` is on). Read them BEFORE guessing — most "it hangs
+  `~/.zames/logs/sends-<provider>.jsonl` (written only when
+  `browser.sendTelemetry` is on — it is OFF by default, also in dev mode). Read
+  them BEFORE guessing — most "it hangs
   / it stopped" reports are visible there.
 
 ## Phase 3 — Hypothesize (one at a time)
