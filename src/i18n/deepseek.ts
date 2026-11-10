@@ -141,9 +141,12 @@ export const deepseekMessages: Record<string, { ru: string; en: string }> = {
   'tui.hint.back': { ru: 'назад', en: 'back' },
   // Marks the CURRENT entry in a list menu (e.g. the active Qwen model).
   'tui.list.current': { ru: '← текущая', en: '← current' },
+  // Fields are PREFILLED with the saved credentials, so the note says what to
+  // do with them: Enter on the username moves to the password (the form's
+  // own Enter rule), and Enter on the password submits the pair.
   'auth.form.note_saved': {
-    ru: 'Enter — использовать сохранённые логин и пароль.',
-    en: 'Enter — use the saved login and password.',
+    ru: 'Логин и пароль подставлены из сохранённых: Enter — подтвердить (на логине — перейти к паролю).',
+    en: 'Saved login and password are prefilled: Enter to confirm (on the login it moves to the password).',
   },
   'auth.prompt_password': {
     ru: 'Пароль DeepSeek: ',
