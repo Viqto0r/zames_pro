@@ -529,7 +529,7 @@ export function InputLine(props: InputLineProps): React.ReactElement {
               {'   ' +
                 t('editor.more', { n: String(moreCount) }) +
                 '  ' +
-                t('editor.page_hint')}
+                t('editor.page_hint_tui')}
             </Text>
           )}
         </Box>

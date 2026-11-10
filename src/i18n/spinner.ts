@@ -25,8 +25,8 @@ export const spinnerMessages: Record<string, { ru: string; en: string }> = {
   },
   'editor.more': { ru: '…ещё {n}', en: '…{n} more' },
   'editor.page_hint': {
-    ru: '(Ctrl+N/Ctrl+P — выбор, Tab — вставить)',
-    en: '(Ctrl+N/Ctrl+P — select, Tab — insert)',
+    ru: '(Ctrl+N/Ctrl+P или PgUp/PgDn — выбор, Enter — вставить)',
+    en: '(Ctrl+N/Ctrl+P or PgUp/PgDn — select, Enter — insert)',
   },
   'editor.answer': { ru: '● Ответ', en: '● Answer' },
   // Shown in the full-screen log viewport before the first turn, so a fresh
@@ -59,5 +59,12 @@ export const spinnerMessages: Record<string, { ru: string; en: string }> = {
   'editor.search_fail': {
     ru: '(обратный поиск) `{q}` — не найдено, Esc отмена',
     en: '(reverse-i-search) `{q}` — not found, Esc cancel',
+  },
+  // The FULL-SCREEN (Ink TUI) suggestion hint: there the list is navigated
+  // with Ctrl+N/Ctrl+P (src/tui/keys.ts `suggestNext`/`suggestPrev`) and TAB
+  // completes — the legacy PgUp/PgDn paging lives only in the LineEditor.
+  'editor.page_hint_tui': {
+    ru: '(Ctrl+N/Ctrl+P — выбор, Tab — вставить)',
+    en: '(Ctrl+N/Ctrl+P — select, Tab — insert)',
   },
 }
