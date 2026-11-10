@@ -271,8 +271,8 @@ export const commonMessages: Record<string, { ru: string; en: string }> = {
   },
   'context.none': { ru: '(нет)', en: '(none)' },
   'context.near_full': {
-    ru: '⚠ Контекст заполнен на {pct}% — подумайте о /compact, чтобы сжать историю.',
-    en: '⚠ Context is {pct}% full — consider /compact to shrink the history.',
+    ru: '⚠ Контекст заполнен на {pct}% (красная зона шкалы) — подумайте о /compact, чтобы сжать историю.',
+    en: '⚠ Context is {pct}% full (the red band of the gauge) — consider /compact to shrink the history.',
   },
 
   'retry.none': {
