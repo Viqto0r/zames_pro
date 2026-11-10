@@ -1,6 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { authMarkerHas, mergeAuthMarker } from '../src/browser-pure.ts'
+import { writeFileAtomic } from '../src/fsutil.ts'
 
 // A LEGACY marker (`{provider:'qwen', at}`) is migrated into the per-provider
 // map on the next write. The migration knew only Qwen and "everything else is
@@ -26,4 +30,16 @@ test('legacy qwen and bare deepseek records still migrate', () => {
   const ds = mergeAuthMarker(JSON.stringify({ at: 'x' }), 'glm', 'y')
   assert.equal(authMarkerHas(ds, 'deepseek'), true)
   assert.equal(authMarkerHas(ds, 'glm'), true)
+})
+
+// The auth marker shares ~/.zames with the config but was written with a plain
+// fs.writeFile, so it landed with the default umask (0644) — readable by every
+// user on a shared machine, right next to a 0600 config. It must go through
+// the atomic 0600 writer like every other state file in ~/.zames.
+test('writeFileAtomic creates the state file 0600', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zames-authmode-'))
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }))
+  const file = path.join(dir, 'auth.json')
+  writeFileAtomic(file, JSON.stringify({ providers: { qwen: { at: 'x' } } }))
+  assert.equal(fs.statSync(file).mode & 0o777, 0o600)
 })

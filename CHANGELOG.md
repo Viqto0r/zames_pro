@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **security:** write the auth marker 0600 via the atomic writer
 - **release:** stamp date-released in CITATION.cff on every release
 
 ## [2.96.22] - 2026-11-10

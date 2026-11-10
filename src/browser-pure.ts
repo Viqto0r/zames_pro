@@ -1,6 +1,7 @@
 import path from 'path'
 import os from 'os'
 import fs from 'fs/promises'
+import { writeFileAtomic } from './fsutil.js'
 import { chromium } from 'playwright'
 import {
   CONTEXT_LIMIT_RE,
@@ -327,10 +328,9 @@ export async function writeAuthMarker(
   try {
     await fs.mkdir(path.dirname(AUTH_MARKER_FILE), { recursive: true })
     const prev = await readAuthMarker()
-    await fs.writeFile(
+    writeFileAtomic(
       AUTH_MARKER_FILE,
       mergeAuthMarker(prev, provider, new Date().toISOString()),
-      'utf-8',
     )
   } catch {}
 }
