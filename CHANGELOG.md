@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **tui:** read the log scroll bound live in full-screen mode
 - **tui:** localize the elapsed timer in the status bar
 - **config:** expose browser.fallbackProviders in /config as a comma-separated string
 - **security:** write the auth marker 0600 via the atomic writer
