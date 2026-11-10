@@ -341,6 +341,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
+<li><strong>tui:</strong> show a rejected config value in the error colour</li>
 <li><strong>tui:</strong> remove the key-debug stdin listener on dispose</li>
 <li><strong>tui:</strong> measure hint chips in visible columns</li>
 </ul></section>

@@ -225,10 +225,9 @@ export class TuiStore {
 
   private emit(): void {
     // A subscriber that throws (a React render error, a bug in the status bar)
-    // must not abort the loop: the subscribers AFTER it kept a STALE snapshot,
-    // and the exception escaped into the agent code that only printed a line.
-    // Notify every subscriber, then re-throw the FIRST error so a genuine bug
-    // is still visible where the caller can see it.
+    // must not abort the loop: the subscribers AFTER it would keep a STALE
+    // snapshot, and the exception would escape into the agent code that only
+    // printed a line. So every subscriber is notified even when one throws.
     for (const cb of this.listeners) {
       try {
         cb()
