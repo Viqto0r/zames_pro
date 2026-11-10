@@ -2920,9 +2920,10 @@ async function main(): Promise<void> {
    * authorized and how.
    */
   const fallbackToAuthorizedProvider = async (err: Error): Promise<boolean> => {
-    const configured = (config.browser.fallbackProviders || []).filter(
-      isProviderId,
-    )
+    const configured = String(config.browser.fallbackProviders || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(isProviderId)
     if (!configured.length) return false
     const active = asProviderId(config.provider)
     const candidates = configured

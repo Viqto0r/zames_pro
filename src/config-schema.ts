@@ -328,6 +328,21 @@ export const CONFIG_SCHEMA: ConfigField[] = [
     groupKey: 'cfg.group.login',
   },
   {
+    path: 'browser.fallbackProviders',
+    type: 'string',
+    labelKey: 'cfg.f.browser_fallbackProviders',
+    topKey: 'cfg.top.browser',
+    groupKey: 'cfg.group.login',
+  },
+  {
+    path: 'browser.fallbackMode',
+    type: 'enum',
+    values: ['ask', 'auto'],
+    labelKey: 'cfg.f.browser_fallbackMode',
+    topKey: 'cfg.top.browser',
+    groupKey: 'cfg.group.login',
+  },
+  {
     path: 'browser.loginTimeoutMs',
     type: 'number',
     min: 30_000,

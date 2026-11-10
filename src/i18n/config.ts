@@ -295,6 +295,14 @@ export const configMessages: Record<string, { ru: string; en: string }> = {
     ru: 'Сохранять сессию входа в профиле',
     en: 'Persist the login session in the profile',
   },
+  'cfg.f.browser_fallbackProviders': {
+    ru: 'Резервные провайдеры через запятую (id; задача продолжается на них после исчерпания лимита)',
+    en: 'Fallback providers, comma-separated (ids; a task continues on them once the limit is hit)',
+  },
+  'cfg.f.browser_fallbackMode': {
+    ru: 'Переключение на резерв: ask (спросить) | auto (без вопроса)',
+    en: 'Fallback switching: ask | auto',
+  },
 
   'cfg.title': { ru: 'Настройки zames', en: 'zames settings' },
   'cfg.usage': {

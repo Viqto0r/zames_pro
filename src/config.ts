@@ -153,7 +153,9 @@ export const DEFAULTS: ZamesConfig = {
     // N8: providers a task may CONTINUE on after the active one exhausted its
     // retries. Empty by default (off): a fallback is only used for an
     // AUTHORIZED provider (auth marker + a confirmed login), never a guest.
-    fallbackProviders: [] as string[],
+    // Comma-separated provider ids; a string (not an array) so the single
+    // `/config set` path can write it without a list syntax.
+    fallbackProviders: '',
     // `ask` (the default) asks the operator before switching; `auto` switches
     // without a prompt.
     fallbackMode: 'ask' as 'ask' | 'auto',

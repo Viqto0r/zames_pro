@@ -70,10 +70,11 @@ export interface BrowserConfig {
   passwordStore: 'none' | 'keychain' | 'config'
   /**
    * Providers a task may CONTINUE on after the active one exhausted its
-   * retries. Empty (default) = off. Only an AUTHORIZED provider (auth marker
-   * plus a confirmed login) is used — never a guest session.
+   * retries, comma-separated ids. Empty (default) = off. Only an AUTHORIZED
+   * provider (auth marker plus a confirmed login) is used — never a guest
+   * session.
    */
-  fallbackProviders: string[]
+  fallbackProviders: string
   /** `ask` = confirm with the operator before switching; `auto` = switch. */
   fallbackMode: 'ask' | 'auto'
   answerTimeoutMs: number
