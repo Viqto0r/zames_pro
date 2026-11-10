@@ -167,9 +167,9 @@ sign-in, zames:
 1. reuses the session stored in the persistent profile
    (`~/.zames/profile`, `~/.zames/qwen-profile` or `~/.zames/glm-profile`)
    if it is still valid;
-2. otherwise signs in automatically with the saved credentials
-   (`browser.auth.username` / `browser.auth.password` for DeepSeek,
-   `qwen.auth.*` / `glm.auth.*` for the others);
+2. otherwise signs in automatically with the saved credentials — the
+   `browser.auth.*` pair for DeepSeek, `qwen.auth.*` / `glm.auth.*` for the
+   others (`saveSession` exists only on `browser.auth`);
 3. otherwise opens a **visible browser window** so YOU sign in there — a
    captcha (DeepSeek and z.ai both use one) cannot be typed into a terminal.
    zames notices the sign-in and returns to headless; the credentials you
@@ -193,7 +193,9 @@ zames strips that marker before loading the page (keeping the real engine
 version). You do not need `--headed` just to log in.
 
 Credentials and toggles can also be edited from `/config`
-(`browser.auth.username`, `browser.auth.password`, `browser.auth.saveSession`).
+(`browser.auth.username`, `browser.auth.password`, `browser.auth.saveSession`;
+for Qwen and GLM — `qwen.auth.username` / `qwen.auth.password` and the same pair
+under `glm.auth`).
 
 ## Switching providers (DeepSeek / Qwen / GLM)
 
@@ -637,8 +639,9 @@ zames не вызывает API модели. Он запускает headless C
 1. переиспользует сессию из постоянного профиля
    (`~/.zames/profile`, `~/.zames/qwen-profile` или `~/.zames/glm-profile`),
    если она ещё валидна;
-2. иначе входит автоматически по сохранённым учётным данным
-   (`browser.auth.*` у DeepSeek, `qwen.auth.*` / `glm.auth.*` у остальных);
+2. иначе входит автоматически по сохранённым учётным данным — пара
+   `browser.auth.*` у DeepSeek, `qwen.auth.*` / `glm.auth.*` у остальных
+   (`saveSession` есть только у `browser.auth`);
 3. иначе открывает **видимое окно браузера**, чтобы вы вошли сами — капчу
    (она есть и у DeepSeek, и у z.ai) в терминал не ввести. zames замечает
    вход и возвращается в headless; введённые вами учётные данные сохраняются
@@ -662,7 +665,9 @@ Headless работает из коробки: headless Chrome обычно пр
 версию движка). `--headed` нужен не только ради входа.
 
 Учётные данные и переключатели можно также править из `/config`
-(`browser.auth.username`, `browser.auth.password`, `browser.auth.saveSession`).
+(`browser.auth.username`, `browser.auth.password`, `browser.auth.saveSession`;
+для Qwen и GLM — `qwen.auth.username` / `qwen.auth.password` и та же пара
+в `glm.auth`).
 
 ## Переключение провайдера (DeepSeek / Qwen / GLM)
 

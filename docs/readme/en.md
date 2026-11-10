@@ -146,9 +146,9 @@ sign-in, zames:
 1. reuses the session stored in the persistent profile
    (`~/.zames/profile`, `~/.zames/qwen-profile` or `~/.zames/glm-profile`)
    if it is still valid;
-2. otherwise signs in automatically with the saved credentials
-   (`browser.auth.username` / `browser.auth.password` for DeepSeek,
-   `qwen.auth.*` / `glm.auth.*` for the others);
+2. otherwise signs in automatically with the saved credentials — the
+   `browser.auth.*` pair for DeepSeek, `qwen.auth.*` / `glm.auth.*` for the
+   others (`saveSession` exists only on `browser.auth`);
 3. otherwise opens a **visible browser window** so YOU sign in there — a
    captcha (DeepSeek and z.ai both use one) cannot be typed into a terminal.
    zames notices the sign-in and returns to headless; the credentials you
@@ -172,7 +172,9 @@ zames strips that marker before loading the page (keeping the real engine
 version). You do not need `--headed` just to log in.
 
 Credentials and toggles can also be edited from `/config`
-(`browser.auth.username`, `browser.auth.password`, `browser.auth.saveSession`).
+(`browser.auth.username`, `browser.auth.password`, `browser.auth.saveSession`;
+for Qwen and GLM — `qwen.auth.username` / `qwen.auth.password` and the same pair
+under `glm.auth`).
 
 ## Switching providers (DeepSeek / Qwen / GLM)
 

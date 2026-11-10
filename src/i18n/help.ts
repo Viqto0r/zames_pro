@@ -40,7 +40,7 @@ export const helpMessages: Record<string, { ru: string; en: string }> = {
   },
   'help.opt.provider': {
     ru: 'выбрать провайдера чата на этот запуск (deepseek | qwen | glm; сохраняется в конфиг)',
-    en: 'select the chat provider for this run (deepseek | qwen | glm; saved to the config)',
+    en: 'select the chat provider for this run (deepseek | qwen | glm)',
   },
   'help.opt.debug': { ru: 'подробный лог', en: 'verbose log' },
   'help.opt.dev': {

@@ -155,8 +155,9 @@ zames не вызывает API модели. Он запускает headless C
 1. переиспользует сессию из постоянного профиля
    (`~/.zames/profile`, `~/.zames/qwen-profile` или `~/.zames/glm-profile`),
    если она ещё валидна;
-2. иначе входит автоматически по сохранённым учётным данным
-   (`browser.auth.*` у DeepSeek, `qwen.auth.*` / `glm.auth.*` у остальных);
+2. иначе входит автоматически по сохранённым учётным данным — пара
+   `browser.auth.*` у DeepSeek, `qwen.auth.*` / `glm.auth.*` у остальных
+   (`saveSession` есть только у `browser.auth`);
 3. иначе открывает **видимое окно браузера**, чтобы вы вошли сами — капчу
    (она есть и у DeepSeek, и у z.ai) в терминал не ввести. zames замечает
    вход и возвращается в headless; введённые вами учётные данные сохраняются
@@ -180,7 +181,9 @@ Headless работает из коробки: headless Chrome обычно пр
 версию движка). `--headed` нужен не только ради входа.
 
 Учётные данные и переключатели можно также править из `/config`
-(`browser.auth.username`, `browser.auth.password`, `browser.auth.saveSession`).
+(`browser.auth.username`, `browser.auth.password`, `browser.auth.saveSession`;
+для Qwen и GLM — `qwen.auth.username` / `qwen.auth.password` и та же пара
+в `glm.auth`).
 
 ## Переключение провайдера (DeepSeek / Qwen / GLM)
 
