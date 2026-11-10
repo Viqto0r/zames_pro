@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.96.24] - 2026-11-10
+
 ### Fixed
 
 - **prompt:** do not echo a newline when Ctrl+C aborts the prompt

@@ -7,15 +7,16 @@ alt_url: /changelog-ru.html
 changelog: true
 ---
 <div class="wrap" markdown="1">
-<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 319)</p>
+<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 320)</p>
 <nav class="changelog-jump" aria-label="Jump to a version">
 <details class="ch-jump-year" open><summary><span class="ch-jump-label">Earlier</span><span class="ch-jump-count">1</span></summary>
 <div class="ch-jump-links">
 <a href="#vUnreleased"><span>Unreleased</span></a>
 </div>
 </details>
-<details class="ch-jump-year" open><summary><span class="ch-jump-label">2026</span><span class="ch-jump-count">318</span></summary>
+<details class="ch-jump-year" open><summary><span class="ch-jump-label">2026</span><span class="ch-jump-count">319</span></summary>
 <div class="ch-jump-links">
+<a href="#v2.96.24"><span>v2.96.24</span><time datetime="2026-11-10">2026-11-10</time></a>
 <a href="#v2.96.23"><span>v2.96.23</span><time datetime="2026-11-10">2026-11-10</time></a>
 <a href="#v2.96.22"><span>v2.96.22</span><time datetime="2026-11-10">2026-11-10</time></a>
 <a href="#v2.96.21"><span>v2.96.21</span><time datetime="2026-11-08">2026-11-08</time></a>
@@ -339,6 +340,10 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
+<p class="ch-empty">—</p>
+</details>
+<details class="ch-release" id="v2.96.24" open>
+<summary><header><h2>v2.96.24</h2><time datetime="2026-11-10">2026-11-10</time></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
 <li><strong>prompt:</strong> do not echo a newline when Ctrl+C aborts the prompt</li>
@@ -358,7 +363,7 @@ changelog: true
 <li><strong>release:</strong> stamp date-released in CITATION.cff on every release</li>
 </ul></section>
 </details>
-<details class="ch-release" id="v2.96.22" open>
+<details class="ch-release" id="v2.96.22">
 <summary><header><h2>v2.96.22</h2><time datetime="2026-11-10">2026-11-10</time></header></summary>
 <section class="ch-group"><h3>Added</h3>
 <ul>
