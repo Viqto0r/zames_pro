@@ -194,8 +194,8 @@ export const deepseekMessages: Record<string, { ru: string; en: string }> = {
     en: '🔐 DeepSeek requires a verification code. Requested a code to {v} — check your inbox.',
   },
   'auth.mfa_prompt': {
-    ru: 'Код из письма: ',
-    en: 'Code from the email: ',
+    ru: 'Код из письма',
+    en: 'Code from the email',
   },
   'auth.mfa_failed': {
     ru: 'Код подтверждения не принят: {v}',

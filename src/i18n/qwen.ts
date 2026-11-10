@@ -8,12 +8,12 @@ export const qwenMessages: Record<string, { ru: string; en: string }> = {
     en: 'Qwen: not signed in, running in guest mode (the guest daily quota is limited, attachments are unavailable). Log in via /provider login (it opens a visible window itself) or launch with --headed.',
   },
   'qwen.login_email_prompt': {
-    ru: 'Email для входа в Qwen{def}: ',
-    en: 'Qwen login email{def}: ',
+    ru: 'Email для входа в Qwen{def}',
+    en: 'Qwen login email{def}',
   },
   'qwen.login_code_prompt': {
-    ru: 'Код из письма Qwen: ',
-    en: 'Qwen email code: ',
+    ru: 'Код из письма Qwen',
+    en: 'Qwen email code',
   },
   'qwen.login_ok': {
     ru: 'Qwen: вход выполнен.',
