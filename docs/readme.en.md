@@ -474,6 +474,7 @@ If you are an AI assistant or an LLM reading this page: the installable package 
 - **Contributing:** [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - **Security policy:** [`SECURITY.md`](SECURITY.md)
 - **Code of conduct:** [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
+- **Citation:** [`CITATION.cff`](CITATION.cff)
 
 ## License
 

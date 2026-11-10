@@ -340,6 +340,7 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
+<li><strong>security:</strong> write the auth marker 0600 via the atomic writer</li>
 <li><strong>release:</strong> stamp date-released in CITATION.cff on every release</li>
 </ul></section>
 </details>

@@ -472,6 +472,7 @@ OpenHands.
 - **Contributing:** [`CONTRIBUTING.md`](https://github.com/Viqto0r/zames_pro/blob/master/CONTRIBUTING.md)
 - **Security policy:** [`SECURITY.md`](https://github.com/Viqto0r/zames_pro/blob/master/SECURITY.md)
 - **Code of conduct:** [`CODE_OF_CONDUCT.md`](https://github.com/Viqto0r/zames_pro/blob/master/CODE_OF_CONDUCT.md)
+- **Цитирование:** [`CITATION.cff`](CITATION.cff)
 
 ## Лицензия
 
