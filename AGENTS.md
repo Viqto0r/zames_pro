@@ -231,7 +231,7 @@ When a change touches one concern, start in the module that owns it:
   it becomes a parent-context tool result.
 - `src/net-capture.ts` — parse the raw SSE/JSON the model sends (answer text,
   token counter, truncation/no-answer/rate-limit detection).
-- `src/i18n.ts` — the localized `CATALOG` (ru/en) for everything the operator
+- `src/i18n.ts` — assembles the localized `CATALOG` (ru/en) for everything the operator
   sees; `src/input.ts` and `src/spinner.ts` read labels from it.
 - `src/input.ts` — the custom `LineEditor` (permanent input line, status above,
   paste/attachments, history, slash hints). `src/spinner.ts` is the non-TTY
@@ -606,9 +606,10 @@ throw), `browser.maxIncompleteRetries`/`incompleteWaitMs` (4 / 2000ms) and
 `browser.maxContextLimitRetries`. The `quasi_status` family, Continue and the
 "Length limit reached" recovery are described in DESIGN-NOTES.
 
-### Localization (src/i18n.ts)
+### Localization (src/i18n.ts + src/i18n/*.ts)
 
-`Locale = 'ru' | 'en'`; strings live in `CATALOG` (`key → {ru, en}`) and are
+`Locale = 'ru' | 'en'`; the per-section files under `src/i18n/` hold the
+strings and `src/i18n.ts` assembles them into `CATALOG` (`key → {ru, en}`),
 read via `translate(locale)(key, params)`. Localized: help, «/» hints, service
 messages, `/status`, `/config`, spinner phrases, and the agent's answer
 language (`prompt.answer_language` in the system prompt). A new operator string

@@ -185,9 +185,10 @@ skipped, `feat`->Added, `fix`->Fixed, `perf`/`refactor`/`style`/`revert`->Change
 
 ## Refactoring the big modules
 
-The core modules grew large: `index.ts` ~4.9k lines, `browser.ts` ~3.3k,
-`input.ts` ~2.2k, `commands.ts` ~1.6k, `agent-loop.ts` ~1.6k. The i18n CATALOG
-has already been split into `src/i18n/*.ts` (~2.6k lines), so `i18n.ts` is
+The core modules grew large: `index.ts` ~5.5k lines, `browser.ts` ~3.6k,
+`input.ts` ~2.2k, `qwen-browser.ts` ~2.5k, `glm-browser.ts` ~2.2k,
+`commands.ts` ~1.7k, `agent-loop.ts` ~1.9k. The i18n CATALOG
+has already been split into `src/i18n/*.ts` (~2.5k lines), so `i18n.ts` is
 no longer a candidate. Break the rest up GRADUALLY — one module per step, never
 a big-bang refactor. (Re-check the real numbers with `wc -l src/*.ts` — the
 values here drift.)
