@@ -63,11 +63,12 @@ function visWidth(s: string): number {
  * longer than the width wraps (Ink uses hard wrapping for these rows). An
  * empty line still takes one row.
  *
- * `floor` gives the UNDER-estimate used to RESERVE the log viewport height;
- * the exact `ceil` is what the content really renders, so the two together let
- * the log box take the slack (see FullScreenApp) without ever overflowing —
- * an overflow is what pushed the input rows below the terminal and left the
- * caret drifting under the box on a short terminal.
+ * `floor` gives the UNDER-estimate: a line wider than `cols` but shorter than
+ * `2 * cols` is counted as ONE row instead of two. The exact `ceil` is what
+ * the content really renders. NOTE: no caller passes 'floor' today
+ * (FullScreenApp reserves the viewport with `fullScreenLayout`, which does
+ * not depend on the log), so this is a helper kept for a caller that wants a
+ * conservative reservation.
  */
 export function entryRows(
   entry: LogEntry,
