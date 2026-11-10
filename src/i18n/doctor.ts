@@ -90,8 +90,8 @@ export const doctorMessages: Record<string, { ru: string; en: string }> = {
   'msg.queue_empty': { ru: 'Очередь пуста.', en: 'The queue is empty.' },
   'msg.queue_cleared': { ru: 'Очередь очищена.', en: 'Queue cleared.' },
   'msg.queue_usage': {
-    ru: 'Использование: /queue [clear]',
-    en: 'Usage: /queue [clear]',
+    ru: 'Использование: /queue [list|ls|clear|c|clean]',
+    en: 'Usage: /queue [list|ls|clear|c|clean]',
   },
   'msg.queue_cleared_hint': {
     ru: 'Очистить: /queue clear',
