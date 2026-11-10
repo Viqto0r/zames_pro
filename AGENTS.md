@@ -688,9 +688,9 @@ when you touch that provider; GLM needs `--headed`).
 - `npm run changelog:sync|check` — derive/verify the Unreleased section (CI
   enforces `check`; see DEVELOPING.md)
 - Run: `npm start` (dist) or `npm run dev` (tsx over src/, HEADED)
-- Temp dirs in tests MUST come from `test/tmp-dir.ts` (`makeTmpDir`), which
-  registers cleanup: abandoned `zames-*` dirs inside WSL's ext4.vhdx never
-  return their space.
+- Temp dirs in tests MUST come from `test/tmp-dir.ts` (`makeTmpDir` /
+  `makeTmpDirSync`), which registers cleanup: abandoned `zames-*` dirs inside
+  WSL's ext4.vhdx never return their space.
 
 ## TypeScript
 
