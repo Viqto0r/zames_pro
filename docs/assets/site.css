@@ -1249,16 +1249,60 @@ pre .copy-btn.copied {
 
 .changelog-jump {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  max-height: 190px;
-  overflow-y: auto;
+  flex-direction: column;
+  gap: 4px;
   margin: 0 0 28px;
-  padding: 12px;
+  padding: 8px 12px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--bg-soft);
   font-size: 13px;
+}
+
+/* A year is a folded <details>: 316 versions in one flat list is exactly the
+   endless pill wall the grouping exists to remove. The links inside keep the
+   pill look, so an opened year reads like the old list. */
+.ch-jump-year > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 2px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.ch-jump-year > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ch-jump-year > summary::before {
+  content: '▸';
+  color: var(--muted);
+  font-size: 11px;
+  transition: transform 0.15s ease;
+}
+
+.ch-jump-year[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.ch-jump-count {
+  margin-left: auto;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border) 60%, transparent);
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.ch-jump-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 0 10px 20px;
 }
 
 .changelog-jump a {

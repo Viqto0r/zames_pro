@@ -32,6 +32,16 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 // folded into a <details>, because 294 open sections bury the latest release.
 const OPEN_RELEASES = 3
 
+// The jump list is the ONLY way to reach an old version quickly, but 317 pills
+// are ~40 rows of chrome that push the first release off the screen. So the
+// list is grouped by YEAR (newest first) and a year starts collapsed unless it
+// holds an open release; the <details> keeps a JS-off visitor able to open one.
+const JUMP_OPEN_YEARS = 1
+
+function releaseAnchor(version: string): string {
+  return 'v' + version.replace(/[^A-Za-z0-9._-]/g, '-')
+}
+
 // The changelog pages are linked from the doc nav and the landing card grid;
 // the English one is the canonical URL and the Russian one its alternate.
 const PAGES: Record<Locale, string> = {
@@ -115,7 +125,7 @@ export function parseChangelog(text: string): Release[] {
 }
 
 function anchor(version: string): string {
-  return 'v' + version.replace(/[^A-Za-z0-9._-]/g, '-')
+  return releaseAnchor(version)
 }
 
 function renderRelease(
@@ -170,6 +180,78 @@ function renderRelease(
   )
 }
 
+function jumpEntry(r: Release): string {
+  const label =
+    r.version === 'Unreleased'
+      ? escapeHtml(r.version)
+      : 'v' + escapeHtml(r.version)
+  return (
+    '<a href="#' +
+    anchor(r.version) +
+    '"><span>' +
+    label +
+    '</span>' +
+    (r.date ? '<time datetime="' + r.date + '">' + r.date + '</time>' : '') +
+    '</a>'
+  )
+}
+
+// The jump list grouped by YEAR: a year with a release in the OPEN_RELEASES
+// window stays expanded, the rest fold into a <details>, so the page opens with
+// a handful of rows instead of 300 pills while every version stays one click
+// away (the anchors stay in the HTML for a crawler and a deep link).
+//
+// The groups are keyed by year and SORTED newest-first, not built in file
+// order: older CHANGELOG.md entries carry no date, and a file-order grouping
+// both split a year around one undated release and produced a second "Earlier"
+// group at the tail. An undated release joins the nearest dated group above it;
+// only a leading block of undated ones (Unreleased) gets its own group.
+function renderJump(releases: Release[], locale: Locale): string {
+  const groups: Array<{ year: string; entries: string[]; open: boolean }> = []
+  const byYear = (year: string) => groups.find((x) => x.year === year)
+  releases.forEach((r, i) => {
+    const year = r.date ? r.date.slice(0, 4) : ''
+    let g = year ? byYear(year) : groups[groups.length - 1]
+    if (!g) {
+      g = { year, entries: [], open: false }
+      groups.push(g)
+    }
+    g.entries.push(jumpEntry(r))
+    if (i < OPEN_RELEASES) g.open = true
+  })
+  groups.sort((a, b) => {
+    if (a.year === b.year) return 0
+    if (!a.year) return -1
+    if (!b.year) return 1
+    return a.year < b.year ? 1 : -1
+  })
+  const yearLabel = (year: string) =>
+    year || (locale === 'ru' ? 'Ранее' : 'Earlier')
+  return groups
+    .map((g, i) => {
+      const open = g.open || i < JUMP_OPEN_YEARS
+      return (
+        '<details class="ch-jump-year"' +
+        (open ? ' open' : '') +
+        '>' +
+        '<summary><span class="ch-jump-label">' +
+        escapeHtml(yearLabel(g.year)) +
+        '</span><span class="ch-jump-count">' +
+        g.entries.length +
+        '</span></summary>' +
+        NL +
+        '<div class="ch-jump-links">' +
+        NL +
+        g.entries.join(NL) +
+        NL +
+        '</div>' +
+        NL +
+        '</details>'
+      )
+    })
+    .join(NL)
+}
+
 function frontMatter(locale: Locale): string {
   const ui = siteUi(locale).changelog
   return [
@@ -199,25 +281,7 @@ export function buildChangelogPages(rootDir: string): {
     // The release count is printed, not counted by JS: a JS-off visitor and a
     // crawler see the same number. The jump list carries the date so a version
     // is findable by WHEN it shipped, not only by its number.
-    const jump = releases
-      .map((r) => {
-        const label =
-          r.version === 'Unreleased'
-            ? escapeHtml(r.version)
-            : 'v' + escapeHtml(r.version)
-        return (
-          '<a href="#' +
-          anchor(r.version) +
-          '"><span>' +
-          label +
-          '</span>' +
-          (r.date
-            ? '<time datetime="' + r.date + '">' + r.date + '</time>'
-            : '') +
-          '</a>'
-        )
-      })
-      .join(NL)
+    const jump = renderJump(releases, locale)
     return (
       frontMatter(locale) +
       '<div class="wrap" markdown="1">' +

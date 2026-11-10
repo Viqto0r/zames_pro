@@ -156,6 +156,10 @@
             >{{ site.ui.themes | default: 'Themes' }}</a
           >
           <a
+            href="{% if is_ru %}{{ '/changelog-ru' | relative_url }}{% else %}{{ '/changelog' | relative_url }}{% endif %}"
+            >{{ site.data.site_ui[page.lang].docsNav.changelog }}</a
+          >
+          <a
             href="{% if is_ru %}{{ '/ru/#install' | relative_url }}{% else %}{{ '/#install' | relative_url }}{% endif %}"
             >{{ site.ui.install | default: 'Install' }}</a
           >
