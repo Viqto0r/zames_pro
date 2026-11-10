@@ -5,7 +5,7 @@
 
 import React from 'react'
 import { Text, useWindowSize } from 'ink'
-import { truncateToWidth } from '../input/layout.js'
+import { truncateToWidth, visLen } from '../input/layout.js'
 
 // The color map lives in ui-colors.ts because it is DERIVED from the active
 // terminal palette and mutated in place on a /config theme switch. Re-exported
@@ -76,7 +76,7 @@ export function HintBar({
     const text = key + ' ' + label
     const sep = i > 0 ? '  ·  ' : ''
     // Measure in VISIBLE columns so a wide glyph is not undercounted.
-    const add = sep.length + text.length
+    const add = visLen(sep) + visLen(text)
     if (used + add > limit && chips.length) break
     used += add
     chips.push({ key, label, text })

@@ -161,3 +161,22 @@ test('the captured widgets carry no raw escape sequences', async () => {
   assert.equal(out, '‹ x ›')
   assert.ok(!out.includes(NL))
 })
+
+// The chip loop claims to measure in VISIBLE columns; it used UTF-16 lengths,
+// so a WIDE hint label (CJK) was undercounted and the row wrapped onto a
+// second line — the very thing this widget exists to prevent.
+test('HintBar keeps a WIDE chip row within maxCols', async () => {
+  const hints: Array<[string, string]> = [
+    ['A', '模型模型'],
+    ['B', '模型模型'],
+    ['C', '模型模型'],
+  ]
+  const text = await capture(
+    React.createElement(HintBar, { hints, maxCols: 20 }),
+  )
+  const firstLine = text.split(String.fromCharCode(10))[0]
+  assert.ok(
+    firstLine.length <= 22,
+    'row exceeded the budget: ' + JSON.stringify(firstLine),
+  )
+})
