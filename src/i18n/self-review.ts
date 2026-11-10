@@ -147,8 +147,8 @@ export const selfReviewMessages: Record<string, { ru: string; en: string }> = {
   'chats.not_created': { ru: 'Чат ещё не создан.', en: 'No chat created yet.' },
   'chats.history_title': { ru: 'Диалог чата:', en: 'Chat dialogue:' },
   'chats.history_near_limit': {
-    ru: '⚠ Контекст чата заполнен на {pct}% — рекомендую /compact.',
-    en: '⚠ The chat context is {pct}% full — /compact is recommended.',
+    ru: '⚠ Контекст чата заполнен на {pct}% (красная зона шкалы) — рекомендую /compact.',
+    en: '⚠ The chat context is {pct}% full (the red band of the gauge) — /compact is recommended.',
   },
   'chats.history_tokens': {
     ru: 'Контекст чата: ~{v} токенов',
