@@ -26,8 +26,10 @@ function LogRow({ entry }: { entry: LogEntry }): React.ReactElement {
     // A SINGLE <Text> with a colored prefix child is NOT enough: Ink renders a
     // multi-line string as-is, so the prefix appears on the FIRST line only
     // (the old comment claimed the opposite and the bug survived for that
-    // reason). The text is already hard-wrapped by the caller
-    // (wrapToWidth), so split it back into rows and draw the bar on each one.
+    // reason). The text is already hard-wrapped by the caller (`wrapToWidth`
+    // with `contentWidth() - 2`, i.e. the two columns of the `▌ ` bar), so
+    // split it back into rows and draw the bar on each one — the width budget
+    // must match the bar or a full-width row wraps AGAIN under it.
     const rows = String(entry.text ?? '').split(String.fromCharCode(10))
     return (
       <Box flexDirection="column">
