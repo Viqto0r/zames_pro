@@ -149,15 +149,21 @@ export function FullScreenApp({
   useInput((_input, key) => {
     const step = Math.max(1, Math.floor(logHeight / 2))
     const cur = store.getSnapshot().scroll
+    // The bound must be read LIVE too: `maxScroll` is captured by the
+    // once-bound useInput callback and goes stale as soon as the log grows or
+    // the terminal is resized — a PgUp after a new answer then stopped at the
+    // OLD limit and could not reach the top.
+    const live = store.getSnapshot()
+    const liveMax = Math.max(0, totalRows(live.log, cols) - logHeight)
     if (key.pageUp) {
-      store.set({ scroll: Math.min(maxScroll, cur + step) })
+      store.set({ scroll: Math.min(liveMax, cur + step) })
     } else if (key.pageDown) {
       store.set({ scroll: Math.max(0, cur - step) })
     } else if (state.edit.buf.length === 0 && (key.home || key.end)) {
       // Both the bare and the Ctrl-modified forms land here (Ink sets
       // key.end / key.home for either), so Ctrl+End / Ctrl+Home are a
       // reliable fallback on terminals that swallow the bare keys.
-      store.set({ scroll: key.home ? maxScroll : 0 })
+      store.set({ scroll: key.home ? liveMax : 0 })
     }
   })
 
