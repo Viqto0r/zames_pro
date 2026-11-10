@@ -7,15 +7,16 @@ alt_url: /changelog-ru.html
 changelog: true
 ---
 <div class="wrap" markdown="1">
-<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 318)</p>
+<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 319)</p>
 <nav class="changelog-jump" aria-label="Jump to a version">
 <details class="ch-jump-year" open><summary><span class="ch-jump-label">Earlier</span><span class="ch-jump-count">1</span></summary>
 <div class="ch-jump-links">
 <a href="#vUnreleased"><span>Unreleased</span></a>
 </div>
 </details>
-<details class="ch-jump-year" open><summary><span class="ch-jump-label">2026</span><span class="ch-jump-count">317</span></summary>
+<details class="ch-jump-year" open><summary><span class="ch-jump-label">2026</span><span class="ch-jump-count">318</span></summary>
 <div class="ch-jump-links">
+<a href="#v2.96.23"><span>v2.96.23</span><time datetime="2026-11-10">2026-11-10</time></a>
 <a href="#v2.96.22"><span>v2.96.22</span><time datetime="2026-11-10">2026-11-10</time></a>
 <a href="#v2.96.21"><span>v2.96.21</span><time datetime="2026-11-08">2026-11-08</time></a>
 <a href="#v2.96.20"><span>v2.96.20</span><time datetime="2026-11-06">2026-11-06</time></a>
@@ -338,8 +339,13 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
+<p class="ch-empty">—</p>
+</details>
+<details class="ch-release" id="v2.96.23" open>
+<summary><header><h2>v2.96.23</h2><time datetime="2026-11-10">2026-11-10</time></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
+<li><strong>tui:</strong> read the log scroll bound live in full-screen mode</li>
 <li><strong>tui:</strong> localize the elapsed timer in the status bar</li>
 <li><strong>config:</strong> expose browser.fallbackProviders in /config as a comma-separated string</li>
 <li><strong>security:</strong> write the auth marker 0600 via the atomic writer</li>
@@ -353,7 +359,7 @@ changelog: true
 <li><strong>site:</strong> fold the changelog jump list by year and link it from the header</li>
 </ul></section>
 </details>
-<details class="ch-release" id="v2.96.21" open>
+<details class="ch-release" id="v2.96.21">
 <summary><header><h2>v2.96.21</h2><time datetime="2026-11-08">2026-11-08</time></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
