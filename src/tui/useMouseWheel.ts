@@ -102,6 +102,9 @@ export function mouseModeSequences(enabled: boolean): {
   const reportingOn = ESC + '[?1000h' + ESC + '[?1006h'
   const reportingOff = ESC + '[?1006l' + ESC + '[?1000l'
   const alternateScrollOff = ESC + '[?1007l'
+  // Restores alternate-scroll on unmount. Full-screen mode is Ink's OWN
+  // alternate screen (render({alternateScreen})), which has no 1007 in it, so
+  // a stray wheel notch would become an arrow — the input-history bug.
   const alternateScrollOn = ESC + '[?1007h'
   if (enabled) {
     return {
