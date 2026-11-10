@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.96.22] - 2026-11-10
+
+### Added
+
+- **site:** fold the changelog jump list by year and link it from the header
+
 ## [2.96.21] - 2026-11-08
 
 ### Fixed
