@@ -94,6 +94,8 @@ export class TuiEditor {
   /** SIGWINCH handler installed while the app is mounted. */
   private onResize: (() => void) | null = null
   private resizeTimer: ReturnType<typeof setTimeout> | null = null
+  /** ZAMES_TUI_KEY_DEBUG stdin listener, installed once per mount. */
+  private keyDbgListener: ((d: Buffer) => void) | null = null
 
   constructor(opts: TuiEditorOptions = {}) {
     this.prompt = opts.prompt ?? '> '
@@ -184,10 +186,12 @@ export class TuiEditor {
     // DEV DIAGNOSTIC: dump every raw stdin chunk to a file so a terminal's
     // key encoding (e.g. Ctrl+Delete = ESC d in VSCode) can be captured from
     // the LIVE agent, not guessed. Off unless ZAMES_TUI_KEY_DEBUG names a
-    // file.
+    // file. The listener is kept so dispose() can remove it: a pause/resume
+    // remount (the /config menu) added ANOTHER one every time, each writing
+    // the same chunks to the file (duplicates in the dump).
     const keyDbg = process.env.ZAMES_TUI_KEY_DEBUG
     if (keyDbg) {
-      process.stdin.on('data', (d: Buffer) => {
+      this.keyDbgListener = (d: Buffer) => {
         try {
           fs.appendFileSync(
             keyDbg,
@@ -201,7 +205,8 @@ export class TuiEditor {
         } catch {
           /* ignore */
         }
-      })
+      }
+      process.stdin.on('data', this.keyDbgListener)
     }
     this.installResizeHandler()
     // Entries shown so far are now on screen; a later remount must not reprint
@@ -220,6 +225,10 @@ export class TuiEditor {
     if (this.instance) {
       this.instance.unmount()
       this.instance = null
+    }
+    if (this.keyDbgListener) {
+      process.stdin.removeListener('data', this.keyDbgListener)
+      this.keyDbgListener = null
     }
     if (this.badgeTimer) {
       clearInterval(this.badgeTimer)
