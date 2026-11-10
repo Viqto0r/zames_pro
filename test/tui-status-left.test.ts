@@ -147,3 +147,26 @@ test('a WIDE badge is measured by display width, not UTF-16 units', () => {
   const wide = state({ provider: '模型' })
   assert.equal(badgeTextWidth(wide), '['.length + 4 + '] '.length)
 })
+
+// The elapsed timer under the spinner used to be built by hand with a
+// hardcoded "m"/"s", so a Russian UI showed "1m 05s" next to localized labels.
+// It now goes through formatDuration + t('dur.*'), the same helper the
+// per-task summary uses.
+test('the elapsed timer uses the localized duration units', () => {
+  const tRu = translate('ru')
+  const s = state({
+    busy: true,
+    animBase: 'Думаю',
+    animStart: Date.now() - 65_000,
+    locale: 'ru',
+  })
+  const line = statusLeftText(s, tRu)
+  assert.match(line, /1\u043c 05\u0441/, line)
+  const sEn = state({
+    busy: true,
+    animBase: 'Thinking',
+    animStart: Date.now() - 65_000,
+    locale: 'en',
+  })
+  assert.match(statusLeftText(sEn, t), /1m 05s/)
+})

@@ -13,16 +13,25 @@ import { translate, type Locale } from '../i18n.js'
 import { screenInnerCols } from '../input/layout.js'
 import { DOTS, stripEllipsis } from '../spinner.js'
 import { UI, type UiColors } from './ui-colors.js'
+import { formatDuration } from '../commands.js'
 import { truncateToWidth, visLen } from '../input/layout.js'
 import type { TuiState } from './store.js'
 
-/** Elapsed seconds of the current animated phase ("0s", "45s", "2m 05s"). */
-function elapsedLabel(startedAt: number, animating: boolean): string {
+/** Elapsed seconds of the current animated phase ("0s", "45s", "2m 05s").
+ *  LOCALIZED units: `formatDuration`/`t('dur.*')` is what the per-task summary
+ *  uses, so a Russian UI must not show a hardcoded "m"/"s" here. */
+function elapsedLabel(
+  startedAt: number,
+  animating: boolean,
+  locale: Locale,
+): string {
   if (!animating || !startedAt) return ''
-  const sec = Math.floor((Date.now() - startedAt) / 1000)
-  const m = Math.floor(sec / 60)
-  const s = sec % 60
-  const text = m > 0 ? m + 'm ' + String(s).padStart(2, '0') + 's' : s + 's'
+  const ms = Math.max(0, Date.now() - startedAt)
+  const text = formatDuration(ms, {
+    h: translate(locale)('dur.h'),
+    m: translate(locale)('dur.m'),
+    s: translate(locale)('dur.s'),
+  })
   return ' · ' + text
 }
 
@@ -59,7 +68,7 @@ export function statusLeftText(
       stripEllipsis(state.animBase) +
       dots +
       pad +
-      elapsedLabel(state.animStart, animating) +
+      elapsedLabel(state.animStart, animating, state.locale) +
       '  ·  ' +
       t('spinner.hint')
   } else if (state.statusText) {
