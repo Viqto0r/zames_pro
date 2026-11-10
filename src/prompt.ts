@@ -149,8 +149,11 @@ export async function promptOnce(question: string): Promise<string> {
           continue
         }
         if (code === 3) {
-          // Ctrl+C — abort input.
-          return finish('', true)
+          // Ctrl+C — abort input: resolve with an EMPTY line and do NOT echo a
+          // newline (`submit=false`). The caller reads '' as "the operator
+          // cancelled"; echoing a newline here made the aborted prompt look
+          // like it had been submitted.
+          return finish('', false)
         }
         if (code === 4) {
           // Ctrl+D — like submitting an empty line.
