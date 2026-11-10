@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **tui:** measure hint chips in visible columns
+
 ## [2.96.23] - 2026-11-10
 
 ### Fixed

@@ -95,7 +95,9 @@ export function ConfirmDialog({
       <HintBar
         hints={[
           ['←/→', t('tui.hint.select')],
-          ['Enter', t('tui.hint.ok')],
+          // Enter CONFIRMS the focused button, not "ok" of a value — the label
+          // must say which button it will pick (the focus starts on "no").
+          ['Enter', t('tui.hint.confirm')],
           ['y/n', ''],
         ]}
       />
