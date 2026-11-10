@@ -43,9 +43,9 @@ body:
     attributes:
       label: Relevant logs
       description: |
-        Paste any error output. The transcript path is printed when zames
-        exits and is available at any time via `/transcript` (one file per
-        run, under `~/.zames/logs`).
+        Paste any error output. The transcript path is shown when zames
+        starts and in the exit summary, and is available at any time via
+        `/transcript` (one file per run, under `~/.zames/logs`).
         IMPORTANT: remove credentials and personal data before pasting.
     validations:
       required: false
