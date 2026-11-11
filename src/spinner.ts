@@ -82,7 +82,10 @@ export function createSpinner(locale: Locale = DEFAULT_LOCALE): SpinnerUI {
       dotTimer = null
     }
     animating = false
-    if (spinner) spinner.stop()
+    if (spinner) {
+      spinner.stop()
+      spinner = null
+    }
   }
 
   // Hint in the status line: while the agent works the terminal is live,
@@ -120,7 +123,19 @@ export function createSpinner(locale: Locale = DEFAULT_LOCALE): SpinnerUI {
     }
   }
 
+  // ora keeps a stream reference captured at construction and renders on
+  // start(); a `start()` on an already-spinning instance is a NO-OP, so the
+  // first frame of a new phase must own a fresh instance (otherwise the old
+  // text, e.g. the operator's draft, stayed on screen until the next tick).
+  const dropSpinner = () => {
+    if (spinner) {
+      spinner.stop()
+      spinner = null
+    }
+  }
+
   const startAnimated = (baseText: string) => {
+    dropSpinner()
     animBase = theme.brown(stripEllipsis(baseText))
     animStart = Date.now()
     start(animBase + renderDots(0) + elapsedLabel() + tasksBadge() + HINT)
@@ -149,9 +164,8 @@ export function createSpinner(locale: Locale = DEFAULT_LOCALE): SpinnerUI {
       dotTimer = null
     }
     animating = false
-    if (!spinner) spinner = ora('')
-    spinner.start()
-    spinner.text = theme.prompt('✎ ') + pending + HINT
+    dropSpinner()
+    spinner = ora(theme.prompt('✎ ') + pending + HINT).start()
   }
 
   return {

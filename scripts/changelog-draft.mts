@@ -75,12 +75,16 @@ const manualUnreleased = (current: string, drafted: string): string => {
   const rest = current.slice(idx + anchor.length)
   const next = rest.search(/\n## \[/)
   const section = next < 0 ? rest : rest.slice(0, next)
-  const draftedLines = new Set(
-    drafted
-      .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean),
-  )
+  // A drafted bullet is a PREFIX of a hand-written one (`- **spinner:** X`
+  // vs `- **spinner:** X, so Y`): a Set membership test cannot see that and
+  // kept the manual copy, which then rendered as a SECOND bullet for the same
+  // change. Dedupe by prefix in BOTH directions.
+  const draftedBullets = drafted
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.startsWith('- '))
+  const isDrafted = (line: string): boolean =>
+    draftedBullets.some((d) => line.startsWith(d) || d.startsWith(line))
   const keep: string[] = []
   let group = ''
   for (const raw of section.split('\n')) {
@@ -90,7 +94,7 @@ const manualUnreleased = (current: string, drafted: string): string => {
       continue
     }
     if (!line.startsWith('- ')) continue
-    if (draftedLines.has(line)) continue
+    if (isDrafted(line)) continue
     keep.push(line + '\u0000' + group)
   }
   if (!keep.length) return ''
