@@ -670,12 +670,31 @@ pre code {
   letter-spacing: -0.025em;
 }
 
+/* A section rule separates two REAL sections of a long doc page. It must not
+   draw a line above the FIRST h2 (the one right under the title/lead/nav, where
+   it only duplicates the top edge) nor inside a folded changelog release, where
+   every <summary> h2 would get its own rule. */
 .doc h2 {
   margin: 40px 0 12px;
   padding-top: 14px;
   border-top: 1px solid var(--border);
   font-size: 23px;
   letter-spacing: -0.015em;
+}
+
+.doc h1 + h2,
+.doc .doc-lead + h2,
+.doc .doc-nav-top + h2 {
+  margin-top: 24px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* A release header inside a changelog <details> is not a document section. */
+.ch-release > summary h2 {
+  margin: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 
 .doc h3 {
@@ -1315,7 +1334,8 @@ pre .copy-btn.copied {
   color: var(--muted);
   /* A version is a value, not prose: the mono face makes v2.95.5 and v2.95.4
      distinguishable at a glance. */
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 }
 
 .changelog-jump a:hover {
@@ -1366,7 +1386,8 @@ pre .copy-btn.copied {
 .ch-release > summary h2 {
   margin: 0;
   font-size: 17px;
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
   font-weight: 650;
 }
 

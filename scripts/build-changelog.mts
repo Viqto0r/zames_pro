@@ -34,9 +34,11 @@ const OPEN_RELEASES = 3
 
 // The jump list is the ONLY way to reach an old version quickly, but 317 pills
 // are ~40 rows of chrome that push the first release off the screen. So the
-// list is grouped by YEAR (newest first) and a year starts collapsed unless it
-// holds an open release; the <details> keeps a JS-off visitor able to open one.
-const JUMP_OPEN_YEARS = 1
+// list is grouped by YEAR (newest first) and EVERY year starts COLLAPSED: the
+// page used to open with both groups expanded, which put the whole 320-pill
+// wall on screen and made the grouping pointless. The <details> keeps a
+// JS-off visitor able to open one, and the version anchors stay in the HTML
+// for a crawler and a deep link.
 
 function releaseAnchor(version: string): string {
   return 'v' + version.replace(/[^A-Za-z0-9._-]/g, '-')
@@ -196,10 +198,12 @@ function jumpEntry(r: Release): string {
   )
 }
 
-// The jump list grouped by YEAR: a year with a release in the OPEN_RELEASES
-// window stays expanded, the rest fold into a <details>, so the page opens with
-// a handful of rows instead of 300 pills while every version stays one click
-// away (the anchors stay in the HTML for a crawler and a deep link).
+// The jump list grouped by YEAR: every year folds into a collapsed <details>,
+// so the page opens with a couple of year rows instead of 320 pills while
+// every version stays one click away (the anchors stay in the HTML for a
+// crawler and a deep link). Collapsed by DEFAULT, not only for the older years:
+// an expanded newest year put its whole 319-pill list on screen and buried the
+// first release below it.
 //
 // The groups are keyed by year and SORTED newest-first, not built in file
 // order: older CHANGELOG.md entries carry no date, and a file-order grouping
@@ -207,17 +211,16 @@ function jumpEntry(r: Release): string {
 // group at the tail. An undated release joins the nearest dated group above it;
 // only a leading block of undated ones (Unreleased) gets its own group.
 function renderJump(releases: Release[], locale: Locale): string {
-  const groups: Array<{ year: string; entries: string[]; open: boolean }> = []
+  const groups: Array<{ year: string; entries: string[] }> = []
   const byYear = (year: string) => groups.find((x) => x.year === year)
-  releases.forEach((r, i) => {
+  releases.forEach((r) => {
     const year = r.date ? r.date.slice(0, 4) : ''
     let g = year ? byYear(year) : groups[groups.length - 1]
     if (!g) {
-      g = { year, entries: [], open: false }
+      g = { year, entries: [] }
       groups.push(g)
     }
     g.entries.push(jumpEntry(r))
-    if (i < OPEN_RELEASES) g.open = true
   })
   groups.sort((a, b) => {
     if (a.year === b.year) return 0
@@ -228,12 +231,9 @@ function renderJump(releases: Release[], locale: Locale): string {
   const yearLabel = (year: string) =>
     year || (locale === 'ru' ? 'Ранее' : 'Earlier')
   return groups
-    .map((g, i) => {
-      const open = g.open || i < JUMP_OPEN_YEARS
+    .map((g) => {
       return (
-        '<details class="ch-jump-year"' +
-        (open ? ' open' : '') +
-        '>' +
+        '<details class="ch-jump-year">' +
         '<summary><span class="ch-jump-label">' +
         escapeHtml(yearLabel(g.year)) +
         '</span><span class="ch-jump-count">' +

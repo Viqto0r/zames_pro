@@ -9,12 +9,12 @@ changelog: true
 <div class="wrap" markdown="1">
 <p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 320)</p>
 <nav class="changelog-jump" aria-label="Jump to a version">
-<details class="ch-jump-year" open><summary><span class="ch-jump-label">Earlier</span><span class="ch-jump-count">1</span></summary>
+<details class="ch-jump-year"><summary><span class="ch-jump-label">Earlier</span><span class="ch-jump-count">1</span></summary>
 <div class="ch-jump-links">
 <a href="#vUnreleased"><span>Unreleased</span></a>
 </div>
 </details>
-<details class="ch-jump-year" open><summary><span class="ch-jump-label">2026</span><span class="ch-jump-count">319</span></summary>
+<details class="ch-jump-year"><summary><span class="ch-jump-label">2026</span><span class="ch-jump-count">319</span></summary>
 <div class="ch-jump-links">
 <a href="#v2.96.24"><span>v2.96.24</span><time datetime="2026-11-10">2026-11-10</time></a>
 <a href="#v2.96.23"><span>v2.96.23</span><time datetime="2026-11-10">2026-11-10</time></a>

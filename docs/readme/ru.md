@@ -54,7 +54,7 @@ zames                      # один раз войти, дальше прост
 - [Почему zames?](#почему-zames) · [Требования](#требования) · [Вход в аккаунт](#вход-в-аккаунт)
 - [Переключение провайдера (DeepSeek / Qwen / GLM)](#переключение-провайдера-deepseek--qwen--glm)
 - [Установка](#установка) · [Использование](#использование) · [FAQ](#faq)
-- Справочник: [Команды и инструменты](/zames_pro/commands-ru.html) · [MCP](/zames_pro/mcp-ru.html) · [Конфигурация и темы](/zames_pro/configuration-ru.html) · [Troubleshooting](/zames_pro/troubleshooting-ru.html) · [История изменений](https://viqto0r.github.io/zames_pro/changelog-ru.html)
+- Справочник: [Команды и инструменты](/zames_pro/commands-ru.html) · [MCP](/zames_pro/mcp-ru.html) · [Конфигурация и темы](/zames_pro/configuration-ru.html) · [Решение проблем](/zames_pro/troubleshooting-ru.html) · [История изменений](https://viqto0r.github.io/zames_pro/changelog-ru.html)
 - [Ключевые слова и аналоги](#ключевые-слова-и-аналоги) · [Ссылки](#ссылки) · [Лицензия](#лицензия)
 
 ## Как это работает
@@ -187,8 +187,8 @@ Headless работает из коробки: headless Chrome обычно пр
 
 ## Переключение провайдера (DeepSeek / Qwen / GLM)
 
-zames умеет работать с **DeepSeek** (`chat.deepseek.com`, по умолчанию) и
-**Qwen** (`chat.qwen.ai`):
+zames умеет работать с **DeepSeek** (`chat.deepseek.com`, по умолчанию),
+**Qwen** (`chat.qwen.ai`) и **GLM** (`chat.z.ai`):
 
 ```bash
 /provider qwen      # переключиться на Qwen (сохраняется) — применяется сразу
@@ -467,11 +467,11 @@ OpenHands.
 
 - **npm:** <https://www.npmjs.com/package/zames_pro>
 - **GitHub:** <https://github.com/Viqto0r/zames_pro>
-- **Documentation site:** <https://viqto0r.github.io/zames_pro/>
-- **Changelog:** [`CHANGELOG.md`](https://github.com/Viqto0r/zames_pro/blob/master/CHANGELOG.md)
-- **Contributing:** [`CONTRIBUTING.md`](https://github.com/Viqto0r/zames_pro/blob/master/CONTRIBUTING.md)
-- **Security policy:** [`SECURITY.md`](https://github.com/Viqto0r/zames_pro/blob/master/SECURITY.md)
-- **Code of conduct:** [`CODE_OF_CONDUCT.md`](https://github.com/Viqto0r/zames_pro/blob/master/CODE_OF_CONDUCT.md)
+- **Сайт документации:** <https://viqto0r.github.io/zames_pro/>
+- **История изменений:** [`CHANGELOG.md`](https://github.com/Viqto0r/zames_pro/blob/master/CHANGELOG.md)
+- **Участие в разработке:** [`CONTRIBUTING.md`](https://github.com/Viqto0r/zames_pro/blob/master/CONTRIBUTING.md)
+- **Политика безопасности:** [`SECURITY.md`](https://github.com/Viqto0r/zames_pro/blob/master/SECURITY.md)
+- **Кодекс поведения:** [`CODE_OF_CONDUCT.md`](https://github.com/Viqto0r/zames_pro/blob/master/CODE_OF_CONDUCT.md)
 - **Цитирование:** [`CITATION.cff`](CITATION.cff)
 
 ## Лицензия

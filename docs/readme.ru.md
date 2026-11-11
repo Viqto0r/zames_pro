@@ -71,7 +71,7 @@ zames                      # один раз войти, дальше прост
 - [Почему zames?](#почему-zames) · [Требования](#требования) · [Вход в аккаунт](#вход-в-аккаунт)
 - [Переключение провайдера (DeepSeek / Qwen / GLM)](#переключение-провайдера-deepseek--qwen--glm)
 - [Установка](#установка) · [Использование](#использование) · [FAQ](#faq)
-- Справочник: [Команды и инструменты](docs/commands-ru.md) · [MCP](docs/mcp-ru.md) · [Конфигурация и темы](docs/configuration-ru.md) · [Troubleshooting](docs/troubleshooting-ru.md) · [История изменений](https://viqto0r.github.io/zames_pro/changelog-ru.html)
+- Справочник: [Команды и инструменты](docs/commands-ru.md) · [MCP](docs/mcp-ru.md) · [Конфигурация и темы](docs/configuration-ru.md) · [Решение проблем](docs/troubleshooting-ru.md) · [История изменений](https://viqto0r.github.io/zames_pro/changelog-ru.html)
 - [Ключевые слова и аналоги](#ключевые-слова-и-аналоги) · [Ссылки](#ссылки) · [Лицензия](#лицензия)
 
 ## Как это работает
@@ -206,8 +206,8 @@ Headless работает из коробки: headless Chrome обычно пр
 
 ## Переключение провайдера (DeepSeek / Qwen / GLM)
 
-zames умеет работать с **DeepSeek** (`chat.deepseek.com`, по умолчанию) и
-**Qwen** (`chat.qwen.ai`):
+zames умеет работать с **DeepSeek** (`chat.deepseek.com`, по умолчанию),
+**Qwen** (`chat.qwen.ai`) и **GLM** (`chat.z.ai`):
 
 ```bash
 /provider qwen      # переключиться на Qwen (сохраняется) — применяется сразу
@@ -486,11 +486,11 @@ OpenHands.
 
 - **npm:** <https://www.npmjs.com/package/zames_pro>
 - **GitHub:** <https://github.com/Viqto0r/zames_pro>
-- **Documentation site:** <https://viqto0r.github.io/zames_pro/>
-- **Changelog:** [`CHANGELOG.md`](CHANGELOG.md)
-- **Contributing:** [`CONTRIBUTING.md`](CONTRIBUTING.md)
-- **Security policy:** [`SECURITY.md`](SECURITY.md)
-- **Code of conduct:** [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
+- **Сайт документации:** <https://viqto0r.github.io/zames_pro/>
+- **История изменений:** [`CHANGELOG.md`](CHANGELOG.md)
+- **Участие в разработке:** [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- **Политика безопасности:** [`SECURITY.md`](SECURITY.md)
+- **Кодекс поведения:** [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
 - **Цитирование:** [`CITATION.cff`](CITATION.cff)
 
 ## Лицензия
