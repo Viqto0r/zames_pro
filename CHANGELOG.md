@@ -11,7 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **site:** fold changelog years by default, drop stray h2 rule, translate RU leftovers
+- **site:** the changelog jump list opens with every year folded, so 320 version
+  pills no longer bury the first release
+- **site:** no section rule above the first doc heading or inside a folded
+  changelog release
+- **docs:** translate the leftover English link labels and restore the missing
+  GLM mentions in the Russian pages
 
 ## [2.96.24] - 2026-11-10
 

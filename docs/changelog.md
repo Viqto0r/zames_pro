@@ -347,7 +347,9 @@ changelog: true
 <summary><header><h2>v2.96.25</h2><time datetime="2026-11-11">2026-11-11</time></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
-<li><strong>site:</strong> fold changelog years by default, drop stray h2 rule, translate RU leftovers</li>
+<li><strong>site:</strong> the changelog jump list opens with every year folded, so 320 version pills no longer bury the first release</li>
+<li><strong>site:</strong> no section rule above the first doc heading or inside a folded changelog release</li>
+<li><strong>docs:</strong> translate the leftover English link labels and restore the missing GLM mentions in the Russian pages</li>
 </ul></section>
 </details>
 <details class="ch-release" id="v2.96.24" open>
