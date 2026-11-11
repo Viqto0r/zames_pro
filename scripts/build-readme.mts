@@ -84,6 +84,41 @@ export function readmePageFrontMatter(lang: 'en' | 'ru'): string {
         : '"The full zames_pro overview: quick start, signing in, providers, usage, options and FAQ."'),
     'lang: ' + lang,
     'alt_url: ' + (isRu ? '/readme/en.html' : '/readme/ru.html'),
+    // The site-wide header/footer labels (docs/_layouts/default.html) come
+    // from a page-level `ui:` block, which falls back to site.ui. Without
+    // one the Russian README page printed the ENGLISH header and footer on
+    // a Russian page: the generated page needs its own translated block.
+    ...(isRu
+      ? [
+          'ui:',
+          '  features: Возможности',
+          '  how: Как это работает',
+          '  providers: Провайдеры',
+          '  why: Почему zames',
+          '  install: Установка',
+          '  menu: Меню',
+          '  themes: Темы',
+          '  theme_show_all: Показать все 29 тем',
+          '  theme_collapse: Свернуть темы',
+          '  disclaimer: >-',
+          '    Не связан с DeepSeek, Alibaba и Zhipu AI. Автоматизация сайта может',
+          '    нарушать его условия использования.',
+          '  project: Проект',
+          '  docs: Документация',
+          '  help: Помощь',
+          '  home: На главную',
+          '  nav_mcp: MCP',
+          '  nav_changelog: История изменений',
+          '  nav_contributing: Участие в разработке',
+          '  nav_issues: Обсудить проблемы',
+          '  nav_license: Лицензия MIT',
+          '  nav_readme: README',
+          '  label_theme_all: Все 29 цветовых тем',
+          '  footer_about: >-',
+          '    Бесплатный терминальный coding-агент с открытым кодом, работающий на вашем',
+          '    аккаунте веб-чата DeepSeek, Qwen или GLM — без API-ключа и оплаты за токены.',
+        ]
+      : []),
     '---',
     '',
   ].join(NL)

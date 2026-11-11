@@ -13,7 +13,9 @@ then the five light palettes arrive as white holes. {% endcomment %}
 <aside class="theme-showcase" id="themes">
   <div class="wrap">
     <div class="section-head">
-      <h2>{{ page.title }}</h2>
+      <h2>
+        {% if page.lang == 'ru' %}{{ site.ui.label_theme_all | default: 'Все 29 цветовых тем' }}{% else %}{{ site.ui.label_theme_all | default: 'All 29 color themes' }}{% endif %}
+      </h2>
       <p>{{ site.data.site_ui[page.lang].themes.legend }}</p>
     </div>
     {% comment %} The toggle starts hidden and is revealed by site.js, which is

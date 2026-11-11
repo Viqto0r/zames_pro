@@ -31,6 +31,13 @@ ui:
   docs: Documentation
   help: Help
   home: Home
+  nav_mcp: MCP
+  nav_changelog: Changelog
+  nav_contributing: Contributing
+  nav_issues: Issues
+  nav_license: MIT License
+  nav_readme: README
+  label_theme_all: All 29 color themes
   footer_about: >-
     A free, open-source terminal coding agent that runs on your own DeepSeek,
     Qwen or GLM web chat account — no API key, no per-token bill.

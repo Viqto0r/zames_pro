@@ -25,6 +25,13 @@ ui:
   footer_about: >-
     Бесплатный терминальный coding-агент с открытым кодом, работающий на вашем
     аккаунте веб-чата DeepSeek, Qwen или GLM — без API-ключа и оплаты за токены.
+  nav_mcp: MCP
+  nav_changelog: История изменений
+  nav_contributing: Участие в разработке
+  nav_issues: Обсудить проблемы
+  nav_license: Лицензия MIT
+  nav_readme: README
+  label_theme_all: Все 29 цветовых тем
 ---
 
 <section class="hero" id="top">

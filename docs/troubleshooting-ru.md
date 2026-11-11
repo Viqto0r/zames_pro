@@ -4,6 +4,33 @@ title: 'Решение проблем'
 description: 'Вход и капча, headless 403, рейт-лимиты и отсутствующие библиотеки Chromium в zames_pro.'
 lang: ru
 alt_url: /troubleshooting.html
+ui:
+  features: Возможности
+  how: Как это работает
+  providers: Провайдеры
+  why: Почему zames
+  install: Установка
+  menu: Меню
+  themes: Темы
+  theme_show_all: Показать все 29 тем
+  theme_collapse: Свернуть темы
+  disclaimer: >-
+    Не связан с DeepSeek, Alibaba и Zhipu AI. Автоматизация сайта может
+    нарушать его условия использования.
+  project: Проект
+  docs: Документация
+  help: Помощь
+  home: На главную
+  nav_mcp: MCP
+  nav_changelog: История изменений
+  nav_contributing: Участие в разработке
+  nav_issues: Обсудить проблемы
+  nav_license: Лицензия MIT
+  nav_readme: README
+  label_theme_all: Все 29 цветовых тем
+  footer_about: >-
+    Бесплатный терминальный coding-агент с открытым кодом, работающий на вашем
+    аккаунте веб-чата DeepSeek, Qwen или GLM — без API-ключа и оплаты за токены.
 ---
 
 <div class="wrap" markdown="1">

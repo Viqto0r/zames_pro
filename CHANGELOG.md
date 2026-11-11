@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **site:** translate the header and footer on every Russian page
+
 ## [2.96.25] - 2026-11-11
 
 ### Fixed

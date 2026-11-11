@@ -95,7 +95,12 @@
   </head>
   <body>
     {% assign is_ru = false %}{% if page.lang == 'ru' %}{% assign is_ru = true
-    %}{% endif %} {% comment %} The Russian and English pages live under
+    %}{% endif %} {% comment %} A page may carry its own `ui:` block
+    (the landing pages do) to translate the header/footer; every other
+    page falls back to the global ui. Without this fallback a
+    translated doc page (commands-ru, readme/ru) rendered EMPTY header and
+    footer labels, because `page.ui` is nil there. {% endcomment %}
+    {% assign ui = page.ui | default: site.ui %} {% comment %} The Russian and English pages live under
     DIFFERENT URLs (a Russian command page is /commands-ru.html, not
     /ru/commands.html), so the header and footer links are translated from the
     current page URL instead of being hardcoded per layout: `page_url` is the
@@ -127,33 +132,33 @@
           type="button"
           aria-controls="site-nav"
           aria-expanded="false"
-          aria-label="{{ site.ui.menu | default: 'Menu' }}"
+          aria-label="{{ ui.menu | default: 'Menu' }}"
         >
           <span></span><span></span><span></span>
         </button>
         <nav class="site-nav" id="site-nav">
           <a
             href="{% if is_ru %}{{ '/ru/' | relative_url }}{% else %}{{ '/' | relative_url }}{% endif %}"
-            >{{ site.ui.home | default: 'Home' }}</a
+            >{{ ui.home | default: 'Home' }}</a
           >
           <a
             href="{% if is_ru %}{{ '/ru/#features' | relative_url }}{% else %}{{ '/#features' | relative_url }}{% endif %}"
-            >{{ site.ui.features | default: 'Features' }}</a
+            >{{ ui.features | default: 'Features' }}</a
           >
           <a
             href="{% if is_ru %}{{ '/ru/#how-it-works' | relative_url }}{% else %}{{ '/#how-it-works' | relative_url }}{% endif %}"
-            >{{ site.ui.how | default: 'How it works' }}</a
+            >{{ ui.how | default: 'How it works' }}</a
           >
           <a
             href="{% if is_ru %}{{ '/ru/#providers' | relative_url }}{% else %}{{ '/#providers' | relative_url }}{% endif %}"
-            >{{ site.ui.providers | default: 'Providers' }}</a
+            >{{ ui.providers | default: 'Providers' }}</a
           >
           <a
             href="{% if is_ru %}{{ '/ru/#why' | relative_url }}{% else %}{{ '/#why' | relative_url }}{% endif %}"
-            >{{ site.ui.why | default: 'Why zames' }}</a
+            >{{ ui.why | default: 'Why zames' }}</a
           >
           <a href="{{ nav_themes | relative_url }}"
-            >{{ site.ui.themes | default: 'Themes' }}</a
+            >{{ ui.themes | default: 'Themes' }}</a
           >
           <a
             href="{% if is_ru %}{{ '/changelog-ru' | relative_url }}{% else %}{{ '/changelog' | relative_url }}{% endif %}"
@@ -161,7 +166,7 @@
           >
           <a
             href="{% if is_ru %}{{ '/ru/#install' | relative_url }}{% else %}{{ '/#install' | relative_url }}{% endif %}"
-            >{{ site.ui.install | default: 'Install' }}</a
+            >{{ ui.install | default: 'Install' }}</a
           >
           <a
             class="nav-ext"
@@ -233,13 +238,13 @@
               <span>zames_pro</span>
             </a>
             <p>
-              {{ site.ui.footer_about | default: 'A free, open-source terminal
+              {{ ui.footer_about | default: 'A free, open-source terminal
               coding agent that runs on your own DeepSeek, Qwen or GLM web chat
               account — no API key, no per-token bill.' }}
             </p>
           </div>
           <div>
-            <h4>{{ site.ui.project | default: 'Project' }}</h4>
+            <h4>{{ ui.project | default: 'Project' }}</h4>
             <ul>
               <li><a href="https://github.com/Viqto0r/zames_pro">GitHub</a></li>
               <li><a href="https://www.npmjs.com/package/zames_pro">npm</a></li>
@@ -252,16 +257,18 @@
               <li>
                 <a
                   href="https://github.com/Viqto0r/zames_pro/blob/master/CONTRIBUTING.md"
-                  >Contributing</a
+                  >{{ ui.nav_contributing | default: 'Contributing' }}</a
                 >
               </li>
             </ul>
           </div>
           <div>
-            <h4>{{ site.ui.docs | default: 'Documentation' }}</h4>
+            <h4>{{ ui.docs | default: 'Documentation' }}</h4>
             <ul>
               <li>
-                <a href="{{ '/readme/en' | relative_url }}">README (EN)</a>
+                <a href="{{ '/readme/en' | relative_url }}"
+                  >README (EN)</a
+                >
               </li>
               <li>
                 <a href="{{ '/readme/ru' | relative_url }}">README (RU)</a>
@@ -294,7 +301,7 @@
             </ul>
           </div>
           <div>
-            <h4>{{ site.ui.help | default: 'Help' }}</h4>
+            <h4>{{ ui.help | default: 'Help' }}</h4>
             <ul>
               <li>
                 <a
@@ -310,12 +317,14 @@
                 >
               </li>
               <li>
-                <a href="https://github.com/Viqto0r/zames_pro/issues">Issues</a>
+                <a href="https://github.com/Viqto0r/zames_pro/issues"
+                  >{{ ui.nav_issues | default: 'Issues' }}</a
+                >
               </li>
               <li>
                 <a
                   href="https://github.com/Viqto0r/zames_pro/blob/master/LICENSE"
-                  >MIT License</a
+                  >{{ ui.nav_license | default: 'MIT License' }}</a
                 >
               </li>
             </ul>
@@ -324,7 +333,7 @@
         <div class="fine">
           <span>© {{ site.time | date: '%Y' }} zames_pro · MIT</span>
           <span
-            >{{ site.ui.disclaimer | default: 'Not affiliated with DeepSeek,
+            >{{ ui.disclaimer | default: 'Not affiliated with DeepSeek,
             Alibaba or Zhipu AI. Automating a website may violate its terms of
             use.' }}</span
           >
