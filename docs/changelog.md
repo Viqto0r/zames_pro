@@ -7,15 +7,16 @@ alt_url: /changelog-ru.html
 changelog: true
 ---
 <div class="wrap" markdown="1">
-<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 321)</p>
+<p class="changelog-lead">Every zames_pro release: the newest on top, older versions expandable, and the version list at the start of the page jumps straight to one. (releases: 322)</p>
 <nav class="changelog-jump" aria-label="Jump to a version">
 <details class="ch-jump-year"><summary><span class="ch-jump-label">Earlier</span><span class="ch-jump-count">1</span></summary>
 <div class="ch-jump-links">
 <a href="#vUnreleased"><span>Unreleased</span></a>
 </div>
 </details>
-<details class="ch-jump-year"><summary><span class="ch-jump-label">2026</span><span class="ch-jump-count">320</span></summary>
+<details class="ch-jump-year"><summary><span class="ch-jump-label">2026</span><span class="ch-jump-count">321</span></summary>
 <div class="ch-jump-links">
+<a href="#v2.96.26"><span>v2.96.26</span><time datetime="2026-11-11">2026-11-11</time></a>
 <a href="#v2.96.25"><span>v2.96.25</span><time datetime="2026-11-11">2026-11-11</time></a>
 <a href="#v2.96.24"><span>v2.96.24</span><time datetime="2026-11-10">2026-11-10</time></a>
 <a href="#v2.96.23"><span>v2.96.23</span><time datetime="2026-11-10">2026-11-10</time></a>
@@ -341,6 +342,10 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
+<p class="ch-empty">—</p>
+</details>
+<details class="ch-release" id="v2.96.26" open>
+<summary><header><h2>v2.96.26</h2><time datetime="2026-11-11">2026-11-11</time></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
 <li><strong>site:</strong> translate the header and footer on every Russian page</li>
@@ -355,7 +360,7 @@ changelog: true
 <li><strong>docs:</strong> translate the leftover English link labels and restore the missing GLM mentions in the Russian pages</li>
 </ul></section>
 </details>
-<details class="ch-release" id="v2.96.24" open>
+<details class="ch-release" id="v2.96.24">
 <summary><header><h2>v2.96.24</h2><time datetime="2026-11-10">2026-11-10</time></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
