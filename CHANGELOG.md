@@ -7,12 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.96.25] - 2026-11-11
+
 ### Fixed
 
 - **site:** fold changelog years by default, drop stray h2 rule, translate RU leftovers
-- **site:** fold the changelog jump list years by default, so the first
-- **site:** drop the section rule above the first doc heading and inside
-- **docs:** translate the leftover English link labels in the Russian pages
 
 ## [2.96.24] - 2026-11-10
 
