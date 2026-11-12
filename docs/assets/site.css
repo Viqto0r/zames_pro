@@ -159,10 +159,15 @@ a:hover {
   gap: 18px;
   margin-left: auto;
   font-size: 14.5px;
+  /* The Russian labels are longer than the English ones; without `nowrap` a
+     label wrapped onto a second line inside the 64px bar and the header
+     looked broken. The nav shrinks its gap before it breaks a word. */
+  min-width: 0;
 }
 
 .site-nav a {
   color: var(--muted);
+  white-space: nowrap;
 }
 
 .site-nav a:hover {
@@ -187,6 +192,23 @@ a:hover {
   background: var(--accent);
   color: #06121a;
   font-weight: 600;
+}
+
+/* The RU header carries one more long label than the EN one (История
+   изменений vs Changelog). Before the nav turns into the mobile dropdown,
+   tighten the gaps so the row still fits on ONE line. */
+@media (max-width: 1080px) {
+  .site-nav {
+    gap: 12px;
+    font-size: 13.5px;
+  }
+}
+
+@media (max-width: 920px) {
+  .site-nav {
+    gap: 9px;
+    font-size: 13px;
+  }
 }
 
 @media (max-width: 720px) {

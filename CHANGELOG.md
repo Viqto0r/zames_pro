@@ -9,7 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **site:** keep the RU header links on one line
 - **spinner:** recreate the ora instance on every phase switch
+- **site:** the RU header keeps its links on one line (nowrap + tighter gaps before the mobile menu)
 
 ## [2.96.26] - 2026-11-11
 

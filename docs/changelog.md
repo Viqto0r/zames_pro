@@ -344,7 +344,9 @@ changelog: true
 <summary><header><h2>Unreleased</h2></header></summary>
 <section class="ch-group"><h3>Fixed</h3>
 <ul>
+<li><strong>site:</strong> keep the RU header links on one line</li>
 <li><strong>spinner:</strong> recreate the ora instance on every phase switch</li>
+<li><strong>site:</strong> the RU header keeps its links on one line (nowrap + tighter gaps before the mobile menu)</li>
 </ul></section>
 </details>
 <details class="ch-release" id="v2.96.26" open>
