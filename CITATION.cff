@@ -11,8 +11,8 @@ type: software
 license: MIT
 repository-code: "https://github.com/Viqto0r/zames_pro"
 url: "https://www.npmjs.com/package/zames_pro"
-version: 2.96.26
-date-released: "2026-11-11"
+version: 2.96.27
+date-released: "2026-11-12"
 keywords:
   - terminal coding agent
   - ai coding agent

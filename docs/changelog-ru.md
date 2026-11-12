@@ -7,15 +7,16 @@ alt_url: /changelog.html
 changelog: true
 ---
 <div class="wrap" markdown="1">
-<p class="changelog-lead">Каждый релиз zames_pro: самый свежий сверху, старые версии можно развернуть, а список версий в начале страницы ведёт сразу к нужной. (версий: 322)</p>
+<p class="changelog-lead">Каждый релиз zames_pro: самый свежий сверху, старые версии можно развернуть, а список версий в начале страницы ведёт сразу к нужной. (версий: 323)</p>
 <nav class="changelog-jump" aria-label="К версии">
 <details class="ch-jump-year"><summary><span class="ch-jump-label">Ранее</span><span class="ch-jump-count">1</span></summary>
 <div class="ch-jump-links">
 <a href="#vUnreleased"><span>Unreleased</span></a>
 </div>
 </details>
-<details class="ch-jump-year"><summary><span class="ch-jump-label">2026</span><span class="ch-jump-count">321</span></summary>
+<details class="ch-jump-year"><summary><span class="ch-jump-label">2026</span><span class="ch-jump-count">322</span></summary>
 <div class="ch-jump-links">
+<a href="#v2.96.27"><span>v2.96.27</span><time datetime="2026-11-12">2026-11-12</time></a>
 <a href="#v2.96.26"><span>v2.96.26</span><time datetime="2026-11-11">2026-11-11</time></a>
 <a href="#v2.96.25"><span>v2.96.25</span><time datetime="2026-11-11">2026-11-11</time></a>
 <a href="#v2.96.24"><span>v2.96.24</span><time datetime="2026-11-10">2026-11-10</time></a>
@@ -342,11 +343,14 @@ changelog: true
 </nav>
 <details class="ch-release" id="vUnreleased" open>
 <summary><header><h2>Unreleased</h2></header></summary>
+<p class="ch-empty">—</p>
+</details>
+<details class="ch-release" id="v2.96.27" open>
+<summary><header><h2>v2.96.27</h2><time datetime="2026-11-12">2026-11-12</time></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
 <li><strong>site:</strong> keep the RU header links on one line</li>
 <li><strong>spinner:</strong> recreate the ora instance on every phase switch</li>
-<li><strong>site:</strong> the RU header keeps its links on one line (nowrap + tighter gaps before the mobile menu)</li>
 </ul></section>
 </details>
 <details class="ch-release" id="v2.96.26" open>
@@ -356,7 +360,7 @@ changelog: true
 <li><strong>site:</strong> translate the header and footer on every Russian page</li>
 </ul></section>
 </details>
-<details class="ch-release" id="v2.96.25" open>
+<details class="ch-release" id="v2.96.25">
 <summary><header><h2>v2.96.25</h2><time datetime="2026-11-11">2026-11-11</time></header></summary>
 <section class="ch-group"><h3>Исправлено</h3>
 <ul>
